@@ -7,11 +7,12 @@ import demirImg   from '../assets/demir_madeni.png';
 import kilImg     from '../assets/kil_ocagi.png';
 import tasImg     from '../assets/tas_ocagi.png';
 import bosImg     from '../assets/bos.png';
-import merkezImg  from '../assets/merkez.png';
+import merkezImg  from '../assets/merkez2.png';
 import {
   MAP_SIZE, HEX_NEIGHBORS, generateMapCoords, hexToPixel, hexDistance,
   getTileBonus, getDistanceEfficiency, getTotalMultiplier
 } from '../data/mapConfig';
+import { popoverStyle, computePopoverPos, TEXT_STROKE as SHARED_TEXT_STROKE } from './popoverStyle';
 
 const BASE_S = 42;
 const BUILDABLE_TYPES = ['odun', 'kil', 'tas', 'demir', 'tahil'];
@@ -33,6 +34,8 @@ const zoomBtn = {
   border: '1px solid #5a4828', cursor: 'pointer',
   fontSize: 12, fontFamily: 'Georgia'
 };
+
+const TEXT_STROKE = SHARED_TEXT_STROKE;
 
 function hexPoints(cx, cy, s) {
   return Array.from({ length: 6 }, (_, i) => {
@@ -64,7 +67,7 @@ function BonusBadge({ bonus }) {
   );
 }
 
-function AnaBinaPanel({ anaBina, resources, freeWorkers, onUpgrade, onClose }) {
+function AnaBinaPanel({ anaBina, resources, freeWorkers, onUpgrade, onClose, popoverPos }) {
   const [workers, setWorkers] = useState(1);
   const def = VILLAGE_DEFS.anaBina;
   const level = anaBina?.level || 1;
@@ -79,7 +82,7 @@ function AnaBinaPanel({ anaBina, resources, freeWorkers, onUpgrade, onClose }) {
   const nextSlotCount = Math.min(16, 5 + level + 1);
 
   return (
-    <div style={{ width: 300, background: '#2e2418', borderLeft: '2px solid #4a3c28', padding: 16, overflowY: 'auto' }}>
+    <div style={popoverStyle(popoverPos)}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ color: '#c8a44a', fontSize: 14, letterSpacing: 2 }}>🏛️ ANA BİNA</div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18 }}>×</button>
@@ -156,7 +159,7 @@ function TileInfoBox({ q, r, tile }) {
   );
 }
 
-function ProductionTilePanel({ slotKey, tile, resources, freeWorkers, onUpgrade, onDemolish, onAssignWorkers, onClose }) {
+function ProductionTilePanel({ slotKey, tile, resources, freeWorkers, onUpgrade, onDemolish, onAssignWorkers, onClose, popoverPos }) {
   const def = BUILDING_DEFS[tile.type];
   const [workers, setWorkers] = useState(tile.workers || 0);
   const [buildWorkers, setBuildWorkers] = useState(1);
@@ -168,63 +171,74 @@ function ProductionTilePanel({ slotKey, tile, resources, freeWorkers, onUpgrade,
   const sureSnReal = nextLevel && buildWorkers > 0 ? Math.ceil(nextLevel.sureSaat / buildWorkers) : Infinity;
   const maxOperWorkers = def?.levels?.[tile.level - 1]?.workers || tile.workers || 1;
 
+  const totalPct = Math.round(totalMult * 100);
+
   return (
-    <div style={{ width: 300, background: '#2e2418', borderLeft: '2px solid #4a3c28', padding: 16, overflowY: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ color: '#c8a44a', fontSize: 14, letterSpacing: 2 }}>{def?.icon} {def?.name?.toUpperCase()}</div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18 }}>×</button>
+    <div style={popoverStyle(popoverPos)}>
+      {/* Tek satır başlık */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: '#c8a44a', fontSize: 13, letterSpacing: 1 }}>{def?.icon} {def?.name?.toUpperCase()}</span>
+          <span style={{ color: '#e8d4a0', fontSize: 10 }}>
+            Seviye {tile.level} <span style={{ color: '#c8a44a' }}>(%{totalPct})</span>
+          </span>
+        </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
       </div>
-      <div style={{ color: '#e8d4a0', fontSize: 11, marginBottom: 6 }}>
-        Slot {slotKey} — Seviye <span style={{ color: '#c8a44a' }}>{tile.level}</span>
-      </div>
-      <TileInfoBox q={q} r={r} tile={tile} />
+
       {tile.upgrading && (
-        <div style={{ background: '#38301a', padding: 8, borderRadius: 3, marginBottom: 10, fontSize: 10, color: '#c87020' }}>
-          ⚙️ Yükseltiliyor… Kalan: {formatTime(Math.max(0, (tile.upgradeEndTime - Date.now()) / 1000))}
+        <div style={{ padding: '6px 8px', marginBottom: 10, fontSize: 10, color: '#c87020', borderLeft: '2px solid #c87020' }}>
+          ⚙️ Yükseltiliyor… {formatTime(Math.max(0, (tile.upgradeEndTime - Date.now()) / 1000))}
         </div>
       )}
+
       {!tile.upgrading && (
-        <div style={{ background: '#221c10', padding: 10, borderRadius: 3, marginBottom: 10 }}>
-          <div style={{ color: '#c8a44a', fontSize: 11, marginBottom: 6 }}>Çalışan işçi: {workers} / {maxOperWorkers}</div>
+        <>
+          <div style={{ color: '#c8a44a', fontSize: 10, marginBottom: 4 }}>Çalışan işçi: {workers} / {maxOperWorkers}</div>
           <input type="range" min="0" max={Math.min(maxOperWorkers, (tile.workers || 0) + freeWorkers)}
             value={workers} onChange={e => setWorkers(Number(e.target.value))}
-            style={{ width: '100%', marginBottom: 6 }} />
-          <div style={{ fontSize: 10, color: '#9aaa98', marginBottom: 8 }}>
-            Üretim: {(workers * (def?.baseProductionPerWorker || 0) * totalMult).toFixed(1)}/sa
-            <span style={{ color: '#5a5040' }}> (×{totalMult.toFixed(2)})</span>
-            &nbsp;|&nbsp; Boş: {freeWorkers}
+            style={{ width: '100%', marginBottom: 4 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9aaa98', marginBottom: 8 }}>
+            <span>Üretim: {(workers * (def?.baseProductionPerWorker || 0) * totalMult).toFixed(1)}/sa <span style={{ color: '#5a5040' }}>(×{totalMult.toFixed(2)})</span></span>
+            <span>Boş: {freeWorkers}</span>
           </div>
           <button onClick={() => onAssignWorkers(workers)} disabled={workers === tile.workers}
             style={{
               width: '100%', padding: '6px', fontSize: 10, fontFamily: 'Georgia',
               background: '#2a3a6a', color: '#e8d4a0', border: '1px solid #3a4a7a',
-              cursor: workers !== tile.workers ? 'pointer' : 'not-allowed', opacity: workers !== tile.workers ? 1 : 0.5
+              cursor: workers !== tile.workers ? 'pointer' : 'not-allowed', opacity: workers !== tile.workers ? 1 : 0.5,
+              marginBottom: 12
             }}>İŞÇİ ATA</button>
-        </div>
+        </>
       )}
+
       {!tile.upgrading && !maxed && (
-        <div style={{ background: '#221c10', padding: 10, borderRadius: 3, marginBottom: 10 }}>
-          <div style={{ color: '#c8a44a', fontSize: 11, marginBottom: 6 }}>Lvl {tile.level + 1}'e yükselt ({nextLevel.workers} işçi kap.)</div>
-          {Object.entries(nextLevel.cost).map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, padding: '2px 0' }}>
-              <span style={{ color: '#7a8878' }}>{RES_EMOJI[k] || ''} {k}</span>
-              <span style={{ color: (resources[k] || 0) >= v ? '#88c060' : '#c87050' }}>{v} / {Math.floor(resources[k] || 0)}</span>
-            </div>
-          ))}
-          <div style={{ color: '#c8a44a', fontSize: 10, margin: '8px 0 4px' }}>İnşaat işçisi: {buildWorkers}</div>
+        <>
+          <div style={{ color: '#c8a44a', fontSize: 10, marginBottom: 6 }}>Lvl {tile.level + 1}'e yükselt ({nextLevel.workers} işçi kap.)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginBottom: 8 }}>
+            {Object.entries(nextLevel.cost).map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+                <span style={{ color: '#7a8878' }}>{RES_EMOJI[k] || ''} {k}</span>
+                <span style={{ color: (resources[k] || 0) >= v ? '#88c060' : '#c87050' }}>{v} / {Math.floor(resources[k] || 0)}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ color: '#c8a44a', fontSize: 10, marginBottom: 4 }}>İnşaat işçisi: {buildWorkers}</div>
           <input type="range" min="1" max={Math.max(1, freeWorkers)} value={buildWorkers}
             onChange={e => setBuildWorkers(Number(e.target.value))}
-            style={{ width: '100%', marginBottom: 6 }} disabled={freeWorkers < 1} />
+            style={{ width: '100%', marginBottom: 4 }} disabled={freeWorkers < 1} />
           <div style={{ fontSize: 10, color: '#9aaa98', marginBottom: 8 }}>Süre: {formatTime(sureSnReal)}</div>
           <button onClick={() => onUpgrade(buildWorkers)} disabled={!canAffordUpgrade || freeWorkers < 1}
             style={{
               width: '100%', padding: '6px', fontSize: 10, fontFamily: 'Georgia',
               background: (canAffordUpgrade && freeWorkers >= 1) ? '#3a5a1a' : '#2a2010',
               color: (canAffordUpgrade && freeWorkers >= 1) ? '#e8d4a0' : '#555',
-              border: '1px solid #5a6a48', cursor: (canAffordUpgrade && freeWorkers >= 1) ? 'pointer' : 'not-allowed'
+              border: '1px solid #5a6a48', cursor: (canAffordUpgrade && freeWorkers >= 1) ? 'pointer' : 'not-allowed',
+              marginBottom: 10
             }}>YÜKSELT</button>
-        </div>
+        </>
       )}
+
       <button onClick={() => { if (window.confirm('Bu üretim alanını yıkmak istediğinize emin misiniz?')) onDemolish(); }}
         style={{
           width: '100%', padding: '6px', fontSize: 10, fontFamily: 'Georgia',
@@ -234,7 +248,7 @@ function ProductionTilePanel({ slotKey, tile, resources, freeWorkers, onUpgrade,
   );
 }
 
-function BuildProductionPanel({ slotKey, freeWorkers, resources, onBuild, onClose }) {
+function BuildProductionPanel({ slotKey, freeWorkers, resources, onBuild, onClose, popoverPos }) {
   const [q, r] = slotKey.split(',').map(Number);
   const bonus = getTileBonus(q, r);
   const [selectedType, setSelectedType] = useState(bonus ? bonus.resource : null);
@@ -245,15 +259,16 @@ function BuildProductionPanel({ slotKey, freeWorkers, resources, onBuild, onClos
   const sureSn = lvl1 && workers > 0 ? Math.ceil(lvl1.sureSaat / workers) : Infinity;
 
   return (
-    <div style={{ width: 300, background: '#2e2418', borderLeft: '2px solid #4a3c28', padding: 16, overflowY: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ color: '#c8a44a', fontSize: 14, letterSpacing: 2 }}>YENİ ÜRETİM</div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18 }}>×</button>
+    <div style={popoverStyle(popoverPos)}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ color: '#c8a44a', fontSize: 13, letterSpacing: 1 }}>
+          YENİ ÜRETİM
+          {bonus && <span style={{ color: '#c8e878', marginLeft: 6, fontSize: 10 }}>{RES_EMOJI[bonus.resource]} +%{bonus.amount}</span>}
+        </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
       </div>
-      <div style={{ color: '#9aaa98', fontSize: 10, marginBottom: 4 }}>Slot: {slotKey}</div>
-      <TileInfoBox q={q} r={r} tile={selectedType ? { type: selectedType } : null} />
-      <div style={{ color: '#c8a44a', fontSize: 11, marginBottom: 6 }}>Üretim tipi</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 12 }}>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 10 }}>
         {BUILDABLE_TYPES.map(t => {
           const d = BUILDING_DEFS[t];
           const active = selectedType === t;
@@ -261,26 +276,24 @@ function BuildProductionPanel({ slotKey, freeWorkers, resources, onBuild, onClos
           return (
             <button key={t} onClick={() => setSelectedType(t)}
               style={{
-                padding: '6px 4px', fontSize: 10, fontFamily: 'Georgia',
+                padding: '5px 4px', fontSize: 10, fontFamily: 'Georgia',
                 background: active ? '#3a5a1a' : '#0d0904',
                 color: active ? '#e8d4a0' : '#7a8878',
                 border: `1px solid ${active ? '#88c060' : isBonusMatch ? '#5a7030' : '#2a1808'}`,
-                cursor: 'pointer', textAlign: 'left', position: 'relative'
+                cursor: 'pointer', textAlign: 'left'
               }}>
-              {d.icon} {d.name}
-              {isBonusMatch && (
-                <span style={{ color: '#c8e878', marginLeft: 4, fontSize: 9, fontWeight: 'bold' }}>+%{bonus.amount}</span>
-              )}
+              {d.icon} {d.name}{isBonusMatch && <span style={{ color: '#c8e878', marginLeft: 3 }}>+%{bonus.amount}</span>}
             </button>
           );
         })}
       </div>
+
       {selectedType && lvl1 && (
         <>
-          <div style={{ background: '#221c10', padding: 10, borderRadius: 3, marginBottom: 10 }}>
-            <div style={{ color: '#c8a44a', fontSize: 10, marginBottom: 6 }}>Lvl 1 maliyeti ({lvl1.workers} işçi kap.)</div>
+          <div style={{ color: '#c8a44a', fontSize: 10, marginBottom: 6 }}>Lvl 1 maliyeti ({lvl1.workers} işçi kap.)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginBottom: 8 }}>
             {Object.entries(lvl1.cost).map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, padding: '2px 0' }}>
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
                 <span style={{ color: '#7a8878' }}>{RES_EMOJI[k] || ''} {k}</span>
                 <span style={{ color: (resources[k] || 0) >= v ? '#88c060' : '#c87050' }}>{v} / {Math.floor(resources[k] || 0)}</span>
               </div>
@@ -289,13 +302,14 @@ function BuildProductionPanel({ slotKey, freeWorkers, resources, onBuild, onClos
           <div style={{ color: '#c8a44a', fontSize: 10, marginBottom: 4 }}>İnşaat işçisi: {workers}</div>
           <input type="range" min="1" max={Math.max(1, freeWorkers)} value={workers}
             onChange={e => setWorkers(Number(e.target.value))}
-            style={{ width: '100%', marginBottom: 6 }} disabled={freeWorkers < 1} />
-          <div style={{ fontSize: 10, color: '#9aaa98', marginBottom: 10 }}>
-            Süre: {formatTime(sureSn)} &nbsp;|&nbsp; Boş: {freeWorkers}
+            style={{ width: '100%', marginBottom: 4 }} disabled={freeWorkers < 1} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9aaa98', marginBottom: 8 }}>
+            <span>Süre: {formatTime(sureSn)}</span>
+            <span>Boş: {freeWorkers}</span>
           </div>
           <button onClick={() => onBuild(selectedType, workers)} disabled={!canAfford || freeWorkers < 1}
             style={{
-              width: '100%', padding: '8px', fontSize: 11, fontFamily: 'Georgia',
+              width: '100%', padding: '7px', fontSize: 11, fontFamily: 'Georgia',
               background: (canAfford && freeWorkers >= 1) ? '#3a5a1a' : '#2a2010',
               color: (canAfford && freeWorkers >= 1) ? '#e8d4a0' : '#555',
               border: '1px solid #5a6a48',
@@ -308,10 +322,10 @@ function BuildProductionPanel({ slotKey, freeWorkers, resources, onBuild, onClos
   );
 }
 
-function EmptySlotPanel({ slotKey, slotsFull, onClose }) {
+function EmptySlotPanel({ slotKey, slotsFull, onClose, popoverPos }) {
   const [q, r] = slotKey.split(',').map(Number);
   return (
-    <div style={{ width: 300, background: '#1a1408', borderLeft: '2px solid #3a2808', padding: 16 }}>
+    <div style={popoverStyle(popoverPos)}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ color: '#c8a44a', fontSize: 14, letterSpacing: 2 }}>KEŞİF ALANI</div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18 }}>×</button>
@@ -384,7 +398,7 @@ function HexTile({ q, r, tile, isCenter, isSelected, isHovered, buildable, disco
           width={BASE_S * 2}
           height={BASE_S * 2}
           clipPath={`url(#${clipId})`}
-          opacity={disconnected ? 0.3 : tile ? (tile.upgrading ? 0.5 : 0.88) : 0.55}
+          opacity={isCenter ? 1 : disconnected ? 0.3 : tile ? (tile.upgrading ? 0.5 : 0.88) : 0.55}
           preserveAspectRatio="xMidYMid slice"
         />
       )}
@@ -577,30 +591,23 @@ export default function ProductionArea({
 
   const showLabels = scale >= 0.45;
 
+  // Seçilen hex'in yanına popover için ekran koordinatı
+  const popoverPos = useMemo(() => {
+    if (!selected) return null;
+    const [sq, sr] = selected.split(',').map(Number);
+    const { x: sx, y: sy } = hexToPixel(sq, sr, BASE_S);
+    return computePopoverPos({
+      hexScreenX: viewSize.w / 2 + pan.x + sx * scale,
+      hexScreenY: viewSize.h / 2 + pan.y + sy * scale,
+      hexRadius: BASE_S * scale,
+      viewW: viewSize.w,
+      viewH: viewSize.h,
+    });
+  }, [selected, pan.x, pan.y, scale, viewSize.w, viewSize.h]);
+
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{
-          background: '#252018', padding: '8px 16px',
-          borderBottom: '1px solid #3c3020',
-          display: 'flex', gap: 24, fontSize: 11, color: '#c8a44a', flexShrink: 0,
-          alignItems: 'center'
-        }}>
-          <div>🏛️ Ana Bina Lvl <strong>{anaBina?.level || 1}</strong></div>
-          <div>Üretim slotu: <strong>{tileCount}</strong> / {maxProductionSlots}</div>
-          {slotsFull && <div style={{ color: '#c87020' }}>(Slot dolu — anaBina'yı yükselt)</div>}
-          <div style={{ color: '#9aaa98', fontSize: 10, fontStyle: 'italic' }}>
-            Sağ tık basılı: gezin · Tekerlek: zoom
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: '#7a8878' }}>Zoom</span>
-            <button onClick={() => setScale(s => Math.max(0.22, +(s - 0.1).toFixed(2)))} style={zoomBtn}>−</button>
-            <span style={{ minWidth: 42, textAlign: 'center', color: '#e8d4a0' }}>{Math.round(scale * 100)}%</span>
-            <button onClick={() => setScale(s => Math.min(2.0, +(s + 0.1).toFixed(2)))} style={zoomBtn}>+</button>
-            <button onClick={recenter} style={{ ...zoomBtn, width: 'auto', padding: '2px 8px' }}>Merkeze</button>
-          </div>
-        </div>
-
         <div ref={containerRef}
           style={{
             flex: 1, background: '#1c1812',
@@ -652,6 +659,33 @@ export default function ProductionArea({
             <div><span style={{ color: '#c8e878' }}>+%N</span> tile bonusu (~%20 oran · {MAP_SIZE} tile)</div>
             <div>Ring başına -%5 mesafe cezası</div>
           </div>
+
+          {/* Tıklanan hex'in yanına açılan floating panel */}
+          {selected === '0,0' && popoverPos && (
+            <AnaBinaPanel anaBina={anaBina} resources={resources} freeWorkers={freeWorkers}
+              popoverPos={popoverPos}
+              onUpgrade={(w) => { onUpgradeAnaBina(w); setSelected(null); }}
+              onClose={() => setSelected(null)} />
+          )}
+          {selected && selected !== '0,0' && selectedTile && popoverPos && (
+            <ProductionTilePanel slotKey={selected} tile={selectedTile} resources={resources} freeWorkers={freeWorkers}
+              popoverPos={popoverPos}
+              onUpgrade={(w) => { onUpgrade(selected, w); setSelected(null); }}
+              onDemolish={() => { onDemolish(selected); setSelected(null); }}
+              onAssignWorkers={(w) => onAssignWorkers(selected, w)}
+              onClose={() => setSelected(null)} />
+          )}
+          {selected && selected !== '0,0' && !selectedTile && selectedBuildable && popoverPos && (
+            <BuildProductionPanel slotKey={selected} freeWorkers={freeWorkers} resources={resources}
+              popoverPos={popoverPos}
+              onBuild={(type, w) => { onBuild(selected, type, w); setSelected(null); }}
+              onClose={() => setSelected(null)} />
+          )}
+          {selected && selected !== '0,0' && !selectedTile && !selectedBuildable && popoverPos && (
+            <EmptySlotPanel slotKey={selected} slotsFull={slotsFull}
+              popoverPos={popoverPos}
+              onClose={() => setSelected(null)} />
+          )}
 
           {hovered && (() => {
             const [hq, hr] = hovered.split(',').map(Number);
@@ -765,26 +799,6 @@ export default function ProductionArea({
         </div>
       </div>
 
-      {selected === '0,0' && (
-        <AnaBinaPanel anaBina={anaBina} resources={resources} freeWorkers={freeWorkers}
-          onUpgrade={(w) => { onUpgradeAnaBina(w); setSelected(null); }}
-          onClose={() => setSelected(null)} />
-      )}
-      {selected && selected !== '0,0' && selectedTile && (
-        <ProductionTilePanel slotKey={selected} tile={selectedTile} resources={resources} freeWorkers={freeWorkers}
-          onUpgrade={(w) => { onUpgrade(selected, w); setSelected(null); }}
-          onDemolish={() => { onDemolish(selected); setSelected(null); }}
-          onAssignWorkers={(w) => onAssignWorkers(selected, w)}
-          onClose={() => setSelected(null)} />
-      )}
-      {selected && selected !== '0,0' && !selectedTile && selectedBuildable && (
-        <BuildProductionPanel slotKey={selected} freeWorkers={freeWorkers} resources={resources}
-          onBuild={(type, w) => { onBuild(selected, type, w); setSelected(null); }}
-          onClose={() => setSelected(null)} />
-      )}
-      {selected && selected !== '0,0' && !selectedTile && !selectedBuildable && (
-        <EmptySlotPanel slotKey={selected} slotsFull={slotsFull} onClose={() => setSelected(null)} />
-      )}
     </div>
   );
 }

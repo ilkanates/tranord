@@ -125,52 +125,52 @@ export default function BuildMenu({
 
   return (
     <div style={{
-      width:'280px', flexShrink:0,
-      background:'#2a2418', borderLeft:'2px solid #4a3c28',
-      display:'flex', flexDirection:'column', overflowY:'auto'
+      display:'flex', flexDirection:'column'
     }}>
 
       {/* Başlık */}
       <div style={{
-        padding:'12px 14px', borderBottom:'1px solid #3c3020',
+        padding:'10px 12px', borderBottom:'1px solid rgba(122,92,50,0.4)',
         display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0
       }}>
         <div>
-          <div style={{ fontSize:'13px', color:'#c8a44a', fontWeight:'bold' }}>
+          <div style={{ fontSize:'13px', color:'#c8a44a', letterSpacing: 1 }}>
             {building
-              ? (building.type === 'anaBina' ? 'Ana Bina' : def?.name || building.type)
-              : 'Boş Alan'}
+              ? (building.type === 'anaBina' ? 'ANA BİNA' : (def?.name || building.type).toUpperCase())
+              : 'BOŞ ALAN'}
+            {building && !building.building && (
+              <span style={{ color:'#e8d4a0', fontSize: 11, marginLeft: 6, letterSpacing: 0 }}>
+                Seviye {building.level}{def?.maxLevel ? ` / ${def.maxLevel}` : ''}
+              </span>
+            )}
           </div>
-          <div style={{ fontSize:'10px', color:'#8a8860' }}>
-            {isTower ? '🗼 Kule Slotu' : `q:${slotKey?.split(',')[0]}  r:${slotKey?.split(',')[1]}`}
-          </div>
+          {!building && (
+            <div style={{ fontSize:'10px', color:'#8a8860', fontWeight:'normal' }}>
+              {isTower ? '🗼 Kule Slotu' : `q:${slotKey?.split(',')[0]}  r:${slotKey?.split(',')[1]}`}
+            </div>
+          )}
         </div>
-        <button onClick={onClose} style={{ background:'none', border:'none', color:'#6a5a3a', cursor:'pointer', fontSize:'16px' }}>✕</button>
+        <button onClick={onClose} style={{ background:'none', border:'none', color:'#888', cursor:'pointer', fontSize:16, padding:0, lineHeight:1 }}>✕</button>
       </div>
 
       {/* Mevcut bina bilgisi */}
       {building && (
-        <div style={{ padding:'12px 14px', borderBottom:'1px solid #3a3020' }}>
+        <div style={{ padding:'10px 12px' }}>
 
           {building.building ? (
-            <div style={{ fontSize:'12px', color:'#c8a44a', textAlign:'center', padding:'6px 0' }}>
+            <div style={{ fontSize:'11px', color:'#c87020', textAlign:'center', padding:'6px 0' }}>
               ⚙️ {building.level === 0 ? 'İnşa ediliyor' : 'Yükseltiliyor'}...
-              <div style={{ fontSize:'18px', fontWeight:'bold', marginTop:'4px' }}>
+              <div style={{ fontSize:'16px', fontWeight:'bold', marginTop:'4px' }}>
                 {building.buildTimeLeft}sn kaldı
               </div>
             </div>
           ) : (
             <>
               {def?.description && (
-                <div style={{ fontSize:'11px', color:'#8a8060', marginBottom:'8px', lineHeight:'1.4' }}>
+                <div style={{ fontSize:'10px', color:'#b8a88a', marginBottom:'8px', lineHeight:'1.4', fontWeight:'normal' }}>
                   {def.description}
                 </div>
               )}
-
-              <div style={{ fontSize:'13px', color:'#c8a44a', marginBottom:'8px' }}>
-                Seviye {building.level}
-                {def?.maxLevel ? ` / ${def.maxLevel}` : ''}
-              </div>
 
               {def?.baseCapacity && (
                 <div style={{ fontSize:'11px', color:'#7a9a60', marginBottom:'8px' }}>
@@ -312,7 +312,7 @@ export default function BuildMenu({
 
       {/* İnşa listesi — slot boşsa */}
       {!building && !isCenter && (
-        <div style={{ padding:'10px 14px' }}>
+        <div style={{ padding:'10px 12px' }}>
 
           {/* Seçili bina önizleme */}
           {selectedType && selectedDef && (
