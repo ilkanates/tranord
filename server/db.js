@@ -84,4 +84,14 @@ async function saveVillage(userId, state) {
   );
 }
 
-module.exports = { pool, initDB, createUser, findUserByEmail, findUserById, loadVillage, saveVillage };
+// Tüm köyleri yükle (sunucu başlangıcında offline catch-up için)
+async function loadAllVillages() {
+  const res = await pool.query('SELECT user_id, state, updated_at FROM villages');
+  return res.rows.map(row => ({
+    userId: row.user_id,
+    state: row.state,
+    updatedAt: row.updated_at  // JS Date objesi
+  }));
+}
+
+module.exports = { pool, initDB, createUser, findUserByEmail, findUserById, loadVillage, saveVillage, loadAllVillages };

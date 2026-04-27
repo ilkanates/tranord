@@ -7,7 +7,7 @@ const { createVillage, hydrateVillage } = require('./game/villageState');
 const { processTick, getUpgradeSeconds, hexDistanceFromCenter, getProductionMultiplier, getUnitTrainSeconds, getEquipmentCap, getConsumptionRates } = require('./game/tick');
 const { simulateBattle } = require('./game/combat');
 const { router: authRouter, verifyToken } = require('./auth');
-const { initDB, loadVillage, saveVillage } = require('./db');
+const { initDB, loadVillage, saveVillage, loadAllVillages } = require('./db');
 
 const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye']);
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS } = require('./data');
@@ -223,11 +223,10 @@ function runTickForUser(userId, session) {
   if (sock) sock.emit('village_update', buildPayload(village, tickMs));
 }
 
-// Global tick polling (50ms)
+// Global tick polling (50ms) — socket olmasa da tüm köyler tick'lenir
 setInterval(() => {
   const now = Date.now();
   for (const [userId, session] of userSessions) {
-    if (!session.socketId) continue;
     if (now >= session.nextTickAt) {
       session.nextTickAt = now + session.tickMs;
       runTickForUser(userId, session);
@@ -449,9 +448,41 @@ io.on('connection', async socket => {
 app.get('/', (_req, res) => res.send('TraNord sunucu calisiyor!'));
 
 const PORT = process.env.PORT || 3001;
-initDB().then(() => {
+
+// Sunucu başlarken tüm köyleri yükle + offline süreyi tele al
+async function bootServer() {
+  await initDB();
+
+  const allVillages = await loadAllVillages();
+  const MAX_OFFLINE_MS = 7 * 24 * 60 * 60 * 1000; // max 7 gün
+  const now = Date.now();
+
+  for (const { userId, state, updatedAt } of allVillages) {
+    const village = hydrateVillage(state);
+    const tickMs  = village.tickMs || DEFAULT_TICK_MS;
+    const elapsed = Math.min(now - updatedAt.getTime(), MAX_OFFLINE_MS);
+    const offlineTicks = Math.floor(elapsed / tickMs);
+
+    // Offline geçen süreyi hızla hesapla
+    for (let i = 0; i < offlineTicks; i++) processTick(village);
+
+    userSessions.set(userId, {
+      village,
+      tickMs,
+      nextTickAt: now + tickMs,
+      socketId: null,
+      dirty: offlineTicks > 0
+    });
+    if (offlineTicks > 0) {
+      console.log(`[BOOT] userId=${userId} — ${offlineTicks} offline tick uygulandı`);
+    }
+  }
+
+  console.log(`[WORLD] ${allVillages.length} köy yüklendi`);
   server.listen(PORT, () => console.log(`Sunucu: http://localhost:${PORT}`));
-}).catch(err => {
-  console.error('[DB INIT FAIL]', err.message);
+}
+
+bootServer().catch(err => {
+  console.error('[BOOT FAIL]', err.message);
   process.exit(1);
 });
