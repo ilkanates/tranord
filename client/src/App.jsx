@@ -6,7 +6,42 @@ import VillageCenter  from './components/VillageCenter';
 import ArmyPanel      from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
 
-const socket = io('http://localhost:3001');
+const SERVER_URL   = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+const LANDING_URL  = import.meta.env.VITE_LANDING_URL || 'http://localhost:8080';
+
+// Token: URL param → localStorage → yok
+function getToken() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlToken  = urlParams.get('token');
+  if (urlToken) {
+    localStorage.setItem('tranord_token', urlToken);
+    // Token'ı URL'den temizle (güvenlik)
+    const clean = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, '', clean);
+    return urlToken;
+  }
+  return localStorage.getItem('tranord_token') || null;
+}
+
+const token = getToken();
+
+// Token yoksa landing site'a yönlendir
+if (!token) {
+  window.location.href = LANDING_URL;
+}
+
+const socket = io(SERVER_URL, {
+  auth: { token },
+  reconnectionAttempts: 5
+});
+
+// Auth hatası: token geçersiz → landing site'a yönlendir
+socket.on('connect_error', (err) => {
+  if (err.message === 'auth:token_missing' || err.message === 'auth:token_invalid') {
+    localStorage.removeItem('tranord_token');
+    window.location.href = LANDING_URL;
+  }
+});
 
 const TABS = [
   { key: 'uretim',    label: 'Üretim Alanı' },
@@ -16,9 +51,22 @@ const TABS = [
   { key: 'harita',    label: 'Dünya Haritası' }
 ];
 
+// Token payload'dan email oku (JWT'nin ikinci kısmı base64)
+function getEmailFromToken(tok) {
+  try {
+    return JSON.parse(atob(tok.split('.')[1])).email || '';
+  } catch { return ''; }
+}
+
+function logout() {
+  localStorage.removeItem('tranord_token');
+  window.location.href = LANDING_URL;
+}
+
 export default function App() {
   const [village, setVillage] = useState(null);
   const [tab, setTab]         = useState('uretim');
+  const userEmail             = getEmailFromToken(token || '');
 
   useEffect(() => {
     socket.on('village_update', setVillage);
@@ -81,7 +129,9 @@ export default function App() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexShrink: 0
       }}>
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, fontSize: '11px', color: '#5a6a48', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {userEmail}
+        </div>
         <span style={{ color: '#c8a44a', fontSize: '18px', letterSpacing: '3px' }}>
           ⚔ TRANORD ⚔
         </span>
@@ -119,6 +169,15 @@ export default function App() {
             }}
             title="1× (varsayılan)"
           >1×</button>
+          <button
+            onClick={logout}
+            style={{
+              background: 'transparent', border: '1px solid #3a2808',
+              color: '#5a4a2a', padding: '2px 8px', fontSize: '10px',
+              cursor: 'pointer', borderRadius: '2px', marginLeft: '8px'
+            }}
+            title="Çıkış yap"
+          >Çıkış</button>
         </div>
       </div>
 

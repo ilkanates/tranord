@@ -277,25 +277,40 @@ export default function BuildMenu({
                 );
               })()}
 
-              {building.type !== 'anaBina' && (
-                <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginTop:'4px' }}>
-                  {(!def?.maxLevel || building.level < def.maxLevel) && (
-                    <>
-                      <WorkerPicker
-                        value={upgradeWorkers}
-                        onChange={setUpgradeWorkers}
-                        max={freeWorkers}
-                        label={`Yükselt işçi — ${getBuildSeconds(building.type, building.level + 1, upgradeWorkers)}`}
-                      />
-                      <button onClick={() => onUpgrade(upgradeWorkers)} style={{
-                        padding:'6px', background:'#2a4a10',
-                        border:'1px solid #5a9a28', borderRadius:'4px',
-                        color:'#b8e890', fontSize:'11px', cursor:'pointer'
-                      }}>
-                        ⬆ Yükselt (Lvl {building.level} → {building.level + 1})
-                      </button>
-                    </>
-                  )}
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginTop:'4px' }}>
+                {(!def?.maxLevel || building.level < def.maxLevel) && (
+                  <>
+                    {/* Ana Bina için yükseltme maliyeti göster */}
+                    {building.type === 'anaBina' && def?.upgradeCostBase && (() => {
+                      const mult = Math.pow(def.upgradeCostMultiplier || 1.7, building.level - 1);
+                      const cost = {};
+                      Object.entries(def.upgradeCostBase).forEach(([k, v]) => { cost[k] = Math.ceil(v * mult); });
+                      return (
+                        <>
+                          <div style={{ fontSize: 10, color:'#7a6a4a', marginBottom: 2 }}>
+                            💰 Yükseltme maliyeti (Lvl {building.level + 1}):
+                          </div>
+                          <CostRow cost={cost} resources={resources} />
+                        </>
+                      );
+                    })()}
+                    <WorkerPicker
+                      value={upgradeWorkers}
+                      onChange={setUpgradeWorkers}
+                      max={freeWorkers}
+                      label={`Yükselt işçi — ${getBuildSeconds(building.type, building.level + 1, upgradeWorkers)}`}
+                    />
+                    <button onClick={() => onUpgrade(upgradeWorkers)} style={{
+                      padding:'6px', background:'#2a4a10',
+                      border:'1px solid #5a9a28', borderRadius:'4px',
+                      color:'#b8e890', fontSize:'11px', cursor:'pointer'
+                    }}>
+                      ⬆ Yükselt (Lvl {building.level} → {building.level + 1})
+                    </button>
+                  </>
+                )}
+                {/* Yıkma sadece Ana Bina dışındaki binalarda */}
+                {building.type !== 'anaBina' && (
                   <button onClick={onDemolish} style={{
                     padding:'5px', background:'#3a1010',
                     border:'1px solid #8a2020', borderRadius:'4px',
@@ -303,8 +318,8 @@ export default function BuildMenu({
                   }}>
                     🗑 Yık
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </>
           )}
         </div>

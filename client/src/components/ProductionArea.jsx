@@ -512,6 +512,14 @@ export default function ProductionArea({
 
   const mapCoords = useMemo(() => generateMapCoords(MAP_SIZE), []);
 
+  // SVG'yi container'dan büyük tut — rotateX(20deg) eğimiyle köşelerde
+  // oluşan trapezoid boşluklar container'ı tamamen örtsün.
+  const OVERSIZE = 1.4;
+  const svgW = Math.ceil(viewSize.w * OVERSIZE);
+  const svgH = Math.ceil(viewSize.h * OVERSIZE);
+  const svgOffsetX = Math.floor((viewSize.w - svgW) / 2);
+  const svgOffsetY = Math.floor((viewSize.h - svgH) / 2);
+
   useEffect(() => {
     if (!containerRef.current) return;
     const update = () => {
@@ -606,29 +614,30 @@ export default function ProductionArea({
   }, [selected, pan.x, pan.y, scale, viewSize.w, viewSize.h]);
 
   return (
-    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div ref={containerRef}
-          style={{
-            flex: 1, background: '#1c1812',
-            cursor: isDragging ? 'grabbing' : 'default',
-            overflow: 'hidden', position: 'relative', userSelect: 'none',
-            perspective: '1400px', perspectiveOrigin: '50% 50%'
-          }}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={endDrag}
-          onMouseLeave={endDrag}
-          onContextMenu={handleContextMenu}>
-          <svg width={viewSize.w} height={viewSize.h}
+    <div ref={containerRef}
+      style={{
+        flex: 1, background: '#1c1812',
+        cursor: isDragging ? 'grabbing' : 'default',
+        overflow: 'hidden', position: 'relative', userSelect: 'none',
+        perspective: '1400px', perspectiveOrigin: '50% 50%'
+      }}
+      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={endDrag}
+      onMouseLeave={endDrag}
+      onContextMenu={handleContextMenu}>
+          <svg width={svgW} height={svgH}
             style={{
               display: 'block',
+              position: 'absolute',
+              left: svgOffsetX,
+              top: svgOffsetY,
               transform: 'rotateX(20deg)',
               transformOrigin: '50% 50%',
               transformStyle: 'preserve-3d'
             }}>
-            <g transform={`translate(${viewSize.w / 2 + pan.x} ${viewSize.h / 2 + pan.y}) scale(${scale})`}>
+            <g transform={`translate(${svgW / 2 + pan.x} ${svgH / 2 + pan.y}) scale(${scale})`}>
               {mapCoords.map(([q, r]) => {
                 const key = `${q},${r}`;
                 const tile = productionTiles[key];
@@ -796,9 +805,6 @@ export default function ProductionArea({
               </div>
             );
           })()}
-        </div>
-      </div>
-
     </div>
   );
 }
