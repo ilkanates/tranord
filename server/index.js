@@ -25,25 +25,15 @@ const UNITS_BY_BUILDING = Object.entries(TRAINABLE_UNITS).reduce((acc, [key, def
   return acc;
 }, {});
 
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-
-// Birden fazla origin destekle: virgülle ayrılmış liste veya * kabul eder
-const ALLOWED_ORIGINS = CLIENT_URL === '*'
-  ? true
-  : CLIENT_URL.split(',').map(s => s.trim());
-
-const corsOptions = {
-  origin: ALLOWED_ORIGINS,
-  methods: ['GET', 'POST', 'OPTIONS']
-};
-
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, {
-  cors: corsOptions
+  cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-app.use(cors(corsOptions));
+// Tüm originlere izin ver (OPTIONS preflight dahil)
+app.use(cors({ origin: true, credentials: false }));
+app.options('*', cors({ origin: true }));
 app.use(express.json());
 app.use('/auth', authRouter);
 
