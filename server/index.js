@@ -31,9 +31,15 @@ const io     = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-// Tüm originlere izin ver (OPTIONS preflight dahil)
-app.use(cors({ origin: true, credentials: false }));
-app.options('*', cors({ origin: true }));
+// Manuel CORS — tüm originlere izin ver
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+app.use(cors());
 app.use(express.json());
 app.use('/auth', authRouter);
 
