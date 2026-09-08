@@ -41,7 +41,7 @@ const server = http.createServer(app);
  * fazla verilebilir) tanımlıysa liste ondan kurulur; tanımsız ve üretim değilse
  * yerel geliştirme adresleri açık kalır.
  */
-const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
+const { IS_PROD, envReason } = require('./env');
 const DEV_ORIGINS = [
   'http://localhost:5180', 'http://localhost:5173', 'http://localhost:3000',
   'http://127.0.0.1:5180',
@@ -1512,6 +1512,7 @@ async function bootServer() {
     console.log(`Sunucu: http://localhost:${PORT}`);
     console.log(`[ZAMAN] 1 oyun saati = ${GT.HOUR_SECONDS} gerçek saniye`
       + ` (${(3600 / GT.HOUR_SECONDS).toFixed(2)}× Travian) — TRANORD_HOUR_SECONDS ile değişir`);
+    console.log(`[CORS] mod: ${IS_PROD ? 'ÜRETİM' : 'yerel'} (${envReason()})`);
     console.log(`[CORS] izinli origin: ${ORIGIN_LIST.length ? ORIGIN_LIST.join(', ') : '(yok)'}`);
   });
 }

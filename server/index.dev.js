@@ -20,6 +20,9 @@ Module._load = function (request, parent, isMain) {
   return origLoad(request, parent, isMain);
 };
 
+// Bu giriş noktası TANIMI GEREĞİ yerel geliştirme: makinede global bir
+// DATABASE_URL/NODE_ENV olsa bile sunucu kendini üretim sanmasın (bkz. env.js).
+process.env.TRANORD_DEV = '1';
 process.env.JWT_SECRET ||= 'tranord-local-dev-secret';
 process.env.PORT       ||= '3311';
 

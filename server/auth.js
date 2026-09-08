@@ -18,7 +18,7 @@ const router = express.Router();
  * yalnızca yerel geliştirmede (NODE_ENV !== 'production' ve DATABASE_URL yok)
  * yedek kullanılıyor, üretimde sunucu açılmayı reddediyor.
  */
-const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
+const { IS_PROD } = require('./env');
 const JWT_SECRET = process.env.JWT_SECRET
   || (IS_PROD ? null : 'tranord-dev-secret-yalnizca-yerel');
 
