@@ -6,12 +6,20 @@
 const TOWER_SLOTS_ARR    = ['0,-2', '2,-1', '0,2', '-2,1'];
 const PRODUCTION_RING_1  = ['1,0', '1,-1', '0,-1', '-1,0', '-1,1', '0,1'];
 
-function createVillage() {
+function createVillage(worldQ = 0, worldR = 0) {
   return {
+    // TEK HARİTA: köyün dünya üzerindeki merkez koordinatı.
+    // Üretim tarlaları bu merkeze GÖRE yerel anahtarlarla tutulur ('1,0' gibi);
+    // arazi bonusu hesaplanırken worldQ+localQ kullanılır.
+    worldQ, worldR,
+
     population: 50,
     maxPopulation: 50,
     freeWorkers: 50,
     tickCount: 0,
+    // Sanal köy saati. İnşaat/yükseltme/kuyruk sayaçları BUNA bakar, Date.now()'a değil.
+    // Böylece hızlı ileri alma (tohumlama, offline telafi) sırasında da inşaatlar tamamlanır.
+    clockMs: Date.now(),
 
     isStarving: false,
     starveCounter: 0,
@@ -34,6 +42,20 @@ function createVillage() {
     nextOrderId: 1,
 
     army: {},
+
+    // SEFERLER: bu köyden çıkan hareketler burada durur (sahiplik = kalıcılık).
+    // Zaman alanları Date.now() tabanlı — köyün sanal saati DEĞİL; gerekçe
+    // game/army.js başındaki nota bakınız.
+    marches: [],
+    reports: [],
+    nextMarchId: 1,
+    // Kalıcı savaş sayaçları (istatistik sıralamaları) — bkz. game/army.js
+    stats: {
+      attacksSent: 0, attacksWon: 0, killsOffense: 0, lossesOffense: 0,
+      lootTotal: 0, scoutsSent: 0,
+      defensesTotal: 0, defensesWon: 0, killsDefense: 0, lossesDefense: 0,
+      lootLostTotal: 0,
+    },
 
     unitQueues: {
       kisla:  [],
@@ -71,6 +93,9 @@ function createVillage() {
  * (Set'leri ve tarih alanlarını restore eder)
  */
 function hydrateVillage(raw) {
+  // Eski kayıtlarda sanal saat yok: duvar saatiyle başlat, mevcut mutlak
+  // zaman damgaları böylece doğru kalan süreyi verir.
+  if (typeof raw.clockMs !== 'number') raw.clockMs = Date.now();
   // TOWER_SLOTS JSON'da array olarak saklanır, Set'e çevir
   if (Array.isArray(raw.TOWER_SLOTS)) {
     raw.TOWER_SLOTS = new Set(raw.TOWER_SLOTS);
@@ -80,6 +105,18 @@ function hydrateVillage(raw) {
 
   if (!Array.isArray(raw.PRODUCTION_RING_1)) {
     raw.PRODUCTION_RING_1 = [...PRODUCTION_RING_1];
+  }
+
+  // Eski kayıtlarda dünya konumu yoktu
+  if (typeof raw.worldQ !== 'number') raw.worldQ = 0;
+  if (typeof raw.worldR !== 'number') raw.worldR = 0;
+
+  // Sefer sistemi öncesi kayıtlar
+  if (!raw.stats || typeof raw.stats !== 'object') raw.stats = {};
+  if (!Array.isArray(raw.marches)) raw.marches = [];
+  if (!Array.isArray(raw.reports)) raw.reports = [];
+  if (typeof raw.nextMarchId !== 'number') {
+    raw.nextMarchId = raw.marches.reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
   }
 
   // endTime alanları sayıya dön (JSON'da number olarak saklanır, sorun yok)
