@@ -188,7 +188,20 @@ function canBuildProductionAt(village, slotKey, type, userId) {
   return getNeighbors(slotKey).some(n => n === '0,0' || village.productionTiles[n]);
 }
 
-function buildPayload(village, tickMs) {
+/**
+ * SABİT TANIMLAR — bağlantı başına BİR kez gönderilir.
+ *
+ * Birim/ekipman tanımları, temel savaş istatistikleri ve tick aralıkları
+ * oyun boyunca değişmiyor; her tick'te yeniden yollamak boşuna trafik.
+ * İstemci gelen paketi öncekinin üzerine birleştirdiği için eksik alanlar
+ * sorun değil.
+ */
+const STATIC_PAYLOAD_KEYS = [
+  'unitDefs', 'baseStats', 'unitsByBuilding',
+  'equipmentDefs', 'equipmentByBuilding', 'tickMsRange',
+];
+
+function buildPayload(village, tickMs, opts = {}) {
   const productionPerHour = { odun:0, kil:0, tas:0, demir:0, tahil:0 };
   Object.entries(village.productionTiles).forEach(([slotKey, b]) => {
     if (b.workers > 0 && b.level >= 1) {
@@ -285,7 +298,7 @@ function buildPayload(village, tickMs) {
   });
   buildQueue.sort((a, b) => a.timeLeft - b.timeLeft);
 
-  return {
+  const payload = {
     // TEK HARİTA: köyün dünya merkezi — client tarla bonuslarını buna göre hesaplar
     world: {
       q: village.worldQ || 0,
@@ -333,6 +346,9 @@ function buildPayload(village, tickMs) {
     populationGrowthRate: village.population < village.maxPopulation ? 1 : 0,
     isStarving: !!village.isStarving, starveCounter: village.starveCounter || 0,
     consumption, tickMs, tickMsRange: { min: MIN_TICK_MS, max: MAX_TICK_MS, default: DEFAULT_TICK_MS },
+    // İstemci kaynakları iki yayın ARASINDA kendisi ilerletiyor; bunun için
+    // dünya hızını bilmesi gerekiyor (bkz. client/src/flows.js extrapolate).
+    worldSpeed: WORLD.speed,
     villageBuildings: Object.fromEntries(
       Object.entries(village.villageBuildings).map(([k, b]) => [k, {
         ...b,
@@ -357,6 +373,71 @@ function buildPayload(village, tickMs) {
       })
     )
   };
+
+  // Sabit tanımlar yalnız istendiğinde; raporlar yalnız değiştiğinde
+  if (!opts.statics) for (const k of STATIC_PAYLOAD_KEYS) delete payload[k];
+  if (!opts.reports) delete payload.reports;
+  return payload;
+}
+
+/**
+ * YAPISAL PARMAK İZİ — köyde kaynak dışında bir şey değişti mi?
+ *
+ * Sunucu eskiden her tick'te (saniyede bir, hızlı ölçekte 100 ms'de bir) köyün
+ * TAMAMINI yolluyordu: oyuncu başına ~10 KB/s, 100 oyuncuda saatte 3.6 GB.
+ * Oysa tick'ten tick'e değişen tek şey genelde kaynak miktarı ve istemci onu
+ * zaten saatlik oranlardan kendisi hesaplayabiliyor. Bu yüzden yayın artık
+ * yapısal bir değişiklikte ya da FULL_SYNC_MS'lik kalp atışında yapılıyor.
+ */
+const FULL_SYNC_MS = 30000;
+
+function structFingerprint(v) {
+  const q = v.unitQueues || {}, eq = v.equipmentQueues || {};
+  let s = `${v.population}|${v.maxPopulation}|${v.freeWorkers}|${v.isStarving ? 1 : 0}`
+    + `|${(v.marches || []).length}|${(v.reports || []).length}|${v.tickMs || 0}`
+    + `|${q.kisla?.length || 0},${q.ahir?.length || 0},${q.atolye?.length || 0}`
+    + `|${eq.silahci?.length || 0},${eq.zirh?.length || 0},${eq.ahir?.length || 0}`;
+  for (const k in v.villageBuildings) {
+    const b = v.villageBuildings[k];
+    s += `|${k}:${b.level}:${b.workers || 0}:${b.building ? 1 : 0}`;
+  }
+  for (const k in v.productionTiles) {
+    const t = v.productionTiles[k];
+    s += `|${k}:${t.level}:${t.workers}:${t.upgrading ? 1 : 0}`;
+  }
+  for (const k in (v.army || {}))      s += `|a${k}:${v.army[k]}`;
+  for (const k in (v.equipment || {})) s += `|e${k}:${v.equipment[k]}`;
+  return s;
+}
+
+/**
+ * Köyü istemciye yolla. force=true her hâlde yollar (oyuncu bir şey yaptı),
+ * aksi hâlde yalnız yapısal değişiklik veya kalp atışı varsa.
+ */
+function emitVillage(session, { force = false, statics = false } = {}) {
+  const sock = io.sockets.sockets.get(session.socketId);
+  if (!sock) return;
+  const v = session.village;
+  const fp = structFingerprint(v);
+  const nowReal = Date.now();
+  const beat = nowReal - (session.lastEmitAt || 0) >= FULL_SYNC_MS;
+  if (!force && !beat && fp === session.fp) return;
+
+  const topReport = (v.reports || [])[0]?.id || 0;
+  const reportsChanged = topReport !== session.topReportId
+    || (v.reports || []).length !== session.reportCount;
+
+  session.fp = fp;
+  session.lastEmitAt = nowReal;
+  session.topReportId = topReport;
+  session.reportCount = (v.reports || []).length;
+
+  // Raporlar kalp atışına BİNMİYOR: 6 KB tutuyorlar ve yalnız yeni rapor
+  // geldiğinde değişiyorlar; istemci listeyi kendinde tutuyor.
+  sock.emit('village_update', buildPayload(v, session.tickMs, {
+    statics,
+    reports: statics || reportsChanged,
+  }));
 }
 
 function runTickForUser(userId, session) {
@@ -399,8 +480,7 @@ function runTickForUser(userId, session) {
   }
   session.dirty = true;
 
-  const sock = io.sockets.sockets.get(session.socketId);
-  if (sock) sock.emit('village_update', buildPayload(village, tickMs));
+  emitVillage(session);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -413,7 +493,17 @@ const WORLD = {
   playerBySlot: new Map(),   // slotKey -> { userId, email, name }
   slotByUser: new Map(),     // userId  -> slotKey
   npcTick: 0,
-  dirty: false,
+  /**
+   * KİRLİ NPC'LER — yalnız bunlar diske yazılır.
+   *
+   * Eskiden tek bir `dirty` bayrağı vardı ve her tick true olduğu için 60
+   * saniyede 200 köyün TAMAMI yazılıyordu (yerelde 1.6 MB, günde ~1 GB).
+   * Kaynak birikmesi için kayıt gerekmiyor: açılışta her köy kendi kayıt
+   * zamanına göre telafi ediliyor, yani eksik kalan üretim yeniden
+   * hesaplanıyor. Bu yüzden yalnız YAPISAL olaylar işaretlenir — yapay zekâ
+   * turu, sefer başlangıcı/varışı/dönüşü ve yeni tohumlanan köy.
+   */
+  dirtyNpcs: new Set(),
   /**
    * DÜNYA HIZI — üst bardaki çubuk bunu ayarlar. Oyuncu köyü, NPC'ler ve
    * SEFERLER aynı çarpanla akar; aksi hâlde ekonomi 128× koşarken ordular
@@ -490,21 +580,40 @@ async function bootWorld() {
     }
   }
 
-  // Sunucu kapalıyken geçen süreyi telafi et — oyuncuyla AYNI tavan
-  const offlineRealMs = Date.now() - (oldestNpcSave || Date.now());
-  const npcHours = Math.min(MAX_CATCHUP_HOURS, offlineRealMs / 1000 / GT.HOUR_SECONDS);
-  const npcSteps = Math.floor(npcHours / GT.CATCHUP_HOURS_PER_STEP);
-  if (restored > 0 && npcSteps > 0) {
-    for (let t = 0; t < npcSteps; t++) {
-      for (const n of WORLD.npcs.values()) {
-        stepVillage(n.village, GT.CATCHUP_HOURS_PER_STEP);
-        if (t % NPC_AI_EVERY_HOURS === 0) runNpcAi(n.village, n.slot);
-      }
+  /**
+   * TELAFİ KÖY BAŞINA — her NPC KENDİ kayıt zamanından itibaren ilerletilir.
+   *
+   * Eskiden en eski kaydın yaşı bulunup aynı süre HERKESE uygulanıyordu; bu
+   * hem yeni kaydedilmiş köyleri fazla ilerletiyor hem de "her köyü sık sık
+   * kaydet" zorunluluğu doğuruyordu. Köy başına telafi, seyrek kaydı doğru
+   * hâle getiriyor: diskteki anlık görüntü eskiyse aradaki üretim açılışta
+   * yeniden hesaplanır.
+   */
+  let catchupMax = 0, catchupSum = 0, catchupCount = 0;
+  for (const [key, n] of WORLD.npcs) {
+    const rec = savedByKey.get(key);
+    if (!rec) continue;                       // yeni tohumlandı, telafi yok
+    const savedAt = rec.updatedAt ? new Date(rec.updatedAt).getTime() : Date.now();
+    const hours = Math.min(MAX_CATCHUP_HOURS,
+      Math.max(0, (Date.now() - savedAt) / 1000 / GT.HOUR_SECONDS));
+    const steps = Math.floor(hours / GT.CATCHUP_HOURS_PER_STEP);
+    if (steps <= 0) continue;
+    for (let t = 0; t < steps; t++) {
+      stepVillage(n.village, GT.CATCHUP_HOURS_PER_STEP);
+      if (t % NPC_AI_EVERY_HOURS === 0) runNpcAi(n.village, n.slot);
     }
-    console.log(`[WORLD] offline telafi: ${npcSteps} oyun saati`);
+    catchupMax = Math.max(catchupMax, steps);
+    catchupSum += steps; catchupCount++;
+  }
+  if (catchupCount > 0) {
+    console.log(`[WORLD] offline telafi: ${catchupCount} köy · ortalama `
+      + `${(catchupSum / catchupCount).toFixed(1)} · en fazla ${catchupMax} oyun saati`);
   }
 
-  WORLD.dirty = created > 0;
+  // Yeni tohumlanan köyler diskte yok — ilk turda yazılmalı
+  if (created > 0) {
+    for (const [key] of WORLD.npcs) if (!savedByKey.has(key)) WORLD.dirtyNpcs.add(key);
+  }
   console.log(`[WORLD] ${WORLD.slots.length} slot · ${WORLD.npcs.size} NPC (${created} yeni, ${restored} kayıtlı) · ${Date.now() - t0} ms`);
 }
 
@@ -518,23 +627,52 @@ setInterval(() => {
   const runAi = WORLD.npcTick % NPC_AI_EVERY === 0;
   for (const n of WORLD.npcs.values()) {
     stepVillage(n.village, hours);
-    if (runAi) { runNpcAi(n.village, n.slot); maybeNpcRaid(n); }
+    if (runAi) {
+      runNpcAi(n.village, n.slot);
+      maybeNpcRaid(n);
+      // Yapay zekâ turu = yapısal değişiklik olabilir + kaydın bayatlamasına
+      // üst sınır (NPC_AI_EVERY_HOURS oyun saati). Kaynak artışı için kayıt
+      // gerekmiyor, telafi onu hesaplıyor.
+      markNpcDirty(n.slot.key);
+    }
   }
   processMarches(hours);
-  WORLD.dirty = true;
 }, NPC_TICK_MS);
 
-// NPC'leri periyodik kaydet
+/**
+ * NPC'leri periyodik kaydet — YALNIZ kirli işaretlenenleri.
+ *
+ * Tek bir bozuk köy bütün turu iptal etmesin diye köyler tek tek
+ * doğrulanıyor: eskiden `[...state.TOWER_SLOTS]` bir köyde patlayınca
+ * saveNpcVillages hiç yazmadan dönüyordu ve NPC dünyası hiç kaydedilmiyordu.
+ */
+const NPC_SAVE_MS = 60000;
+let npcSaveInFlight = false;
 setInterval(async () => {
-  if (!WORLD.dirty) return;
-  WORLD.dirty = false;
-  try {
-    await saveNpcVillages([...WORLD.npcs.values()].map(n => ({
+  if (npcSaveInFlight || WORLD.dirtyNpcs.size === 0) return;
+  const keys = [...WORLD.dirtyNpcs];
+  WORLD.dirtyNpcs.clear();
+  npcSaveInFlight = true;
+  const batch = [];
+  for (const key of keys) {
+    const n = WORLD.npcs.get(key);
+    if (!n) continue;
+    if (!(n.village.TOWER_SLOTS instanceof Set)) {
+      console.warn(`[WORLD SAVE] ${key}: TOWER_SLOTS şekli bozuk, onarıldı`);
+      n.village = hydrateVillage(n.village);
+    }
+    batch.push({
       slotKey: n.slot.key, q: n.slot.q, r: n.slot.r,
       tier: n.slot.tier, name: n.slot.name, state: n.village,
-    })));
-  } catch (err) { console.error('[WORLD SAVE]', err.message); }
-}, 60000);
+    });
+  }
+  try {
+    if (batch.length) await saveNpcVillages(batch);
+  } catch (err) {
+    console.error('[WORLD SAVE]', err.message);
+    keys.forEach(k => WORLD.dirtyNpcs.add(k));   // sonraki turda tekrar dene
+  } finally { npcSaveInFlight = false; }
+}, NPC_SAVE_MS);
 
 // ═══════════════════════════════════════════════════════════════════
 //  SEFERLER — ordu gönderme, varış, çarpışma, dönüş
@@ -595,9 +733,13 @@ function* marchingVillages() {
   for (const n of WORLD.npcs.values()) {
     yield {
       village: n.village, kind: 'npc', userId: null, slotKey: n.slot.key,
-      dirty: () => { WORLD.dirty = true; },
+      dirty: () => { markNpcDirty(n.slot.key); },
     };
   }
+}
+
+function markNpcDirty(slotKey) {
+  if (slotKey) WORLD.dirtyNpcs.add(slotKey);
 }
 
 function markUserDirty(userId) {
@@ -634,7 +776,7 @@ function processMarches(hours) {
         ARMY.resolveArrival(m, v, tgt?.village || null, { targetName: tgt?.name });
         entry.dirty();
         if (tgt?.userId) markUserDirty(tgt.userId);
-        else if (tgt?.kind === 'npc') WORLD.dirty = true;
+        else if (tgt?.kind === 'npc') markNpcDirty(m.toKey);
       } else {
         const { caps, foodRoom } = lootRoom(v);
         ARMY.resolveReturn(m, v, caps, foodRoom);
@@ -723,7 +865,7 @@ function maybeNpcRaid(n) {
   });
   if (!res.ok) return;
   lastNpcRaidAt = now;
-  WORLD.dirty = true;
+  markNpcDirty(n.slot.key);
   console.log(`[YAĞMA] ${n.slot.name} → ${best.p.name} (${best.dist} hex, ${ARMY.totalUnits(units)} asker, ${res.march.legSeconds} sn)`);
 }
 
@@ -996,10 +1138,10 @@ io.on('connection', async socket => {
     userSessions.set(userId, session);
   }
   socketToUser.set(socket.id, userId);
-  socket.emit('village_update', buildPayload(session.village, session.tickMs));
+  emitVillage(session, { force: true, statics: true });
 
   const v     = () => session.village;
-  const emit  = () => socket.emit('village_update', buildPayload(v(), session.tickMs));
+  const emit  = () => emitVillage(session, { force: true });
   const dirty = () => { session.dirty = true; };
 
   socket.on('assign_production_workers', ({ slotKey, workers }) => {

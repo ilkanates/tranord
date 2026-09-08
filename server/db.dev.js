@@ -60,14 +60,28 @@ async function findUserById(id) {
   return u ? { id: u.id, email: u.email } : null;
 }
 
+/**
+ * DERİN KOPYA — çağıran taraf saklanan nesneyi DEĞİŞTİREBİLİR.
+ *
+ * Eskiden saklanan nesne doğrudan döndürülüyordu; hydrateVillage gelen nesneyi
+ * yerinde değiştirdiği için TOWER_SLOTS deposun İÇİNDE Set'e dönüyor, sonraki
+ * persist() de onu JSON'a `{}` olarak yazıyordu. Kayıt yolundaki
+ * "TOWER_SLOTS is not iterable" hatasının kaynağı buydu. Postgres tarafında
+ * bu olmuyor (JSON.parse her seferinde yeni nesne verir); dev deposu da artık
+ * aynı sözleşmeye uyuyor.
+ */
+const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
+
 async function loadVillage(userId) {
-  return db.villages[userId]?.state || null;
+  return clone(db.villages[userId]?.state) || null;
 }
 
 function serialize(state) {
+  const towers = state.TOWER_SLOTS instanceof Set || Array.isArray(state.TOWER_SLOTS)
+    ? [...state.TOWER_SLOTS] : [];
   return JSON.parse(JSON.stringify({
     ...state,
-    TOWER_SLOTS: [...state.TOWER_SLOTS],
+    TOWER_SLOTS: towers,
     PRODUCTION_RING_1: [...state.PRODUCTION_RING_1],
   }));
 }
@@ -80,7 +94,7 @@ async function saveVillage(userId, state) {
 async function loadAllVillages() {
   return Object.entries(db.villages).map(([userId, row]) => ({
     userId: Number(userId),
-    state: row.state,
+    state: clone(row.state),
     updatedAt: new Date(row.updated_at),
   }));
 }
@@ -89,7 +103,7 @@ async function loadAllVillages() {
 
 async function loadNpcVillages() {
   return Object.entries(db.world).map(([slotKey, row]) => ({
-    slotKey, q: row.q, r: row.r, tier: row.tier, name: row.name, state: row.state,
+    slotKey, q: row.q, r: row.r, tier: row.tier, name: row.name, state: clone(row.state),
     updatedAt: new Date(row.updated_at || Date.now()),
   }));
 }

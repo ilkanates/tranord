@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import MapView         from './components/MapView';
 import VillageCenter   from './components/VillageCenter';
@@ -11,7 +11,7 @@ import ResourceRail    from './components/ResourceRail';
 import StatusRail      from './components/StatusRail';
 import NordicBackdrop  from './components/NordicBackdrop';
 import Icon            from './components/Icons';
-import { computeFlows } from './flows';
+import { computeFlows, extrapolate } from './flows';
 import { C, FONT, btn, label as lbl, num } from './theme';
 
 const SERVER_URL  = import.meta.env.VITE_SERVER_URL  || 'http://localhost:3311';
@@ -190,13 +190,29 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, badges = 
 
 // ── Uygulama ──────────────────────────────────────────────────────────
 export default function App() {
-  const [village, setVillage] = useState(null);
+  /**
+   * SUNUCU DOĞRUSU vs EKRANDAKİ DEĞER.
+   *
+   * `serverVillage` sunucudan gelen son paket; ekranda gösterilen `village`
+   * ise onun üzerine geçen sürenin eklenmiş hâli. Sunucu artık her saniye
+   * paket yollamıyor (yalnız yapısal değişiklik + 30 sn kalp atışı), bu yüzden
+   * kaynakların artışını ve geri sayımları aradaki sürede istemci hesaplıyor.
+   *
+   * Gelen paket öncekinin ÜZERİNE birleştiriliyor: sunucu değişmeyen alanları
+   * (birim tanımları gibi sabitler, değişmemiş rapor listesi) göndermiyor.
+   */
+  const [serverVillage, setServerVillage] = useState(null);
+  const stampRef = useRef(0);
+  const [beat, setBeat] = useState(0);
   const [tab, setTab] = useState('harita');
   const [connected, setConnected] = useState(socket.connected);
   const userEmail = emailFromToken(token || '');
 
   useEffect(() => {
-    const onUpdate = (v) => setVillage(v);
+    const onUpdate = (v) => {
+      stampRef.current = Date.now();
+      setServerVillage(prev => (prev ? { ...prev, ...v } : v));
+    };
     const onConn = () => setConnected(true);
     const onDisc = () => setConnected(false);
     socket.on('village_update', onUpdate);
@@ -208,6 +224,17 @@ export default function App() {
       socket.off('disconnect', onDisc);
     };
   }, []);
+
+  // Ekran saati: sunucu sessizken de sayaçlar aksın
+  useEffect(() => {
+    const id = setInterval(() => setBeat(b => b + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const village = useMemo(
+    () => extrapolate(serverVillage, Date.now() - stampRef.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [serverVillage, beat]);
 
   const flows = useMemo(() => (village ? computeFlows(village) : {}), [village]);
 

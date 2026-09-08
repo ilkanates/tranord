@@ -125,3 +125,51 @@ export function chainStatus(flows, chain) {
   }
   return worst;
 }
+
+/**
+ * İKİ YAYIN ARASINI DOLDUR — sunucu artık saniyede bir paket yollamıyor.
+ *
+ * Sunucu köyün tamamını yalnız yapısal bir değişiklikte ya da 30 saniyelik
+ * kalp atışında gönderiyor (oyuncu başına ~10 KB/s trafiği ~0.3 KB/s'e
+ * indiren düzeltme). Arada iki şeyin akmaya devam etmesi gerekiyor:
+ *   1. kaynak miktarları — saatlik net akıştan hesaplanır, kapasitede durur
+ *   2. geri sayımlar — her `timeLeft` alanından geçen süre düşülür
+ * Sunucu her paket geldiğinde mutlak doğruyu yazdığı için sapma birikmiyor.
+ */
+function shiftTimers(o, secs) {
+  if (Array.isArray(o)) return o.map(x => shiftTimers(x, secs));
+  if (o && typeof o === 'object') {
+    const out = {};
+    for (const k in o) {
+      const val = o[k];
+      out[k] = (typeof val === 'number' && /timeleft$/i.test(k))
+        ? Math.max(0, val - secs)
+        : shiftTimers(val, secs);
+    }
+    return out;
+  }
+  return o;
+}
+
+export function extrapolate(v, elapsedMs) {
+  if (!v || !(elapsedMs > 0)) return v;
+  const secs = elapsedMs / 1000;
+  const next = shiftTimers(v, secs);
+
+  const hourSeconds = v.marchInfo?.hourSeconds || 3600;
+  const speed = v.worldSpeed || 1;
+  const gameHours = (secs / hourSeconds) * speed;
+  if (gameHours > 0 && next.resources) {
+    const flows = computeFlows(v);
+    const res = { ...next.resources };
+    for (const k of Object.keys(res)) {
+      const f = flows[k];
+      if (!f || !f.net) continue;
+      const cap = Number.isFinite(f.capacity) ? f.capacity : Infinity;
+      const val = (res[k] || 0) + f.net * gameHours;
+      res[k] = Math.round(Math.max(0, Math.min(cap, val)) * 10) / 10;
+    }
+    next.resources = res;
+  }
+  return next;
+}

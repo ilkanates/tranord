@@ -96,10 +96,19 @@ function hydrateVillage(raw) {
   // Eski kayıtlarda sanal saat yok: duvar saatiyle başlat, mevcut mutlak
   // zaman damgaları böylece doğru kalan süreyi verir.
   if (typeof raw.clockMs !== 'number') raw.clockMs = Date.now();
-  // TOWER_SLOTS JSON'da array olarak saklanır, Set'e çevir
+  /**
+   * TOWER_SLOTS her şekilden onarılır.
+   *
+   * Eski bir kayıt yolunda Set, diziye çevrilmeden JSON'a yazılmış ve diskte
+   * `{}` olarak kalmış (478 dünya kaydından 6'sında). Eski kontrol yalnız dizi
+   * ve "yok" hâllerini tanıdığı için `{}` olduğu gibi geçiyordu; sonra kayıt
+   * sırasındaki `[...state.TOWER_SLOTS]` patlıyor ve o turdaki BÜTÜN NPC
+   * kaydı iptal oluyordu. Kule slotları sabit bir liste olduğu için
+   * varsayılana dönmek tam onarım demek.
+   */
   if (Array.isArray(raw.TOWER_SLOTS)) {
     raw.TOWER_SLOTS = new Set(raw.TOWER_SLOTS);
-  } else if (!raw.TOWER_SLOTS) {
+  } else if (!(raw.TOWER_SLOTS instanceof Set)) {
     raw.TOWER_SLOTS = new Set(TOWER_SLOTS_ARR);
   }
 
