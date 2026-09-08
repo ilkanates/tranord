@@ -3,7 +3,18 @@
  * Her kullanıcı için ayrı bir kopya döndürülür.
  */
 
-const TOWER_SLOTS_ARR    = ['0,-2', '2,-1', '0,2', '-2,1'];
+/**
+ * SAVUNMA SLOTLARI İSİMLİ — hex değil.
+ *
+ * Sur, hendek ve kuleler artık köyün İÇİNDE bir altıgen kaplamıyor: sur köyü
+ * çevreliyor, hendek surun dışında, kuleler de surun altı köşesinde duruyor.
+ * Bu yüzden anahtarları koordinat değil isim: 'sur', 'hendek', 'kule1'…'kule6'.
+ * İnşa/yükseltme/yıkma/işçi akışları anahtarı koordinat olarak ayrıştırmıyor,
+ * o yüzden isimli slotlar mevcut mekanikle olduğu gibi çalışıyor.
+ */
+const TOWER_SLOTS_ARR    = ['kule1', 'kule2', 'kule3', 'kule4', 'kule5', 'kule6'];
+const WALL_SLOTS_ARR     = ['sur', 'hendek'];
+const DEFENCE_TYPES      = new Set(['sur', 'hendek', 'kule']);
 const PRODUCTION_RING_1  = ['1,0', '1,-1', '0,-1', '-1,0', '-1,1', '0,1'];
 
 function createVillage(worldQ = 0, worldR = 0) {
@@ -96,22 +107,6 @@ function hydrateVillage(raw) {
   // Eski kayıtlarda sanal saat yok: duvar saatiyle başlat, mevcut mutlak
   // zaman damgaları böylece doğru kalan süreyi verir.
   if (typeof raw.clockMs !== 'number') raw.clockMs = Date.now();
-  /**
-   * TOWER_SLOTS her şekilden onarılır.
-   *
-   * Eski bir kayıt yolunda Set, diziye çevrilmeden JSON'a yazılmış ve diskte
-   * `{}` olarak kalmış (478 dünya kaydından 6'sında). Eski kontrol yalnız dizi
-   * ve "yok" hâllerini tanıdığı için `{}` olduğu gibi geçiyordu; sonra kayıt
-   * sırasındaki `[...state.TOWER_SLOTS]` patlıyor ve o turdaki BÜTÜN NPC
-   * kaydı iptal oluyordu. Kule slotları sabit bir liste olduğu için
-   * varsayılana dönmek tam onarım demek.
-   */
-  if (Array.isArray(raw.TOWER_SLOTS)) {
-    raw.TOWER_SLOTS = new Set(raw.TOWER_SLOTS);
-  } else if (!(raw.TOWER_SLOTS instanceof Set)) {
-    raw.TOWER_SLOTS = new Set(TOWER_SLOTS_ARR);
-  }
-
   if (!Array.isArray(raw.PRODUCTION_RING_1)) {
     raw.PRODUCTION_RING_1 = [...PRODUCTION_RING_1];
   }
@@ -119,6 +114,41 @@ function hydrateVillage(raw) {
   // Eski kayıtlarda dünya konumu yoktu
   if (typeof raw.worldQ !== 'number') raw.worldQ = 0;
   if (typeof raw.worldR !== 'number') raw.worldR = 0;
+
+  /**
+   * ESKİ BİÇİMDEN TAŞIMA — savunma yapıları hex slotlarındaydı.
+   *
+   * Sur/hendek herhangi bir boş hex'e kurulabiliyordu, kuleler de dört sabit
+   * hex'i tutuyordu. Yeni düzende bunlar isimli slotlarda; taşıma seviyeleri ve
+   * işçileri koruyarak yapılıyor, boşalan hex'ler normal araziye dönüyor
+   * (oyuncu lehine dört ek inşa alanı). Kuleler seviyesi yüksek olan önce
+   * gelecek şekilde kule1..kule6'ya yerleşir.
+   */
+  const vb = raw.villageBuildings || (raw.villageBuildings = {});
+  const hexDefence = Object.entries(vb)
+    .filter(([k, b]) => k.includes(',') && b && DEFENCE_TYPES.has(b.type));
+  if (hexDefence.length) {
+    const towers = [];
+    for (const [key, b] of hexDefence) {
+      delete vb[key];
+      if (b.type === 'kule') { towers.push(b); continue; }
+      // sur/hendek tek örnek: aynı türden iki tane varsa yüksek seviyeli kalır
+      const target = b.type;                    // 'sur' | 'hendek'
+      if (!vb[target] || (vb[target].level || 0) < (b.level || 0)) vb[target] = b;
+    }
+    towers.sort((a, b) => (b.level || 0) - (a.level || 0));
+    towers.slice(0, TOWER_SLOTS_ARR.length).forEach((b, i) => {
+      vb[TOWER_SLOTS_ARR[i]] = b;
+    });
+  }
+  /**
+   * Kule slotları SABİT bir liste olduğu için her yüklemede yeniden kurulur.
+   * Bu aynı zamanda eski bir kayıt yolundan gelen bozukluğu da onarıyor: Set
+   * diziye çevrilmeden JSON'a yazıldığında diskte `{}` kalıyor ve kayıt
+   * sırasındaki `[...state.TOWER_SLOTS]` patlayıp o turdaki BÜTÜN NPC kaydını
+   * iptal ediyordu.
+   */
+  raw.TOWER_SLOTS = new Set(TOWER_SLOTS_ARR);
 
   // Sefer sistemi öncesi kayıtlar
   if (!raw.stats || typeof raw.stats !== 'object') raw.stats = {};
@@ -132,4 +162,4 @@ function hydrateVillage(raw) {
   return raw;
 }
 
-module.exports = { createVillage, hydrateVillage };
+module.exports = { createVillage, hydrateVillage, TOWER_SLOTS_ARR, WALL_SLOTS_ARR };

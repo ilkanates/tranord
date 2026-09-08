@@ -127,7 +127,7 @@ const VILLAGE_DEFS = {
   // ── Savunma ─────────────────────────────────────────────────────
   sur:    { name:'Sur',            category:'savunma', icon:'🏰', description:'Savunmacılara savunma bonusu. Maks Lvl 20.',  unique:true,  maxLevel:20, buildBaseWork:50, buildMultiplier:2.0, bonusTable:null, cost:{ yontmaTas:160, kereste:40 } },
   hendek: { name:'Hendek',         category:'savunma', icon:'〰️', description:'Sur ile birleşik, yarı bonus. Maks Lvl 20.', unique:true,  maxLevel:20, buildBaseWork:40, buildMultiplier:1.9, bonusTable:null, cost:{ kereste:40, yontmaTas:80 } },
-  kule:   { name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat bonus.',      unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:null, maxInstances:4, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
+  kule:   { name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat bonus.',      unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:null, maxInstances:6, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
 };
 
 export default VILLAGE_DEFS;

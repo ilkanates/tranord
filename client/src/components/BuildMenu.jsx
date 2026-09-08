@@ -10,6 +10,13 @@ const CAT_LABEL = {
   isleme: 'İşleme', askeri: 'Askeri', depo: 'Depo',
   ekonomik: 'Ekonomik', nufus: 'Nüfus', savunma: 'Savunma',
 };
+const SLOT_LABEL = {
+  sur:    'Sur',
+  hendek: 'Hendek',
+  kule:   'Kule Slotu',
+  hex:    'Boş Arazi',
+};
+
 const CAT_ORDER = ['isleme', 'askeri', 'depo', 'nufus', 'ekonomik', 'savunma'];
 const CAT_EDGE = {
   isleme: '#4ecfa8', askeri: '#7fb4ff', depo: '#a99cf0',
@@ -136,7 +143,7 @@ function EffectStrip({ type, level, def, processingRates, flows }) {
 }
 
 export default function BuildMenu({
-  slotKey, building, isTower, isCenter,
+  slotKey, building, isTower, slotKind = 'hex', isCenter,
   placedBuildings, freeWorkers, resources = {}, processingRates = {}, flows = {},
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onClose,
   // Poster biçiminde başlık bina görselinin üstünde çiziliyor; burada tekrar etmesin
@@ -144,7 +151,8 @@ export default function BuildMenu({
 }) {
   const [buildWorkers, setBuildWorkers] = useState(1);
   const [upgradeWorkers, setUpgradeWorkers] = useState(1);
-  const [cat, setCat] = useState(isTower ? 'savunma' : 'isleme');
+  // Savunma slotunda doğrudan savunma sekmesi açılsın
+  const [cat, setCat] = useState(slotKind !== 'hex' ? 'savunma' : 'isleme');
   const [selectedType, setSelectedType] = useState(null);
 
   const builtTypes = useMemo(
@@ -156,12 +164,21 @@ export default function BuildMenu({
   const bcat = building?.type === 'anaBina' ? 'anaBina' : def?.category;
   const edge = CAT_EDGE[bcat] || C.ice;
 
+  /**
+   * Savunma yapıları köyün içinde hex kaplamıyor: sur köyü çevreliyor, hendek
+   * surun dışında, kuleler surun altı köşesinde. Bu yüzden her savunma yapısı
+   * YALNIZ kendi isimli slotuna, her savunma slotu da yalnız kendi yapısına
+   * izin veriyor — sunucudaki canBuildAt ile aynı kural.
+   */
   const canBuild = (key, d) => {
-    if (isTower && key !== 'kule') return false;
-    if (!isTower && key === 'kule') return false;
     if (key === 'anaBina') return false;
+    const isDefenceSlot = slotKind !== 'hex';
+    if (isDefenceSlot !== (key === slotKind)) return false;
     if (d.unique && builtTypes.has(key)) return false;
-    if (key === 'kule') return Object.values(placedBuildings).filter(b => b.type === 'kule').length < 4;
+    if (key === 'kule') {
+      const max = d.maxInstances || 6;
+      return Object.values(placedBuildings).filter(b => b.type === 'kule').length < max;
+    }
     return true;
   };
   const canAfford = (cost) => !cost || Object.entries(cost).every(([r, a]) => (resources[r] || 0) >= a);
@@ -173,7 +190,7 @@ export default function BuildMenu({
       (out[d.category] ||= []).push([k, d]);
     });
     return out;
-  }, [builtTypes, isTower, placedBuildings]);
+  }, [builtTypes, slotKind, placedBuildings]);
 
   const cats = CAT_ORDER.filter(c => grouped[c]?.length);
   const activeCat = grouped[cat]?.length ? cat : (cats[0] || null);
@@ -192,7 +209,7 @@ export default function BuildMenu({
 
   const title = building
     ? (building.type === 'anaBina' ? 'Ana Bina' : (def?.name || building.type))
-    : isTower ? 'Kule Slotu' : 'Boş Arazi';
+    : SLOT_LABEL[slotKind] || SLOT_LABEL.hex;
 
   const maxW = building && def ? building.level * (def.workersPerLevel || 3) : 0;
   const hasWorkerSlot = building && building.level >= 1
@@ -203,7 +220,8 @@ export default function BuildMenu({
       {/* ── Başlık ── (poster biçiminde görselin üstünde) */}
       {!posterHeader && (
       <div style={popHeader}>
-        <Icon name={building ? buildingIcon(building.type) : isTower ? 'kule' : 'ekle'} size={19} color={edge} />
+        <Icon name={building ? buildingIcon(building.type)
+          : slotKind !== 'hex' ? buildingIcon(slotKind) : 'ekle'} size={19} color={edge} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontFamily: FONT.head, fontSize: 15, fontWeight: 600, letterSpacing: 1.1,

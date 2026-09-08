@@ -3,7 +3,9 @@ const http       = require('http');
 const { Server } = require('socket.io');
 const cors       = require('cors');
 
-const { createVillage, hydrateVillage } = require('./game/villageState');
+const { createVillage, hydrateVillage,
+        TOWER_SLOTS_ARR: TOWER_SLOT_NAMES,
+        WALL_SLOTS_ARR: WALL_SLOT_NAMES } = require('./game/villageState');
 const { processTick, getUpgradeSeconds, hexDistanceFromCenter, getProductionMultiplier, getSlotTotalMultiplier, getUnitTrainSeconds, getEquipmentCap, getEquipmentPool, getConsumptionRates, getStorageCaps } = require('./game/tick');
 const { simulateBattle } = require('./game/combat');
 const ARMY = require('./game/army');
@@ -122,16 +124,31 @@ function getNeighbors(slotKey) {
   return HEX_NEIGHBORS.map(([dq, dr]) => `${q+dq},${r+dr}`);
 }
 
+/**
+ * SLOT TÜRÜ — hex arazi mi, sur mu, hendek mi, kule köşesi mi?
+ * Savunma yapıları köyün içinde hex kaplamıyor (bkz. game/villageState.js).
+ */
+function slotKind(village, slotKey) {
+  if (slotKey === 'sur' || slotKey === 'hendek') return slotKey;
+  if (village.TOWER_SLOTS.has(slotKey)) return 'kule';
+  return 'hex';
+}
+
 function canBuildAt(village, slotKey, buildingType) {
   if (slotKey === '0,0') return false;
   if (village.villageBuildings[slotKey]) return false;
-  const isTower = village.TOWER_SLOTS.has(slotKey);
-  if (isTower && buildingType !== 'kule') return false;
-  if (!isTower && buildingType === 'kule') return false;
   const def = VILLAGE_DEFS[buildingType];
   if (!def || buildingType === 'anaBina') return false;
+
+  // Her savunma yapısı YALNIZ kendi slotuna, her slot yalnız kendi yapısına
+  const kind = slotKind(village, slotKey);
+  const isDefence = kind !== 'hex';
+  if (isDefence !== (buildingType === kind)) return false;
+
   if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) return false;
-  if (buildingType === 'kule' && Object.values(village.villageBuildings).filter(b => b.type === 'kule').length >= 4) return false;
+  const maxKule = VILLAGE_DEFS.kule?.maxInstances || TOWER_SLOT_NAMES.length;
+  if (buildingType === 'kule'
+    && Object.values(village.villageBuildings).filter(b => b.type === 'kule').length >= maxKule) return false;
   return true;
 }
 
@@ -357,6 +374,7 @@ function buildPayload(village, tickMs, opts = {}) {
       }])
     ),
     towerSlots: [...village.TOWER_SLOTS],
+    wallSlots: WALL_SLOT_NAMES,
     productionRing1: [...village.PRODUCTION_RING_1],
     maxProductionSlots: getMaxProductionSlots(village),
     productionTiles: Object.fromEntries(
