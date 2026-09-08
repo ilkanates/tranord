@@ -1,0 +1,38 @@
+# TraNord oyun sunucusu.
+#
+# 1× hızda dünya sürekli akıyor: servis her zaman ayakta olmalı, çökerse
+# kendiliğinden dönmeli. Durum bellekte tutulup PostgreSQL'e yazıldığı için
+# yeniden başlatma veri kaybı değil; açılışta her köy kendi kayıt zamanından
+# telafi ediliyor (bkz. server/index.js).
+[Unit]
+Description=TraNord oyun sunucusu
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=tranord
+Group=tranord
+WorkingDirectory=/opt/tranord
+EnvironmentFile=/etc/tranord.env
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+# Açılışta NPC tohumlama/telafi biraz sürebiliyor; erken "başarısız" sayılmasın
+TimeoutStartSec=180
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tranord
+
+# Sıkılaştırma — uygulama yalnız kendi dizinini ve /tmp'i görür
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tranord
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
