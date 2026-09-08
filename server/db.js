@@ -5,11 +5,20 @@
 
 const { Pool } = require('pg');
 
+/**
+ * SSL — yalnızca UZAK veritabanında.
+ *
+ * Eski kontrol sadece 'localhost' arıyordu; aynı makinedeki Postgres'e
+ * 127.0.0.1 ile bağlanınca SSL açılıyor, yerel Postgres varsayılan olarak
+ * SSL sunmadığı için bağlantı reddediliyordu. Aynı makine = SSL'e gerek yok,
+ * trafik döngü arayüzünden çıkmıyor.
+ */
+const DB_URL = process.env.DATABASE_URL || '';
+const IS_LOCAL_DB = /@(localhost|127\.0\.0\.1|\[::1\]|::1)[:/]/.test(DB_URL);
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost')
-    ? false
-    : { rejectUnauthorized: false }
+  connectionString: DB_URL,
+  ssl: IS_LOCAL_DB ? false : { rejectUnauthorized: false },
 });
 
 // Tabloları oluştur (ilk çalışmada)
@@ -78,12 +87,27 @@ async function findUserById(id) {
 }
 
 // Köy state'ini yükle
+/**
+ * "BOŞ" STATE = KÖY YOK.
+ *
+ * setPlayerSlot köy satırını state'ten ÖNCE oluşturuyor ve NOT NULL kolonu
+ * '{}' yer tutucusuyla dolduruyor. Bu yer tutucu JS'te truthy olduğu için
+ * çağıran taraf onu gerçek bir kayıt sanıyor, hydrateVillage boş nesneyi köy
+ * diye döndürüyor ve ilk payload'da productionTiles bulunmadığı için sunucu
+ * ÇÖKÜYORDU — üretimde ilk oyuncu bağlantısında. Dev deposunda slot ayrı bir
+ * tabloda durduğu için bu yol hiç görünmedi.
+ */
+function realState(st) {
+  return (st && typeof st === 'object' && st.productionTiles && st.resources)
+    ? st : null;
+}
+
 async function loadVillage(userId) {
   const res = await pool.query(
     'SELECT state FROM villages WHERE user_id = $1',
     [userId]
   );
-  return res.rows[0]?.state || null;
+  return realState(res.rows[0]?.state);
 }
 
 // ─── Dünya haritası ────────────────────────────────────────────────
@@ -166,11 +190,14 @@ async function saveVillage(userId, state) {
 // Tüm köyleri yükle (sunucu başlangıcında offline catch-up için)
 async function loadAllVillages() {
   const res = await pool.query('SELECT user_id, state, updated_at FROM villages');
-  return res.rows.map(row => ({
-    userId: row.user_id,
-    state: row.state,
-    updatedAt: row.updated_at  // JS Date objesi
-  }));
+  // Yer tutucu satırlar (slot alınmış ama köy henüz kaydedilmemiş) atlanır
+  return res.rows
+    .filter(row => realState(row.state))
+    .map(row => ({
+      userId: row.user_id,
+      state: row.state,
+      updatedAt: row.updated_at  // JS Date objesi
+    }));
 }
 
 module.exports = {

@@ -566,7 +566,39 @@ async function bootWorld() {
     ? Math.min(...saved.map(n => (n.updatedAt ? new Date(n.updatedAt).getTime() : Date.now())))
     : null;
   const taken = new Set([...WORLD.playerBySlot.keys()]);
-  const npcSlots = W.pickNpcSlots(WORLD.slots.filter(s => !taken.has(s.key)));
+
+  /**
+   * SLOT SEÇİMİ KAYITLI KÖYLERİ KORUR.
+   *
+   * pickNpcSlots havuz üzerinde sabit adımla seçiyor; bir oyuncu slot kapınca
+   * havuz bir eleman kısalıyor ve seçim TAMAMEN kayıyor. Eskiden bu, her
+   * açılışta kayıtlı NPC'lerin bir bölümünün terk edilip (veritabanında öksüz
+   * satır) yerlerine sıfırdan yeni köy kurulması demekti: ölçüldü — ikinci
+   * açılışta 200 NPC'nin 86'sı yeniden kuruldu, dev verisinde de 200 aktif
+   * slot için 478 kayıt birikmişti. Artık önce KAYITLI slotlar alınıyor (en
+   * son güncellenen önce, yani oynanan dünya), eksik kalan sayı deterministik
+   * seçimden tamamlanıyor.
+   */
+  const savedSorted = [...saved].sort((a, b) => {
+    const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return tb - ta || String(a.slotKey).localeCompare(String(b.slotKey));
+  });
+  const chosen = new Map();
+  for (const rec of savedSorted) {
+    if (chosen.size >= W.NPC_TARGET) break;
+    if (taken.has(rec.slotKey)) continue;             // oyuncu oraya oturmuş
+    const slot = WORLD.slotByKey.get(rec.slotKey);
+    if (slot) chosen.set(rec.slotKey, slot);          // harita yeniden üretildiyse slot yok
+  }
+  if (chosen.size < W.NPC_TARGET) {
+    const free = WORLD.slots.filter(s => !taken.has(s.key) && !chosen.has(s.key));
+    for (const s of W.pickNpcSlots(free, W.NPC_TARGET - chosen.size)) {
+      if (chosen.size >= W.NPC_TARGET) break;
+      chosen.set(s.key, s);
+    }
+  }
+  const npcSlots = [...chosen.values()];
 
   let created = 0, restored = 0;
   for (const slot of npcSlots) {
@@ -1508,8 +1540,16 @@ async function bootServer() {
 
   await bootWorld();
 
-  server.listen(PORT, () => {
-    console.log(`Sunucu: http://localhost:${PORT}`);
+  /**
+   * BAĞLANMA ADRESİ — üretimde yalnız döngü arayüzü.
+   *
+   * Node'un önünde nginx var; port dışarıya açık olmasın diye servis
+   * HOST=127.0.0.1 veriyor. Yerelde varsayılan 0.0.0.0 kalıyor ki aynı ağdaki
+   * telefondan da test edilebilsin.
+   */
+  const HOST = process.env.HOST || '0.0.0.0';
+  server.listen(PORT, HOST, () => {
+    console.log(`Sunucu: http://localhost:${PORT} (bağlanma: ${HOST})`);
     console.log(`[ZAMAN] 1 oyun saati = ${GT.HOUR_SECONDS} gerçek saniye`
       + ` (${(3600 / GT.HOUR_SECONDS).toFixed(2)}× Travian) — TRANORD_HOUR_SECONDS ile değişir`);
     console.log(`[CORS] mod: ${IS_PROD ? 'ÜRETİM' : 'yerel'} (${envReason()})`);
