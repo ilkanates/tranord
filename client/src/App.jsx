@@ -6,6 +6,7 @@ import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
 import { MarchPanel, IncomingAlert } from './components/WarPanel';
 import ReportScreen, { unseenCount } from './components/ReportScreen';
+import LoginScreen from './components/LoginScreen';
 import StatsScreen from './components/StatsScreen';
 import ResourceRail    from './components/ResourceRail';
 import StatusRail      from './components/StatusRail';
@@ -14,31 +15,37 @@ import Icon            from './components/Icons';
 import { computeFlows, extrapolate } from './flows';
 import { C, FONT, btn, label as lbl, num } from './theme';
 
-const SERVER_URL  = import.meta.env.VITE_SERVER_URL  || 'http://localhost:3311';
-const LANDING_URL = import.meta.env.VITE_LANDING_URL || 'http://localhost:5180/dev-login.html';
+/**
+ * SUNUCU ADRESİ — üretimde AYNI ORIGIN.
+ *
+ * Tek sunucuda (nginx + node) istemci ve API aynı adreste duruyor; boş dize
+ * socket.io'yu ve göreli fetch'i sayfanın kendi origin'ine yönlendiriyor,
+ * böylece CORS diye bir mesele kalmıyor. Yerel geliştirmede Vite 5180'de ve
+ * sunucu 3311'de olduğu için adres açıkça yazılıyor.
+ */
+const SERVER_URL = import.meta.env.VITE_SERVER_URL
+  || (import.meta.env.DEV ? 'http://localhost:3311' : '');
 
-// Token: URL param → localStorage → yok
+const TOKEN_KEY = 'tranord_token';
+
+/** Token: URL param → localStorage → yok. Giriş artık oyunun İÇİNDE. */
 function getToken() {
   const urlToken = new URLSearchParams(window.location.search).get('token');
   if (urlToken) {
-    localStorage.setItem('tranord_token', urlToken);
+    localStorage.setItem(TOKEN_KEY, urlToken);
     window.history.replaceState({}, '', window.location.origin + window.location.pathname);
     return urlToken;
   }
-  return localStorage.getItem('tranord_token') || null;
+  return localStorage.getItem(TOKEN_KEY) || null;
 }
 
-const token = getToken();
-if (!token) window.location.href = LANDING_URL;
-
-const socket = io(SERVER_URL, { auth: { token }, reconnectionAttempts: 5 });
-
-socket.on('connect_error', (err) => {
-  if (err.message === 'auth:token_missing' || err.message === 'auth:token_invalid') {
-    localStorage.removeItem('tranord_token');
-    window.location.href = LANDING_URL;
-  }
-});
+function makeSocket(token, onAuthFail) {
+  const s = io(SERVER_URL, { auth: { token }, reconnectionAttempts: 5 });
+  s.on('connect_error', (err) => {
+    if (err.message === 'auth:token_missing' || err.message === 'auth:token_invalid') onAuthFail();
+  });
+  return s;
+}
 
 const TABS = [
   { key: 'harita',    label: 'Harita',           icon: 'harita' },
@@ -56,11 +63,6 @@ function emailFromToken(tok) {
   try { return JSON.parse(atob(tok.split('.')[1])).email || ''; } catch { return ''; }
 }
 
-function logout() {
-  localStorage.removeItem('tranord_token');
-  window.location.href = LANDING_URL;
-}
-
 // ── Üst bar ───────────────────────────────────────────────────────────
 /** "1 oyun saati = X" — çubuğun ne anlama geldiğini yazar */
 function scaleLabel(hourSeconds, mult) {
@@ -70,7 +72,7 @@ function scaleLabel(hourSeconds, mult) {
   return `1 oyun saati = ${s.toFixed(s < 10 ? 1 : 0)} sn`;
 }
 
-function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, badges = {}, hourSeconds = 3600 }) {
+function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600 }) {
   const currentMult = +(1000 / tickMs).toFixed(4);
   const speedIdx = SPEED_STEPS.reduce(
     (best, m, i) => (Math.abs(m - currentMult) < Math.abs(SPEED_STEPS[best] - currentMult) ? i : best), 2
@@ -178,7 +180,7 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, badges = 
             fontFamily: FONT.ui, fontSize: 10, color: C.textFaint,
             maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{userEmail}</span>
-          <button onClick={logout} title="Çıkış"
+          <button onClick={onLogout} title="Çıkış"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'grid' }}>
             <Icon name="cikis" size={15} color={C.textMute} />
           </button>
@@ -188,8 +190,12 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, badges = 
   );
 }
 
-// ── Uygulama ──────────────────────────────────────────────────────────
-export default function App() {
+// ── Oyun ──────────────────────────────────────────────────────────────
+function Game({ token, onLogout }) {
+  // Socket token'a bağlı: çıkış yapıp başka hesapla girince yenisi kurulur
+  const socket = useMemo(() => makeSocket(token, onLogout), [token, onLogout]);
+  useEffect(() => () => socket.close(), [socket]);
+
   /**
    * SUNUCU DOĞRUSU vs EKRANDAKİ DEĞER.
    *
@@ -281,7 +287,7 @@ export default function App() {
   return (
     <>
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
-        userEmail={userEmail} connected={connected}
+        userEmail={userEmail} connected={connected} onLogout={onLogout}
         badges={{ raporlar: unseenCount(village.reports || []) }}
         hourSeconds={village.marchInfo?.hourSeconds || 3600} />
 
@@ -449,4 +455,21 @@ export default function App() {
       </main>
     </>
   );
+}
+
+/**
+ * KÖK — token yoksa giriş ekranı, varsa oyun.
+ *
+ * Giriş eskiden ayrı bir siteye (Cloudflare Pages'teki landing) yönlendirmeyle
+ * yapılıyordu; oyun tek sunucuda servis edileceği için o ayrı parçaya gerek
+ * kalmadı ve senkron tutulacak bir yer eksildi.
+ */
+export default function App() {
+  const [token, setToken] = useState(() => getToken());
+
+  const onToken = (t) => { localStorage.setItem(TOKEN_KEY, t); setToken(t); };
+  const onLogout = () => { localStorage.removeItem(TOKEN_KEY); setToken(null); };
+
+  if (!token) return <LoginScreen serverUrl={SERVER_URL} onToken={onToken} />;
+  return <Game token={token} onLogout={onLogout} />;
 }
