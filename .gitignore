@@ -41,3 +41,12 @@ Thumbs.db
 coverage/
 *.lcov
 .nyc_output/
+
+# Yerel gelistirme verisi — hesap sifre hash'i ve 1.7 MB dunya kaydi icerir,
+# repoya girmemeli. Silinirse sunucu ilk acilista yeniden olusturur.
+server/.dev-data.json
+*.dev-data.json
+
+# Gecici aktarim paketleri ve arac ciktilari
+*.tar.gz
+Claude outputs/
