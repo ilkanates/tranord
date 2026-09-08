@@ -192,9 +192,23 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
 
 // ── Oyun ──────────────────────────────────────────────────────────────
 function Game({ token, onLogout }) {
-  // Socket token'a bağlı: çıkış yapıp başka hesapla girince yenisi kurulur
-  const socket = useMemo(() => makeSocket(token, onLogout), [token, onLogout]);
-  useEffect(() => () => socket.close(), [socket]);
+  /**
+   * Socket token'a bağlı: çıkış yapıp başka hesapla girince yenisi kurulur.
+   *
+   * DİKKAT — socket'i efekt temizliğinde KAPATMAYIN. StrictMode geliştirmede
+   * efektleri mount → temizlik → mount diye iki kez çalıştırıyor; temizlikte
+   * çağrılan socket.close() bağlantıyı kesmekle kalmıyor, yeniden bağlanmayı
+   * da kapatıyor. Sonuç: sunucu CONNECT'in hemen ardından DISCONNECT görüyor,
+   * istemci hiç paket alamıyor ve "fiyorda bağlanıyor…" ekranında kalıyor.
+   * Kapatma yalnızca AÇIK bir çıkışta yapılır (handleLogout).
+   */
+  const logoutRef = useRef(onLogout);
+  logoutRef.current = onLogout;
+  const socket = useMemo(() => makeSocket(token, () => logoutRef.current()), [token]);
+  const handleLogout = () => {
+    try { socket.close(); } catch { /* zaten kapalı */ }
+    logoutRef.current();
+  };
 
   /**
    * SUNUCU DOĞRUSU vs EKRANDAKİ DEĞER.
@@ -287,7 +301,7 @@ function Game({ token, onLogout }) {
   return (
     <>
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
-        userEmail={userEmail} connected={connected} onLogout={onLogout}
+        userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []) }}
         hourSeconds={village.marchInfo?.hourSeconds || 3600} />
 
