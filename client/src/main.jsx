@@ -1,10 +1,22 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
+import { installFatalHandler, showFatal, ErrorBoundary } from './ErrorScreen.jsx'
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+installFatalHandler()
+
+const root = createRoot(document.getElementById('root'))
+
+// App DİNAMİK import: modül yüklenirken atılan bir hata (TDZ, eksik export…)
+// böylece .catch'e düşüp ekranda görünür — siyah ekranda kalmaz.
+import('./App.jsx')
+  .then(({ default: App }) => {
+    root.render(
+      <StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </StrictMode>,
+    )
+  })
+  .catch(showFatal)

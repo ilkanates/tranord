@@ -1,54 +1,32 @@
+/* TraNord — temel katman. Renkler theme.js'te; burada yalnızca reset + global davranış. */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  color-scheme: dark;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --tn-abyss: #050a12;
+  --tn-bg: #0b1725;
+  --tn-line: rgba(45, 76, 115, 0.45);
+  --tn-ice: #7fd4ff;
+  --tn-ice-deep: #3d9fd6;
+  --tn-text: #cfe0f0;
+  --tn-text-faint: #59748f;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  --tn-head: 'Cormorant Garamond', Garamond, Georgia, serif;
+  --tn-ui: 'Jost', 'Segoe UI', system-ui, sans-serif;
+
+  font-family: var(--tn-ui);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--tn-text);
+  background: var(--tn-abyss);
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
+* { box-sizing: border-box; }
 
 html, body, #root {
   margin: 0;
@@ -57,57 +35,106 @@ html, body, #root {
   height: 100%;
 }
 
-body {
+/* Sayfa asla kaymaz — tüm kaydırma iç panellerde olur. */
+html, body {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #root {
-  min-height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+  overflow: hidden;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
+h1, h2, h3, h4 {
+  font-family: var(--tn-head);
+  font-weight: 600;
   margin: 0;
+  letter-spacing: 1.5px;
+  color: #dceefc;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
+p { margin: 0; }
+
+button { font-family: var(--tn-ui); }
+button:focus-visible,
+input:focus-visible {
+  outline: 1px solid var(--tn-ice);
+  outline-offset: 1px;
+}
+
+/* ── İnce nordic kaydırma çubuğu ─────────────────────────────── */
+.tn-scroll { scrollbar-width: thin; scrollbar-color: rgba(61,159,214,0.45) transparent; }
+.tn-scroll::-webkit-scrollbar { width: 7px; height: 7px; }
+.tn-scroll::-webkit-scrollbar-track { background: transparent; }
+.tn-scroll::-webkit-scrollbar-thumb {
+  background: rgba(61, 159, 214, 0.35);
   border-radius: 4px;
-  color: var(--text-h);
 }
+.tn-scroll::-webkit-scrollbar-thumb:hover { background: rgba(127, 212, 255, 0.55); }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* ── Range input — buz mavisi ────────────────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(61,159,214,0.55), rgba(45,76,115,0.5));
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px; height: 13px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: #a8e2ff;
+  border: 1px solid #1d3351;
+  box-shadow: 0 0 6px rgba(127, 212, 255, 0.5);
+}
+input[type='range']::-moz-range-track {
+  height: 4px; border-radius: 3px;
+  background: rgba(45, 76, 115, 0.5);
+}
+input[type='range']::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #a8e2ff; border: 1px solid #1d3351;
+}
+input[type='range']:disabled::-webkit-slider-thumb { background: #3f5670; box-shadow: none; }
+
+/* ── Yardımcılar ─────────────────────────────────────────────── */
+@keyframes tn-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.tn-pulse { animation: tn-pulse 1.6s ease-in-out infinite; }
+
+@keyframes tn-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tn-rise { animation: tn-rise 0.18s ease-out; }
+
+/* Asker kartı — üzerine gelince yaklaşır. Ordu sekmesindeki kartlar için;
+   eğitim panelindeki kartlar sınıf rengini gölgeye kattığı için kendi JS
+   hover'ını kullanıyor. */
+.tn-card {
+  position: relative;
+  transition: transform .13s ease-out, box-shadow .13s ease-out, border-color .13s;
+}
+.tn-card:hover {
+  transform: scale(1.04);
+  z-index: 5;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+}
+/* Tıklama anında yakınlaştırma geri alınır — detay penceresi açılırken
+   kartın büyümüş hâlde takılı kalması hoş durmuyordu. */
+.tn-card:active {
+  transform: none;
+  box-shadow: none;
 }

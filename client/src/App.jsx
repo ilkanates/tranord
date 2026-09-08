@@ -1,41 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
-import ResourceBar    from './components/ResourceBar';
-import ProductionArea from './components/ProductionArea';
-import VillageCenter  from './components/VillageCenter';
-import ArmyPanel      from './components/ArmyPanel';
+import MapView         from './components/MapView';
+import VillageCenter   from './components/VillageCenter';
+import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
+import { MarchPanel, IncomingAlert } from './components/WarPanel';
+import ReportScreen, { unseenCount } from './components/ReportScreen';
+import StatsScreen from './components/StatsScreen';
+import ResourceRail    from './components/ResourceRail';
+import StatusRail      from './components/StatusRail';
+import NordicBackdrop  from './components/NordicBackdrop';
+import Icon            from './components/Icons';
+import { computeFlows } from './flows';
+import { C, FONT, btn, label as lbl, num } from './theme';
 
-const SERVER_URL   = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-const LANDING_URL  = import.meta.env.VITE_LANDING_URL || 'http://localhost:8080';
+const SERVER_URL  = import.meta.env.VITE_SERVER_URL  || 'http://localhost:3311';
+const LANDING_URL = import.meta.env.VITE_LANDING_URL || 'http://localhost:5180/dev-login.html';
 
 // Token: URL param → localStorage → yok
 function getToken() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlToken  = urlParams.get('token');
+  const urlToken = new URLSearchParams(window.location.search).get('token');
   if (urlToken) {
     localStorage.setItem('tranord_token', urlToken);
-    // Token'ı URL'den temizle (güvenlik)
-    const clean = window.location.origin + window.location.pathname;
-    window.history.replaceState({}, '', clean);
+    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
     return urlToken;
   }
   return localStorage.getItem('tranord_token') || null;
 }
 
 const token = getToken();
+if (!token) window.location.href = LANDING_URL;
 
-// Token yoksa landing site'a yönlendir
-if (!token) {
-  window.location.href = LANDING_URL;
-}
+const socket = io(SERVER_URL, { auth: { token }, reconnectionAttempts: 5 });
 
-const socket = io(SERVER_URL, {
-  auth: { token },
-  reconnectionAttempts: 5
-});
-
-// Auth hatası: token geçersiz → landing site'a yönlendir
 socket.on('connect_error', (err) => {
   if (err.message === 'auth:token_missing' || err.message === 'auth:token_invalid') {
     localStorage.removeItem('tranord_token');
@@ -44,18 +41,19 @@ socket.on('connect_error', (err) => {
 });
 
 const TABS = [
-  { key: 'uretim',    label: 'Üretim Alanı' },
-  { key: 'koy',       label: 'Köy Merkezi' },
-  { key: 'ordu',      label: 'Ordu' },
-  { key: 'simulator', label: 'Savaş Simülatörü' },
-  { key: 'harita',    label: 'Dünya Haritası' }
+  { key: 'harita',    label: 'Harita',           icon: 'harita' },
+  { key: 'koy',       label: 'Köy Merkezi',      icon: 'koy' },
+  { key: 'ordu',      label: 'Ordu',             icon: 'ordu' },
+  { key: 'raporlar',  label: 'Raporlar',         icon: 'savas' },
+  { key: 'istatistik', label: 'İstatistik',      icon: 'bonus' },
+  { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilic' },
 ];
 
-// Token payload'dan email oku (JWT'nin ikinci kısmı base64)
-function getEmailFromToken(tok) {
-  try {
-    return JSON.parse(atob(tok.split('.')[1])).email || '';
-  } catch { return ''; }
+const SPEED_STEPS = [0.1, 0.5, 1, 2, 4, 8, 16, 32, 64, 128];
+const RAIL_W = 186;   // sol/sağ ray genişliği — üst bar ve popover kaçınması bunu kullanır
+
+function emailFromToken(tok) {
+  try { return JSON.parse(atob(tok.split('.')[1])).email || ''; } catch { return ''; }
 }
 
 function logout() {
@@ -63,219 +61,365 @@ function logout() {
   window.location.href = LANDING_URL;
 }
 
-export default function App() {
-  const [village, setVillage] = useState(null);
-  const [tab, setTab]         = useState('uretim');
-  const userEmail             = getEmailFromToken(token || '');
+// ── Üst bar ───────────────────────────────────────────────────────────
+/** "1 oyun saati = X" — çubuğun ne anlama geldiğini yazar */
+function scaleLabel(hourSeconds, mult) {
+  const s = (hourSeconds || 3600) / (mult || 1);
+  if (s >= 3600) return `1 oyun saati = ${(s / 3600).toFixed(s % 3600 ? 1 : 0)} sa`;
+  if (s >= 60) return `1 oyun saati = ${(s / 60).toFixed(s % 60 ? 1 : 0)} dk`;
+  return `1 oyun saati = ${s.toFixed(s < 10 ? 1 : 0)} sn`;
+}
 
-  useEffect(() => {
-    socket.on('village_update', setVillage);
-    return () => socket.off('village_update');
-  }, []);
-
-  if (!village) {
-    return <div style={{ color: '#e8d4a0', padding: '40px', fontFamily: 'Georgia' }}>Bağlanıyor...</div>;
-  }
-
-  // Üretim alanı (hex grid) event'leri
-  const buildProduction         = (slot, type, workers) => socket.emit('build_production',          { slotKey: slot, type, workers });
-  const upgradeProduction       = (slot, workers)       => socket.emit('upgrade_production',        { slotKey: slot, workers });
-  const demolishProduction      = (slot)                => socket.emit('demolish_production',       { slotKey: slot });
-  const assignProductionWorkers = (slot, workers)       => socket.emit('assign_production_workers', { slotKey: slot, workers });
-
-  // Köy merkezi event'leri
-  const buildVillage          = (slot, type, workers) => socket.emit('build_village',          { slotKey: slot, buildingType: type, workers });
-  const upgradeVillage        = (slot, workers)       => socket.emit('upgrade_village',        { slotKey: slot, workers });
-  const demolishVillage       = (slot)                => socket.emit('demolish_village',       { slotKey: slot });
-  const assignVillageWorkers  = (slot, workers)       => socket.emit('assign_village_workers', { slotKey: slot, workers });
-
-  // Ekipman kuyruğu event'leri
-  const queueEquipment  = (buildingType, equipmentType, quantity) =>
-    socket.emit('queue_equipment', { buildingType, equipmentType, quantity });
-  const cancelEquipment = (buildingType, orderId) =>
-    socket.emit('cancel_equipment_order', { buildingType, orderId });
-
-  // Birim eğitim event'leri
-  const trainUnit = (buildingType, unitType, quantity) =>
-    socket.emit('train_unit', { buildingType, unitType, quantity });
-  const cancelUnitOrder = (buildingType, orderId) =>
-    socket.emit('cancel_unit_order', { buildingType, orderId });
-
-  // Hız ayarı — sabit adımlar: 0.1×, 0.5×, 1×, 2×, 4×, 8×
-  const SPEED_STEPS = [0.1, 0.5, 1, 2, 4, 8, 16, 32, 64, 128];
-  const setSpeed = (ms) => socket.emit('set_speed', { tickMs: ms });
-  const tickMs   = village.tickMs || 1000;
+function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, badges = {}, hourSeconds = 3600 }) {
   const currentMult = +(1000 / tickMs).toFixed(4);
-  const speedIdx = (() => {
-    let best = 2; // default: 1×
-    let bestDiff = Infinity;
-    SPEED_STEPS.forEach((m, i) => {
-      const diff = Math.abs(m - currentMult);
-      if (diff < bestDiff) { bestDiff = diff; best = i; }
-    });
-    return best;
-  })();
+  const speedIdx = SPEED_STEPS.reduce(
+    (best, m, i) => (Math.abs(m - currentMult) < Math.abs(SPEED_STEPS[best] - currentMult) ? i : best), 2
+  );
 
   return (
-    <div style={{
-      background: '#0d1117', height: '100vh',
-      color: '#e8d4a0', fontFamily: 'Georgia',
-      display: 'flex', flexDirection: 'column'
+    <header style={{
+      flexShrink: 0, zIndex: 20, position: 'relative',
+      display: 'flex', alignItems: 'stretch',
+      background: 'linear-gradient(180deg, rgba(9,15,21,0.55) 0%, rgba(12,20,28,0.32) 100%)',
+      borderBottom: `1px solid ${C.lineSoft}`,
+      backdropFilter: 'blur(16px) saturate(1.15)',
+      WebkitBackdropFilter: 'blur(16px) saturate(1.15)',
+      boxShadow: '0 2px 20px rgba(0,0,0,0.35)',
     }}>
-
+      {/* Marka */}
       <div style={{
-        background: '#1a1208', padding: '8px 20px',
-        borderBottom: '2px solid #3a2808',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexShrink: 0
+        width: RAIL_W, flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: 9,
+        padding: '10px 14px',
+        borderRight: `1px solid ${C.lineSoft}`,
       }}>
-        <div style={{ flex: 1, fontSize: '11px', color: '#5a6a48', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {userEmail}
-        </div>
-        <span style={{ color: '#c8a44a', fontSize: '18px', letterSpacing: '3px' }}>
-          ⚔ TRANORD ⚔
-        </span>
-        <div style={{
-          flex: 1, display: 'flex', alignItems: 'center',
-          justifyContent: 'flex-end', gap: '8px',
-          fontSize: '11px', color: '#8a7a4a'
-        }}>
-          <span>Hız:</span>
-          <input
-            type="range"
-            min={0}
-            max={SPEED_STEPS.length - 1}
-            step={1}
-            value={speedIdx}
-            onChange={e => {
-              const mult = SPEED_STEPS[Number(e.target.value)];
-              setSpeed(Math.round(1000 / mult));
-            }}
-            style={{ width: '120px', accentColor: '#c8a44a' }}
-            title={`${SPEED_STEPS[speedIdx]}× hız`}
-          />
-          <span style={{
-            color: '#c8a44a', minWidth: '40px', textAlign: 'right',
-            fontFamily: 'monospace'
-          }}>
-            {SPEED_STEPS[speedIdx]}×
-          </span>
-          <button
-            onClick={() => setSpeed(1000)}
-            style={{
-              background: 'transparent', border: '1px solid #3a2808',
-              color: '#8a7a4a', padding: '2px 8px', fontSize: '10px',
-              cursor: 'pointer', borderRadius: '2px'
-            }}
-            title="1× (varsayılan)"
-          >1×</button>
-          <button
-            onClick={logout}
-            style={{
-              background: 'transparent', border: '1px solid #3a2808',
-              color: '#5a4a2a', padding: '2px 8px', fontSize: '10px',
-              cursor: 'pointer', borderRadius: '2px', marginLeft: '8px'
-            }}
-            title="Çıkış yap"
-          >Çıkış</button>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+          stroke={C.ice} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z" />
+          <path d="M12 7.5 16 10v4l-4 2.5L8 14v-4z" opacity=".7" />
+        </svg>
+        <div style={{ lineHeight: 1 }}>
+          <div style={{
+            fontFamily: FONT.head, fontSize: 19, fontWeight: 700,
+            letterSpacing: 4, color: C.frost,
+          }}>TRANORD</div>
+          <div style={lbl({ fontSize: 7.5, letterSpacing: 2, marginTop: 3 })}>fiyort krallığı</div>
         </div>
       </div>
 
-      <ResourceBar
-        resources={village.resources}
-        productionPerHour={village.productionPerHour}
-        depotCapacities={village.depotCapacities || {}}
-        granaryCapacity={village.granaryCapacity || 0}
-        processingRates={village.processingRates || {}}
-        freeWorkers={village.freeWorkers}
-        population={village.population}
-        maxPopulation={village.maxPopulation}
-        populationGrowthRate={village.populationGrowthRate || 0}
-        equipment={village.equipment || {}}
-        equipmentCaps={village.equipmentCaps || {}}
-        consumption={village.consumption || {}}
-        isStarving={village.isStarving || false}
-      />
+      {/* Sekmeler */}
+      <nav className="tn-scroll"
+        style={{ flex: 1, display: 'flex', alignItems: 'stretch', paddingLeft: 6, minWidth: 0, overflowX: 'auto' }}>
+        {TABS.map(t => {
+          const on = tab === t.key;
+          return (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '0 15px', border: 'none', background: 'transparent',
+                borderBottom: `2px solid ${on ? C.ice : 'transparent'}`,
+                color: on ? C.frost : C.textFaint,
+                fontFamily: FONT.head, fontSize: 13.5, fontWeight: on ? 600 : 500,
+                letterSpacing: 1.1, cursor: 'pointer', whiteSpace: 'nowrap',
+                transition: 'color .14s, border-color .14s, background .14s',
+                ...(on ? { background: 'linear-gradient(180deg, rgba(127,212,255,0.03), rgba(127,212,255,0.11))' } : {}),
+              }}
+              onMouseOver={(e) => { if (!on) e.currentTarget.style.color = C.textDim; }}
+              onMouseOut={(e) => { if (!on) e.currentTarget.style.color = C.textFaint; }}
+            >
+              <Icon name={t.icon} size={15} color={on ? C.ice : C.textMute} />
+              {t.label}
+              {/* Okunmamış rapor sayacı — sekmeyi açınca sıfırlanır */}
+              {badges[t.key] > 0 && (
+                <span style={{
+                  minWidth: 17, height: 17, padding: '0 4px', borderRadius: 9,
+                  display: 'inline-grid', placeItems: 'center',
+                  background: C.danger, color: '#1a0508',
+                  fontFamily: FONT.num, fontSize: 10, fontWeight: 700, lineHeight: 1,
+                }}>{badges[t.key] > 99 ? '99+' : badges[t.key]}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
 
+      {/* Hız + kullanıcı */}
       <div style={{
-        background: '#0f0c06',
-        borderBottom: '1px solid #2a1808',
-        display: 'flex', padding: '0 16px', flexShrink: 0
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '0 14px', flexShrink: 0,
+        borderLeft: `1px solid ${C.lineSoft}`,
       }}>
-        {TABS.map(({ key, label }) => (
-          <div
-            key={key}
-            onClick={() => setTab(key)}
-            style={{
-              padding: '8px 16px', cursor: 'pointer', fontSize: '12px',
-              color: tab === key ? '#c8a44a' : '#5a6a48',
-              borderBottom: `2px solid ${tab === key ? '#c8a44a' : 'transparent'}`,
-              transition: 'all 0.15s'
-            }}
-          >
-            {label}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="hiz" size={14} color={C.iceDeep} />
+          <input type="range" min={0} max={SPEED_STEPS.length - 1} step={1} value={speedIdx}
+            onChange={(e) => setSpeed(Math.round(1000 / SPEED_STEPS[Number(e.target.value)]))}
+            style={{ width: 96 }}
+            title={`${SPEED_STEPS[speedIdx]}× hız`} />
+          <div style={{ minWidth: 96 }}>
+            <div style={num({ fontSize: 12, color: C.iceSoft, lineHeight: 1.1 })}>
+              {SPEED_STEPS[speedIdx]}×
+            </div>
+            <div style={{ fontFamily: FONT.ui, fontSize: 8, color: C.textMute, whiteSpace: 'nowrap' }}>
+              {scaleLabel(hourSeconds, SPEED_STEPS[speedIdx])}
+            </div>
           </div>
-        ))}
-      </div>
+          <button onClick={() => setSpeed(1000)} style={btn('ghost', { padding: '3px 7px', fontSize: 9 })}>1×</button>
+        </div>
 
-      {tab === 'uretim' && (
-        <ProductionArea
-          productionTiles={village.productionTiles || {}}
-          productionRing1={village.productionRing1 || []}
-          maxProductionSlots={village.maxProductionSlots || 6}
-          anaBina={village.villageBuildings?.['0,0']}
-          freeWorkers={village.freeWorkers}
-          resources={village.resources}
-          onBuild={buildProduction}
-          onUpgrade={upgradeProduction}
-          onDemolish={demolishProduction}
-          onAssignWorkers={assignProductionWorkers}
-          onUpgradeAnaBina={(workers) => upgradeVillage('0,0', workers)}
-          onEnterVillageCenter={() => setTab('koy')}
-        />
-      )}
-      {tab === 'koy' && (
-        <VillageCenter
-          villageBuildings={village.villageBuildings || {}}
-          towerSlots={village.towerSlots || []}
-          freeWorkers={village.freeWorkers}
-          resources={village.resources}
-          processingRates={village.processingRates || {}}
-          equipment={village.equipment || {}}
-          equipmentQueues={village.equipmentQueues || {}}
-          equipmentByBuilding={village.equipmentByBuilding || {}}
-          equipmentDefs={village.equipmentDefs || {}}
-          unitQueues={village.unitQueues || {}}
-          unitsByBuilding={village.unitsByBuilding || {}}
-          unitDefs={village.unitDefs || {}}
-          onBuild={buildVillage}
-          onUpgrade={upgradeVillage}
-          onDemolish={demolishVillage}
-          onAssignVillageWorkers={assignVillageWorkers}
-          onQueueEquipment={queueEquipment}
-          onCancelEquipment={cancelEquipment}
-          onTrainUnit={trainUnit}
-          onCancelUnitOrder={cancelUnitOrder}
-        />
-      )}
-      {tab === 'ordu' && (
-        <ArmyPanel
-          army={village.army || {}}
-          unitDefs={village.unitDefs || {}}
-          equipmentDefs={village.equipmentDefs || {}}
-        />
-      )}
-      {tab === 'simulator' && (
-        <BattleSimulator
-          socket={socket}
-          unitDefs={village.unitDefs || {}}
-        />
-      )}
-      {tab === 'harita' && (
-        <div style={{ padding: '40px', color: '#5a6a48', textAlign: 'center' }}>
-          Dünya Haritası — yakında
+        <div style={{ width: 1, alignSelf: 'stretch', background: C.lineSoft, margin: '10px 0' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: 3, flexShrink: 0,
+            background: connected ? C.good : C.danger,
+            boxShadow: `0 0 6px ${connected ? C.good : C.danger}`,
+          }} />
+          <span style={{
+            fontFamily: FONT.ui, fontSize: 10, color: C.textFaint,
+            maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{userEmail}</span>
+          <button onClick={logout} title="Çıkış"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'grid' }}>
+            <Icon name="cikis" size={15} color={C.textMute} />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ── Uygulama ──────────────────────────────────────────────────────────
+export default function App() {
+  const [village, setVillage] = useState(null);
+  const [tab, setTab] = useState('harita');
+  const [connected, setConnected] = useState(socket.connected);
+  const userEmail = emailFromToken(token || '');
+
+  useEffect(() => {
+    const onUpdate = (v) => setVillage(v);
+    const onConn = () => setConnected(true);
+    const onDisc = () => setConnected(false);
+    socket.on('village_update', onUpdate);
+    socket.on('connect', onConn);
+    socket.on('disconnect', onDisc);
+    return () => {
+      socket.off('village_update', onUpdate);
+      socket.off('connect', onConn);
+      socket.off('disconnect', onDisc);
+    };
+  }, []);
+
+  const flows = useMemo(() => (village ? computeFlows(village) : {}), [village]);
+
+  if (!village) {
+    return (
+      <div style={{ position: 'relative', height: '100dvh', background: C.abyss }}>
+        <NordicBackdrop dim={0.2} />
+        <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', placeItems: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              fontFamily: FONT.head, fontSize: 34, fontWeight: 700,
+              letterSpacing: 9, color: C.frost,
+            }}>TRANORD</div>
+            <div className="tn-pulse" style={{
+              fontFamily: FONT.ui, fontSize: 11, letterSpacing: 3,
+              color: C.iceDeep, marginTop: 10, textTransform: 'uppercase',
+            }}>fiyorda bağlanıyor…</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const buildProduction         = (slotKey, type, workers) => socket.emit('build_production',          { slotKey, type, workers });
+  const upgradeProduction       = (slotKey, workers)       => socket.emit('upgrade_production',        { slotKey, workers });
+  const demolishProduction      = (slotKey)                => socket.emit('demolish_production',       { slotKey });
+  const assignProductionWorkers = (slotKey, workers)       => socket.emit('assign_production_workers', { slotKey, workers });
+
+  const buildVillage         = (slotKey, buildingType, workers) => socket.emit('build_village',          { slotKey, buildingType, workers });
+  const upgradeVillage       = (slotKey, workers)               => socket.emit('upgrade_village',        { slotKey, workers });
+  const demolishVillage      = (slotKey)                        => socket.emit('demolish_village',       { slotKey });
+  const assignVillageWorkers = (slotKey, workers)               => socket.emit('assign_village_workers', { slotKey, workers });
+  const cancelProductionBuild = (slotKey) => socket.emit('cancel_production_build', { slotKey });
+  const cancelVillageBuild    = (slotKey) => socket.emit('cancel_village_build',    { slotKey });
+
+  const queueEquipment  = (buildingType, equipmentType, quantity) => socket.emit('queue_equipment', { buildingType, equipmentType, quantity });
+  const cancelEquipment = (buildingType, orderId) => socket.emit('cancel_equipment_order', { buildingType, orderId });
+  const trainUnit       = (buildingType, unitType, quantity) => socket.emit('train_unit', { buildingType, unitType, quantity });
+  const cancelUnitOrder = (buildingType, orderId) => socket.emit('cancel_unit_order', { buildingType, orderId });
+  const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
+
+  const tickMs = village.tickMs || 1000;
+
+  return (
+    <>
+      <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
+        userEmail={userEmail} connected={connected}
+        badges={{ raporlar: unseenCount(village.reports || []) }}
+        hourSeconds={village.marchInfo?.hourSeconds || 3600} />
+
+      {/* Gelen saldırı: hangi sekmede olursam olayım görünür. Ordu sekmesinde
+          uyarı listenin başında zaten var, orada tekrar etmesin. */}
+      {tab !== 'ordu' && (village.incoming || []).length > 0 && (
+        <div onClick={() => setTab('ordu')} style={{
+          position: 'fixed', top: 62, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 900, width: 'min(420px, 90vw)', cursor: 'pointer',
+        }} title="Ordu sekmesine git">
+          <IncomingAlert incoming={village.incoming} />
         </div>
       )}
-    </div>
+
+      <main style={{
+        flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden',
+        background: C.abyss,
+      }}>
+        {/* MANZARA — en arkada, tüm genişlik */}
+        {/* Harita sekmesinde manzara YOK — arazi hex'leri zemin */}
+        {tab !== 'harita' && (
+          <NordicBackdrop
+            variant={tab === 'koy' ? 'courtyard' : 'fjord'}
+            dim={tab === 'koy' ? 0.28 : 0.38}
+          />
+        )}
+
+        {/* SAHNE — tam genişlik: harita rayların ALTINA kadar uzanır */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+          {tab === 'harita' && (
+            <MapView
+              socket={socket}
+              world={village.world}
+              productionTiles={village.productionTiles || {}}
+              maxProductionSlots={village.maxProductionSlots || 6}
+              anaBina={village.villageBuildings?.['0,0']}
+              freeWorkers={village.freeWorkers}
+              resources={village.resources}
+              flows={flows}
+              railInset={RAIL_W + 8}
+              myArmy={Object.values(village.army || {}).reduce((a, b) => a + b, 0)}
+              army={village.army || {}}
+              unitDefs={village.unitDefs || {}}
+              intel={village.intel || {}}
+              marchInfo={village.marchInfo || {}}
+              onBuild={buildProduction}
+              onUpgrade={upgradeProduction}
+              onDemolish={demolishProduction}
+              onAssignWorkers={assignProductionWorkers}
+              onCancelBuild={(area, slotKey) => (area === 'production'
+                ? cancelProductionBuild(slotKey)
+                : cancelVillageBuild(slotKey))}
+              onUpgradeAnaBina={(w) => upgradeVillage('0,0', w)}
+              onEnterVillageCenter={() => setTab('koy')}
+            />
+          )}
+
+          {tab === 'koy' && (
+            <VillageCenter
+              villageBuildings={village.villageBuildings || {}}
+              towerSlots={village.towerSlots || []}
+              freeWorkers={village.freeWorkers}
+              resources={village.resources}
+              processingRates={village.processingRates || {}}
+              flows={flows}
+              railInset={RAIL_W + 8}
+              equipment={village.equipment || {}}
+              equipmentCaps={village.equipmentCaps || {}}
+              equipmentPool={village.equipmentPool || { capacity: 0, used: 0, free: 0 }}
+              equipmentQueues={village.equipmentQueues || {}}
+              equipmentByBuilding={village.equipmentByBuilding || {}}
+              equipmentDefs={village.equipmentDefs || {}}
+              unitQueues={village.unitQueues || {}}
+              unitsByBuilding={village.unitsByBuilding || {}}
+              unitDefs={village.unitDefs || {}}
+              onBuild={buildVillage}
+              onUpgrade={upgradeVillage}
+              onDemolish={demolishVillage}
+              onAssignVillageWorkers={assignVillageWorkers}
+              onCancelBuild={cancelVillageBuild}
+              onQueueEquipment={queueEquipment}
+              onCancelEquipment={cancelEquipment}
+              onTrainUnit={trainUnit}
+              onCancelUnitOrder={cancelUnitOrder}
+            />
+          )}
+
+          {tab === 'ordu' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+            }}>
+              <div style={{ maxWidth: 1240, margin: '0 auto', paddingTop: 12 }}>
+                <IncomingAlert incoming={village.incoming || []} />
+                <MarchPanel
+                  marches={village.marches || []}
+                  incoming={village.incoming || []}
+                  unitDefs={village.unitDefs || {}}
+                  maxMarches={village.marchInfo?.maxMarches || 8} />
+              </div>
+              <ArmyPanel
+                army={village.army || {}}
+                unitDefs={village.unitDefs || {}}
+                equipmentDefs={village.equipmentDefs || {}}
+              />
+            </div>
+          )}
+
+          {tab === 'raporlar' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+            }}>
+              <ReportScreen
+                reports={village.reports || []}
+                unitDefs={village.unitDefs || {}} />
+            </div>
+          )}
+
+          {tab === 'istatistik' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+            }}>
+              <StatsScreen socket={socket} />
+            </div>
+          )}
+
+          {tab === 'simulator' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+            }}>
+              <BattleSimulator socket={socket} unitDefs={village.unitDefs || {}} army={village.army || {}} />
+            </div>
+          )}
+        </div>
+
+        {/* SOL RAY — sahnenin üstünde yüzen cam panel */}
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 6, display: 'flex' }}>
+          <ResourceRail flows={flows} isStarving={village.isStarving} />
+        </div>
+
+        {/* SAĞ RAY */}
+        <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 6, display: 'flex' }}>
+          <StatusRail
+            population={village.population}
+            maxPopulation={village.maxPopulation}
+            freeWorkers={village.freeWorkers}
+            populationGrowthRate={village.populationGrowthRate || 0}
+            isStarving={village.isStarving || false}
+            consumption={village.consumption || {}}
+            equipment={village.equipment || {}}
+            equipmentCaps={village.equipmentCaps || {}}
+            equipmentPool={village.equipmentPool || { capacity: 0, used: 0, free: 0 }}
+            buildQueue={village.buildQueue || []}
+            onCancelBuild={(item) => (item.area === 'production'
+              ? cancelProductionBuild(item.slotKey)
+              : cancelVillageBuild(item.slotKey))}
+            army={village.army || {}}
+            unitDefs={village.unitDefs || {}}
+            tickMs={tickMs}
+          />
+        </div>
+      </main>
+    </>
   );
 }

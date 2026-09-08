@@ -1,458 +1,511 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import VILLAGE_DEFS from '../data/villageDefs';
+import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
+import { RES_LABEL } from '../flows';
+import Icon, { buildingIcon } from './Icons';
+import WorkerAssign from './WorkerAssign';
+import { popHeader, popCols, popCol } from './popoverStyle';
 
-const CATEGORY_LABELS = {
-  isleme:   '⚗️ İşleme',
-  askeri:   '⚔️ Askeri',
-  depo:     '📦 Depo',
-  ekonomik: '💰 Ekonomik',
-  nufus:    '👥 Nüfus',
-  savunma:  '🛡 Savunma'
+const CAT_LABEL = {
+  isleme: 'İşleme', askeri: 'Askeri', depo: 'Depo',
+  ekonomik: 'Ekonomik', nufus: 'Nüfus', savunma: 'Savunma',
 };
-const CATEGORY_ORDER = ['isleme', 'askeri', 'depo', 'ekonomik', 'nufus', 'savunma'];
-
-const RES_EMOJI = {
-  odun:'🪵', kil:'🟫', tas:'🪨', demir:'⛏️', tahil:'🌾',
-  kereste:'🪚', tugla:'🧱', yontmaTas:'🏗️', demirKulce:'🔨',
-  un:'🌕', ekmek:'🍞'
-};
-
-const iconBtn = {
-  width:'22px', height:'22px', background:'#3a2c18',
-  border:'1px solid #5a4028', borderRadius:'3px',
-  color:'#c8a44a', cursor:'pointer', fontSize:'13px',
-  display:'flex', alignItems:'center', justifyContent:'center'
+const CAT_ORDER = ['isleme', 'askeri', 'depo', 'nufus', 'ekonomik', 'savunma'];
+const CAT_EDGE = {
+  isleme: '#4ecfa8', askeri: '#7fb4ff', depo: '#a99cf0',
+  ekonomik: '#d9c069', nufus: '#5fd8d0', savunma: '#e8636f',
 };
 
-function getBuildSeconds(type, level, workers) {
-  if (!workers || workers <= 0) return '—';
+const WORKER_BUILDINGS = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye']);
+const TRAINERS = new Set(['kisla', 'ahir', 'atolye']);
+const PRODUCERS = new Set(['silahci', 'zirh', 'ahir']);
+
+function buildSeconds(type, level, workers) {
   const def = VILLAGE_DEFS[type];
-  if (!def) return '—';
+  if (!def || !workers || workers <= 0) return Infinity;
   const work = Math.round(def.buildBaseWork * Math.pow(def.buildMultiplier, Math.max(0, level - 1)));
-  const secs = Math.ceil(work / workers);
-  if (secs < 60)   return secs + 'sn';
-  if (secs < 3600) return Math.ceil(secs / 60) + 'dk';
-  return (secs / 3600).toFixed(1) + 'sa';
+  return Math.ceil(work / workers);
 }
 
-function getCapacity(type, level) {
+const capacityAt = (type, level) => {
   const def = VILLAGE_DEFS[type];
   if (!def?.baseCapacity) return null;
   return def.baseCapacity + (level - 1) * def.capacityPerLevel;
-}
+};
 
-// ─── İşçi Slider ─────────────────────────────────────────────────
-function WorkerPicker({ value, onChange, max, min = 1, label = 'İşçi' }) {
-  const effectiveMax = Math.max(min, max);
+function Row({ k, v, c = C.frost, strong }) {
   return (
-    <div style={{ marginBottom: 2 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
-        <span style={{ fontSize:'10px', color:'#9a8860' }}>{label}</span>
-        <span style={{ fontSize:'13px', color:'#e8d4a0', fontWeight:'bold', minWidth:22, textAlign:'right' }}>{value}</span>
-      </div>
-      <input type="range" min={min} max={effectiveMax} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{ width:'100%', accentColor:'#c8a44a' }}
-        disabled={effectiveMax <= min && value === min} />
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+      <span style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textDim }}>{k}</span>
+      <span style={num({ fontSize: 10.5, color: c, fontWeight: strong ? 500 : 400, textAlign: 'right' })}>{v}</span>
     </div>
   );
 }
 
-// ─── Maliyet satırı ───────────────────────────────────────────────
-function CostRow({ cost, resources }) {
-  if (!cost || Object.keys(cost).length === 0) return null;
+function ColLabel({ children, icon, color }) {
   return (
-    <div style={{ display:'flex', flexWrap:'wrap', gap:'5px', marginBottom:'8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      {icon && <Icon name={icon} size={11} color={color || C.iceDeep} />}
+      <span style={lbl({ fontSize: 8.5, letterSpacing: 1.4 })}>{children}</span>
+    </div>
+  );
+}
+
+function CostGrid({ cost, resources }) {
+  if (!cost || !Object.keys(cost).length) return null;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
       {Object.entries(cost).map(([res, amt]) => {
-        const has = resources[res] || 0;
-        const ok  = has >= amt;
+        const have = Math.floor(resources[res] || 0);
+        const ok = have >= amt;
         return (
-          <span key={res} style={{
-            fontSize:'10px', padding:'2px 6px',
-            background: ok ? '#1a2a10' : '#2a1010',
-            border: `1px solid ${ok ? '#3a6a20' : '#6a2020'}`,
-            borderRadius:'3px',
-            color: ok ? '#8aca60' : '#e06060'
-          }}>
-            {RES_EMOJI[res]} {amt}
-          </span>
+          <div key={res} title={`${RES_LABEL[res] || res}: ${amt} gerekli, ${have} var`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '2.5px 5px', borderRadius: 3,
+              background: ok ? 'rgba(78,207,168,0.09)' : 'rgba(232,99,111,0.1)',
+              border: `1px solid ${ok ? 'rgba(78,207,168,0.3)' : 'rgba(232,99,111,0.32)'}`,
+            }}>
+            <Icon name={res} size={11} color={RES_COLOR[res] || C.textDim} />
+            <span style={num({ fontSize: 9.5, color: ok ? C.good : C.danger, flex: 1, textAlign: 'right' })}>
+              {amt}
+            </span>
+          </div>
         );
       })}
     </div>
   );
 }
 
-// İşçi atanabilir askeri binalar (ekipman üretimi + birim eğitimi)
-const MILITARY_WORKER_BUILDINGS = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye']);
+// Binanın tek satırlık etkisi
+function EffectStrip({ type, level, def, processingRates, flows }) {
+  const proc = def?.processes;
+  const rate = proc ? processingRates?.[proc.output] : null;
 
-// ─── Ana Bileşen ─────────────────────────────────────────────────
-export default function BuildMenu({
-  slotKey, building, isTower, isCenter,
-  placedBuildings, freeWorkers, resources = {}, processingRates = {},
-  onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onClose
-}) {
-  const [buildWorkers,   setBuildWorkers]   = useState(1);
-  const [upgradeWorkers, setUpgradeWorkers] = useState(1);
-  const [selectedType,   setSelectedType]   = useState(null);
-
-  const builtTypes = new Set(Object.values(placedBuildings).map(b => b.type));
-  const def = building ? VILLAGE_DEFS[building.type] : null;
-
-  function canBuild(key, d) {
-    if (isTower  && key !== 'kule') return false;
-    if (!isTower && key === 'kule') return false;
-    if (d.unique && builtTypes.has(key)) return false;
-    if (key === 'kule') {
-      return Object.values(placedBuildings).filter(b => b.type === 'kule').length < 4;
-    }
-    return true;
+  if (proc) {
+    const inNet = flows?.[proc.input]?.net;
+    return (
+      <div style={{
+        padding: '6px 8px', borderRadius: 5,
+        background: 'rgba(8,17,28,0.5)', border: `1px solid ${C.lineSoft}`,
+        display: 'flex', flexDirection: 'column', gap: 4,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Icon name={proc.input} size={13} color={RES_COLOR[proc.input]} />
+          <span style={num({ fontSize: 9.5, color: C.warn })}>
+            −{rate?.inputPerHour || 0}
+          </span>
+          <span style={{ color: C.textMute, fontSize: 11 }}>→</span>
+          <Icon name={proc.output} size={13} color={RES_COLOR[proc.output]} />
+          <span style={num({ fontSize: 9.5, color: C.good })}>
+            +{rate?.outputPerHour || 0}
+          </span>
+          <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute, marginLeft: 'auto' }}>/sa</span>
+        </div>
+        {inNet !== undefined && (
+          <Row k={`${RES_LABEL[proc.input]} net`} v={`${signed(inNet)}/sa`}
+            c={inNet >= 0 ? C.good : C.danger} strong />
+        )}
+        {inNet < 0 && (
+          <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.warn, lineHeight: 1.4 }}>
+            Girdi tükeniyor — işçiyi azalt ya da üretim alanı ekle.
+          </div>
+        )}
+      </div>
+    );
   }
 
-  function canAfford(cost) {
-    if (!cost) return true;
-    return Object.entries(cost).every(([res, amt]) => (resources[res] || 0) >= amt);
-  }
+  const rows = [];
+  if (def?.baseCapacity) rows.push(['Kapasite', `${capacityAt(type, level).toLocaleString('tr-TR')} → ${capacityAt(type, level + 1).toLocaleString('tr-TR')}`]);
+  if (def?.populationPerLevel) rows.push(['Nüfus', `+${level * def.populationPerLevel} → +${(level + 1) * def.populationPerLevel}`]);
+  if (def?.bonusPerLevel) rows.push([`${def.affects || 'Üretim'} bonusu`, `+%${level * def.bonusPerLevel}`]);
+  if (def?.bonusTable) rows.push(['Savunma', `%${def.bonusTable[level] ?? 0} → %${def.bonusTable[level + 1] ?? 0}`]);
+  if (type === 'ahir') rows.push(['At kapasitesi', `${level * (def?.horseCapPerLevel || 5)} → ${(level + 1) * (def?.horseCapPerLevel || 5)}`]);
+  if (type === 'cephane') rows.push(['Ortak havuz', `${level * (def?.poolCapPerLevel || 200)} → ${(level + 1) * (def?.poolCapPerLevel || 200)}`]);
 
-  const buildable = Object.entries(VILLAGE_DEFS).filter(([k, d]) => canBuild(k, d));
-  const grouped   = CATEGORY_ORDER.reduce((acc, cat) => {
-    acc[cat] = buildable.filter(([,d]) => d.category === cat);
-    return acc;
-  }, {});
-
-  const selectedDef = selectedType ? VILLAGE_DEFS[selectedType] : null;
-  const affordable  = selectedDef ? canAfford(selectedDef.cost) : false;
-  const hasWorkers  = freeWorkers >= 1;
-
+  if (!rows.length) return null;
   return (
     <div style={{
-      display:'flex', flexDirection:'column'
+      padding: '6px 8px', borderRadius: 5,
+      background: 'rgba(8,17,28,0.5)', border: `1px solid ${C.lineSoft}`,
+      display: 'flex', flexDirection: 'column', gap: 3,
     }}>
+      {rows.map(([k, v]) => <Row key={k} k={k} v={v} c={C.iceSoft} />)}
+    </div>
+  );
+}
 
-      {/* Başlık */}
-      <div style={{
-        padding:'10px 12px', borderBottom:'1px solid rgba(122,92,50,0.4)',
-        display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0
-      }}>
-        <div>
-          <div style={{ fontSize:'13px', color:'#c8a44a', letterSpacing: 1 }}>
-            {building
-              ? (building.type === 'anaBina' ? 'ANA BİNA' : (def?.name || building.type).toUpperCase())
-              : 'BOŞ ALAN'}
-            {building && !building.building && (
-              <span style={{ color:'#e8d4a0', fontSize: 11, marginLeft: 6, letterSpacing: 0 }}>
-                Seviye {building.level}{def?.maxLevel ? ` / ${def.maxLevel}` : ''}
-              </span>
+export default function BuildMenu({
+  slotKey, building, isTower, isCenter,
+  placedBuildings, freeWorkers, resources = {}, processingRates = {}, flows = {},
+  onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onClose,
+  // Poster biçiminde başlık bina görselinin üstünde çiziliyor; burada tekrar etmesin
+  posterHeader = false,
+}) {
+  const [buildWorkers, setBuildWorkers] = useState(1);
+  const [upgradeWorkers, setUpgradeWorkers] = useState(1);
+  const [cat, setCat] = useState(isTower ? 'savunma' : 'isleme');
+  const [selectedType, setSelectedType] = useState(null);
+
+  const builtTypes = useMemo(
+    () => new Set(Object.values(placedBuildings).map(b => b.type)),
+    [placedBuildings]
+  );
+
+  const def = building ? VILLAGE_DEFS[building.type] : null;
+  const bcat = building?.type === 'anaBina' ? 'anaBina' : def?.category;
+  const edge = CAT_EDGE[bcat] || C.ice;
+
+  const canBuild = (key, d) => {
+    if (isTower && key !== 'kule') return false;
+    if (!isTower && key === 'kule') return false;
+    if (key === 'anaBina') return false;
+    if (d.unique && builtTypes.has(key)) return false;
+    if (key === 'kule') return Object.values(placedBuildings).filter(b => b.type === 'kule').length < 4;
+    return true;
+  };
+  const canAfford = (cost) => !cost || Object.entries(cost).every(([r, a]) => (resources[r] || 0) >= a);
+
+  const grouped = useMemo(() => {
+    const out = {};
+    Object.entries(VILLAGE_DEFS).forEach(([k, d]) => {
+      if (!canBuild(k, d)) return;
+      (out[d.category] ||= []).push([k, d]);
+    });
+    return out;
+  }, [builtTypes, isTower, placedBuildings]);
+
+  const cats = CAT_ORDER.filter(c => grouped[c]?.length);
+  const activeCat = grouped[cat]?.length ? cat : (cats[0] || null);
+  const list = grouped[activeCat] || [];
+
+  const selDef = selectedType ? VILLAGE_DEFS[selectedType] : null;
+  const affordable = selDef ? canAfford(selDef.cost) : false;
+  const buildReady = affordable && freeWorkers >= 1;
+
+  const upgradeCost = useMemo(() => {
+    if (!building || !def?.upgradeCostBase) return null;
+    const m = Math.pow(def.upgradeCostMultiplier || 1.5, building.level - 1);
+    return Object.fromEntries(Object.entries(def.upgradeCostBase).map(([k, v]) => [k, Math.ceil(v * m)]));
+  }, [building, def]);
+  const upgradeReady = (!upgradeCost || canAfford(upgradeCost)) && freeWorkers >= 1;
+
+  const title = building
+    ? (building.type === 'anaBina' ? 'Ana Bina' : (def?.name || building.type))
+    : isTower ? 'Kule Slotu' : 'Boş Arazi';
+
+  const maxW = building && def ? building.level * (def.workersPerLevel || 3) : 0;
+  const hasWorkerSlot = building && building.level >= 1
+    && (def?.processes || WORKER_BUILDINGS.has(building.type)) && maxW > 0;
+
+  return (
+    <div>
+      {/* ── Başlık ── (poster biçiminde görselin üstünde) */}
+      {!posterHeader && (
+      <div style={popHeader}>
+        <Icon name={building ? buildingIcon(building.type) : isTower ? 'kule' : 'ekle'} size={19} color={edge} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: FONT.head, fontSize: 15, fontWeight: 600, letterSpacing: 1.1,
+            color: C.frost, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{title}</div>
+          <div style={lbl({ fontSize: 8, marginTop: 1 })}>
+            {building && !building.building
+              ? `Lvl ${building.level}${def?.maxLevel ? `/${def.maxLevel}` : ''} · ${slotKey}`
+              : `slot ${slotKey}`}
+          </div>
+        </div>
+
+        {building && building.type !== 'anaBina' && !building.building && (
+          <button onClick={onDemolish} title="Yık"
+            style={{
+              display: 'grid', placeItems: 'center', width: 26, height: 26, padding: 0,
+              borderRadius: 4, cursor: 'pointer',
+              background: 'rgba(74,29,36,0.55)', border: `1px solid ${C.dangerDim}`,
+            }}>
+            <Icon name="yik" size={15} color="#f0b8bd" strokeWidth={2.3} />
+          </button>
+        )}
+        <button onClick={onClose} title="Kapat"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, display: 'grid' }}>
+          <Icon name="kapat" size={13} color={C.textMute} />
+        </button>
+      </div>
+      )}
+
+      {/* ── İnşaat / yükseltme sürüyor ── */}
+      {building?.building && (
+        <div style={popCols('1fr', '1.05fr')}>
+          {/* SOL — bina çalışmaya devam ediyor */}
+          <div style={popCol}>
+            {building.level >= 1 && hasWorkerSlot ? (
+              <>
+                <ColLabel icon="isci">Çalışan işçi</ColLabel>
+                <WorkerAssign
+                  mode="assign" value={building.workers || 0} max={maxW}
+                  freeWorkers={freeWorkers} title="kadro"
+                  onChange={(w) => onAssignVillageWorkers(w)}
+                  effect={def?.processes
+                    ? (w) => `+${(def.processes.outputPerHour * w).toFixed(0)} ${RES_LABEL[def.processes.output]}/sa`
+                    : (w) => `${w}× hız`} />
+                <div style={{
+                  display: 'flex', gap: 7, padding: '6px 8px', borderRadius: 5,
+                  background: 'rgba(108,221,163,0.08)', border: '1px solid rgba(108,221,163,0.3)',
+                }}>
+                  <Icon name="artis" size={12} color={C.good} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: '#a8e8c8', lineHeight: 1.45 }}>
+                    Yükseltme sırasında bina <strong>çalışmaya devam ediyor</strong>; üretim ve kapasite düşmüyor.
+                  </span>
+                </div>
+              </>
+            ) : building.level >= 1 ? (
+              <>
+                <ColLabel icon={buildingIcon(building.type)} color={edge}>Bina</ColLabel>
+                <div style={{
+                  display: 'flex', gap: 7, padding: '6px 8px', borderRadius: 5,
+                  background: 'rgba(108,221,163,0.08)', border: '1px solid rgba(108,221,163,0.3)',
+                }}>
+                  <Icon name="artis" size={12} color={C.good} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: '#a8e8c8', lineHeight: 1.45 }}>
+                    Yükseltme sırasında kapasite/bonus <strong>düşmüyor</strong> — Lvl {building.level} etkisi sürüyor.
+                  </span>
+                </div>
+                <EffectStrip type={building.type} level={building.level} def={def}
+                  processingRates={processingRates} flows={flows} />
+              </>
+            ) : (
+              <>
+                <ColLabel icon={buildingIcon(building.type)} color={edge}>İlk inşaat</ColLabel>
+                <div style={{
+                  display: 'flex', gap: 7, padding: '6px 8px', borderRadius: 5,
+                  background: 'rgba(143,220,255,0.07)', border: `1px solid ${C.lineSoft}`,
+                }}>
+                  <Icon name="insaat" size={12} color={C.ice} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textDim, lineHeight: 1.45 }}>
+                    {def?.description || 'Bina kuruluyor. Bitince işçi atayabilirsin.'}
+                  </span>
+                </div>
+              </>
             )}
           </div>
-          {!building && (
-            <div style={{ fontSize:'10px', color:'#8a8860', fontWeight:'normal' }}>
-              {isTower ? '🗼 Kule Slotu' : `q:${slotKey?.split(',')[0]}  r:${slotKey?.split(',')[1]}`}
-            </div>
-          )}
-        </div>
-        <button onClick={onClose} style={{ background:'none', border:'none', color:'#888', cursor:'pointer', fontSize:16, padding:0, lineHeight:1 }}>✕</button>
-      </div>
 
-      {/* Mevcut bina bilgisi */}
-      {building && (
-        <div style={{ padding:'10px 12px' }}>
-
-          {building.building ? (
-            <div style={{ fontSize:'11px', color:'#c87020', textAlign:'center', padding:'6px 0' }}>
-              ⚙️ {building.level === 0 ? 'İnşa ediliyor' : 'Yükseltiliyor'}...
-              <div style={{ fontSize:'16px', fontWeight:'bold', marginTop:'4px' }}>
-                {building.buildTimeLeft}sn kaldı
+          {/* SAĞ — ilerleme + iptal */}
+          <div style={popCol}>
+            <ColLabel icon="insaat">
+              {building.level === 0 ? 'İnşa ediliyor' : `Lvl ${building.level} → ${building.level + 1}`}
+            </ColLabel>
+            <div style={{
+              padding: '10px 11px', borderRadius: 5, textAlign: 'center',
+              background: 'rgba(143,220,255,0.07)', border: `1px solid ${C.lineSoft}`,
+            }}>
+              <Icon name="insaat" size={18} color={C.ice} className="tn-pulse" />
+              <div style={num({ fontSize: 22, color: C.frost, lineHeight: 1.2, marginTop: 3 })}>
+                {building.buildTimeLeft}<span style={{ fontSize: 11, color: C.textFaint }}>sn</span>
+              </div>
+              <div style={lbl({ fontSize: 7.5, marginTop: 2 })}>
+                {building.buildWorkers || 0} inşaat işçisi
               </div>
             </div>
-          ) : (
-            <>
-              {def?.description && (
-                <div style={{ fontSize:'10px', color:'#b8a88a', marginBottom:'8px', lineHeight:'1.4', fontWeight:'normal' }}>
-                  {def.description}
-                </div>
-              )}
 
-              {def?.baseCapacity && (
-                <div style={{ fontSize:'11px', color:'#7a9a60', marginBottom:'8px' }}>
-                  📦 Kapasite: {getCapacity(building.type, building.level).toLocaleString()}
-                  <span style={{ color:'#5a6a40' }}> → Lvl {building.level+1}: {getCapacity(building.type, building.level+1).toLocaleString()}</span>
-                </div>
-              )}
-
-              {def?.bonusPerLevel && (
-                <div style={{ fontSize:'11px', color:'#60a840', marginBottom:'8px' }}>
-                  Mevcut bonus: +{building.level * def.bonusPerLevel}%
-                </div>
-              )}
-
-              {def?.bonusTable && (
-                <div style={{ fontSize:'11px', color:'#a07060', marginBottom:'8px' }}>
-                  Savunma bonusu: %{def.bonusTable[building.level]}
-                </div>
-              )}
-
-              {def?.populationPerLevel && (
-                <div style={{ fontSize:'11px', color:'#60b0b0', marginBottom:'8px' }}>
-                  👥 +{building.level * def.populationPerLevel} nüfus kapasitesi
-                </div>
-              )}
-
-              {/* Askeri üretim/eğitim binası — işçi atama (silahçı/zırh/ahır/kışla/atölye) */}
-              {!def?.processes && MILITARY_WORKER_BUILDINGS.has(building.type) && (() => {
-                const maxW = building.level * (def?.workersPerLevel || 3);
-                const curW = building.workers || 0;
-                const isTraining = ['kisla', 'ahir', 'atolye'].includes(building.type);
-                const isProducing = ['silahci', 'zirh', 'ahir'].includes(building.type);
-                return (
-                  <div style={{ background:'#322020', border:'1px solid #4a3030', borderRadius:'5px', padding:'8px', marginBottom:'8px' }}>
-                    <div style={{ fontSize:'10px', color:'#c0a060', marginBottom:'6px', lineHeight:1.4 }}>
-                      ⚒ {isProducing && isTraining ? 'Üretim + Eğitim' : isProducing ? 'Üretim hızı' : 'Eğitim hızı'}
-                      <span style={{ color:'#7a6a3a' }}> — süre = temel ÷ işçi</span>
-                    </div>
-                    <WorkerPicker
-                      value={curW}
-                      onChange={(w) => onAssignVillageWorkers(w)}
-                      max={Math.min(maxW, curW + freeWorkers)}
-                      min={0}
-                      label={`İşçi (maks ${maxW})`}
-                    />
-                    {curW === 0 && (
-                      <div style={{ fontSize:'9px', color:'#e06060', marginTop:'4px' }}>
-                        ⚠ İşçi atanmamış — sipariş/eğitim duracak
-                      </div>
-                    )}
-                    {curW > 0 && (
-                      <div style={{ fontSize:'9px', color:'#7a9a60', marginTop:'4px' }}>
-                        ×{curW} hız {curW >= 2 ? `(${curW}× daha hızlı)` : ''}
-                      </div>
-                    )}
+            {(() => {
+              const refund = building.level === 0 ? (def?.cost || {}) : (upgradeCost || {});
+              if (!Object.keys(refund).length) return null;
+              return (
+                <div style={{
+                  padding: '5px 7px', borderRadius: 4,
+                  background: 'rgba(242,200,110,0.07)', border: '1px solid rgba(242,200,110,0.25)',
+                }}>
+                  <div style={lbl({ fontSize: 7.5, marginBottom: 3 })}>İptalde iade edilir</div>
+                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                    {Object.entries(refund).map(([r, a]) => (
+                      <span key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <Icon name={r} size={10} color={RES_COLOR[r]} />
+                        <span style={num({ fontSize: 9, color: C.goldSoft })}>{a}</span>
+                      </span>
+                    ))}
                   </div>
-                );
-              })()}
-
-              {/* Ahır at kapasitesi bilgisi */}
-              {building.type === 'ahir' && !building.building && (
-                <div style={{ fontSize:'10px', color:'#a07060', marginBottom:'8px' }}>
-                  🐎 At kapasitesi: <strong>{building.level * (def?.horseCapPerLevel || 5)}</strong>
-                  <span style={{ color:'#5a4a30' }}> → Lvl {building.level+1}: {(building.level+1) * (def?.horseCapPerLevel || 5)}</span>
                 </div>
-              )}
+              );
+            })()}
 
-              {/* Cephanelik kapasitesi bilgisi */}
-              {building.type === 'cephane' && !building.building && (
-                <div style={{ fontSize:'10px', color:'#a07060', marginBottom:'8px' }}>
-                  🏹 Ekipman kapasitesi: <strong>{building.level * (def?.equipmentCapPerLevel || 50)}</strong>/tür
-                  <span style={{ color:'#5a4a30' }}> → Lvl {building.level+1}: {(building.level+1) * (def?.equipmentCapPerLevel || 50)}</span>
-                </div>
-              )}
-
-              {/* İşleme binası — işçi atama */}
-              {def?.processes && (() => {
-                const { input, inputPerHour, output, outputPerHour } = def.processes;
-                const maxW    = building.level * (def.workersPerLevel || 3);
-                const curW    = building.workers || 0;
-                const rate    = processingRates[output];
-                return (
-                  <div style={{ background:'#2e2e1a', border:'1px solid #4a4828', borderRadius:'5px', padding:'8px', marginBottom:'8px' }}>
-                    <div style={{ fontSize:'10px', color:'#a0c060', marginBottom:'6px' }}>
-                      ⚗️ {RES_EMOJI[input]} → {RES_EMOJI[output]}
-                      {rate?.outputPerHour > 0
-                        ? <span style={{ color:'#60c060' }}> +{rate.outputPerHour}/sa</span>
-                        : <span style={{ color:'#6a5a3a' }}> (işçi yok)</span>
-                      }
-                    </div>
-                    <WorkerPicker
-                      value={curW}
-                      onChange={(w) => onAssignVillageWorkers(w)}
-                      max={Math.min(maxW, curW + freeWorkers)}
-                      min={0}
-                      label={`İşçi (maks ${maxW})`}
-                    />
-                    {curW > 0 && (
-                      <div style={{ fontSize:'9px', color:'#7a9a60', marginTop:'4px' }}>
-                        {RES_EMOJI[input]} -{inputPerHour * curW}/sa  →  {RES_EMOJI[output]} +{outputPerHour * curW}/sa
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginTop:'4px' }}>
-                {(!def?.maxLevel || building.level < def.maxLevel) && (
-                  <>
-                    {/* Ana Bina için yükseltme maliyeti göster */}
-                    {building.type === 'anaBina' && def?.upgradeCostBase && (() => {
-                      const mult = Math.pow(def.upgradeCostMultiplier || 1.7, building.level - 1);
-                      const cost = {};
-                      Object.entries(def.upgradeCostBase).forEach(([k, v]) => { cost[k] = Math.ceil(v * mult); });
-                      return (
-                        <>
-                          <div style={{ fontSize: 10, color:'#7a6a4a', marginBottom: 2 }}>
-                            💰 Yükseltme maliyeti (Lvl {building.level + 1}):
-                          </div>
-                          <CostRow cost={cost} resources={resources} />
-                        </>
-                      );
-                    })()}
-                    <WorkerPicker
-                      value={upgradeWorkers}
-                      onChange={setUpgradeWorkers}
-                      max={freeWorkers}
-                      label={`Yükselt işçi — ${getBuildSeconds(building.type, building.level + 1, upgradeWorkers)}`}
-                    />
-                    <button onClick={() => onUpgrade(upgradeWorkers)} style={{
-                      padding:'6px', background:'#2a4a10',
-                      border:'1px solid #5a9a28', borderRadius:'4px',
-                      color:'#b8e890', fontSize:'11px', cursor:'pointer'
-                    }}>
-                      ⬆ Yükselt (Lvl {building.level} → {building.level + 1})
-                    </button>
-                  </>
-                )}
-                {/* Yıkma sadece Ana Bina dışındaki binalarda */}
-                {building.type !== 'anaBina' && (
-                  <button onClick={onDemolish} style={{
-                    padding:'5px', background:'#3a1010',
-                    border:'1px solid #8a2020', borderRadius:'4px',
-                    color:'#e08080', fontSize:'11px', cursor:'pointer'
-                  }}>
-                    🗑 Yık
-                  </button>
-                )}
-              </div>
-            </>
-          )}
+            <button onClick={() => onCancelBuild?.()}
+              style={btn('danger', {
+                width: '100%', padding: 8, letterSpacing: 1.2,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              })}>
+              <Icon name="kapat" size={12} color="#ffb8bd" strokeWidth={2.2} />
+              {building.level === 0 ? 'İNŞAATI İPTAL ET' : 'YÜKSELTMEYİ İPTAL ET'}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* İnşa listesi — slot boşsa */}
-      {!building && !isCenter && (
-        <div style={{ padding:'10px 12px' }}>
-
-          {/* Seçili bina önizleme */}
-          {selectedType && selectedDef && (
-            <div style={{
-              background:'#2e2418', border:'1px solid #5a4020',
-              borderRadius:'6px', padding:'10px', marginBottom:'12px'
-            }}>
-              <div style={{ fontSize:'12px', color:'#e8d4a0', fontWeight:'bold', marginBottom:'4px' }}>
-                {selectedDef.icon} {selectedDef.name}
-              </div>
-              <div style={{ fontSize:'10px', color:'#8a8060', marginBottom:'8px', lineHeight:'1.4' }}>
-                {selectedDef.description}
-              </div>
-
-              <div style={{ fontSize:'10px', color:'#7a6a4a', marginBottom:'4px' }}>💰 Maliyet:</div>
-              <CostRow cost={selectedDef.cost} resources={resources} />
-
-              {selectedDef.processes && (
-                <div style={{ fontSize:'10px', color:'#a0c060', marginBottom:'6px' }}>
-                  ⚗️ {RES_EMOJI[selectedDef.processes.input]} {selectedDef.processes.inputPerHour}/sa
-                  {' → '}
-                  {RES_EMOJI[selectedDef.processes.output]} {selectedDef.processes.outputPerHour}/sa (Lvl 1)
-                </div>
-              )}
-              {selectedDef.baseCapacity && (
-                <div style={{ fontSize:'10px', color:'#7a9a60', marginBottom:'6px' }}>
-                  📦 Lvl 1 kapasite: {selectedDef.baseCapacity.toLocaleString()}
-                </div>
-              )}
-              {selectedDef.populationPerLevel && (
-                <div style={{ fontSize:'10px', color:'#60b0b0', marginBottom:'6px' }}>
-                  👥 +{selectedDef.populationPerLevel} nüfus kapasitesi
-                </div>
-              )}
-
-              <WorkerPicker
-                value={buildWorkers}
-                onChange={setBuildWorkers}
-                max={Math.max(1, freeWorkers)}
-                label={`İşçi — ${getBuildSeconds(selectedType, 1, buildWorkers)}`}
-              />
-
-              {!affordable && (
-                <div style={{ fontSize:'10px', color:'#e06060', marginTop:'6px' }}>⚠ Yetersiz hammadde</div>
-              )}
-              {affordable && !hasWorkers && (
-                <div style={{ fontSize:'10px', color:'#e0a030', marginTop:'6px' }}>⚠ Boşta işçi yok</div>
-              )}
-
-              <div style={{ display:'flex', gap:'6px', marginTop:'8px' }}>
-                <button
-                  onClick={() => { if (affordable && hasWorkers) onBuild(selectedType, buildWorkers); }}
-                  style={{
-                    flex:1, padding:'6px',
-                    background: (affordable && hasWorkers) ? '#2a5010' : '#1a2a0a',
-                    border:`1px solid ${(affordable && hasWorkers) ? '#5aaa28' : '#3a5018'}`,
-                    borderRadius:'4px',
-                    color: (affordable && hasWorkers) ? '#b8e890' : '#5a7a40',
-                    fontSize:'11px',
-                    cursor: (affordable && hasWorkers) ? 'pointer' : 'not-allowed'
-                  }}>
-                  ✓ İnşa Et
-                </button>
-                <button onClick={() => setSelectedType(null)} style={{
-                  padding:'6px 10px', background:'#2a1a08',
-                  border:'1px solid #4a3010', borderRadius:'4px',
-                  color:'#c8a44a', fontSize:'11px', cursor:'pointer'
+      {/* ── Mevcut bina: SOL işçi · SAĞ yükseltme ── */}
+      {building && !building.building && (
+        <div style={popCols('1fr', '1.05fr')}>
+          <div style={popCol}>
+            {hasWorkerSlot ? (
+              <>
+                <ColLabel icon="isci">Çalışan işçi</ColLabel>
+                <WorkerAssign
+                  mode="assign" value={building.workers || 0} max={maxW}
+                  freeWorkers={freeWorkers} title="kadro"
+                  onChange={(w) => onAssignVillageWorkers(w)}
+                  effect={def?.processes
+                    ? (w) => `+${(def.processes.outputPerHour * w).toFixed(0)} ${RES_LABEL[def.processes.output]}/sa`
+                    : (w) => `${w}× hız`} />
+              </>
+            ) : (
+              <>
+                <ColLabel icon={buildingIcon(building.type)} color={edge}>Bina</ColLabel>
+                <div style={{
+                  padding: '7px 9px', borderRadius: 5,
+                  background: 'rgba(8,17,28,0.5)', border: `1px solid ${C.lineSoft}`,
+                  fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.5,
                 }}>
-                  ✕
+                  {def?.description || 'İşçi gerektirmiyor.'}
+                </div>
+              </>
+            )}
+            <EffectStrip type={building.type} level={building.level} def={def}
+              processingRates={processingRates} flows={flows} />
+          </div>
+
+          <div style={popCol}>
+            {(!def?.maxLevel || building.level < def.maxLevel) ? (
+              <>
+                <ColLabel icon="insaat">Lvl {building.level + 1}’e yükselt</ColLabel>
+                <CostGrid cost={upgradeCost} resources={resources} />
+                <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={upgradeWorkers}
+                  freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setUpgradeWorkers}
+                  effect={(w) => `süre ${fmtTime(buildSeconds(building.type, building.level + 1, w))}`} />
+                <button onClick={() => onUpgrade(upgradeWorkers)} disabled={!upgradeReady}
+                  style={btn(upgradeReady ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
+                  YÜKSELT · {fmtTime(buildSeconds(building.type, building.level + 1, upgradeWorkers))}
                 </button>
+              </>
+            ) : (
+              <div style={{ padding: '20px 8px', textAlign: 'center', fontFamily: FONT.ui, fontSize: 11, color: C.textMute }}>
+                Maksimum seviyede
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Boş slot: kategori + liste + detay ── */}
+      {!building && !isCenter && (
+        <>
+          {cats.length > 1 && (
+            <div style={{
+              display: 'flex', gap: 4, padding: '9px 11px 0', flexWrap: 'wrap',
+            }}>
+              {cats.map(c => {
+                const on = activeCat === c;
+                return (
+                  <button key={c} onClick={() => { setCat(c); setSelectedType(null); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      padding: '3px 8px', borderRadius: 4, cursor: 'pointer',
+                      fontFamily: FONT.ui, fontSize: 9.5,
+                      background: on ? `${CAT_EDGE[c]}22` : 'rgba(8,17,28,0.5)',
+                      border: `1px solid ${on ? CAT_EDGE[c] : C.lineSoft}`,
+                      color: on ? C.frost : C.textFaint,
+                    }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 2, background: CAT_EDGE[c] }} />
+                    {CAT_LABEL[c]}
+                    <span style={num({ fontSize: 8.5, color: C.textMute })}>{grouped[c].length}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          <div style={{ fontSize:'11px', color:'#9a8860', marginBottom:'8px' }}>
-            Buraya inşa edilebilecek binalar:
-          </div>
-
-          {CATEGORY_ORDER.map(cat => {
-            const list = grouped[cat];
-            if (!list || !list.length) return null;
-            return (
-              <div key={cat} style={{ marginBottom:'10px' }}>
-                <div style={{ fontSize:'10px', color:'#9a8858', marginBottom:'5px', letterSpacing:'1px' }}>
-                  {CATEGORY_LABELS[cat]}
-                </div>
+          <div style={popCols('1fr', '1.05fr')}>
+            <div style={popCol}>
+              <ColLabel icon="koy" color={CAT_EDGE[activeCat]}>
+                {CAT_LABEL[activeCat] || 'Binalar'}
+              </ColLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {list.map(([key, d]) => {
                   const ok = canAfford(d.cost);
+                  const on = selectedType === key;
                   return (
-                    <button
-                      key={key}
-                      onClick={() => { setSelectedType(key); setBuildWorkers(1); }}
+                    <button key={key} onClick={() => { setSelectedType(key); setBuildWorkers(1); }}
                       style={{
-                        display:'flex', alignItems:'center', gap:'8px',
-                        width:'100%', padding:'7px 8px', marginBottom:'3px',
-                        background: selectedType === key ? '#3a4a28' : '#2a2218',
-                        border:`1px solid ${selectedType === key ? '#7aaa40' : '#4a3818'}`,
-                        borderRadius:'5px',
-                        color: ok ? '#e8d4a0' : '#6a5a40',
-                        cursor:'pointer', textAlign:'left'
-                      }}
-                    >
-                      <span style={{ fontSize:'16px', opacity: ok ? 1 : 0.4 }}>{d.icon}</span>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:'11px', fontWeight:'bold' }}>{d.name}</div>
-                        {d.cost && (
-                          <div style={{ display:'flex', gap:'4px', marginTop:'2px', flexWrap:'wrap' }}>
-                            {Object.entries(d.cost).map(([res, amt]) => {
-                              const resOk = (resources[res] || 0) >= amt;
-                              return (
-                                <span key={res} style={{ fontSize:'9px', color: resOk ? '#7a9a60' : '#aa5050' }}>
-                                  {RES_EMOJI[res]}{amt}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                        display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                        padding: '5px 7px', borderRadius: 4, cursor: 'pointer', textAlign: 'left',
+                        background: on ? `${CAT_EDGE[activeCat]}22` : 'rgba(8,17,28,0.5)',
+                        border: `1px solid ${on ? CAT_EDGE[activeCat] : C.lineSoft}`,
+                        opacity: ok ? 1 : 0.6,
+                      }}>
+                      <Icon name={buildingIcon(key)} size={15}
+                        color={ok ? CAT_EDGE[activeCat] : C.textMute} />
+                      <span style={{
+                        flex: 1, fontFamily: FONT.ui, fontSize: 10,
+                        color: on ? C.frost : ok ? C.text : C.textFaint,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>{d.name}</span>
+                      {!ok && <Icon name="uyari" size={10} color={C.dangerDim} />}
                     </button>
                   );
                 })}
+                {!list.length && (
+                  <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute, padding: '4px 2px' }}>
+                    Bu kategoride inşa edilecek bina kalmadı.
+                  </div>
+                )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+
+            <div style={popCol}>
+              {selDef ? (
+                <>
+                  <ColLabel icon={buildingIcon(selectedType)} color={CAT_EDGE[selDef.category]}>
+                    {selDef.name}
+                  </ColLabel>
+                  <div style={{
+                    fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.45,
+                    maxHeight: 42, overflow: 'hidden',
+                  }}>{selDef.description}</div>
+                  <CostGrid cost={selDef.cost} resources={resources} />
+                  {selDef.processes && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '5px 7px', borderRadius: 4,
+                      background: 'rgba(8,17,28,0.5)', border: `1px solid ${C.lineSoft}`,
+                    }}>
+                      <Icon name={selDef.processes.input} size={12} color={RES_COLOR[selDef.processes.input]} />
+                      <span style={num({ fontSize: 9.5, color: C.warn })}>−{selDef.processes.inputPerHour}</span>
+                      <span style={{ color: C.textMute }}>→</span>
+                      <Icon name={selDef.processes.output} size={12} color={RES_COLOR[selDef.processes.output]} />
+                      <span style={num({ fontSize: 9.5, color: C.good })}>+{selDef.processes.outputPerHour}</span>
+                      <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute, marginLeft: 'auto' }}>
+                        /işçi/sa
+                      </span>
+                    </div>
+                  )}
+                  <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
+                    freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
+                    effect={(w) => `süre ${fmtTime(buildSeconds(selectedType, 1, w))}`} />
+                  <button onClick={() => { if (buildReady) onBuild(selectedType, buildWorkers); }}
+                    disabled={!buildReady}
+                    style={btn(buildReady ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
+                    İNŞA ET · {fmtTime(buildSeconds(selectedType, 1, buildWorkers))}
+                  </button>
+                </>
+              ) : (
+                <div style={{
+                  display: 'grid', placeItems: 'center', minHeight: 120,
+                  border: `1px dashed ${C.lineSoft}`, borderRadius: 5,
+                  fontFamily: FONT.ui, fontSize: 10, color: C.textMute, textAlign: 'center', padding: 12,
+                }}>
+                  Soldan bir bina seç
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

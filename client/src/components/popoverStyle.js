@@ -1,24 +1,25 @@
-// Ortak popover stili — hex üstündeki "Lvl N" yazılarıyla aynı look
-// (krem sarısı + koyu kahve stroke, Georgia serif).
+// Ortak popover stili — nordic buz paleti. Paneller SCROLL'suz sığacak
+// şekilde tasarlanır; maxHeight yalnızca çok küçük ekranlar için emniyet kemeri.
+import { C, FONT } from '../theme';
 
 export const TEXT_STROKE =
-  '1px 1px 0 #3a1a00, -1px 1px 0 #3a1a00, 1px -1px 0 #3a1a00, -1px -1px 0 #3a1a00, 0 0 3px rgba(0,0,0,0.7)';
+  '0 1px 0 #04121e, 1px 0 0 #04121e, -1px 0 0 #04121e, 0 -1px 0 #04121e, 0 0 5px rgba(2,8,16,0.85)';
 
 export const POPOVER_BASE = {
   position: 'absolute',
-  width: 280,
-  background: 'rgba(28, 20, 8, 0.96)',
-  border: '2px solid #7a5c32',
-  borderRadius: 4,
-  padding: 12,
-  overflowY: 'auto',
-  color: '#fff8c0',
-  fontFamily: 'Georgia, serif',
-  fontWeight: 'bold',
-  textShadow: TEXT_STROKE,
-  boxShadow: '0 6px 22px rgba(0,0,0,0.7)',
-  zIndex: 20,
+  background: 'linear-gradient(180deg, rgba(15,24,33,0.76) 0%, rgba(10,17,24,0.76) 100%)',
+  border: `1px solid ${C.lineBright}`,
+  borderRadius: 8,
+  padding: 0,
+  color: C.text,
+  fontFamily: FONT.ui,
+  fontWeight: 400,
+  boxShadow: '0 18px 52px rgba(0,0,0,0.75), 0 0 0 1px rgba(127,212,255,0.07)',
+  backdropFilter: 'blur(22px) saturate(1.25)',
+  WebkitBackdropFilter: 'blur(22px) saturate(1.25)',
+  zIndex: 60,
   fontSize: 11,
+  overflow: 'hidden',
 };
 
 export function popoverStyle(pos, overrides = {}) {
@@ -26,42 +27,89 @@ export function popoverStyle(pos, overrides = {}) {
     ...POPOVER_BASE,
     left: pos?.x ?? 0,
     top: pos?.y ?? 0,
+    width: pos?.w ?? 296,
     maxHeight: pos?.maxH ?? 'calc(100% - 16px)',
     ...overrides,
   };
 }
 
 /**
- * Hex'in ekran koordinatını hesapla + popover konumunu clamp et.
- *
- * @param {object} opts
- * @param {number} opts.hexScreenX - hex'in ekrandaki x merkezi
- * @param {number} opts.hexScreenY - hex'in ekrandaki y merkezi
- * @param {number} opts.hexRadius  - hex yarıçapı (ekran px cinsinden)
- * @param {number} opts.viewW      - container genişliği
- * @param {number} opts.viewH      - container yüksekliği
- * @param {number} [opts.panelW=280]   - popover genişliği
- * @param {number} [opts.prefH=480]    - tercih edilen popover yüksekliği
- * @param {number} [opts.margin=8]     - kenar boşluğu
- * @returns {{ x:number, y:number, maxH:number }}
+ * Hex'in ekran koordinatına göre popover konumunu hesapla + ekrana sığdır.
+ * panelW geniş paneller için zorunlu; sığmazsa otomatik daraltılır.
  */
-export function computePopoverPos({ hexScreenX, hexScreenY, hexRadius, viewW, viewH, panelW = 280, prefH = 480, margin = 8 }) {
-  const maxH = Math.max(120, viewH - 2 * margin);
+export function computePopoverPos({
+  hexScreenX, hexScreenY, hexRadius, viewW, viewH,
+  panelW = 296, prefH = 340, margin = 10,
+  insetLeft = 0, insetRight = 0,   // yüzen rayların kapladığı alan
+  center = false,                  // hex'e değil, EKRANIN ORTASINA yerleştir
+}) {
+  // Kullanılabilir yatay bant (rayların arası)
+  const left  = insetLeft + margin;
+  const right = viewW - insetRight - margin;
+  const band  = Math.max(240, right - left);
+
+  const w = Math.min(panelW, band);
+  const maxH = Math.max(160, viewH - 2 * margin);
   const panelH = Math.min(prefH, maxH);
 
-  // Yatay: sağa aç, sığmazsa sola
-  let px = hexScreenX + hexRadius + 14;
-  if (px + panelW > viewW - margin) {
-    px = hexScreenX - hexRadius - panelW - 14;
+  /**
+   * Ortalanmış yerleşim: panel hangi hex'e tıklandığından bağımsız olarak
+   * hep aynı yerde açılır. Hex'e yapışık açılınca panel ekranda zıplıyor ve
+   * göz her seferinde onu arıyordu.
+   */
+  if (center) {
+    return {
+      x: left + (band - w) / 2,
+      y: Math.max(margin, (viewH - panelH) / 2),
+      w, maxH,
+    };
   }
-  px = Math.max(margin, Math.min(px, viewW - panelW - margin));
 
-  // Dikey: hex hizasından başla, alta taşarsa yukarı çek
-  let py = hexScreenY - 40;
-  if (py + panelH > viewH - margin) {
-    py = viewH - panelH - margin;
-  }
+  // Yatay: sağa aç, sığmazsa sola, o da olmazsa banda sığdır
+  let px = hexScreenX + hexRadius + 16;
+  if (px + w > right) px = hexScreenX - hexRadius - w - 16;
+  px = Math.max(left, Math.min(px, right - w));
+
+  // Dikey: hex hizasına ortala, taşarsa içeri çek
+  let py = hexScreenY - panelH / 2;
+  if (py + panelH > viewH - margin) py = viewH - panelH - margin;
   py = Math.max(margin, py);
 
-  return { x: px, y: py, maxH: panelH };
+  return { x: px, y: py, w, maxH };
 }
+
+// ── Popover içi ortak parçalar ──────────────────────────────────────
+
+export const popHeader = {
+  display: 'flex', alignItems: 'center', gap: 9,
+  padding: '9px 11px',
+  borderBottom: `1px solid ${C.lineSoft}`,
+  background: 'linear-gradient(180deg, rgba(127,212,255,0.08), transparent)',
+  flexShrink: 0,
+};
+
+export const popBody = { padding: 11 };
+
+/**
+ * İki kolonlu gövde. DAR panelde (poster biçimi, ~430px) kendiliğinden TEK
+ * sütuna iner: `auto-fit` + `minmax(200px, …)` iki sütun sığmadığında sarar.
+ * Sabit `1fr 1.05fr` bırakılsaydı dar pencerede iki kolon 180px'e sıkışıp
+ * sayılar alt alta kırılıyordu.
+ */
+export const popCols = () => ({
+  display: 'grid',
+  // 210px eşiği: harita panelleri (480–520) iki sütun kalır, poster paneli
+  // (430) tek sütuna iner. 200px'te fark yalnızca 3px olurdu — çok kırılgan.
+  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+  gap: 11,
+  padding: 11,
+  alignItems: 'start',
+});
+
+export const popCol = {
+  display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0,
+};
+
+export const popDivider = {
+  gridColumn: '1 / -1', height: 1, background: C.lineSoft, margin: '1px 0',
+};

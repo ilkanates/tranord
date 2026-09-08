@@ -1,238 +1,239 @@
 import { useState } from 'react';
-
-/**
- * Kışla / Ahır / Atölye binalarında birim eğitim paneli.
- * Props:
- *   buildingType       — 'kisla' | 'ahir' | 'atolye'
- *   unitsByBuilding    — { kisla:[...], ahir:[...], ... }
- *   unitDefs           — server TRAINABLE_UNITS payload'ı (UNIT_DEFS'ten filtrelenmiş)
- *   equipmentDefs      — ekipman iconları için
- *   equipment          — { kilic:12, ... } envanter (yeterli mi görmek için)
- *   queue              — bu binanın eğitim kuyruğu
- *   freeWorkers        — boş işçi havuzu (her asker 1 işçi harcar)
- *   onTrain(type, qty) — eğitim siparişi
- *   onCancel(orderId)  — sipariş iptal
- */
-
-const panel = {
-  background: '#14100a',
-  border: '1px solid #3a2808',
-  borderRadius: '4px',
-  padding: '10px',
-  marginTop: '8px'
-};
-
-const rowBtn = {
-  flex: 1,
-  padding: '6px 8px',
-  background: '#2a1a08',
-  border: '1px solid #4a2a08',
-  color: '#c8a44a',
-  cursor: 'pointer',
-  fontSize: '11px',
-  borderRadius: '3px'
-};
-
-const qtyInput = {
-  width: '42px',
-  padding: '4px',
-  background: '#0d0905',
-  border: '1px solid #3a2808',
-  color: '#e8d4a0',
-  fontSize: '11px',
-  textAlign: 'center'
-};
+import { C, FONT, btn, label as lbl, num } from '../theme';
+import { EQ_LABEL } from '../flows';
+import { unitImage } from '../data/unitImages';
+import UnitDetail from './UnitDetail';
+import Icon from './Icons';
+import { Qty, QueueList } from './queueUI';
 
 // Birim eğitim süresi (1 eğitmen): ekipman sayısı × 5sn, min 3sn
-function getTrainSeconds(unitDef) {
-  const n = (unitDef?.equipment || []).length;
-  return Math.max(3, n * 5);
-}
+const baseSeconds = (def) => Math.max(3, (def?.equipment || []).length * 5);
+const effSeconds = (def, trainers) =>
+  trainers <= 0 ? baseSeconds(def) : Math.max(1, Math.ceil(baseSeconds(def) / trainers));
 
-// İşçi sayısına göre fiili süre
-function getEffectiveTrainSeconds(unitDef, trainerWorkers) {
-  const base = getTrainSeconds(unitDef);
-  if (trainerWorkers <= 0) return base;
-  return Math.max(1, Math.ceil(base / trainerWorkers));
-}
+const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069' };
 
-const WAITING_REASON_LABEL = {
-  egitmen_yok:         '⏸ eğitmen yok',
-  ekipman_yok:         '⏸ ekipman yok',
-  asker_icin_isci_yok: '⏸ boş işçi yok'
-};
-
-function formatStats(stats) {
+function Stat({ icon, value, color, title }) {
   return (
-    <span style={{ color: '#7080a0' }}>
-      ⚔{stats.saldiri} 🛡{stats.yayaSav}/{stats.atliSav} ⚡{stats.hiz}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2.5 }} title={title}>
+      <Icon name={icon} size={9} color={color} />
+      <span style={num({ fontSize: 8.5, color: C.text, textShadow: '0 1px 2px rgba(0,0,0,0.9)' })}>
+        {value}
+      </span>
     </span>
+  );
+}
+
+/**
+ * Tek birim kartı — 9:16 tam kadraj görsel, HER ŞEY görselin üstünde.
+ * Görselin altına bilgi bloğu koymak dikeyde çok yer yiyordu; overlay ile
+ * 4 sütun × 2 satır tek ekrana sığıyor.
+ */
+function UnitCard({
+  u, def, color, img, qty, setQty, equipment, equipmentDefs,
+  freeWorkers, trainerWorkers, onTrain, onOpen,
+}) {
+  const eqList = def.equipment || [];
+  const eqOk = eqList.every(e => (equipment[e] || 0) >= 1);
+  const workerOk = freeWorkers >= 1;
+  const trainerOk = trainerWorkers >= 1;
+  const ready = eqOk && workerOk && trainerOk;
+  const secs = effSeconds(def, trainerWorkers);
+  const cav = def.category === 'suvari';
+
+  const [hov, setHov] = useState(false);
+
+  const pill = {
+    display: 'inline-flex', alignItems: 'center', gap: 2,
+    padding: '1px 4px', borderRadius: 3,
+    background: 'rgba(4,9,15,0.72)', border: '1px solid rgba(255,255,255,0.12)',
+  };
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      // Tıklarken yakınlaştırmayı bırak: detay penceresi kartı kapattığı için
+      // mouseleave gelmiyor ve kart zoom'lu takılı kalıyordu.
+      onClick={() => { setHov(false); onOpen(); }}
+      title="Detay için tıkla"
+      style={{
+        cursor: 'pointer',
+        position: 'relative', aspectRatio: '9 / 16', borderRadius: 6, overflow: 'hidden',
+        background: '#0b1420',
+        border: `1px solid ${hov ? color : ready ? `${color}66` : C.lineSoft}`,
+        // Üzerine gelince yaklaş — kart öne çıkar
+        transform: hov ? 'scale(1.06)' : 'none',
+        zIndex: hov ? 5 : 1,
+        boxShadow: hov
+          ? `0 10px 26px rgba(0,0,0,0.6), 0 0 0 1px ${color}55`
+          : ready ? `0 0 0 1px ${color}22 inset` : 'none',
+        transition: 'transform .13s ease-out, box-shadow .13s ease-out, border-color .13s',
+      }}>
+      {img ? (
+        <img src={img} alt={def.name || u} draggable={false}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: '50% 12%',
+            // Üretilemeyen birimin görseli GRİLEŞTİRİLMEZ; eksiklik kırmızı
+            // ekipman rozetleri ve devre dışı EĞİT butonundan okunur.
+            transform: hov ? 'scale(1.04)' : 'none',
+            transition: 'transform .2s ease-out',
+          }} />
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name={cav ? 'at' : 'kalkan'} size={30} color={C.lineBright} strokeWidth={1.2} />
+        </div>
+      )}
+
+      {/* ÜST — ekipman gereksinimleri (solda) · süre (sağda) */}
+      <div style={{
+        position: 'absolute', top: 4, left: 4, right: 4,
+        display: 'flex', alignItems: 'flex-start', gap: 3,
+      }}>
+        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', flex: 1 }}>
+          {eqList.map(e => {
+            const have = equipment[e] || 0;
+            const ok = have >= 1;
+            return (
+              <span key={e} title={`${EQ_LABEL[e] || equipmentDefs[e]?.name || e}: ${have}`}
+                style={{ ...pill, borderColor: ok ? 'rgba(108,221,163,0.45)' : C.dangerDim }}>
+                <Icon name={e} size={9} color={ok ? C.good : '#ff9aa2'} />
+                <span style={num({ fontSize: 8, color: ok ? '#c8f0d8' : '#ff9aa2' })}>{have}</span>
+              </span>
+            );
+          })}
+        </div>
+        <span style={{ ...pill, borderColor: `${color}55` }}>
+          <span style={num({ fontSize: 8, color })}>{secs}sn</span>
+        </span>
+      </div>
+
+      {/* ALT — isim, istatistik, adet + EĞİT (hepsi görselin üstünde) */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding: '26px 5px 5px',
+        background: 'linear-gradient(180deg, transparent, rgba(4,9,15,0.62) 32%, rgba(4,9,15,0.95) 68%)',
+        display: 'flex', flexDirection: 'column', gap: 4,
+      }}>
+        <div style={{
+          fontFamily: FONT.head, fontSize: 12, fontWeight: 600, letterSpacing: 0.4,
+          color: C.frost, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+        }}>{def.name || u}</div>
+
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          <Stat icon="kilic" value={def.stats?.saldiri ?? '—'} color={C.danger} title="Saldırı" />
+          <Stat icon="kalkan" value={`${def.stats?.yayaSav ?? '—'}/${def.stats?.atliSav ?? '—'}`}
+            color={C.good} title="Yaya / atlı savunma" />
+          <Stat icon="hiz" value={def.stats?.hiz ?? '—'} color={C.iceDeep} title="Hız" />
+        </div>
+
+        <div onClick={(e) => e.stopPropagation()}
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Qty value={qty} onChange={setQty} />
+          <button onClick={() => onTrain(u, qty)} disabled={!ready}
+            title={!trainerOk ? 'Eğitmen işçi yok'
+              : !eqOk ? 'Yetersiz ekipman'
+              : !workerOk ? 'Askere dönüşecek boş işçi yok'
+              : 'Eğitim kuyruğuna ekle'}
+            style={btn(ready ? 'good' : 'disabled', {
+              flex: 1, padding: '3px 4px', fontSize: 8.5, letterSpacing: 0.8,
+            })}>
+            EĞİT
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function UnitTrainingPanel({
   buildingType,
-  unitsByBuilding = {},
-  unitDefs = {},
-  equipmentDefs = {},
-  equipment = {},
-  queue = [],
-  freeWorkers = 0,
-  trainerWorkers = 0,
-  onTrain,
-  onCancel
+  unitsByBuilding = {}, unitDefs = {}, equipmentDefs = {},
+  equipment = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
+  onTrain, onCancel,
 }) {
   const allowed = unitsByBuilding[buildingType] || [];
   const [qty, setQty] = useState(() => Object.fromEntries(allowed.map(k => [k, 1])));
+  const [detail, setDetail] = useState(null);
 
   if (!allowed.length) {
     return (
-      <div style={panel}>
-        <div style={{ color: '#c86060', fontSize: 11 }}>Bu bina birim eğitemez.</div>
+      <div style={{
+        background: 'rgba(8,17,28,0.55)', border: `1px solid ${C.lineSoft}`,
+        borderRadius: 7, padding: 10,
+        fontFamily: FONT.ui, fontSize: 10, color: C.textMute,
+      }}>
+        Bu bina birim eğitemez.
       </div>
     );
   }
 
   return (
-    <div style={panel}>
-      <div style={{ color: '#c8a44a', fontSize: 12, marginBottom: 8, letterSpacing: 1 }}>
-        🛡 BİRİM EĞİTİMİ
+    <div style={{
+      background: 'rgba(8,17,28,0.55)', border: `1px solid ${C.lineSoft}`,
+      borderRadius: 7, padding: 10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <Icon name="kisla" size={13} color={C.iceDeep} />
+        <span style={lbl({ fontSize: 8.5, letterSpacing: 1.5 })}>Birim eğitimi</span>
+        <span style={num({ fontSize: 9, color: C.textMute, marginLeft: 'auto' })}>
+          {allowed.length} tür
+        </span>
       </div>
 
-      {trainerWorkers === 0 ? (
-        <div style={{ color: '#e06060', fontSize: 10, marginBottom: 8, lineHeight: 1.5 }}>
-          ⚠ Bu binada eğitmen işçi yok — üst panelden işçi ata, aksi halde sipariş beklemeye alınır.
-        </div>
-      ) : (
-        <div style={{ color: '#7a8878', fontSize: 10, marginBottom: 8, lineHeight: 1.5 }}>
-          👥 {trainerWorkers} eğitmen — her asker 1 serbest işçi + ekipmanları tüketir.
-          Süre = ekipman×5sn ÷ {trainerWorkers}.
-        </div>
-      )}
+      {/* Tek satır bilgi — kutu yerine satır, dikeyde yer kazanır */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
+        fontFamily: FONT.ui, fontSize: 9.5,
+        color: trainerWorkers === 0 ? '#e8cf9a' : C.textDim,
+      }}>
+        <Icon name={trainerWorkers === 0 ? 'uyari' : 'isci'} size={11}
+          color={trainerWorkers === 0 ? C.warn : C.good} />
+        {trainerWorkers === 0
+          ? 'Bu binada eğitmen yok — yukarıdan işçi ata, sipariş bekler.'
+          : `${trainerWorkers} eğitmen · her asker 1 boş işçi + ekipmanını tüketir`}
+      </div>
 
-      {/* Eğitilebilir birimler */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-        {allowed.map(uKey => {
-          const def = unitDefs[uKey];
+      {/* 4 sütun × 2 satır: tüm türler tek ekranda, scroll yok */}
+      <div style={{
+        display: 'grid',
+        /**
+         * Dar poster panelinde de 4 sütun kalır. Eşik 84px: 430'luk panelde
+         * dış boşluklar VE kaydırma çubuğu düşünce iç genişlik ~373px kalıyor;
+         * 90px eşiğiyle 4 sütun sığmayıp 3'e düşüyordu (önizlemede görüldü).
+         * Pencere genişlerse kendiliğinden daha fazla sütun açılır.
+         */
+        gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 7,
+        marginBottom: queue.length > 0 ? 9 : 0,
+      }}>
+        {allowed.map(u => {
+          const def = unitDefs[u];
           if (!def) return null;
-          const eqList = def.equipment || [];
-          const q = qty[uKey] || 1;
-
-          // Tek birim için gerekli ekipmanlar: hepsinden ≥1 gerekiyor
-          const canAffordEq = eqList.every(eq => (equipment[eq] || 0) >= 1);
-          const hasWorker = freeWorkers >= 1;
-          const hasTrainer = trainerWorkers >= 1;
-          const canTrain = canAffordEq && hasWorker && hasTrainer;
-
-          const trainSecs = getEffectiveTrainSeconds(def, trainerWorkers);
-          const baseSecs  = getTrainSeconds(def);
-
           return (
-            <div key={uKey} style={{
-              background: '#0d0905', border: '1px solid #2a1808',
-              padding: '6px 8px', borderRadius: 3
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 16 }}>
-                  {def.category === 'suvari' ? '🐎' : def.category === 'kusatma' ? '🏗️' : '🛡️'}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: '#e8d4a0', fontSize: 11, fontWeight: 600 }}>
-                    {def.name}
-                  </div>
-                  <div style={{ fontSize: 10, marginTop: 1 }}>
-                    {formatStats(def.stats)}
-                    <span style={{ color: '#7080a0', marginLeft: 6 }}>
-                      · {trainSecs}sn
-                      {trainerWorkers > 1 && (
-                        <span style={{ color: '#5a6050' }}> (temel {baseSecs}sn)</span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-                <input
-                  type="number" min={1} max={50}
-                  value={q}
-                  onChange={e => setQty(st => ({ ...st, [uKey]: Math.max(1, Math.min(50, +e.target.value || 1)) }))}
-                  style={qtyInput}
-                />
-                <button
-                  style={{ ...rowBtn, flex: 'none', opacity: canTrain ? 1 : 0.5 }}
-                  disabled={!canTrain}
-                  title={
-                    !hasTrainer ? 'Eğitmen işçi yok (bu binaya işçi ata)' :
-                    !canAffordEq ? 'Yetersiz ekipman (1. birim için)' :
-                    !hasWorker  ? 'Serbest işçi yok (askere dönüşecek)' :
-                    'Eğitim kuyruğuna ekle'
-                  }
-                  onClick={() => onTrain(uKey, q)}
-                >
-                  Eğit
-                </button>
-              </div>
-              <div style={{ fontSize: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {eqList.map(eq => {
-                  const eqDef = equipmentDefs[eq];
-                  const have = equipment[eq] || 0;
-                  const ok = have >= 1;
-                  return (
-                    <span key={eq} style={{ color: ok ? '#8ab870' : '#c86060' }}>
-                      {eqDef?.icon || '•'} {eqDef?.name || eq} ({have})
-                    </span>
-                  );
-                })}
-                <span style={{ color: freeWorkers >= 1 ? '#8ab870' : '#c86060' }}>
-                  👤 işçi ({freeWorkers})
-                </span>
-              </div>
-            </div>
+            <UnitCard key={u} u={u} def={def}
+              color={CAT_COLOR[def.category] || C.iceSoft}
+              img={unitImage(u)}
+              qty={qty[u] || 1}
+              setQty={(n) => setQty(s => ({ ...s, [u]: n }))}
+              equipment={equipment} equipmentDefs={equipmentDefs}
+              freeWorkers={freeWorkers} trainerWorkers={trainerWorkers}
+              onTrain={onTrain} onOpen={() => setDetail(u)} />
           );
         })}
       </div>
 
-      {/* Kuyruk */}
-      <div style={{ color: '#8a8060', fontSize: 11, marginBottom: 4 }}>
-        Kuyruk ({queue.length})
-      </div>
-      {queue.length === 0 ? (
-        <div style={{ color: '#5a5040', fontSize: 10, fontStyle: 'italic' }}>— boş —</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {queue.map((o, idx) => {
-            const def = unitDefs[o.type];
-            return (
-              <div key={o.id} style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '4px 6px', fontSize: 11,
-                background: idx === 0 ? '#1a1408' : '#0d0905',
-                border: '1px solid #2a1808', borderRadius: 3
-              }}>
-                <span style={{ color: '#6a6050', width: 20 }}>#{idx + 1}</span>
-                <span style={{ flex: 1, color: '#e8d4a0' }}>
-                  {def?.name || o.type} × {o.remaining}
-                  {o.total > 1 && o.remaining !== o.total && (
-                    <span style={{ color: '#6a6050' }}> / {o.total}</span>
-                  )}
-                </span>
-                <span style={{ color: o.waiting ? '#c86060' : '#8ab870', fontSize: 10 }}>
-                  {o.waiting
-                    ? (WAITING_REASON_LABEL[o.waitingReason] || '⏸ bekliyor')
-                    : (o.timeLeft != null ? `${o.timeLeft}sn` : '—')}
-                </span>
-                <button
-                  onClick={() => onCancel(o.id)}
-                  style={{
-                    width: 22, height: 22, padding: 0,
-                    background: '#3a1808', border: '1px solid #5a2008',
-                    color: '#c86060', cursor: 'pointer', borderRadius: 3,
-                    fontSize: 12, lineHeight: '20px'
-                  }}
-                  title="İptal"
-                >×</button>
-              </div>
-            );
-          })}
-        </div>
+      {queue.length > 0 && (
+        <QueueList queue={queue}
+          nameOf={(o) => unitDefs[o.type]?.name || o.type}
+          iconOf={(o) => (unitDefs[o.type]?.category === 'suvari' ? 'at' : 'kalkan')}
+          onCancel={onCancel} />
+      )}
+
+      {detail && (
+        <UnitDetail type={detail} def={unitDefs[detail]}
+          equipmentDefs={equipmentDefs} onClose={() => setDetail(null)} />
       )}
     </div>
   );

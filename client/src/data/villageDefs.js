@@ -71,7 +71,7 @@ const VILLAGE_DEFS = {
   atolye:       { name:'Atölye',          category:'askeri', icon:'🏗️', description:'Kuşatma silahları üreten bina.',
                    unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:30, buildMultiplier:1.9, cost:{ kereste:120, demirKulce:40 } },
   cephane:      { name:'Cephanelik',      category:'askeri', icon:'🏹', description:'Kılıç/mızrak/kalkan/zırh depolar. Her seviye +50 kapasite.',
-                   unique:true, maxLevel:null, equipmentCapPerLevel:50, buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:60, demirKulce:20 } },
+                   unique:true, maxLevel:null, equipmentCapPerLevel:50, poolCapPerLevel:200, buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:60, demirKulce:20 } },
   saglikCadiri: { name:'Sağlık Çadırı',   category:'askeri', icon:'⛺', description:'Yaralı askerleri iyileştiren bina.',             unique:true, maxLevel:null, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:60, tahil:30 } },
 
   // ── Depo ────────────────────────────────────────────────────────
