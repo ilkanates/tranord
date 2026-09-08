@@ -32,19 +32,45 @@ const UNITS_BY_BUILDING = Object.entries(TRAINABLE_UNITS).reduce((acc, [key, def
 
 const app    = express();
 const server = http.createServer(app);
-const io     = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
+
+/**
+ * CORS — üretimde YALNIZCA bilinen istemci adreslerine izin verilir.
+ *
+ * Eskiden hem Socket.io hem Express `*` kullanıyordu; bu, herhangi bir sitenin
+ * tarayıcıdan bu API'ye istek atabilmesi demek. `CLIENT_URL` (virgülle birden
+ * fazla verilebilir) tanımlıysa liste ondan kurulur; tanımsız ve üretim değilse
+ * yerel geliştirme adresleri açık kalır.
+ */
+const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
+const DEV_ORIGINS = [
+  'http://localhost:5180', 'http://localhost:5173', 'http://localhost:3000',
+  'http://127.0.0.1:5180',
+];
+const ALLOWED_ORIGINS = (process.env.CLIENT_URL || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const ORIGIN_LIST = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS
+  : (IS_PROD ? [] : DEV_ORIGINS);
+
+if (IS_PROD && !ORIGIN_LIST.length) {
+  console.warn('[CORS] Üretimde CLIENT_URL tanımlı değil — tarayıcıdan gelen '
+    + 'istekler reddedilecek. Railway/Vercel adresini CLIENT_URL olarak ekleyin.');
+}
+
+/** Origin izinli mi? (origin yoksa — curl, sunucu-sunucu — serbest) */
+function originAllowed(origin) {
+  if (!origin) return true;
+  return ORIGIN_LIST.includes(origin);
+}
+
+const io = new Server(server, {
+  cors: { origin: (origin, cb) => cb(null, originAllowed(origin)), methods: ['GET', 'POST'] },
 });
 
-// Manuel CORS — tüm originlere izin ver
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
-app.use(cors());
+app.use(cors({
+  origin: (origin, cb) => cb(null, originAllowed(origin)),
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use('/auth', authRouter);
 
@@ -1344,6 +1370,7 @@ async function bootServer() {
     console.log(`Sunucu: http://localhost:${PORT}`);
     console.log(`[ZAMAN] 1 oyun saati = ${GT.HOUR_SECONDS} gerçek saniye`
       + ` (${(3600 / GT.HOUR_SECONDS).toFixed(2)}× Travian) — TRANORD_HOUR_SECONDS ile değişir`);
+    console.log(`[CORS] izinli origin: ${ORIGIN_LIST.length ? ORIGIN_LIST.join(', ') : '(yok)'}`);
   });
 }
 
