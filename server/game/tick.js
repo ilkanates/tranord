@@ -1,50 +1,89 @@
 /**
- * Oyun tick motoru
- * processTick() her saniye çağrılır.
- * Test modu: 1 gerçek saniye = 1 oyun saati
+ * Oyun tick motoru.
+ *
+ * ZAMAN: ölçek tek yerde — game/gameTime.js. processTick() gerçek saniyede bir
+ * çağrılır ama her çağrıda YALNIZCA `hours` kadar oyun saati işler (1× ölçekte
+ * 1/3600 saat). Bütün oranlar SAAT başınadır ve bu kesirle çarpılır.
+ *
+ * Hızlı ileri alma (tohumlama, offline telafi) aynı fonksiyonu büyük `hours`
+ * ile çağırır — 400 oyun saatini 400 adımda alır, 1,44 milyon adımda değil.
  */
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, UNIT_DEFS } = require('../data');
-const { getTileBonus, getTotalMultiplier } = require('./mapConfig');
+const { fieldMultiplier, worldTileBonus, localEfficiency } = require('./world');
+const GT = require('./gameTime');
 
-// Min üretim saniyesi: çok fazla işçi olsa bile süre 1 saniyenin altına inmez
-const MIN_PRODUCTION_SECONDS = 1;
+/** En kısa üretim süresi — işçi sayısı ne olursa olsun 1 oyun dakikasının altına inmez */
+const MIN_PRODUCTION_MINUTES = 1;
 
-// ─── Beslenme dengeleri ──────────────────────────────────────────
-// 1 tick = 1 oyun saati. 1 gün = 24 tick.
-const DAY_LENGTH_TICKS          = 24;
+// ─── Beslenme dengeleri (GÜN başına; gün = 24 oyun saati) ────────
+const HOURS_PER_DAY             = 24;
 const FOOD_PER_VILLAGER_PER_DAY = 3;   // köylü günde 3 ekmek
 const FOOD_PER_SOLDIER_PER_DAY  = 6;   // asker köylünün 2 katı (günde 6)
 const GRAIN_PER_HORSE_PER_DAY   = 3;   // at günde 3 ham tahıl
-const STARVE_POP_LOSS_INTERVAL  = 10;  // peş peşe 10 açlık tickinde 1 nüfus öl
+/** Kesintisiz bu kadar oyun saati aç kalınca 1 nüfus/asker ölür */
+const STARVE_HOURS_PER_LOSS     = 10;
 
-// Birim eğitim süresi (saniye): ekipman sayısı × 5sn, min 3sn (1 işçi referansı)
-function getUnitTrainSeconds(unitType) {
+/**
+ * Birim eğitim süresi — oyun DAKİKASI (1 eğitmen referansı).
+ * Ekipman sayısı × 5 dk, en az 3 dk. Travian kışla süreleriyle aynı mertebe.
+ */
+function getUnitTrainMinutes(unitType) {
   const def = UNIT_DEFS[unitType];
   if (!def) return Infinity;
   const eqCount = (def.equipment || []).length;
   return Math.max(3, eqCount * 5);
 }
+/** Geriye dönük ad — dakika döndürür (eski çağrı yerleri için) */
+const getUnitTrainSeconds = getUnitTrainMinutes;
 
-// Belirli bir ekipman türünün depo tavanı.
-// 'at' için ahır seviyesi × 5, diğerleri (kılıç/mızrak/kalkan/zırh) için cephanelik seviyesi × 50.
-// Bina yoksa: at → 0 (üretilemez), diğerleri → 20 (küçük varsayılan stok).
-function getEquipmentCap(village, equipmentType) {
-  if (equipmentType === 'at') {
-    const ahir = Object.values(village.villageBuildings).find(b => b.type === 'ahir');
-    if (!ahir || ahir.building || ahir.level < 1) return 0;
-    const def = VILLAGE_DEFS.ahir;
-    return ahir.level * (def?.horseCapPerLevel || 5);
-  }
+// ─── Ekipman deposu ──────────────────────────────────────────────
+// Kılıç/mızrak/kalkan/zırh TEK PAYLAŞIMLI HAVUZ kullanır: cephanelik
+// seviyesi × 200. Türler arasında serbestçe dağıtılabilir; toplam sınırlıdır.
+// At ayrı: canlı hayvan olduğu için ahır seviyesi × 5 ile sınırlı.
+const POOL_KEYS = new Set(['kilic', 'mizrak', 'kalkan', 'zirh']);
+const POOL_DEFAULT = 80;   // cephanelik yoksa küçük başlangıç deposu
+
+// Paylaşımlı havuzun kapasitesi ve doluluğu
+function getEquipmentPool(village) {
   const cephane = Object.values(village.villageBuildings).find(b => b.type === 'cephane');
-  if (!cephane || cephane.building || cephane.level < 1) return 20;
-  const def = VILLAGE_DEFS.cephane;
-  return cephane.level * (def?.equipmentCapPerLevel || 50);
+  const capacity = (!cephane || cephane.level < 1)
+    ? POOL_DEFAULT
+    : cephane.level * (VILLAGE_DEFS.cephane?.poolCapPerLevel || 200);
+
+  let used = 0;
+  for (const k of POOL_KEYS) used += village.equipment?.[k] || 0;
+
+  return { capacity, used, free: Math.max(0, capacity - used) };
+}
+
+// At kapasitesi (ahır)
+function getHorseCap(village) {
+  const ahir = Object.values(village.villageBuildings).find(b => b.type === 'ahir');
+  if (!ahir || ahir.level < 1) return 0;
+  return ahir.level * (VILLAGE_DEFS.ahir?.horseCapPerLevel || 5);
+}
+
+// UI/payload için: bir türün üst sınırı olarak görünen değer.
+// Havuz türlerinde havuzun TAMAMI döner (tek tür tüm havuzu doldurabilir).
+function getEquipmentCap(village, equipmentType) {
+  if (equipmentType === 'at') return getHorseCap(village);
+  return getEquipmentPool(village).capacity;
+}
+
+// Bu tür için yer var mı? Havuz türlerinde havuzun toplam doluluğuna bakılır.
+function hasEquipmentRoom(village, equipmentType) {
+  if (equipmentType === 'at') {
+    return (village.equipment?.at || 0) < getHorseCap(village);
+  }
+  if (!POOL_KEYS.has(equipmentType)) return true;
+  const pool = getEquipmentPool(village);
+  return pool.used < pool.capacity;
 }
 
 // Bir askeri binanın aktif işçi sayısı
 function getBuildingWorkers(village, buildingType) {
   const b = Object.values(village.villageBuildings).find(vb => vb.type === buildingType);
-  if (!b || b.building || b.level < 1) return 0;
+  if (!b || b.level < 1) return 0;
   return b.workers || 0;
 }
 
@@ -64,10 +103,27 @@ function getProductionMultiplier(slotKey) {
 }
 
 // Slota özel bonus dahil toplam üretim çarpanı.
-// tile.type ile o slotun bonus resource'u eşleşirse bonus uygulanır.
-function getSlotTotalMultiplier(slotKey, buildingType) {
+// TEK HARİTA: mesafe cezası köy merkezine göre YEREL, arazi bonusu ise
+// tarlanın DÜNYA koordinatına göre hesaplanır.
+/** Depo/ambar tavanları — tick içinde işlemeden önce ve sonra aynı değerler kullanılır */
+function getStorageCaps(village) {
+  const caps = { odun:300, kil:300, tas:300, demir:300, tahil:300, kereste:200, tugla:200, yontmaTas:200, demirKulce:200 };
+  let granaryCap = 150;
+  Object.values(village.villageBuildings).forEach(b => {
+    const def = VILLAGE_DEFS[b.type];
+    if (!def?.stores || (b.building && b.level === 0)) return;
+    const cap = def.baseCapacity + Math.max(0, b.level - 1) * def.capacityPerLevel;
+    if (b.type === 'granary') granaryCap += cap;
+    else def.stores.forEach(res => { caps[res] = (caps[res] || 0) + cap; });
+  });
+  return { caps, granaryCap };
+}
+
+function getSlotTotalMultiplier(slotKey, buildingType, village) {
   const [q, r] = slotKey.split(',').map(Number);
-  return getTotalMultiplier(q, r, buildingType);
+  const wq = village?.worldQ || 0;
+  const wr = village?.worldR || 0;
+  return fieldMultiplier(wq, wr, q, r, buildingType);
 }
 
 // cost object for upgrading FROM level TO level+1
@@ -76,13 +132,22 @@ function getUpgradeCost(type, level) {
   return def.levels[level]?.cost || null;
 }
 
-function getUpgradeSeconds(type, level, workers) {
+/**
+ * Tarla yükseltme süresi — oyun DAKİKASI.
+ *
+ * `sureSaat` alanının adı "saat" ama değerleri (5, 7, 9.8, 13.7, 19.2 …)
+ * Travian'ın DAKİKA cetveline oturuyor (tarla lvl1→2 = 5 dk). Saat sayılsa
+ * lvl1→2 beş saat sürerdi; ölçek düzeltilirken bu yorum netleştirildi.
+ */
+function getUpgradeMinutes(type, level, workers) {
   if (workers <= 0) return Infinity;
   const def = BUILDING_DEFS[type];
   const sureSaat = def.levels[level]?.sureSaat;
   if (!sureSaat) return Infinity;
-  return Math.ceil(sureSaat / workers);
+  return sureSaat / workers;
 }
+/** Geriye dönük ad — DAKİKA döndürür */
+const getUpgradeSeconds = getUpgradeMinutes;
 
 function formatTime(seconds) {
   if (seconds === Infinity) return '—';
@@ -91,19 +156,23 @@ function formatTime(seconds) {
   return (seconds / 3600).toFixed(1) + 'sa';
 }
 
-function processTick(village) {
-  const now = Date.now();
+function processTick(village, hours = GT.HOURS_PER_TICK) {
+  // Sanal saat `hours` kadar ilerler; bütün saatlik oranlar bu kesirle çarpılır
+  village.clockMs = (village.clockMs || Date.now()) + GT.hoursToClock(hours);
+  const now = village.clockMs;
 
   // Üretim alanı hex tile'ları (ham madde)
   Object.entries(village.productionTiles).forEach(([slotKey, b]) => {
     const def = BUILDING_DEFS[b.type];
     if (!def) return;
 
-    if (b.workers > 0 && !b.upgrading) {
+    // Yükseltme sırasında üretim DURMAZ — mevcut seviyeden devam eder.
+    // (İlk inşaat, yani level 0, henüz üretmeye başlamamıştır.)
+    if (b.workers > 0 && b.level >= 1) {
       // Distance penalty + tile bonus (bonus resource == b.type ise uygulanır)
-      const multiplier = getSlotTotalMultiplier(slotKey, b.type);
+      const multiplier = getSlotTotalMultiplier(slotKey, b.type, village);
       const perHour = b.workers * def.baseProductionPerWorker * multiplier;
-      village.resources[b.type] = (village.resources[b.type] || 0) + perHour;
+      village.resources[b.type] = (village.resources[b.type] || 0) + perHour * hours;
     }
 
     if (b.upgrading && now >= b.upgradeEndTime) {
@@ -112,48 +181,59 @@ function processTick(village) {
       village.freeWorkers += b.upgradeWorkersAssigned;
       b.upgradeWorkersAssigned = 0;
       b.upgradeEndTime = null;
-      console.log(`[UPGRADE] UretimTile ${slotKey} (${b.type}) -> Seviye ${b.level}`);
+      if (!village.quiet) console.log(`[UPGRADE] UretimTile ${slotKey} (${b.type}) -> Seviye ${b.level}`);
     }
   });
+
+  // Depo kapasiteleri — İŞLEMEDEN ÖNCE hesaplanır.
+  // Sebep: çıktı deposu doluyken girdi tüketilip çıktı çöpe atılıyordu
+  // (ölçüm: keresteci 3 işçi, kereste tavanda → 240 odun gitti, 0 kereste geldi).
+  const { caps, granaryCap } = getStorageCaps(village);
 
   // Köy merkezi işleme binaları (ham -> işlenmiş)
   Object.values(village.villageBuildings).forEach(b => {
     const def = VILLAGE_DEFS[b.type];
-    if (!def?.processes || b.building || b.level < 1) return;
+    // Yükseltilirken de işlemeye devam eder; yalnızca ilk inşaat (level 0) beklemede
+    if (!def?.processes || b.level < 1) return;
 
     const w = b.workers || 0;
     if (w <= 0) return;
 
     const { input, inputPerHour, output, outputPerHour } = def.processes;
-    const rate      = inputPerHour * w;
+    const ratio     = outputPerHour / inputPerHour;
+    const rate      = inputPerHour * w * hours;
     const available = village.resources[input] || 0;
-    const toConsume = Math.min(available, rate);
+    let toConsume   = Math.min(available, rate);
+    if (toConsume <= 0) return;
+
+    // Çıktı için kalan yer kadar tüket — fazlası ham kaynağı boşa harcamak olur.
+    // un/ekmek ambarda ortak yer paylaşır, o yüzden tavan ikisinin toplamına bakar.
+    const isFood = output === 'un' || output === 'ekmek';
+    const cap    = isFood ? granaryCap : (caps[output] ?? Infinity);
+    const held   = isFood
+      ? (village.resources.un || 0) + (village.resources.ekmek || 0)
+      : (village.resources[output] || 0);
+    const room   = Math.max(0, cap - held);
+    if (room <= 0) return;                       // depo dolu: girdiye dokunma
+    toConsume = Math.min(toConsume, room / ratio);
     if (toConsume <= 0) return;
 
     village.resources[input]  -= toConsume;
-    const produced = toConsume * (outputPerHour / inputPerHour);
-    village.resources[output] = (village.resources[output] || 0) + produced;
+    village.resources[output]  = (village.resources[output] || 0) + toConsume * ratio;
   });
 
-  // Depo kapasitesi tavanı
-  const caps = { odun:300, kil:300, tas:300, demir:300, tahil:300, kereste:200, tugla:200, yontmaTas:200, demirKulce:200 };
-  let granaryCap = 150;
-
-  Object.values(village.villageBuildings).forEach(b => {
-    const def = VILLAGE_DEFS[b.type];
-    if (!def?.stores || (b.building && b.level === 0)) return;
-    const cap = def.baseCapacity + Math.max(0, b.level - 1) * def.capacityPerLevel;
-    if (b.type === 'granary') {
-      granaryCap += cap;
-    } else {
-      def.stores.forEach(res => { caps[res] = (caps[res] || 0) + cap; });
-    }
-  });
-
+  /**
+   * Yalnızca TAVANA kırp — YUVARLAMA YOK.
+   *
+   * Eskiden burada 0,1 hassasiyetle yuvarlanıyordu. Ölçek 1×'e inince bir
+   * tick'in üretimi 7/3600 = 0,00194 birim oldu ve HER ARTIŞ yuvarlanarak
+   * yok oldu: 3600 ince adım sonunda kaynak hiç artmıyordu (ölçtüm: kaba adım
+   * 207 odun, ince adım 200 odun). Yuvarlama artık yalnızca istemciye
+   * gönderilirken yapılıyor.
+   */
   Object.keys(caps).forEach(k => {
     if (village.resources[k] !== undefined) {
       village.resources[k] = Math.min(village.resources[k] || 0, caps[k]);
-      village.resources[k] = Math.round(village.resources[k] * 10) / 10;
     }
   });
 
@@ -163,11 +243,8 @@ function processTick(village) {
     village.resources.ekmek = 0;
   } else if (totalFood > granaryCap) {
     const ratio = granaryCap / totalFood;
-    village.resources.un    = Math.round((village.resources.un    || 0) * ratio * 10) / 10;
-    village.resources.ekmek = Math.round((village.resources.ekmek || 0) * ratio * 10) / 10;
-  } else {
-    village.resources.un    = Math.round((village.resources.un    || 0) * 10) / 10;
-    village.resources.ekmek = Math.round((village.resources.ekmek || 0) * 10) / 10;
+    village.resources.un    = (village.resources.un    || 0) * ratio;
+    village.resources.ekmek = (village.resources.ekmek || 0) * ratio;
   }
 
   // Ekipman üretim kuyrukları
@@ -177,33 +254,42 @@ function processTick(village) {
   processUnitQueues(village, now);
 
   // Beslenme: nüfus + ordu yer, atlar ayrı tahıl tüketir
-  processFoodConsumption(village);
+  processFoodConsumption(village, hours);
 }
 
 // ─── Yiyecek tüketimi ─────────────────────────────────────────────
 // Köylüler ve askerler sırasıyla ekmek → un → ham tahıl yer.
 // Atlar yalnızca ham tahıl tüketir (un/ekmek yemez).
-// Yeterli yiyecek yoksa isStarving=true → her STARVE_POP_LOSS_INTERVAL tickte 1 nüfus.
-function processFoodConsumption(village) {
+// Yeterli yiyecek yoksa isStarving=true → her STARVE_HOURS_PER_LOSS oyun saatinde 1 nüfus.
+function processFoodConsumption(village, hours = GT.HOURS_PER_TICK) {
   const pop     = village.population || 0;
   const army    = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
   const horses  = (village.equipment?.at) || 0;
 
-  // Per-tick (saatlik) tüketim. 1 gün = 24 tick.
-  const villagerRate = (pop    * FOOD_PER_VILLAGER_PER_DAY) / DAY_LENGTH_TICKS;
-  const soldierRate  = (army   * FOOD_PER_SOLDIER_PER_DAY)  / DAY_LENGTH_TICKS;
-  const horseRate    = (horses * GRAIN_PER_HORSE_PER_DAY)   / DAY_LENGTH_TICKS;
+  // Günlük tüketim → bu adımda geçen oyun saati kadarı
+  const villagerRate = (pop    * FOOD_PER_VILLAGER_PER_DAY / HOURS_PER_DAY) * hours;
+  const soldierRate  = (army   * FOOD_PER_SOLDIER_PER_DAY  / HOURS_PER_DAY) * hours;
+  const horseRate    = (horses * GRAIN_PER_HORSE_PER_DAY   / HOURS_PER_DAY) * hours;
 
   let foodDebt = villagerRate + soldierRate;
 
-  // Sadece ekmek sayılır — yoksa açlık
-  if (foodDebt > 0 && (village.resources.ekmek || 0) > 0) {
-    const take = Math.min(village.resources.ekmek, foodDebt);
-    village.resources.ekmek -= take;
-    foodDebt -= take;
+  // Beslenme zinciri: ekmek → un → ham tahıl.
+  // Ham gıdaya inildikçe verim düşer, yani fırın/değirmen kurmak kârlı kalır.
+  const FOOD_CHAIN = [
+    ['ekmek', 1.0],   // 1 birim ekmek = 1 birim doyum
+    ['un',    1.5],   // un daha az doyurucu
+    ['tahil', 2.5],   // ham tahıl en verimsiz
+  ];
+  for (const [key, ratio] of FOOD_CHAIN) {
+    if (foodDebt <= 1e-9) break;
+    const have = village.resources[key] || 0;
+    if (have <= 0) continue;
+    const take = Math.min(have, foodDebt * ratio);
+    village.resources[key] = have - take;
+    foodDebt -= take / ratio;
   }
 
-  // Atlar: sadece ham tahıl
+  // Atlar: yalnızca ham tahıl (insanlar yedikten sonra kalan)
   if (horseRate > 0) {
     const take = Math.min(village.resources.tahil || 0, horseRate);
     village.resources.tahil = (village.resources.tahil || 0) - take;
@@ -216,8 +302,8 @@ function processFoodConsumption(village) {
   const starving = foodDebt > 1e-6;
   village.isStarving = starving;
   if (starving) {
-    village.starveCounter = (village.starveCounter || 0) + 1;
-    if (village.starveCounter >= STARVE_POP_LOSS_INTERVAL) {
+    village.starveCounter = (village.starveCounter || 0) + hours;
+    if (village.starveCounter >= STARVE_HOURS_PER_LOSS) {
       village.starveCounter = 0;
 
       // 1) Önce asker öl
@@ -225,29 +311,27 @@ function processFoodConsumption(village) {
       if (armyEntries.length > 0) {
         const [deadType] = armyEntries[0];
         village.army[deadType] -= 1;
-        console.log(`[STARVE] Asker kaybı! ${deadType} (kalan: ${village.army[deadType]})`);
+        if (!village.quiet) console.log(`[STARVE] Asker kaybı! ${deadType} (kalan: ${village.army[deadType]})`);
 
       // 2) Asker kalmadıysa ve nüfus minimumun üzerindeyse sivil öl
       } else if (village.population > MIN_POPULATION) {
         village.population -= 1;
         if (village.freeWorkers > 0) village.freeWorkers -= 1;
-        const hourlyDrop = FOOD_PER_VILLAGER_PER_DAY / DAY_LENGTH_TICKS;
-        village.resources.ekmek = (village.resources.ekmek || 0) + hourlyDrop;
-        console.log(`[STARVE] Nüfus kaybı! Kalan: ${village.population}`);
+        if (!village.quiet) console.log(`[STARVE] Nüfus kaybı! Kalan: ${village.population}`);
 
       // 3) Minimum nüfusa ulaşıldı — artık kimse ölmez
       } else {
-        console.log(`[STARVE] Minimum nüfus (${MIN_POPULATION}) korunuyor.`);
+        if (!village.quiet) console.log(`[STARVE] Minimum nüfus (${MIN_POPULATION}) korunuyor.`);
       }
     }
   } else {
     village.starveCounter = 0;
   }
 
-  // Float temizliği
+  // Negatife düşmesin (yuvarlama yok — bkz. yukarıdaki not)
   ['ekmek', 'un', 'tahil'].forEach(k => {
     if (village.resources[k] !== undefined) {
-      village.resources[k] = Math.max(0, Math.round(village.resources[k] * 10) / 10);
+      village.resources[k] = Math.max(0, village.resources[k]);
     }
   });
 }
@@ -258,8 +342,9 @@ function processEquipmentQueues(village, now) {
   Object.entries(village.equipmentQueues).forEach(([buildingType, queue]) => {
     if (!queue.length) return;
 
+    // Yükseltme üretimi durdurmaz — bina mevcut seviyesiyle çalışmaya devam eder
     const b = Object.values(village.villageBuildings).find(vb => vb.type === buildingType);
-    if (!b || b.building || b.level < 1) return;
+    if (!b || b.level < 1) return;
 
     const order = queue[0];
     const def   = EQUIPMENT_DEFS[order.type];
@@ -273,10 +358,8 @@ function processEquipmentQueues(village, now) {
         order.waitingReason = 'isci_yok';
         return;
       }
-      // 2) Depo (cephanelik / ahır at kapasitesi) dolu mu?
-      const cap = getEquipmentCap(village, order.type);
-      const have = village.equipment[order.type] || 0;
-      if (have >= cap) {
+      // 2) Depo dolu mu? (havuz türlerinde ORTAK havuza bakılır)
+      if (!hasEquipmentRoom(village, order.type)) {
         order.waiting      = true;
         order.waitingReason = order.type === 'at' ? 'ahir_dolu' : 'cephane_dolu';
         return;
@@ -294,20 +377,19 @@ function processEquipmentQueues(village, now) {
       for (const [res, amt] of Object.entries(def.cost)) {
         village.resources[res] -= amt;
       }
-      const baseSecs = Math.ceil(def.productionHours);
-      const secs     = Math.max(MIN_PRODUCTION_SECONDS, Math.ceil(baseSecs / workers));
+      // productionHours GERÇEKTEN saat: işçiye bölünür, en az MIN_PRODUCTION_MINUTES
+      const mins = Math.max(MIN_PRODUCTION_MINUTES, (def.productionHours * 60) / workers);
       order.waiting       = false;
       order.waitingReason = null;
       order.startTime     = now;
-      order.endTime       = now + secs * 1000;
+      order.endTime       = now + GT.minutesToClock(mins);
       order.workersAtStart = workers;
     }
 
     if (now >= order.endTime) {
-      // Bitim anında yine cap kontrolü (cephanelik yıkılmış/küçülmüş olabilir)
-      const cap  = getEquipmentCap(village, order.type);
+      // Bitim anında yine kontrol (cephanelik yıkılmış/küçülmüş olabilir)
       const have = village.equipment[order.type] || 0;
-      if (have >= cap) {
+      if (!hasEquipmentRoom(village, order.type)) {
         // Depo doldu → üretilen parça ziyan (kaynak zaten harcandı). Bekletme moduna al.
         order.waiting      = true;
         order.waitingReason = order.type === 'at' ? 'ahir_dolu' : 'cephane_dolu';
@@ -316,7 +398,8 @@ function processEquipmentQueues(village, now) {
         return;
       }
       village.equipment[order.type] = have + 1;
-      console.log(`[EQUIPMENT DONE] ${order.type} -> envanter (${have + 1}/${cap})`);
+      const capNow = getEquipmentCap(village, order.type);
+      if (!village.quiet) console.log(`[EQUIPMENT DONE] ${order.type} -> envanter (${have + 1}/${capNow})`);
 
       order.remaining = (order.remaining || 1) - 1;
       if (order.remaining <= 0) {
@@ -343,8 +426,9 @@ function processUnitQueues(village, now) {
     if (!queue || !queue.length) return;
 
     // Bu tür eğitim binası köyde var ve çalışır durumda mı?
+    // (Yükseltme eğitimi durdurmaz; yalnızca ilk inşaat beklemede)
     const b = Object.values(village.villageBuildings).find(vb => vb.type === buildingType);
-    if (!b || b.building || b.level < 1) return;
+    if (!b || b.level < 1) return;
 
     const order = queue[0];
     const unitDef = UNIT_DEFS[order.type];
@@ -384,13 +468,13 @@ function processUnitQueues(village, now) {
       village.freeWorkers -= 1;
       order.workerReserved = true;
 
-      // Süre: temel × (1/trainerWorkers), min 1sn
-      const baseSecs = getUnitTrainSeconds(order.type);
-      const secs     = Math.max(MIN_PRODUCTION_SECONDS, Math.ceil(baseSecs / trainerWorkers));
+      // Süre: temel DAKİKA / eğitmen sayısı, en az MIN_PRODUCTION_MINUTES
+      const mins = Math.max(MIN_PRODUCTION_MINUTES,
+        getUnitTrainMinutes(order.type) / trainerWorkers);
       order.waiting       = false;
       order.waitingReason = null;
       order.startTime     = now;
-      order.endTime       = now + secs * 1000;
+      order.endTime       = now + GT.minutesToClock(mins);
       order.workersAtStart = trainerWorkers;
     }
 
@@ -398,7 +482,7 @@ function processUnitQueues(village, now) {
     if (now >= order.endTime) {
       village.army[order.type] = (village.army[order.type] || 0) + 1;
       // Not: işçi asker oldu, havuza geri dönmez (freeWorkers artmaz)
-      console.log(`[UNIT TRAINED] ${order.type} (+1) ${buildingType}`);
+      if (!village.quiet) console.log(`[UNIT TRAINED] ${order.type} (+1) ${buildingType}`);
 
       order.remaining = (order.remaining || 1) - 1;
       if (order.remaining <= 0) {
@@ -422,9 +506,9 @@ function getConsumptionRates(village) {
   const army   = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
   const horses = (village.equipment && village.equipment.at) || 0;
 
-  const villagerFood = (pop    * FOOD_PER_VILLAGER_PER_DAY) / DAY_LENGTH_TICKS;
-  const soldierFood  = (army   * FOOD_PER_SOLDIER_PER_DAY)  / DAY_LENGTH_TICKS;
-  const horseGrain   = (horses * GRAIN_PER_HORSE_PER_DAY)   / DAY_LENGTH_TICKS;
+  const villagerFood = (pop    * FOOD_PER_VILLAGER_PER_DAY) / HOURS_PER_DAY;
+  const soldierFood  = (army   * FOOD_PER_SOLDIER_PER_DAY)  / HOURS_PER_DAY;
+  const horseGrain   = (horses * GRAIN_PER_HORSE_PER_DAY)   / HOURS_PER_DAY;
 
   return {
     villagers:    pop,
@@ -432,7 +516,7 @@ function getConsumptionRates(village) {
     horses,
     foodPerHour:  +(villagerFood + soldierFood).toFixed(2),
     grainPerHour: +horseGrain.toFixed(2),
-    dayLengthTicks: DAY_LENGTH_TICKS
+    dayLengthHours: HOURS_PER_DAY
   };
 }
 
@@ -441,13 +525,21 @@ module.exports = {
   processUnitQueues,
   getUpgradeCost,
   getUpgradeSeconds,
+  getUpgradeMinutes,
   getUnitTrainSeconds,
+  getUnitTrainMinutes,
   getEquipmentCap,
+  getEquipmentPool,
+  getHorseCap,
+  hasEquipmentRoom,
   getBuildingWorkers,
   getConsumptionRates,
   formatTime,
   hexDistanceFromCenter,
   getProductionMultiplier,
   getSlotTotalMultiplier,
-  getTileBonus
+  getStorageCaps,
+  worldTileBonus,
+  localEfficiency,
+  fieldMultiplier,
 };
