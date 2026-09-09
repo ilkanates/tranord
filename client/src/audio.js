@@ -85,14 +85,32 @@ function ensure() {
   el.preload = 'auto';
   el.loop = false;                       // sıradaki parçaya geçilecek
   el.volume = state.muted ? 0 : state.volume;
-  el.addEventListener('ended', () => {
-    idx += 1;
-    if (idx >= order.length) shuffle();  // listeyi bitirince yeniden karıştır
-    load();
-    play();
+  el.addEventListener('ended', () => ilerle());
+  /**
+   * DOSYA YOKSA SIRADAKİNE GEÇ.
+   *
+   * Parça listesi sabit ama dosyalar `client/public/muzik/` altında ve git'e
+   * girmiyor (~100 MB). Dosya eksikse `error` gelir, `ended` GELMEZ: eski
+   * hâlde çalar o parçada susup kalıyordu. Artık eksik parça atlanıyor;
+   * hepsi eksikse bir tur dönüp duruyor (sonsuz döngü yok).
+   */
+  let hataArtArda = 0;
+  el.addEventListener('error', () => {
+    hataArtArda += 1;
+    if (hataArtArda >= TRACKS.length) { hataArtArda = 0; return; }
+    ilerle();
   });
+  el.addEventListener('playing', () => { hataArtArda = 0; });
   load();
   return el;
+}
+
+/** Sıradaki parçaya geç ve çal */
+function ilerle() {
+  idx += 1;
+  if (idx >= order.length) shuffle();    // listeyi bitirince yeniden karıştır
+  load();
+  play();
 }
 
 function load() {
