@@ -5,6 +5,7 @@ import VillageCenter   from './components/VillageCenter';
 import HelpScreen      from './components/HelpScreen';
 import MusicButton     from './components/MusicButton';
 import VillageSwitcher from './components/VillageSwitcher';
+import DevMenu        from './components/DevMenu';
 import { startMusic }  from './audio';
 import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
@@ -152,7 +153,7 @@ function scaleLabel(hourSeconds, mult) {
   return `1 oyun saati = ${s.toFixed(s < 10 ? 1 : 0)} sn`;
 }
 
-function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, onDevSetup,
+function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
   villages = [], activeSlot = null, onSwitchVillage }) {
   const currentMult = +(1000 / tickMs).toFixed(4);
   const speedIdx = SPEED_STEPS.reduce(
@@ -267,16 +268,8 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
           <MusicButton />
         </div>
 
-        {/* TEST — yalnız geliştirme derlemesinde */}
-        {import.meta.env.DEV && onDevSetup && (
-          <button onClick={onDevSetup} title="Depoları Lvl 10 yap ve doldur (test)"
-            style={btn('ghost', {
-              padding: '3px 8px', fontSize: 9, marginLeft: 4,
-              borderColor: 'rgba(224,179,87,0.45)', color: '#e0b357',
-            })}>
-            TEST DOLDUR
-          </button>
-        )}
+        {/* TEST kısayolları — yalnız geliştirme derlemesinde */}
+        {import.meta.env.DEV && <DevMenu socket={socket} />}
 
         <div style={{ width: 1, alignSelf: 'stretch', background: C.lineSoft, margin: '10px 0' }} />
 
@@ -416,12 +409,6 @@ function Game({ token, onLogout }) {
   const trainUnit       = (buildingType, unitType, quantity) => socket.emit('train_unit', { buildingType, unitType, quantity });
   const cancelUnitOrder = (buildingType, orderId) => socket.emit('cancel_unit_order', { buildingType, orderId });
   const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
-  /**
-   * TEST KURULUMU — depoları Lvl 10'a çıkarıp doldurur.
-   * Yalnız geliştirme derlemesinde görünür; sunucu tarafı da
-   * TRANORD_DEV_CHEATS=1 olmadan bu olayı hiç dinlemiyor.
-   */
-  const devSetup = () => socket.emit('dev_setup', { level: 10, fill: true });
   const startFestival = (kind) => socket.emit('start_festival', { kind });
   /**
    * KÖY DEĞİŞTİR. Sunucu yeni köyün payload'unu statiklerle birlikte
@@ -460,7 +447,7 @@ function Game({ token, onLogout }) {
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []) }}
         hourSeconds={village.marchInfo?.hourSeconds || 3600}
-        onDevSetup={devSetup}
+        socket={socket}
         villages={village.villages || []}
         activeSlot={village.activeSlot || null}
         onSwitchVillage={switchVillage} />

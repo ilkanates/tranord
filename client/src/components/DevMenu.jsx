@@ -1,0 +1,129 @@
+/**
+ * DevMenu — TEST tuşları tek menü altında.
+ *
+ * Bunlar kasten kural TANIMAYAN kısayollar: kaynak, süre, köy hakkı,
+ * göçmen hiçbiri sorulmaz. Amaç oyunu denerken beklememek.
+ *
+ * Yalnız geliştirme derlemesinde görünür (import.meta.env.DEV) ve sunucu
+ * tarafı da TRANORD_DEV_CHEATS=1 istiyor — üretimde ne düğme ne olay var.
+ */
+import { useEffect, useRef, useState } from 'react';
+import { C, FONT, label as lbl } from '../theme';
+
+/** Menüdeki her satır: ne yaptığını açıkça yazsın */
+const ITEMS = [
+  {
+    key: 'depo',
+    label: 'Depoları doldur',
+    note: '4 ambar Lvl 10 + tam dolu',
+    emit: ['dev_setup', { level: 10, fill: true }],
+  },
+  {
+    key: 'koy',
+    label: 'İkinci köy ver',
+    note: 'merkeze en yakın boş slota',
+    emit: ['dev_new_village', {}],
+  },
+  {
+    key: 'ordu',
+    label: 'Ordu ver',
+    note: '200 piyade · 60 süvari · 5 kuşatma',
+    emit: ['dev_grant', {
+      army: {
+        fjordvakt: 100, skjoldvakt: 60, spydvakt: 40,
+        demirAtli: 40, skjoldreiter: 20,
+        kaleKiran: 5,
+      },
+    }],
+  },
+];
+
+export default function DevMenu({ socket }) {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef(null);
+
+  // Dışına tıklanınca kapan
+  useEffect(() => {
+    if (!open) return;
+    const kapat = (e) => { if (!boxRef.current?.contains(e.target)) setOpen(false); };
+    window.addEventListener('pointerdown', kapat);
+    return () => window.removeEventListener('pointerdown', kapat);
+  }, [open]);
+
+  if (!socket) return null;
+
+  const calistir = (item) => {
+    socket.emit(item.emit[0], item.emit[1]);
+    setOpen(false);
+  };
+
+  const SARI = '#e0b357';
+
+  return (
+    <div ref={boxRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        title="Test kısayolları (yalnız geliştirme)"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '3px 8px', marginLeft: 4, borderRadius: 4, cursor: 'pointer',
+          background: open ? 'rgba(224,179,87,0.16)' : 'transparent',
+          border: `1px solid rgba(224,179,87,${open ? 0.7 : 0.45})`,
+          color: SARI, fontFamily: FONT.ui, fontSize: 9, letterSpacing: 0.6,
+        }}>
+        TEST
+        <svg width="8" height="8" viewBox="0 0 12 12" style={{
+          opacity: 0.7, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .16s',
+        }}>
+          <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke={SARI}
+            strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 60,
+          minWidth: 208, padding: 5, borderRadius: 7,
+          background: 'linear-gradient(180deg, rgba(13,26,42,0.97), rgba(9,18,30,0.97))',
+          border: '1px solid rgba(224,179,87,0.35)',
+          boxShadow: '0 12px 34px rgba(0,0,0,.55)',
+          backdropFilter: 'blur(18px) saturate(1.2)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.2)',
+        }}>
+          <div style={lbl({ fontSize: 7.5, letterSpacing: 1.3, padding: '3px 6px 5px', color: SARI })}>
+            Test kısayolları
+          </div>
+
+          {ITEMS.map(item => (
+            <button key={item.key} type="button" onClick={() => calistir(item)}
+              style={{
+                width: '100%', display: 'block', textAlign: 'left',
+                padding: '6px 7px', marginBottom: 1, borderRadius: 4,
+                background: 'transparent', border: '1px solid transparent',
+                cursor: 'pointer', color: C.text,
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(224,179,87,0.10)';
+                e.currentTarget.style.borderColor = 'rgba(224,179,87,0.35)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderColor = 'transparent';
+              }}>
+              <div style={{ fontFamily: FONT.ui, fontSize: 11 }}>{item.label}</div>
+              <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint, marginTop: 1 }}>
+                {item.note}
+              </div>
+            </button>
+          ))}
+
+          <div style={{
+            padding: '5px 7px 2px', fontFamily: FONT.ui, fontSize: 8.5,
+            color: C.textFaint, lineHeight: 1.45,
+          }}>
+            Kural tanımaz kısayollar. Sunucuda TRANORD_DEV_CHEATS=1 gerekiyor.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

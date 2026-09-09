@@ -1923,6 +1923,53 @@ io.on('connection', async socket => {
       console.log(`[DEV] ${userEmail} test kurulumu: ${kurulan.join(' · ')}`
         + (fill ? ' · depolar dolduruldu' : ''));
     });
+
+    /**
+     * TEST — İKİNCİ KÖY. Kültür puanı biriktirmeyi ve köşk/saray dikmeyi
+     * beklemeden çoklu köy arayüzünü (köy değiştirici, ayrı tick, ayrı
+     * kayıt) denemek için. Kurallar KASTEN atlanıyor: göçmen, kaynak,
+     * yol süresi, köy hakkı hiçbiri sorulmuyor.
+     *
+     * Yer: merkez köye EN YAKIN boş dünya slotu. Slotlar zaten aralıklı
+     * üretildiği için ayrıca mesafe kontrolü gerekmiyor.
+     */
+    socket.on('dev_new_village', async () => {
+      const cap = WORLD.slotByKey.get(session.capitalSlot);
+      const taken = new Set([...WORLD.npcs.keys(), ...WORLD.playerBySlot.keys()]);
+      let best = null, bestD = Infinity;
+      for (const sl of WORLD.slots) {
+        if (taken.has(sl.key)) continue;
+        const d = cap ? W.distanceBetween(cap, sl) : sl.ring;
+        if (d < bestD) { bestD = d; best = sl; }
+      }
+      if (!best) {
+        console.warn(`[DEV] ${userEmail} boş slot bulunamadı, köy kurulamadı`);
+        return;
+      }
+
+      const nv = createVillage(best.q, best.r);
+      nv.isCapital = false;
+      session.villages.set(best.key, nv);
+      session.dirtySlots.add(best.key);
+
+      const name = (userEmail || 'oyuncu').split('@')[0];
+      WORLD.playerBySlot.set(best.key, { userId, email: userEmail, name });
+      if (!WORLD.slotsByUser.has(userId)) WORLD.slotsByUser.set(userId, new Set());
+      WORLD.slotsByUser.get(userId).add(best.key);
+
+      try {
+        await setPlayerSlot(userId, best.key, name, false);
+        await saveVillage(userId, best.key, nv);
+      } catch (err) {
+        console.error('[DEV] yeni köy kaydı:', err.message);
+      }
+
+      emitVillage(session, { force: true, statics: true });
+      try { socket.emit('world_snapshot', worldSnapshot(userId, session.activeSlot)); }
+      catch { /* harita yenilenmezse oyuncu kendisi açar */ }
+      console.log(`[DEV] ${userEmail} yeni köy ${best.key} (${best.name},`
+        + ` merkezden ${bestD} hex) — toplam ${session.villages.size} köy`);
+    });
   }
 
   socket.on('disconnect', async () => {
