@@ -2,19 +2,29 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import BuildMenu from './BuildMenu';
 import EquipmentPanel from './EquipmentPanel';
 import UnitTrainingPanel from './UnitTrainingPanel';
-import VILLAGE_DEFS from '../data/villageDefs';
-import merkezImg from '../assets/merkez2.png';
-import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO } from './buildingArt';
+import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/villageDefs';
+import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
-import { C, FONT, RES_COLOR, btn, label as lbl, num, signed } from '../theme';
-import { RES_LABEL } from '../flows';
+import { C, FONT, RES_COLOR, btn, label as lbl, num, signed, fmtTime } from '../theme';
+import { RES_LABEL, NO_WORKER_TYPES, workerTerm } from '../flows';
 import Icon, { buildingIcon } from './Icons';
-
+// Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
+import surTexture from '../assets/buildings/sur-doku.jpg';
 const EQUIPMENT_BUILDINGS = new Set(['silahci', 'zirh', 'ahir']);
 const TRAINING_BUILDINGS  = new Set(['kisla', 'ahir', 'atolye']);
 
 const SQRT3 = Math.sqrt(3);
-const S = 56;
+/**
+ * Hex boyutu — köy çerçeveyi doldurur, sur kümeye YAPIŞIR.
+ *
+ * Sur yarıçapı artık kümeden türüyor (bkz. frameGeom): kümenin sur kenarı
+ * yönündeki en dış noktası 6.062·S, surun iç yüzü tam oraya oturuyor.
+ * Buradan köy yarıçapı ≈ 7.00·S + (sur/hendek kalınlıkları) ve genişlik
+ * 2R ≤ 850 → S = 55.
+ */
+const S = 55;
+/** Karo, hücresinden biraz küçük: aradaki boşluk sokak olur */
+const TILE = 0.90;
 
 const RING1 = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const RING2 = [[2,0],[2,-1],[2,-2],[1,-2],[0,-2],[-1,-1],[-2,0],[-2,1],[-2,2],[-1,2],[0,2],[1,1]];
@@ -67,26 +77,450 @@ function hexEmblem(type) {
 }
 
 
+/**
+ * Slot türü — hex arazi mi, sur mu, hendek mi, kule köşesi mi?
+ * Sunucudaki slotKind() ile aynı kural (bkz. server/index.js).
+ */
+function slotKindOf(slotKey, towerSet) {
+  if (slotKey === 'sur' || slotKey === 'hendek') return slotKey;
+  if (towerSet.has(slotKey)) return 'kule';
+  return 'hex';
+}
+
+/**
+ * HÜCRELER DÜZ TEPELİ — üstü ve altı düz, köyün sınırı gibi.
+ *
+ * Köyün sınırı ayrı çizilen bir altıgen olduğu için kümenin kendi dış hattının
+ * şekli artık görünmüyor; hücrelerin yönü serbest. Bu düzende kümenin sınır
+ * kenarı yönündeki en dış noktası 6.062·S (sivri düzende 5.500·S), yani
+ * kapsayıcı %9 daha geniş olmak zorunda — VILLAGE_R buna göre ayarlı.
+ */
 function hexToScreen(q, r, cx, cy) {
   return { x: cx + S * (1.5 * q), y: cy + S * ((SQRT3 / 2) * q + SQRT3 * r) };
 }
 
-function hexPoints(cx, cy, s = S) {
+/** Hücre altıgeni — köşeler 60k (düz tepe: üst ve alt kenar düz) */
+function hexPoints(cx, cy, s = S * TILE) {
   return Array.from({ length: 6 }, (_, i) => {
     const a = (Math.PI / 3) * i;
     return `${(cx + (s - 2) * Math.cos(a)).toFixed(1)},${(cy + (s - 2) * Math.sin(a)).toFixed(1)}`;
   }).join(' ');
 }
 
+const EMPTY_LABEL = {
+  sur:    'Sur — köyü çevreler',
+  hendek: 'Hendek — surun dışı',
+  kule:   'Kule Slotu — sur köşesi',
+  hex:    'Boş Arazi',
+};
+
+// ── KÖY ÇERÇEVESİ: sınır, hendek, sur, kuleler, yollar, dekor, tarlalar ──
+/**
+ * Köy TEK bir dünya hex'idir; bu görünüm o hex'in yakınlaştırılmış hâli.
+ * Bu yüzden köyün sınırı düz tepeli bir altıgen, komşu dünya hex'leri
+ * (üretim tarlaları) AYNI ölçekte ve sınıra değecek şekilde çevresinde durur;
+ * çerçeve onları kırpar — haritayla birebir aynı yerleşim.
+ *
+ * Ölçü zinciri (hepsi S'den türer, göz kararı yok):
+ *   • kümenin sınır kenarı yönündeki en dış noktası  5.50·S
+ *   • altıgende kenar mesafesi R·cos30  →  R = 5.90·S / cos30 = 6.813·S
+ *     (5.90 payı: kenarda ~0.40·S boşluk kalır)
+ *   • komşu hex merkezleri √3·R uzakta → kenarlar birbirine DEĞER
+ */
+/**
+ * Kümenin sur kenarı normali yönündeki en dış noktası — ölçüldü.
+ * (düz-tepe hücre + düz-tepe kapsayıcı)
+ */
+const CLUSTER_REACH = 6.062 * S;
+
+/**
+ * Çerçeve ölçüleri sur/hendek seviyesinden türer: surun İÇ yüzü kümeye teğet,
+ * hendek surun dışında, köyün sınırı da hendeğin dışında.
+ */
+function frameGeom(surLv, henLv) {
+  const thick = wallThick(surLv);
+  const band  = moatBand(henLv);
+  const wallR = (CLUSTER_REACH + thick / 2) / Math.cos(Math.PI / 6);
+  // Sınır çerçeveyi taşmasın: sur 20 + hendek 20'de genişlik 887 px'e çıkıyor,
+  // 860'lık görünüme sığmıyordu. Tavan 425 → genişlik 850, yükseklik 736.
+  const villageR = Math.min(wallR + thick / 2 + BERM + band + 2, 425);
+  return { thick, band, wallR, villageR };
+}
+const wallThick = (lv) => (0.16 + Math.min(20, lv) * 0.010) * S * 1.2;
+const moatBand  = (lv) => (0.26 + Math.min(20, lv) * 0.010) * S;
+const BERM      = 0.10 * S;
+const WALL_TEX  = 0.85 * S;             // taş dokusu karo boyutu (küçük karo = ince taş)
+const GATE_EDGE = 5;                    // alt kenar
+/**
+ * Kule altıgeninin yarıçapı. SAT çakışma testiyle ölçüldü: 0.76·S'te en
+ * yakın bina hücresiyle 13.6 px boşluk kalıyor, sur seviyesi 0–20 aralığının
+ * tamamında surun iç yüzünü aşmıyor. (Normal karo 0.90·S)
+ */
+const TOWER_R   = 0.76 * S;
+const KULE_TEX  = BUILDING_TEXTURE.kule;
+
+/** Düz tepeli altıgen (köşeler 60k) — köyün sınırı ve komşu hex'ler */
+function bigHex(R, cx, cy) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i;
+    return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+  });
+}
+/** Düz tepeli küçük altıgen (köşeler 60k) — kuleler; hücrelerle aynı yön */
+function cellHex(r, cx, cy) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  });
+}
+const ptsOf  = (a) => a.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+const pathOf = (a) => `M${ptsOf(a).replace(/ /g, 'L')}Z`;
+const lerpPt = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+/** Dekor yerleşimi sabit kalsın diye deterministik gürültü */
+const noise = (i, s = 1) => {
+  const x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+function VillageFrame({
+  cx, cy, sur, hendek, towerSlots = [], villageBuildings = {},
+  selected, hovered, onSlot, onHover,
+}) {
+  const surLv = sur?.level || 0;
+  const henLv = hendek?.level || 0;
+  const { thick, band, wallR, villageR } = frameGeom(surLv, henLv);
+  const VH    = bigHex(villageR, cx, cy);
+  const mOut  = bigHex(villageR - 2, cx, cy);
+  const mIn   = bigHex(villageR - 2 - band, cx, cy);
+  const WALL  = bigHex(wallR, cx, cy);
+  const mark  = (key) => (selected === key ? '#f0c860' : hovered === key ? C.ice : null);
+
+  // ── Yollar: hücre kenarları boyunca (binaların arası) ──
+  const roadW = Math.max(3, 0.22 * S);
+  const roadSegs = useMemo(() => {
+    const seen = new Set(), out = [];
+    for (const { q, r } of ALL_SLOTS) {
+      const c = hexToScreen(q, r, cx, cy);
+      const v = cellHex(S, c.x, c.y);
+      for (let i = 0; i < 6; i++) {
+        const p1 = v[i], p2 = v[(i + 1) % 6];
+        const k = `${((p1[0] + p2[0]) / 2).toFixed(0)}_${((p1[1] + p2[1]) / 2).toFixed(0)}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push([p1, p2]);
+      }
+    }
+    return out;
+  }, [cx, cy]);
+
+  // ── Dekor: köşe ceplerine çam ve kaya ──
+  const decor = useMemo(() => {
+    const inner = wallR - thick / 2;
+    const out = [];
+    for (let k = 0; k < 6; k++) {
+      const ang = (Math.PI / 3) * k;              // sınırın köşe yönü = en geniş cep
+      for (let j = 0; j < 3; j++) {
+        const rr = inner * (0.83 + 0.11 * noise(k * 7 + j));
+        const sp = ang + (noise(k * 13 + j, 2) - 0.5) * 0.26;
+        out.push({
+          x: cx + rr * Math.cos(sp), y: cy + rr * Math.sin(sp),
+          rock: (k + j) % 4 === 0, i: k + j,
+        });
+      }
+    }
+    return out;
+  }, [cx, cy, wallR, thick]);
+
+  const gp = lerpPt(WALL[GATE_EDGE], WALL[(GATE_EDGE + 1) % 6], 0.5);
+  const gdx = gp[0] - cx, gdy = gp[1] - cy, gL = Math.hypot(gdx, gdy) || 1;
+
+  return (
+    <g>
+      {/* KÖY ZEMİNİ */}
+      <polygon points={ptsOf(VH)} fill="url(#vc-ground)" />
+      <polygon points={ptsOf(VH)} fill="none" stroke="rgba(190,214,236,0.10)" strokeWidth={1.2} />
+
+      {/* HENDEK — sınırın hemen içinde, surun dışında.
+        * Tek düz bant kaba duruyordu: iki yanına toprak şev, suya derinlik
+        * gradyanı ve iki ince dalga çizgisi eklendi.
+        */}
+      {henLv > 0 ? (
+        <g>
+          {/* toprak şevler */}
+          <path d={`${pathOf(bigHex(villageR - 1, cx, cy))} ${pathOf(bigHex(villageR - 2 - band - 2.5, cx, cy))}`}
+            fill="#3b2f22" fillRule="evenodd" opacity={0.85} />
+          {/* su */}
+          <path d={`${pathOf(mOut)} ${pathOf(mIn)}`} fill="url(#vc-moat)" fillRule="evenodd" />
+          {/* dalgalar */}
+          <polygon points={ptsOf(bigHex(villageR - 2 - band * 0.34, cx, cy))} fill="none"
+            stroke="rgba(178,226,248,0.16)" strokeWidth={Math.max(1, band * 0.10)} />
+          <polygon points={ptsOf(bigHex(villageR - 2 - band * 0.72, cx, cy))} fill="none"
+            stroke="rgba(178,226,248,0.10)" strokeWidth={Math.max(1, band * 0.08)} />
+          {/* kıyı çizgileri — ince */}
+          <polygon points={ptsOf(mOut)} fill="none" stroke="rgba(16,28,38,0.6)" strokeWidth={1} />
+          <polygon points={ptsOf(mIn)} fill="none" stroke="rgba(150,205,235,0.20)" strokeWidth={1} />
+        </g>
+      ) : (
+        <polygon points={ptsOf(mIn)} fill="none" stroke="rgba(140,170,190,0.13)"
+          strokeWidth={2} strokeDasharray="7 9" />
+      )}
+
+      {/* DEKOR */}
+      {decor.map((d, i) => (d.rock ? (
+        <g key={i}>
+          <ellipse cx={d.x} cy={d.y + S * 0.09} rx={S * 0.16} ry={S * 0.05} fill="rgba(6,12,20,0.35)" />
+          <polygon fill="#5d6570" points={
+            `${(d.x - S * 0.16).toFixed(1)},${(d.y + S * 0.07).toFixed(1)} `
+            + `${(d.x - S * 0.06).toFixed(1)},${(d.y - S * 0.10).toFixed(1)} `
+            + `${(d.x + S * 0.06).toFixed(1)},${(d.y - S * 0.12).toFixed(1)} `
+            + `${(d.x + S * 0.16).toFixed(1)},${(d.y + S * 0.07).toFixed(1)}`} />
+        </g>
+      ) : (
+        <g key={i}>
+          <ellipse cx={d.x} cy={d.y + S * 0.22} rx={S * 0.17} ry={S * 0.05} fill="rgba(6,12,20,0.4)" />
+          <rect x={d.x - S * 0.02} y={d.y + S * 0.08} width={S * 0.04} height={S * 0.13} fill="#3a2b1e" />
+          <polygon fill={d.i % 3 ? '#3f5c3c' : '#4d6b46'} points={
+            `${d.x.toFixed(1)},${(d.y - S * 0.26).toFixed(1)} `
+            + `${(d.x + S * 0.16).toFixed(1)},${(d.y + S * 0.11).toFixed(1)} `
+            + `${(d.x - S * 0.16).toFixed(1)},${(d.y + S * 0.11).toFixed(1)}`} />
+          <polygon fill="#e8f2fb" fillOpacity={0.26} points={
+            `${d.x.toFixed(1)},${(d.y - S * 0.14).toFixed(1)} `
+            + `${(d.x + S * 0.10).toFixed(1)},${(d.y + S * 0.01).toFixed(1)} `
+            + `${(d.x - S * 0.10).toFixed(1)},${(d.y + S * 0.01).toFixed(1)}`} />
+        </g>
+      )))}
+
+      {/* YOLLAR */}
+      <g>
+        {roadSegs.map(([p1, p2], i) => (
+          <line key={`a${i}`} x1={p1[0].toFixed(1)} y1={p1[1].toFixed(1)}
+            x2={p2[0].toFixed(1)} y2={p2[1].toFixed(1)}
+            stroke="#241d13" strokeWidth={roadW + 4} strokeLinecap="round" />
+        ))}
+        {roadSegs.map(([p1, p2], i) => (
+          <line key={`b${i}`} x1={p1[0].toFixed(1)} y1={p1[1].toFixed(1)}
+            x2={p2[0].toFixed(1)} y2={p2[1].toFixed(1)}
+            stroke="#6b5c42" strokeWidth={roadW} strokeLinecap="round" />
+        ))}
+        {roadSegs.map(([p1, p2], i) => (
+          <line key={`c${i}`} x1={p1[0].toFixed(1)} y1={p1[1].toFixed(1)}
+            x2={p2[0].toFixed(1)} y2={p2[1].toFixed(1)}
+            stroke="#83734f" strokeWidth={Math.max(1, roadW * 0.42)} strokeLinecap="round" />
+        ))}
+      </g>
+    </g>
+  );
+}
+
+/**
+ * Sur, kuleler ve kapı — HÜCRELERİN ÜSTÜNE çizilir, o yüzden ayrı bileşen.
+ * (Zemin/yol/dekor/tarlalar VillageFrame'de, hücrelerin altında kalıyor.)
+ */
+function VillageWall({
+  cx, cy, sur, hendek, towerSlots = [], villageBuildings = {},
+  selected, hovered, onSlot, onHover,
+}) {
+  const surLv = sur?.level || 0;
+  const henLv = hendek?.level || 0;
+  const { thick, band, wallR, villageR } = frameGeom(surLv, henLv);
+  const WALL  = bigHex(wallR, cx, cy);
+  const mark  = (key) => (selected === key ? '#f0c860' : hovered === key ? C.ice : null);
+  const roadW = Math.max(3, 0.22 * S);
+
+  /**
+   * MAZGAL DİŞLERİ — eskiden surun üstüne dizilmiş yuvarlak noktalardı ve
+   * bu yüzden sur "kaba" görünüyordu. Şimdi her diş, o kenarın YÖNÜNE
+   * hizalanmış küçük bir dikdörtgen: dişin üstü açık, yan yüzü koyu.
+   */
+  const merlons = [];
+  if (surLv > 0) {
+    const mw = 0.19 * S;                 // diş genişliği (kenar boyunca)
+    const md = thick * 0.40;             // diş derinliği (dışa doğru)
+    for (let i = 0; i < 6; i++) {
+      const a = WALL[i], b = WALL[(i + 1) % 6];
+      const segL = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const dx = (b[0] - a[0]) / segL, dy = (b[1] - a[1]) / segL;   // kenar yönü
+      const n = Math.max(6, Math.round(segL / (mw * 2)));
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n;
+        if (i === GATE_EDGE && t > 0.40 && t < 0.60) continue;
+        const p = lerpPt(a, b, t);
+        const ox = p[0] - cx, oy = p[1] - cy, L = Math.hypot(ox, oy) || 1;
+        const nx = ox / L, ny = oy / L;                             // dışa normal
+        const i0 = [p[0] + nx * (thick / 2 - md * 0.15), p[1] + ny * (thick / 2 - md * 0.15)];
+        const o0 = [p[0] + nx * (thick / 2 + md * 0.85), p[1] + ny * (thick / 2 + md * 0.85)];
+        const hw = mw / 2;
+        merlons.push(
+          <polygon key={`${i}-${k}`} points={ptsOf([
+            [i0[0] - dx * hw, i0[1] - dy * hw],
+            [o0[0] - dx * hw, o0[1] - dy * hw],
+            [o0[0] + dx * hw, o0[1] + dy * hw],
+            [i0[0] + dx * hw, i0[1] + dy * hw],
+          ])} fill="url(#vc-surtex)" stroke="rgba(24,20,16,0.75)" strokeWidth={0.8} />
+        );
+      }
+    }
+  }
+
+  const gp = lerpPt(WALL[GATE_EDGE], WALL[(GATE_EDGE + 1) % 6], 0.5);
+  const gdx = gp[0] - cx, gdy = gp[1] - cy, gL = Math.hypot(gdx, gdy) || 1;
+  const g1 = [gp[0] - gdx / gL * thick * 0.95, gp[1] - gdy / gL * thick * 0.95];
+  const g2 = [gp[0] + gdx / gL * thick * 0.95, gp[1] + gdy / gL * thick * 0.95];
+  const gOut = [gp[0] + gdx / gL * (band + BERM + 8), gp[1] + gdy / gL * (band + BERM + 8)];
+
+  return (
+    <g>
+      {surLv > 0 ? (
+        <g>
+          {/* 1) surun içe düşen gölgesi — duvarı zeminden ayırır */}
+          <polygon points={ptsOf(bigHex(wallR - thick * 0.62, cx, cy))} fill="none"
+            stroke="rgba(6,10,16,0.34)" strokeWidth={thick * 0.5} strokeLinejoin="round" />
+          {/* 2) taş gövde: koyu kontur + doku */}
+          <polygon points={ptsOf(WALL)} fill="none" stroke="#1d1a15" strokeWidth={thick + 5} strokeLinejoin="round" />
+          <polygon points={ptsOf(WALL)} fill="none" stroke="url(#vc-surtex)" strokeWidth={thick} strokeLinejoin="round" />
+          {/* 3) iç yüz koyu, dış yüz açık — hacim hissi */}
+          <polygon points={ptsOf(bigHex(wallR - thick * 0.34, cx, cy))} fill="none"
+            stroke="rgba(10,14,20,0.30)" strokeWidth={thick * 0.32} strokeLinejoin="round" />
+          <polygon points={ptsOf(bigHex(wallR + thick * 0.30, cx, cy))} fill="none"
+            stroke="rgba(228,238,248,0.10)" strokeWidth={thick * 0.28} strokeLinejoin="round" />
+          {/* 4) tepe kaplama (harpuşta) çizgisi */}
+          <polygon points={ptsOf(WALL)} fill="none"
+            stroke="rgba(20,17,13,0.5)" strokeWidth={1.2} strokeLinejoin="round" />
+          {/* 5) buzul tonu — sahnenin geneliyle uyum, çok hafif */}
+          <polygon points={ptsOf(WALL)} fill="none" stroke="rgba(74,104,136,0.10)"
+            strokeWidth={thick} strokeLinejoin="round" />
+          {merlons}
+          {/* kapı + kapıdan çıkan yol */}
+          <line x1={gp[0]} y1={gp[1]} x2={gOut[0]} y2={gOut[1]} stroke="#6b5c42" strokeWidth={roadW + 3} />
+          <line x1={g1[0]} y1={g1[1]} x2={g2[0]} y2={g2[1]} stroke="#2a1c10" strokeWidth={thick * 1.6} />
+          <line x1={g1[0]} y1={g1[1]} x2={g2[0]} y2={g2[1]} stroke="#6b4a28" strokeWidth={thick * 1.15} />
+        </g>
+      ) : (
+        <polygon points={ptsOf(WALL)} fill="none" stroke="#4a4032" strokeWidth={6}
+          strokeDasharray="14 9" opacity={0.7} strokeLinejoin="round" />
+      )}
+
+      {/* Tıklama hedefleri: hendek ve sur */}
+      {/*
+        * Tıklama hedefleri DAR tutuluyor: saydam kalın çizgi de hit-test
+        * aldığı için geniş bir halka, altındaki hücre tıklamalarını yutuyor.
+        * Sur bandının kendisi + 2 px yeter; hendek kendi bandı kadar.
+        */}
+      <polygon points={ptsOf(bigHex(villageR - 2 - band / 2, cx, cy))} fill="none"
+        stroke={mark('hendek') || 'transparent'} strokeOpacity={mark('hendek') ? 0.9 : 0}
+        strokeWidth={Math.max(band, 10)} style={{ cursor: 'pointer' }}
+        onClick={() => onSlot('hendek')}
+        onMouseEnter={() => onHover('hendek')} onMouseLeave={() => onHover(null)} />
+      <polygon points={ptsOf(WALL)} fill="none"
+        stroke={mark('sur') || 'transparent'} strokeOpacity={mark('sur') ? 0.9 : 0}
+        strokeWidth={thick + 2} style={{ cursor: 'pointer' }}
+        onClick={() => onSlot('sur')}
+        onMouseEnter={() => onHover('sur')} onMouseLeave={() => onHover(null)} />
+
+      {/* KULELER — sınırın altı köşesi (cepler orada) */}
+      {WALL.map((wp, i) => {
+        const key = towerSlots[i];
+        if (!key) return null;
+        const b = villageBuildings[key];
+        const lv = b?.level || 0;
+        /**
+         * Kule artık taş blok değil, köyün diğer hücreleri gibi RESİMLİ
+         * normal bir altıgen. Yarıçap ölçüldü: 0.76·S'te en yakın hücreyle
+         * 13.6 px boşluk kalıyor ve surun iç yüzünü aşmıyor (bkz. SAT testi).
+         */
+        const rr = TOWER_R;
+        const dx = wp[0] - cx, dy = wp[1] - cy, L = Math.hypot(dx, dy) || 1;
+        const inset = thick / 2 + rr + 3;
+        const p = [wp[0] - dx / L * inset, wp[1] - dy / L * inset];
+        const hp = cellHex(rr, p[0], p[1]);
+        const hov = hovered === key, sel = selected === key;
+        const hi = sel ? '#f0c860' : hov ? C.ice : null;
+        const edge = CAT_EDGE.savunma || C.ice;
+        const cid = `vc-kule-${i}`;
+        const em = TEXTURE_EMBLEM.kule;
+        const es = (em?.size || EMBLEM_SIZE) * 0.85;
+        return (
+          <g key={key} style={{
+              cursor: 'pointer',
+              transition: 'transform .18s ease-out, filter .18s ease-out',
+              filter: hov ? `brightness(1.14) drop-shadow(0 0 8px ${edge}55)` : undefined,
+            }}
+            transform={hov ? `translate(${p[0]} ${p[1]}) scale(1.07) translate(${-p[0]} ${-p[1]})` : undefined}
+            onClick={() => onSlot(key)}
+            onMouseEnter={() => onHover(key)} onMouseLeave={() => onHover(null)}>
+            {b ? (
+              <g>
+                <defs><clipPath id={cid}><polygon points={ptsOf(hp)} /></clipPath></defs>
+                <polygon points={ptsOf(hp)} fill={CAT_FILL.savunma || '#2a3a44'} opacity={0.94} />
+                <image href={KULE_TEX} x={p[0] - rr} y={p[1] - rr} width={rr * 2} height={rr * 2}
+                  clipPath={`url(#${cid})`} opacity={b.building ? 0.45 : 1}
+                  preserveAspectRatio="xMidYMid slice" />
+                <polygon points={ptsOf(hp)} fill="none"
+                  stroke={hi || `${edge}88`} strokeWidth={sel ? 3.2 : hov ? 3 : 1.4} />
+                {em && (
+                  <g opacity={b.building ? 0.4 : 1}>
+                    <circle cx={p[0]} cy={p[1] - rr * 0.44} r={es / 2 + 3.5}
+                      fill="rgba(8,14,24,0.62)" stroke={`${edge}66`} strokeWidth={1} />
+                    <g transform={`translate(${p[0]} ${p[1] - rr * 0.44}) rotate(${em.rot}) translate(${-es / 2} ${-es / 2})`}>
+                      <Icon name={em.icon} size={es} color={edge} strokeWidth={1.5} />
+                    </g>
+                  </g>
+                )}
+                {b.building && (
+                  <g transform={`translate(${p[0] + rr * 0.34} ${p[1] - rr * 0.92})`} className="tn-pulse">
+                    <Icon name="insaat" size={13} color={C.ice} />
+                  </g>
+                )}
+                {/* OKÇU sayacı — kulede personel "işçi" değil okçu */}
+                {!b.building && lv >= 1 && (() => {
+                  const maxA = lv * (VILLAGE_DEFS.kule?.workersPerLevel || 4);
+                  const now = b.workers || 0;
+                  return (
+                    <g transform={`translate(${p[0] - 16} ${p[1] + 2})`}>
+                      <rect x="0" y="0" width="32" height="14" rx="3"
+                        fill={now === 0 ? 'rgba(58,20,26,0.9)' : 'rgba(8,20,32,0.88)'}
+                        stroke={now === 0 ? C.dangerDim : 'rgba(45,76,115,0.7)'} strokeWidth="0.8" />
+                      <text x="16" y="7.5" textAnchor="middle" dominantBaseline="middle"
+                        fontFamily={FONT.num} fontSize="9" fontWeight="500"
+                        fill={now === 0 ? '#f0b8bd' : C.iceSoft} style={{ userSelect: 'none' }}>
+                        {now}/{maxA}
+                      </text>
+                    </g>
+                  );
+                })()}
+                <text x={p[0]} y={p[1] + rr - 8} textAnchor="middle" dominantBaseline="middle"
+                  fontFamily={FONT.head} fontSize={10} fontWeight="700"
+                  fill={b.building ? C.ice : C.frost}
+                  stroke="#04121e" strokeWidth={2.6} paintOrder="stroke"
+                  style={{ userSelect: 'none' }}>
+                  {b.building ? fmtTime(b.buildTimeLeft) : `LVL ${lv}`}
+                </text>
+              </g>
+            ) : (
+              <g>
+                <polygon points={ptsOf(hp)} fill="#1b2630" fillOpacity={0.8}
+                  stroke={hi || `${edge}70`} strokeWidth={hi ? 2.6 : 1.5} strokeDasharray="6 5" />
+                <g transform={`translate(${p[0] - 11} ${p[1] - 11})`} opacity={0.75}>
+                  <Icon name="kule" size={22} color={edge} strokeWidth={1.3} />
+                </g>
+              </g>
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 // ── Hover bilgi kartı ────────────────────────────────────────────────
-function VCHover({ slotKey, building, isTower, isCenter, ring, flows, processingRates, railInset = 0 }) {
+function VCHover({ slotKey, building, isTower, isCenter, ring, kind = 'hex', flows, processingRates, railInset = 0 }) {
   const def = building ? VILLAGE_DEFS[building.type] : null;
   const cat = isCenter ? 'merkez' : (building?.type === 'anaBina' ? 'anaBina' : def?.category || '');
   const edge = CAT_EDGE[cat] || C.lineBright;
 
   const title = isCenter ? 'Ana Bina'
     : building ? (def?.name || building.type)
-    : isTower ? 'Kule Slotu' : 'Boş Arazi';
+    : (EMPTY_LABEL[kind] || EMPTY_LABEL.hex);
 
   const proc = def?.processes;
   const rate = proc ? processingRates?.[proc.output] : null;
@@ -100,7 +534,9 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, flows, processing
   );
 
   // Hex'te kullanılan bina görseli ve AYNI amblem kartta da görünsün
-  const tex = isCenter ? merkezImg : (building ? BUILDING_TEXTURE[building.type] : null);
+  const tex = isCenter ? MERKEZ_IMG : (building ? BUILDING_TEXTURE[building.type] : null);
+  // Videosu olan bina kartta hareketli oynasın; durağan görsel poster olur
+  const vid = building ? BUILDING_VIDEO[building.type] : null;
   const hoverEm = building
     ? hexEmblem(building.type)
     : { icon: isTower ? 'kule' : 'ekle', rot: 0, size: EMBLEM_SIZE };
@@ -114,16 +550,28 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, flows, processing
       backdropFilter: 'blur(20px) saturate(1.2)',
       WebkitBackdropFilter: 'blur(20px) saturate(1.2)', pointerEvents: 'none',
     }} className="tn-rise">
-      {/* Bina görseli — KARE kutu, kartın tam genişliği: kare kaynak hiç
-          kırpılmaz. Dikdörtgen pencerede `cover` hep bir yerden kesiyordu. */}
+      {/* Bina görseli — KARE kutu, kartın TAM genişliği.
+        * DİKKAT: kartın `width: 252` değeri İÇERİK genişliği (content-box),
+        * dış genişlik padding'lerle 274. Görsel 252 verilince sağda 11 px
+        * boşluk kalıyordu. `calc(100% + 22px)` iki padding'i de kapsar;
+        * `aspectRatio` ile kutu kare kalır, kare kaynak kırpılmaz. */}
       {tex && (
         <div style={{
-          position: 'relative', width: 252, height: 252, overflow: 'hidden',
-          margin: '-11px -11px 9px', borderRadius: '8px 8px 0 0',
+          position: 'relative', width: 'calc(100% + 22px)', aspectRatio: '1 / 1',
+          overflow: 'hidden', margin: '-11px -11px 9px', borderRadius: '8px 8px 0 0',
         }}>
-          <img src={tex} alt="" draggable={false} style={{
-            width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-          }} />
+          {/* Videosu varsa DOĞRUDAN video; yoksa durağan görsel. */}
+          {vid ? (
+            <video key={slotKey} src={vid} autoPlay muted loop playsInline preload="auto"
+              style={{
+                width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                backgroundColor: '#0b1420',
+              }} />
+          ) : (
+            <img src={tex} alt="" draggable={false} style={{
+              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+            }} />
+          )}
           <div style={{
             position: 'absolute', inset: 0, pointerEvents: 'none',
             background: 'linear-gradient(180deg, rgba(6,12,20,0) 62%, rgba(8,17,28,0.92) 100%)',
@@ -156,7 +604,7 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, flows, processing
       {building?.building ? (
         <>
           <Row k={building.level === 0 ? 'İnşa ediliyor' : `Lvl ${building.level} → ${building.level + 1}`}
-            v={`${building.buildTimeLeft ?? '—'}sn`} c={C.ice} strong />
+            v={fmtTime(building.buildTimeLeft)} c={C.ice} strong />
           {building.level >= 1 && (
             <div style={{ marginTop: 5, fontFamily: FONT.ui, fontSize: 9, color: C.good, lineHeight: 1.45 }}>
               Bina çalışmaya devam ediyor — üretim ve kapasite düşmüyor.
@@ -170,10 +618,38 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, flows, processing
               {def.description}
             </div>
           )}
-          {maxW > 0 && (
-            <Row k="İşçi" v={`${building.workers || 0} / ${maxW}`}
+          {/* Sur ve hendek personel almaz: işçi satırı hiç çıkmasın.
+            * Kulede personel var ama adı OKÇU. */}
+          {maxW > 0 && !NO_WORKER_TYPES.has(building.type) && (
+            <Row k={workerTerm(building.type)} v={`${building.workers || 0} / ${maxW}`}
               c={(building.workers || 0) === 0 ? C.danger : C.frost} strong />
           )}
+
+          {/* SAVUNMA BONUSU — kulede okçu dolulukla ölçeklenir */}
+          {(() => {
+            const lv = Math.min(building.level || 0, 20);
+            if (building.type === 'sur') {
+              return <Row k="Savunma bonusu" v={`+${SUR_BONUS[lv] || 0}%`} c={C.good} strong />;
+            }
+            if (building.type === 'hendek') {
+              return <Row k="Savunma bonusu" v={`+${HENDEK_BONUS[lv] || 0}%`} c={C.good} strong />;
+            }
+            if (building.type === 'kule') {
+              const pct = towerSlotBonus(building.level, building.workers || 0);
+              return (
+                <>
+                  <Row k="Savunma bonusu" v={`+${pct}%`}
+                    c={pct > 0 ? C.good : C.danger} strong />
+                  {pct === 0 && (
+                    <div style={{ marginTop: 4, fontFamily: FONT.ui, fontSize: 9, color: '#f0b8bd', lineHeight: 1.45 }}>
+                      Kule boş — okçu atanmadan savunmaya katkı vermez.
+                    </div>
+                  )}
+                </>
+              );
+            }
+            return null;
+          })()}
 
           {proc && (
             <>
@@ -231,7 +707,7 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, flows, processing
       ) : (
         <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.5 }}>
           {isTower
-            ? 'Bu slota yalnızca Kule inşa edilebilir (en fazla 4 kule).'
+            ? `Bu slota yalnızca Kule inşa edilebilir (en fazla ${VILLAGE_DEFS.kule?.maxInstances || 6} kule).`
             : 'İnşa menüsünü açmak için tıkla.'}
         </div>
       )}
@@ -248,6 +724,9 @@ export default function VillageCenter({
   unitQueues = {}, unitsByBuilding = {}, unitDefs = {},
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild,
   onQueueEquipment, onCancelEquipment, onTrainUnit, onCancelUnitOrder,
+  world = null,
+  // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const [selected, setSelected] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -271,7 +750,7 @@ export default function VillageCenter({
     return () => ro.disconnect();
   }, []);
 
-  const VC_SCALE = 1.2;
+  const VC_SCALE = 1.0;
   const selB = selected ? villageBuildings[selected] : null;
   // Yükseltme sırasında da bina çalıştığı için kuyruk paneli açık kalır
   const hasQueuePanel = !!selB && selB.level >= 1
@@ -298,8 +777,10 @@ export default function VillageCenter({
 
   const popoverPos = useMemo(() => {
     if (!selected || !showMenu) return null;
-    const [sq, sr] = selected.split(',').map(Number);
-    const { x: hx, y: hy } = hexToScreen(sq, sr, cx, cy);
+    // İsimli slotlar (sur, hendek, kule1…) koordinat DEĞİL — merkezden hesapla
+    const isHex = selected.includes(',');
+    const [sq, sr] = isHex ? selected.split(',').map(Number) : [0, 0];
+    const { x: hx, y: hy } = isHex ? hexToScreen(sq, sr, cx, cy) : { x: cx, y: cy };
     return computePopoverPos({
       hexScreenX: viewSize.w / 2 + (hx - cx) * VC_SCALE,
       hexScreenY: viewSize.h / 2 + (hy - cy) * VC_SCALE * 0.95,
@@ -318,6 +799,8 @@ export default function VillageCenter({
 
   const selectedBuilding = selected ? villageBuildings[selected] : null;
   const hoveredSlot = hovered ? ALL_SLOTS.find(s => `${s.q},${s.r}` === hovered) : null;
+  const hoveredKind  = hovered  ? slotKindOf(hovered, towerSet)  : 'hex';
+  const selectedKind = selected ? slotKindOf(selected, towerSet) : 'hex';
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
@@ -325,11 +808,11 @@ export default function VillageCenter({
         position: 'absolute', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden', zIndex: 2,
-        perspective: '1400px', perspectiveOrigin: '50% 30%',
+        perspective: '1400px', perspectiveOrigin: '50% 50%',
       }}>
         <svg width={W} height={H} style={{
           cursor: 'pointer', flexShrink: 0,
-          transform: 'rotateX(20deg) scale(1.2)',
+          transform: 'rotateX(16deg)',
           transformStyle: 'preserve-3d', transformOrigin: 'center center',
         }}>
           <defs>
@@ -337,26 +820,34 @@ export default function VillageCenter({
               <stop offset="0%" stopColor="#3a5230" stopOpacity="0.85" />
               <stop offset="100%" stopColor="#1c2a18" stopOpacity="0.5" />
             </radialGradient>
+            <linearGradient id="vc-water" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#12384d" />
+              <stop offset="100%" stopColor="#071a26" />
+            </linearGradient>
+            {/* Hendek suyu: kıyıda sığ, ortada derin */}
+            <radialGradient id="vc-moat" cx="50%" cy="50%" r="52%">
+              <stop offset="82%" stopColor="#0a2534" />
+              <stop offset="93%" stopColor="#17475f" />
+              <stop offset="100%" stopColor="#0d2c3d" />
+            </radialGradient>
+            <linearGradient id="vc-stone" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8d8478" />
+              <stop offset="100%" stopColor="#5e574c" />
+            </linearGradient>
+            <pattern id="vc-surtex" patternUnits="userSpaceOnUse"
+              width={WALL_TEX} height={WALL_TEX}>
+              <image href={surTexture} x="0" y="0"
+                width={WALL_TEX} height={WALL_TEX} preserveAspectRatio="none" />
+            </pattern>
           </defs>
 
-          {/* Avlu zemini */}
-          <circle cx={cx} cy={cy} r={S * 3.9} fill="url(#vc-ground)" />
-
-          {/* Sur halkası — taş */}
-          <circle cx={cx} cy={cy} r={S * 3.45} fill="none" stroke="#3a3630" strokeWidth={16} />
-          <circle cx={cx} cy={cy} r={S * 3.45} fill="none" stroke="#7a7264" strokeWidth={7} />
-          <circle cx={cx} cy={cy} r={S * 3.45} fill="none" stroke="rgba(220,232,240,0.28)" strokeWidth={1.6} />
-          {/* Mazgallar */}
-          {Array.from({ length: 40 }, (_, i) => {
-            const a = (Math.PI * 2 * i) / 40;
-            const r1 = S * 3.45 - 9, r2 = S * 3.45 + 9;
-            return (
-              <line key={i}
-                x1={cx + r1 * Math.cos(a)} y1={cy + r1 * Math.sin(a)}
-                x2={cx + r2 * Math.cos(a)} y2={cy + r2 * Math.sin(a)}
-                stroke="#241f19" strokeWidth="3" opacity="0.6" />
-            );
-          })}
+          {/* KÖY ÇERÇEVESİ: tarlalar, zemin, hendek, dekor, yollar — hücrelerin ALTINDA */}
+          <VillageFrame
+            cx={cx} cy={cy}
+            sur={villageBuildings.sur} hendek={villageBuildings.hendek}
+            towerSlots={towerSlots} villageBuildings={villageBuildings}
+            selected={selected} hovered={hovered}
+            onSlot={handleSlotClick} onHover={setHovered} />
 
           {ALL_SLOTS.map(({ q, r, ring }) => {
             const key = `${q},${r}`;
@@ -386,7 +877,7 @@ export default function VillageCenter({
               : 'rgba(150,190,120,0.4)';
             const sw = isSelected ? 3.2 : isHovered ? 3 : isCenter ? 2.4 : 1.4;
 
-            const tex = isCenter ? merkezImg : (building ? BUILDING_TEXTURE[building.type] : null);
+            const tex = isCenter ? MERKEZ_IMG : (building ? BUILDING_TEXTURE[building.type] : null);
             const hasTex = !!tex;
             const clipId = `vc-${q}-${r}`;
             const idle = building && building.level >= 1
@@ -484,7 +975,7 @@ export default function VillageCenter({
                     fill={building.building ? C.ice : C.frost}
                     stroke="#04121e" strokeWidth={2.6} paintOrder="stroke"
                     style={{ userSelect: 'none' }}>
-                    {building.building ? `${building.buildTimeLeft}sn` : `LVL ${building.level}`}
+                    {building.building ? fmtTime(building.buildTimeLeft) : `LVL ${building.level}`}
                   </text>
                 )}
 
@@ -503,13 +994,21 @@ export default function VillageCenter({
               </g>
             );
           })}
+          {/* SUR · KULELER · KAPI — hücrelerin ÜSTÜNDE */}
+          <VillageWall
+            cx={cx} cy={cy}
+            sur={villageBuildings.sur} hendek={villageBuildings.hendek}
+            towerSlots={towerSlots} villageBuildings={villageBuildings}
+            selected={selected} hovered={hovered}
+            onSlot={handleSlotClick} onHover={setHovered} />
         </svg>
 
         {/* Hover bilgi kartı */}
-        {hovered && !showMenu && hoveredSlot && (
+        {hovered && !showMenu && (hoveredSlot || hoveredKind !== 'hex') && (
           <VCHover slotKey={hovered} building={villageBuildings[hovered]}
-            isTower={towerSet.has(hovered)} isCenter={hovered === '0,0'}
-            ring={hoveredSlot.ring} flows={flows} processingRates={processingRates}
+            isTower={hoveredKind === 'kule'} isCenter={hovered === '0,0'}
+            kind={hoveredKind}
+            ring={hoveredSlot?.ring} flows={flows} processingRates={processingRates}
             railInset={railInset} />
         )}
 
@@ -521,7 +1020,7 @@ export default function VillageCenter({
            * kutunun kendisine boyandığı için içerik kaydırılırken sabit kalır.
            */
           const panelTex = selected === '0,0'
-            ? merkezImg
+            ? MERKEZ_IMG
             : (selectedBuilding ? BUILDING_TEXTURE[selectedBuilding.type] : null);
           const panelEm = selectedBuilding ? TEXTURE_EMBLEM[selectedBuilding.type] : null;
           const panelTitle = selected === '0,0' ? 'Ana Bina'
@@ -672,6 +1171,7 @@ export default function VillageCenter({
                   queue={unitQueues[selectedBuilding.type] || []}
                   freeWorkers={freeWorkers}
                   trainerWorkers={selectedBuilding.workers || 0}
+                  hourSeconds={hourSeconds} worldSpeed={worldSpeed}
                   onTrain={(type, qty) => onTrainUnit(selectedBuilding.type, type, qty)}
                   onCancel={(orderId) => onCancelUnitOrder(selectedBuilding.type, orderId)}
                 />
@@ -686,9 +1186,11 @@ export default function VillageCenter({
             <div style={{ minWidth: 0 }}>
             <BuildMenu
               posterHeader={!!panelTex}
+              hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               slotKey={selected}
               building={selectedBuilding}
-              isTower={towerSet.has(selected)}
+              isTower={selectedKind === 'kule'}
+              slotKind={selectedKind}
               isCenter={selected === '0,0'}
               placedBuildings={villageBuildings}
               freeWorkers={freeWorkers}
@@ -718,6 +1220,7 @@ export default function VillageCenter({
                   queue={equipmentQueues[selectedBuilding.type] || []}
                   resources={resources}
                   buildingWorkers={selectedBuilding.workers || 0}
+                  hourSeconds={hourSeconds} worldSpeed={worldSpeed}
                   onQueue={(type, qty) => onQueueEquipment(selectedBuilding.type, type, qty)}
                   onCancel={(orderId) => onCancelEquipment(selectedBuilding.type, orderId)}
                 />

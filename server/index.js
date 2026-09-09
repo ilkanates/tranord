@@ -7,7 +7,7 @@ const { createVillage, hydrateVillage,
         TOWER_SLOTS_ARR: TOWER_SLOT_NAMES,
         WALL_SLOTS_ARR: WALL_SLOT_NAMES } = require('./game/villageState');
 const { processTick, getUpgradeSeconds, hexDistanceFromCenter, getProductionMultiplier, getSlotTotalMultiplier, getUnitTrainSeconds, getEquipmentCap, getEquipmentPool, getConsumptionRates, getStorageCaps } = require('./game/tick');
-const { simulateBattle } = require('./game/combat');
+const { simulateBattle, towerBonusPct } = require('./game/combat');
 const ARMY = require('./game/army');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
@@ -16,7 +16,8 @@ const { initDB, loadVillage, saveVillage, loadAllVillages,
 const W = require('./game/world');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
 
-const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye']);
+// Kule de personel alır (arayüzde "okçu" adıyla); sur ve hendek almaz.
+const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule']);
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS } = require('./data');
 
 const TRAINABLE_UNITS = Object.fromEntries(
@@ -43,7 +44,7 @@ const server = http.createServer(app);
  * fazla verilebilir) tanımlıysa liste ondan kurulur; tanımsız ve üretim değilse
  * yerel geliştirme adresleri açık kalır.
  */
-const { IS_PROD, envReason } = require('./env');
+const { IS_PROD, IS_DEV_ENTRY, envReason } = require('./env');
 const DEV_ORIGINS = [
   'http://localhost:5180', 'http://localhost:5173', 'http://localhost:3000',
   'http://127.0.0.1:5180',
@@ -432,9 +433,24 @@ function structFingerprint(v) {
  * Köyü istemciye yolla. force=true her hâlde yollar (oyuncu bir şey yaptı),
  * aksi hâlde yalnız yapısal değişiklik veya kalp atışı varsa.
  */
+/** Kullanıcının tüm bağlantılarını kapsayan oda */
+const userRoom = (userId) => `u${userId}`;
+
 function emitVillage(session, { force = false, statics = false } = {}) {
-  const sock = io.sockets.sockets.get(session.socketId);
-  if (!sock) return;
+  /**
+   * Yayın KULLANICI ODASINA yapılır, tek bir socketId'ye değil.
+   *
+   * Eskiden oturum yalnız SON bağlanan socket'in kimliğini tutuyordu. Aynı
+   * kullanıcının iki bağlantısı olduğunda (iki sekme, ya da React StrictMode
+   * geliştirmede iki socket açtığında) paket son bağlanana gidiyordu; ekrandaki
+   * socket hiçbir şey almıyor, komut sunucuda işlense bile arayüz donuyordu.
+   * Belirti: "inşaat başlamıyor gibi duruyor, sayfayı yenileyince görünüyor".
+   * Oda yayını her bağlantıya ulaşır.
+   */
+  const room = session.userId ? userRoom(session.userId) : null;
+  const sockets = room ? io.sockets.adapter.rooms.get(room) : null;
+  if (!sockets || sockets.size === 0) return;
+  const sock = io.to(room);
   const v = session.village;
   const fp = structFingerprint(v);
   const nowReal = Date.now();
@@ -622,7 +638,15 @@ async function bootWorld() {
   for (const slot of npcSlots) {
     const rec = savedByKey.get(slot.key);
     if (rec) {
-      WORLD.npcs.set(slot.key, { slot, village: hydrateVillage(rec.state) });
+      /**
+       * `quiet` YALNIZCA tohumlamada atanıyordu (seedNpcVillage) ve kayda
+       * yazılmıyordu; kayıttan yüklenen 200 NPC bu yüzden konuşkan dönüyor,
+       * her tick onlarca [STARVE] satırı basıyordu. NPC köyü tanım gereği
+       * sessizdir — yükleme noktasında da işaretlenir.
+       */
+      const village = hydrateVillage(rec.state);
+      village.quiet = true;
+      WORLD.npcs.set(slot.key, { slot, village });
       restored++;
     } else {
       WORLD.npcs.set(slot.key, { slot, village: seedNpcVillage(slot) });
@@ -710,6 +734,7 @@ setInterval(async () => {
     if (!(n.village.TOWER_SLOTS instanceof Set)) {
       console.warn(`[WORLD SAVE] ${key}: TOWER_SLOTS şekli bozuk, onarıldı`);
       n.village = hydrateVillage(n.village);
+      n.village.quiet = true;
     }
     batch.push({
       slotKey: n.slot.key, q: n.slot.q, r: n.slot.r,
@@ -1165,9 +1190,12 @@ io.on('connection', async socket => {
   const slotKey = await ensurePlayerSlot(userId, userEmail);
   const slot = slotKey ? WORLD.slotByKey.get(slotKey) : null;
 
+  socket.join(userRoom(userId));
+
   let session = userSessions.get(userId);
   if (session) {
     session.socketId = socket.id;
+    session.userId = userId;
   } else {
     let village;
     try {
@@ -1184,7 +1212,10 @@ io.on('connection', async socket => {
     }
     // NOT: yayılma artık halka ile sınırlı olmadığı için halka dışı tarlaları
     // taşımaya gerek yok — migrateTilesIntoClaim yalnızca geriye dönük araç olarak duruyor.
-    session = { village, tickMs: DEFAULT_TICK_MS, nextTickAt: Date.now() + DEFAULT_TICK_MS, socketId: socket.id, dirty: false };
+    session = {
+      village, userId, tickMs: DEFAULT_TICK_MS,
+      nextTickAt: Date.now() + DEFAULT_TICK_MS, socketId: socket.id, dirty: false,
+    };
     userSessions.set(userId, session);
   }
   socketToUser.set(socket.id, userId);
@@ -1204,7 +1235,9 @@ io.on('connection', async socket => {
     const maxW = def.levels[b.level - 1]?.workers || 1;
     const newW = Math.max(0, Math.min(maxW, workers));
     const diff = newW - (b.workers || 0);
-    if (diff > v().freeWorkers) return;
+    if (diff > v().freeWorkers) {
+      return reject(`havuzda ${v().freeWorkers} işçi var, ${diff} isteniyor`);
+    }
     v().freeWorkers -= diff; b.workers = newW;
     dirty(); emit();
   });
@@ -1270,10 +1303,21 @@ io.on('connection', async socket => {
   });
 
   socket.on('assign_village_workers', ({ slotKey, workers }) => {
+    /**
+     * Sessiz reddetme teşhis edilemiyordu: kule listeye eklenmeden önce bu
+     * handler hiçbir iz bırakmadan `return` ediyordu, arayüzde de değer geri
+     * sıçrıyordu ("atadım ama atanmış gözükmüyor"). Artık geliştirme modunda
+     * reddin sebebi loglanıyor.
+     */
+    const reject = (why) => {
+      if (IS_DEV_ENTRY) console.warn(`[ISCI RED] ${slotKey}: ${why}`);
+    };
     const b = v().villageBuildings[slotKey];
-    if (!b || b.level < 1) return;
+    if (!b || b.level < 1) return reject('bina yok ya da seviye 0');
     const def = VILLAGE_DEFS[b.type];
-    if (!def || (!def.processes && !WORKER_ASSIGNABLE_MILITARY.has(b.type))) return;
+    if (!def || (!def.processes && !WORKER_ASSIGNABLE_MILITARY.has(b.type))) {
+      return reject(`${b.type} personel almıyor (processes yok, atanabilir listede değil)`);
+    }
     const maxW = b.level * (def.workersPerLevel || 3);
     const newW = Math.max(0, Math.min(maxW, workers));
     const diff = newW - (b.workers || 0);
@@ -1453,8 +1497,8 @@ io.on('connection', async socket => {
     try {
       // `tag` aynen geri döner: aynı anda birden fazla ekran tahmin isteyebilir
       // (savaş simülatörü + saldırı ekranı), yanıtı kim istediyse o eşleştirsin.
-      const { attacker = {}, defender = {}, surLevel = 0, hendekLevel = 0, mode = 'normal', tag = null } = payload;
-      socket.emit('battle_result', { ok: true, tag, result: simulateBattle(attacker, defender, { surLevel, hendekLevel, mode }) });
+      const { attacker = {}, defender = {}, surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal', tag = null } = payload;
+      socket.emit('battle_result', { ok: true, tag, result: simulateBattle(attacker, defender, { surLevel, hendekLevel, kulePct, mode }) });
     } catch (err) {
       socket.emit('battle_result', { ok: false, tag: payload?.tag ?? null, error: err.message });
     }
@@ -1547,6 +1591,7 @@ async function bootServer() {
       nextTickAt: now + tickMs,
       lastTickAt: now,        // ilk tick geçmişten sıçramasın
       socketId: null,
+      userId,
       dirty: offlineTicks > 0
     });
     if (offlineTicks > 0) {

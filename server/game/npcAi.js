@@ -7,6 +7,7 @@
  */
 
 const { createVillage } = require('./villageState');
+const { towerBonusPct } = require('./combat');
 const GT = require('./gameTime');
 const { getUpgradeSeconds, getEquipmentPool, getStorageCaps, getConsumptionRates, processTick } = require('./tick');
 const {
@@ -737,6 +738,7 @@ function npcSummary(v) {
     army, attack, defense,
     surLevel: sur?.level || 0,
     hendekLevel: hendek?.level || 0,
+    kulePct: towerBonusPct(v),
     buildings,
     score: levelSum * 10 + v.population + army * 3,
   };

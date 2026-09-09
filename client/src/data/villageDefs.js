@@ -1,6 +1,45 @@
 /**
  * Köy Merkezi bina tanımları — istemci tarafı
+ *
+ * SAVUNMA BONUSU — TAVAN %150, sunucudakiyle BİREBİR aynı formül
+ * (server/data/villageDefs.js). Her şey maksimumda (sur 20 + hendek 20 +
+ * altı kule lvl20 tam kadro) toplam tam %150 olur: sur %80, hendek %35,
+ * kuleler %35. Payları değiştirirken İKİ dosyayı da birlikte güncelle.
  */
+export const DEF_BONUS_CAP = 150;
+
+/** Her yapının Lvl 20'deki payı — üçünün toplamı DEF_BONUS_CAP olmalı */
+const SUR_MAX    = 80;   // sur tek başına
+const HENDEK_MAX = 35;   // hendek tek başına
+const KULE_MAX   = 35;   // ALTI kule lvl20 + tam kadro okçu, toplam
+
+/** Seviye eğrisinin ŞEKLİ (Travian sur cetveli) — tavanlar aşağıda veriliyor */
+const DEF_CURVE = [0,3.0,6.1,9.3,12.6,15.9,19.4,23.0,26.7,30.5,34.4,38.4,42.6,46.9,51.3,55.8,60.5,65.3,70.2,75.4,80.6];
+
+const r1 = (v) => Math.round(v * 10) / 10;
+const CURVE_TOP = DEF_CURVE[DEF_CURVE.length - 1];
+/** Eğriyi verilen tavana ölçekler; şekli korur, Lvl 20'de tam `max` olur */
+const curveTo = (max) => DEF_CURVE.map(v => r1(v * max / CURVE_TOP));
+
+export const SUR_BONUS    = curveTo(SUR_MAX);
+export const HENDEK_BONUS = curveTo(HENDEK_MAX);
+export const KULE_BONUS   = curveTo(KULE_MAX);
+
+/** Kule slot sayısı — bonus altı slotun ortalaması olarak hesaplanır */
+export const TOWER_SLOTS = 6;
+
+/**
+ * Bir kulenin savunmaya net katkısı (%): seviye bonusu × okçu doluluğu,
+ * altı slota bölünmüş. Sunucudaki towerBonusPct ile aynı formül.
+ */
+export function towerSlotBonus(level, archers) {
+  if (!(level >= 1)) return 0;
+  const maxA = level * (VILLAGE_DEFS.kule?.workersPerLevel || 4);
+  if (maxA <= 0) return 0;
+  const fill = Math.min(1, Math.max(0, (archers || 0) / maxA));
+  const lv = Math.min(Math.floor(level), KULE_BONUS.length - 1);
+  return Math.round((KULE_BONUS[lv] || 0) * fill / TOWER_SLOTS * 10) / 10;
+}
 
 const VILLAGE_DEFS = {
 
@@ -125,9 +164,9 @@ const VILLAGE_DEFS = {
   },
 
   // ── Savunma ─────────────────────────────────────────────────────
-  sur:    { name:'Sur',            category:'savunma', icon:'🏰', description:'Savunmacılara savunma bonusu. Maks Lvl 20.',  unique:true,  maxLevel:20, buildBaseWork:50, buildMultiplier:2.0, bonusTable:null, cost:{ yontmaTas:160, kereste:40 } },
-  hendek: { name:'Hendek',         category:'savunma', icon:'〰️', description:'Sur ile birleşik, yarı bonus. Maks Lvl 20.', unique:true,  maxLevel:20, buildBaseWork:40, buildMultiplier:1.9, bonusTable:null, cost:{ kereste:40, yontmaTas:80 } },
-  kule:   { name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat bonus.',      unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:null, maxInstances:6, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
+  sur:    { name:'Sur',            category:'savunma', icon:'🏰', description:'Savunmacılara savunma bonusu. Maks Lvl 20.',  unique:true,  maxLevel:20, buildBaseWork:50, buildMultiplier:2.0, bonusTable:SUR_BONUS, cost:{ yontmaTas:160, kereste:40 } },
+  hendek: { name:'Hendek',         category:'savunma', icon:'〰️', description:'Sur ile birleşik, yarı bonus. Maks Lvl 20.', unique:true,  maxLevel:20, buildBaseWork:40, buildMultiplier:1.9, bonusTable:HENDEK_BONUS, cost:{ kereste:40, yontmaTas:80 } },
+  kule:   { name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat bonus.',      unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:KULE_BONUS, maxInstances:6, workersPerLevel:4, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
 };
 
 export default VILLAGE_DEFS;

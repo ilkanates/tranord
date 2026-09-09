@@ -23,7 +23,7 @@
  */
 
 const { UNIT_DEFS } = require('../data');
-const { simulateBattle } = require('./combat');
+const { simulateBattle, towerBonusPct } = require('./combat');
 const GT = require('./gameTime');
 
 // ── Ölçek sabitleri ────────────────────────────────────────────────────
@@ -315,6 +315,8 @@ function resolveArrival(march, origin, target, opts = {}) {
 
   const surLevel    = buildingLevel(target, 'sur');
   const hendekLevel = buildingLevel(target, 'hendek');
+  // Kule bonusu okçu dolulukla ölçeklenir — boş kule fayda vermez
+  const kulePct     = towerBonusPct(target);
 
   // ── KEŞİF: çarpışma yok, bilgi toplanır ──────────────────────────
   if (march.mode === 'scout') {
@@ -323,7 +325,7 @@ function resolveArrival(march, origin, target, opts = {}) {
       army: { ...(target.army || {}) },
       armyTotal: totalUnits(target.army),
       defense: Math.round(armyDefense(target.army)),
-      surLevel, hendekLevel,
+      surLevel, hendekLevel, kulePct,
       resources: Object.fromEntries(
         LOOTABLE.map(r => [r, Math.floor(target.resources?.[r] || 0)])),
       at: now,
@@ -346,7 +348,8 @@ function resolveArrival(march, origin, target, opts = {}) {
   // ── SAVAŞ ────────────────────────────────────────────────────────
   const defenderUnits = { ...(target.army || {}) };
   const res = simulateBattle(march.units, defenderUnits, {
-    surLevel, hendekLevel, mode: march.mode === 'raid' ? 'raid' : 'normal',
+    surLevel, hendekLevel, kulePct,
+    mode: march.mode === 'raid' ? 'raid' : 'normal',
   });
 
   // Savunanın kaybı hedefin ordusundan düşer (+ nüfus)

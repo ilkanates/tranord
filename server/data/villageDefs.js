@@ -6,9 +6,43 @@
  *     outputPerHour × level kadar işlenmiş mal üretir.
  */
 
-const SUR_BONUS    = [0,3.0,6.1,9.3,12.6,15.9,19.4,23.0,26.7,30.5,34.4,38.4,42.6,46.9,51.3,55.8,60.5,65.3,70.2,75.4,80.6];
-const HENDEK_BONUS = SUR_BONUS.map(v => Math.round(v / 2 * 10) / 10);
-const KULE_BONUS   = SUR_BONUS.map(v => Math.round(v * 2  * 10) / 10);
+/**
+ * KÖY SAVUNMA BONUSU — TAVAN %150
+ *
+ * Her şey maksimumda (sur 20 + hendek 20 + altı kule lvl20 TAM KADRO) toplam
+ * savunma bonusu tam %150 olur. Tablolar tek bir eğriden türer, birbirine
+ * oranları korunur: hendek surun yarısı, kule (altı slot toplamı) surun iki
+ * katı DEĞİL: paylar doğrudan veriliyor — sur %80, hendek %35, altı kule tam
+ * kadro %35. Toplam %150.
+ *
+ * Tavanı değiştirmek için SADECE DEF_BONUS_CAP'i değiştir; üç tablo da
+ * kendiliğinden yeniden ölçeklenir. combat.js ayrıca sert bir üst sınır
+ * uyguluyor, böylece tablo elle bozulsa da toplam tavanı geçemez.
+ */
+const DEF_BONUS_CAP = 150;
+
+/** Her yapının Lvl 20'deki payı — üçünün toplamı DEF_BONUS_CAP olmalı */
+const SUR_MAX    = 80;   // sur tek başına
+const HENDEK_MAX = 35;   // hendek tek başına
+const KULE_MAX   = 35;   // ALTI kule lvl20 + tam kadro okçu, toplam
+
+/** Seviye eğrisinin ŞEKLİ (Travian sur cetveli) — tavanlar aşağıda veriliyor */
+const DEF_CURVE = [0,3.0,6.1,9.3,12.6,15.9,19.4,23.0,26.7,30.5,34.4,38.4,42.6,46.9,51.3,55.8,60.5,65.3,70.2,75.4,80.6];
+
+const r1 = (v) => Math.round(v * 10) / 10;
+const CURVE_TOP = DEF_CURVE[DEF_CURVE.length - 1];
+/** Eğriyi verilen tavana ölçekler; şekli korur, Lvl 20'de tam `max` olur */
+const curveTo = (max) => DEF_CURVE.map(v => r1(v * max / CURVE_TOP));
+
+const SUR_BONUS    = curveTo(SUR_MAX);
+const HENDEK_BONUS = curveTo(HENDEK_MAX);
+const KULE_BONUS   = curveTo(KULE_MAX);
+
+// Paylar tavanla tutarsız kalırsa sessizce yanlış dengeye düşmeyelim
+if (r1(SUR_MAX + HENDEK_MAX + KULE_MAX) !== DEF_BONUS_CAP) {
+  console.warn(`[DENGE] sur+hendek+kule = ${SUR_MAX + HENDEK_MAX + KULE_MAX}`
+    + ` ama DEF_BONUS_CAP = ${DEF_BONUS_CAP} — combat.js farkı kırpacak.`);
+}
 
 const VILLAGE_DEFS = {
 
@@ -153,7 +187,8 @@ const VILLAGE_DEFS = {
   // ── Savunma ─────────────────────────────────────────────────────
   sur:    { name:'Sur',            category:'savunma', icon:'🏰', description:'Savunmacılara savunma bonusu verir. Maks Lvl 20.',    unique:true,  maxLevel:20, buildBaseWork:50, buildMultiplier:2.0, bonusTable:SUR_BONUS,    cost:{ yontmaTas:160, kereste:40 } },
   hendek: { name:'Hendek',         category:'savunma', icon:'〰️', description:'Sur ile birleşik. Surun yarısı kadar bonus verir.',   unique:true,  maxLevel:20, buildBaseWork:40, buildMultiplier:1.9, bonusTable:HENDEK_BONUS, cost:{ kereste:40, yontmaTas:80 } },
-  kule:   { name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat savunma bonusu.',     unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:KULE_BONUS, maxInstances:6, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
+  kule:   { name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat savunma bonusu.',     unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:KULE_BONUS, maxInstances:6, workersPerLevel:4, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
 };
 
-module.exports = { VILLAGE_DEFS, SUR_BONUS, HENDEK_BONUS, KULE_BONUS };
+module.exports = {
+  DEF_BONUS_CAP, VILLAGE_DEFS, SUR_BONUS, HENDEK_BONUS, KULE_BONUS };

@@ -337,6 +337,11 @@ function Detail({ r, unitDefs }) {
               <div style={num({ fontSize: 18, color: C.warn })}>
                 {r.intel.surLevel} / {r.intel.hendekLevel}
               </div>
+              {r.intel.kulePct ? (
+                <div style={num({ fontSize: 10, color: C.dangerDim })}>
+                  kule +{r.intel.kulePct}%
+                </div>
+              ) : null}
             </div>
             <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
               <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>NÜFUS</div>

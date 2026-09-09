@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import VILLAGE_DEFS from '../data/villageDefs';
+import VILLAGE_DEFS, { towerSlotBonus } from '../data/villageDefs';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
-import { RES_LABEL } from '../flows';
+import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import WorkerAssign from './WorkerAssign';
 import { popHeader, popCols, popCol } from './popoverStyle';
@@ -23,15 +23,22 @@ const CAT_EDGE = {
   ekonomik: '#d9c069', nufus: '#5fd8d0', savunma: '#e8636f',
 };
 
-const WORKER_BUILDINGS = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye']);
+// Personel atanabilen binalar. Kule de personel alır — ama adı OKÇU.
+// Sur ve hendek hiç personel almaz (bkz. NO_WORKER_TYPES).
+const WORKER_BUILDINGS = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule']);
 const TRAINERS = new Set(['kisla', 'ahir', 'atolye']);
 const PRODUCERS = new Set(['silahci', 'zirh', 'ahir']);
 
-function buildSeconds(type, level, workers) {
+/**
+ * İnşa/yükseltme süresi — oyun DAKİKASI. Sunucudaki getVillageBuildMinutes ile
+ * birebir aynı formül (yuvarlama yok); gösterirken realSecs ile gerçek
+ * saniyeye çevrilir.
+ */
+function buildMinutes(type, level, workers) {
   const def = VILLAGE_DEFS[type];
   if (!def || !workers || workers <= 0) return Infinity;
-  const work = Math.round(def.buildBaseWork * Math.pow(def.buildMultiplier, Math.max(0, level - 1)));
-  return Math.ceil(work / workers);
+  const work = def.buildBaseWork * Math.pow(def.buildMultiplier, Math.max(0, level - 1));
+  return work / workers;
 }
 
 const capacityAt = (type, level) => {
@@ -146,9 +153,13 @@ export default function BuildMenu({
   slotKey, building, isTower, slotKind = 'hex', isCenter,
   placedBuildings, freeWorkers, resources = {}, processingRates = {}, flows = {},
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onClose,
+  hourSeconds = 3600, worldSpeed = 1,
   // Poster biçiminde başlık bina görselinin üstünde çiziliyor; burada tekrar etmesin
   posterHeader = false,
 }) {
+  // Oyun dakikası → gerçek saniye (sunucudaki geri sayımla aynı ölçek)
+  const realSecs = (mins) => gameMinutesToRealSeconds(mins, hourSeconds, worldSpeed);
+
   const [buildWorkers, setBuildWorkers] = useState(1);
   const [upgradeWorkers, setUpgradeWorkers] = useState(1);
   // Savunma slotunda doğrudan savunma sekmesi açılsın
@@ -213,7 +224,10 @@ export default function BuildMenu({
 
   const maxW = building && def ? building.level * (def.workersPerLevel || 3) : 0;
   const hasWorkerSlot = building && building.level >= 1
+    && !NO_WORKER_TYPES.has(building.type)
     && (def?.processes || WORKER_BUILDINGS.has(building.type)) && maxW > 0;
+  // "İşçi" mi "Okçu" mu — yapıya göre
+  const wTerm = building ? workerTerm(building.type) : 'İşçi';
 
   return (
     <div>
@@ -258,13 +272,17 @@ export default function BuildMenu({
           <div style={popCol}>
             {building.level >= 1 && hasWorkerSlot ? (
               <>
-                <ColLabel icon="isci">Çalışan işçi</ColLabel>
+                <ColLabel icon={building.type === 'kule' ? 'kule' : 'isci'}>
+                  {building.type === 'kule' ? 'Kuledeki okçu' : `Çalışan ${wTerm.toLowerCase()}`}
+                </ColLabel>
                 <WorkerAssign
                   mode="assign" value={building.workers || 0} max={maxW}
                   freeWorkers={freeWorkers} title="kadro"
                   onChange={(w) => onAssignVillageWorkers(w)}
                   effect={def?.processes
                     ? (w) => `+${(def.processes.outputPerHour * w).toFixed(0)} ${RES_LABEL[def.processes.output]}/sa`
+                    : building.type === 'kule'
+                      ? (w) => `${w} okçu · +${towerSlotBonus(building.level, w)}% savunma`
                     : (w) => `${w}× hız`} />
                 <div style={{
                   display: 'flex', gap: 7, padding: '6px 8px', borderRadius: 5,
@@ -364,13 +382,17 @@ export default function BuildMenu({
           <div style={popCol}>
             {hasWorkerSlot ? (
               <>
-                <ColLabel icon="isci">Çalışan işçi</ColLabel>
+                <ColLabel icon={building.type === 'kule' ? 'kule' : 'isci'}>
+                  {building.type === 'kule' ? 'Kuledeki okçu' : `Çalışan ${wTerm.toLowerCase()}`}
+                </ColLabel>
                 <WorkerAssign
                   mode="assign" value={building.workers || 0} max={maxW}
                   freeWorkers={freeWorkers} title="kadro"
                   onChange={(w) => onAssignVillageWorkers(w)}
                   effect={def?.processes
                     ? (w) => `+${(def.processes.outputPerHour * w).toFixed(0)} ${RES_LABEL[def.processes.output]}/sa`
+                    : building.type === 'kule'
+                      ? (w) => `${w} okçu · +${towerSlotBonus(building.level, w)}% savunma`
                     : (w) => `${w}× hız`} />
               </>
             ) : (
@@ -381,7 +403,10 @@ export default function BuildMenu({
                   background: 'rgba(8,17,28,0.5)', border: `1px solid ${C.lineSoft}`,
                   fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.5,
                 }}>
-                  {def?.description || 'İşçi gerektirmiyor.'}
+                  {def?.description
+                    || (NO_WORKER_TYPES.has(building.type)
+                      ? 'Bu yapı personel almaz.'
+                      : 'İşçi gerektirmiyor.')}
                 </div>
               </>
             )}
@@ -396,10 +421,10 @@ export default function BuildMenu({
                 <CostGrid cost={upgradeCost} resources={resources} />
                 <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={upgradeWorkers}
                   freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setUpgradeWorkers}
-                  effect={(w) => `süre ${fmtTime(buildSeconds(building.type, building.level + 1, w))}`} />
+                  effect={(w) => `süre ${fmtTime(realSecs(buildMinutes(building.type, building.level + 1, w)))}`} />
                 <button onClick={() => onUpgrade(upgradeWorkers)} disabled={!upgradeReady}
                   style={btn(upgradeReady ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
-                  YÜKSELT · {fmtTime(buildSeconds(building.type, building.level + 1, upgradeWorkers))}
+                  YÜKSELT · {fmtTime(realSecs(buildMinutes(building.type, building.level + 1, upgradeWorkers)))}
                 </button>
               </>
             ) : (
@@ -505,11 +530,11 @@ export default function BuildMenu({
                   )}
                   <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
                     freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
-                    effect={(w) => `süre ${fmtTime(buildSeconds(selectedType, 1, w))}`} />
+                    effect={(w) => `süre ${fmtTime(realSecs(buildMinutes(selectedType, 1, w)))}`} />
                   <button onClick={() => { if (buildReady) onBuild(selectedType, buildWorkers); }}
                     disabled={!buildReady}
                     style={btn(buildReady ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
-                    İNŞA ET · {fmtTime(buildSeconds(selectedType, 1, buildWorkers))}
+                    İNŞA ET · {fmtTime(realSecs(buildMinutes(selectedType, 1, buildWorkers)))}
                   </button>
                 </>
               ) : (

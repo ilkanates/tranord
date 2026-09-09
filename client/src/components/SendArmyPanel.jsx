@@ -201,6 +201,8 @@ export default function SendArmyPanel({
       socket.emit('simulate_battle', {
         tag: 'sendpanel', attacker: chosen, defender: intel.army || {},
         surLevel: intel.surLevel || 0, hendekLevel: intel.hendekLevel || 0,
+        // Kule bonusu okçu dolulukla ölçekli geliyor — tahmin de bunu saymalı
+        kulePct: intel.kulePct || 0,
         mode: mode === 'raid' ? 'raid' : 'normal',
       });
     }, 220);   // yazarken her tuşta istek atma
