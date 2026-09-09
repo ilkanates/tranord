@@ -62,13 +62,61 @@ export function computeFlows(v = {}) {
     gross[key] = (gross[key] || 0) + (Number(rate) || 0);
   }
 
-  // 2) İşleme binaları: girdi tüketir, çıktı üretir
-  for (const [output, p] of Object.entries(processing)) {
-    if (!p) continue;
-    gross[output]      = (gross[output] || 0) + (Number(p.outputPerHour) || 0);
-    consumed[p.input]  = (consumed[p.input] || 0) + (Number(p.inputPerHour) || 0);
-    producer[output]   = { workers: p.workers || 0, maxWorkers: p.maxWorkers || 0 };
-    consumer[p.input]  = { output, workers: p.workers || 0 };
+  /**
+   * 2) İŞLEME BİNALARI — GERÇEKTEN işleyebildikleri kadar.
+   *
+   * DÜZELTME: eskiden binanın NOMİNAL iştahı (işçi × girdi/saat) tüketim
+   * yazılıyordu. Değirmene 60 işçi atanmışsa ekranda "−5.400 tahıl/sa"
+   * görünüyordu; oysa tarlalar 2.880 üretiyor ve motor yalnız VAR OLANI
+   * tüketiyor. Sonuç: tahıl −3.264/sa diye korkutucu bir sayı, gerçek net
+   * ise 0 — ekmek sorunsuz üretilirken oyuncu "tahıl yetmiyor" sanıyordu.
+   *
+   * Artık her bina girdisinin o an ulaşabildiği kadarını işliyor sayılıyor.
+   * Zincir sıralı (tahıl → un → ekmek) olduğu için birkaç tur dönülüyor:
+   * un'un ne kadar üretildiği belli olmadan fırının ne işleyebileceği
+   * hesaplanamaz. `limited` ve `idleWorkers` alanları arayüze "bu binada N
+   * işçi girdisizlikten boşta duruyor" diyebilmek için üretiliyor.
+   */
+  const etkin = {};                 // output -> { girdi, cikti, oran }
+  const girisler = Object.entries(processing).filter(([, p]) => p);
+  for (let tur = 0; tur < girisler.length + 1; tur++) {
+    let degisti = false;
+    // Bu turdaki arz: ham üretim + o ana kadar hesaplanan işleme çıktıları
+    const arz = { ...gross };
+    for (const [o, e] of Object.entries(etkin)) arz[o] = (arz[o] || 0) + e.cikti;
+    // Aynı girdiyi paylaşan binalar arzı bölüşür (şu an her girdinin tek
+    // tüketicisi var; yine de doğru davranması için düşülüyor)
+    for (const [output, p] of girisler) {
+      const istek = Number(p.inputPerHour) || 0;
+      if (istek <= 0) { etkin[output] = { girdi: 0, cikti: 0, oran: 1 }; continue; }
+      const rakip = girisler
+        .filter(([o2]) => o2 !== output && processing[o2]?.input === p.input)
+        .reduce((s, [o2]) => s + (etkin[o2]?.girdi || 0), 0);
+      const bulunabilir = Math.max(0, (arz[p.input] || 0) - rakip);
+      const girdi = Math.min(istek, bulunabilir);
+      const oran = istek > 0 ? girdi / istek : 1;
+      const cikti = (Number(p.outputPerHour) || 0) * oran;
+      const onceki = etkin[output];
+      if (!onceki || Math.abs(onceki.girdi - girdi) > 0.001) degisti = true;
+      etkin[output] = { girdi, cikti, oran };
+    }
+    if (!degisti) break;
+  }
+
+  for (const [output, p] of girisler) {
+    const e = etkin[output] || { girdi: 0, cikti: 0, oran: 1 };
+    gross[output]      = (gross[output] || 0) + e.cikti;
+    consumed[p.input]  = (consumed[p.input] || 0) + e.girdi;
+    const isci = p.workers || 0;
+    producer[output]   = {
+      workers: isci, maxWorkers: p.maxWorkers || 0,
+      // Girdi yetmiyorsa bu binadaki işçilerin bir kısmı boşa duruyor
+      limited: e.oran < 0.999,
+      oran: e.oran,
+      idleWorkers: Math.max(0, Math.round(isci * (1 - e.oran))),
+      nominal: Number(p.outputPerHour) || 0,
+    };
+    consumer[p.input]  = { output, workers: isci, limited: e.oran < 0.999, oran: e.oran };
   }
 
   // 3) Beslenme: nüfus+ordu ekmek yer, atlar ham tahıl yer

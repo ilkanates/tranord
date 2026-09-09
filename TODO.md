@@ -141,6 +141,14 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Asker yemeği iki kez sayılıyordu (Eylül 2026)
+- Şikâyet: "9 tarlam var ama tahıl hâlâ çok az geliyor." Ölçüm bambaşka bir yere çıktı.
+- **Hata:** `getConsumptionRates` ve `processFoodConsumption` sivil payını `population` üzerinden hesaplıyordu ama `population` askerleri de içeriyor. Yani her asker günde **3 (köylü olarak) + 6 (asker olarak) = 9 ekmek** yiyordu. İlkan'ın köyünde 2.643 asker × 3 / 24 = **331 ekmek/sa hayalet tüketim** — 1.553'lük tüketimin beşte biri.
+- Düzeltildi: sivil = nüfus − ordu − seferdeki asker. Tüketim 1.553 → **1.222 ekmek/sa**; ekmek birikimi saatte +36 → **+367**.
+- **İkinci hata (arayüz):** akış hesabı işleme binasının NOMİNAL iştahını tüketim yazıyordu. Değirmene 60 işçi atanmışsa ekranda "−5.400 tahıl/sa" görünüyordu; oysa tarlalar 2.648 üretiyor ve motor yalnız var olanı tüketiyor. Ekranda **tahıl −3.264/sa** diye korkutucu bir sayı vardı, gerçek net 0'dı. `computeFlows` artık her binayı girdisinin yettiği kadar çalıştırıyor ve "girdi yetersiz: %53, 28 işçi boşta" bilgisini üretiyor.
+- Doğrulama: 6 sınır durumda tüketim testi (askersiz, yarı asker, seferdeki asker, tamamı asker, atlar) 6/6 geçti; akış hesabı motorun 24 saatte gerçekte ürettiğiyle karşılaştırıldı — sapmanın sebebi arazi çarpanlarıydı (2.880 nominal → 2.648 gerçek), hesaplandığında birebir tuttu.
+- **Sonuç: tahıl üretimini artırmaya gerek yoktu.** 9 tarla yetiyor; sorun çift sayma ve yanıltıcı gösterimdi.
+
 ### Yardım ekranına "Oyunun kuralları" (Eylül 2026)
 - Yardım listesinin en üstüne **9 kural sayfası** eklendi (`RuleDetail.jsx`): Oyunun döngüsü, Nüfus ve büyüme, İşçi ve üretim, Yiyecek ve açlık, Depolar, Seviye tavanları, Ordu ve birimler, Savunma bonusu, Köyler ve kültür.
 - Sayfalardaki **sayıların hiçbiri elle yazılmadı** — hepsi `villageDefs` / `buildingDefs` / `unitDefs`'ten hesaplanıyor (kapasiteler, işleme oranları, kadro eğrileri, savunma eğrileri, birim seviye kilitleri, ev/nüfus formülü). Denge değişince yardım kendiliğinden güncelleniyor. Yalnız sunucudaki sabitlerin (nüfus hızı, yiyecek oranları) ikizi var; kaynak dosya adıyla not düşüldü.

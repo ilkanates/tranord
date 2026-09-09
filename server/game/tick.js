@@ -262,8 +262,19 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
 // Atlar yalnızca ham tahıl tüketir (un/ekmek yemez).
 // Yeterli yiyecek yoksa isStarving=true → her STARVE_HOURS_PER_LOSS oyun saatinde 1 nüfus.
 function processFoodConsumption(village, hours = GT.HOURS_PER_TICK) {
-  const pop     = village.population || 0;
   const army    = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
+  /**
+   * DÜZELTME — asker yemeği İKİ KEZ sayılıyordu: sivil payı `population`
+   * üzerinden hesaplanıyordu ama `population` askerleri de içeriyor, yani
+   * her asker günde 3 (köylü) + 6 (asker) = 9 ekmek yiyordu. Buradaki hata
+   * gerçek tüketimi, getConsumptionRates'teki ikizi de ekranda gösterilen
+   * sayıyı bozuyordu.
+   */
+  let seferde = 0;
+  for (const m of village.marches || []) {
+    for (const n of Object.values(m.units || {})) seferde += n || 0;
+  }
+  const pop     = Math.max(0, (village.population || 0) - army - seferde);   // yalnız SİVİLLER
   const horses  = (village.equipment?.at) || 0;
 
   // Günlük tüketim → bu adımda geçen oyun saati kadarı
@@ -511,9 +522,26 @@ function processUnitQueues(village, now) {
 
 // Yardımcı: o anki beslenme gereksinimlerini (saatlik = tick başına) döndürür.
 // Yardımcı: beslenme oranları (tick başına) — UI "-X/sa" göstergesi
+/**
+ * TÜKETİM.
+ *
+ * DÜZELTME — asker yemeği İKİ KEZ sayılıyordu: sivil payı `population`
+ * üzerinden hesaplanıyordu ama `population` askerleri de içeriyor. Yani her
+ * asker günde 3 (köylü olarak) + 6 (asker olarak) = 9 ekmek yiyordu.
+ * İlkan'ın köyünde bu, 1.553 ekmek/sa'lık tüketimin 331'inin hayalet olması
+ * demekti (2.643 asker × 3 / 24) ve "tahıl yetmiyor" sanılmasına yol açtı.
+ *
+ * Sivil = nüfus − ordu − seferdeki asker (villageState.civilianCount ile aynı
+ * tanım; bu dosya onu require edemiyor — döngüsel bağımlılık — o yüzden
+ * burada yeniden hesaplanıyor).
+ */
 function getConsumptionRates(village) {
-  const pop    = village.population || 0;
   const army   = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
+  let seferde = 0;
+  for (const m of village.marches || []) {
+    for (const n of Object.values(m.units || {})) seferde += n || 0;
+  }
+  const pop    = Math.max(0, (village.population || 0) - army - seferde);   // yalnız SİVİLLER
   const horses = (village.equipment && village.equipment.at) || 0;
 
   const villagerFood = (pop    * FOOD_PER_VILLAGER_PER_DAY) / HOURS_PER_DAY;
@@ -521,7 +549,7 @@ function getConsumptionRates(village) {
   const horseGrain   = (horses * GRAIN_PER_HORSE_PER_DAY)   / HOURS_PER_DAY;
 
   return {
-    villagers:    pop,
+    villagers:    pop,          // siviller (asker hariç)
     soldiers:     army,
     horses,
     foodPerHour:  +(villagerFood + soldierFood).toFixed(2),
