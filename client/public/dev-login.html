@@ -25,8 +25,12 @@
   }
 
   /* ── Fiyort manzarası ── */
-  #bg { position:fixed; inset:0; z-index:0; }
-  #bg svg { width:100%; height:100%; display:block; }
+  #bg { position:fixed; inset:0; z-index:0; pointer-events:none; }
+  #bg video { width:100%; height:100%; display:block; object-fit:cover;
+    background:url(/login_bg.jpg) center/cover no-repeat; }
+  #bgdim { position:fixed; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 55%,
+      rgba(6,13,22,.30) 0%, rgba(6,13,22,.62) 55%, rgba(6,13,22,.86) 100%); }
 
   .card {
     position:relative; z-index:2;
@@ -88,69 +92,9 @@
 <body>
 
 <div id="bg">
-  <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
-    <defs>
-      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#040810"/><stop offset="38%" stop-color="#081725"/>
-        <stop offset="68%" stop-color="#0e2c42"/><stop offset="100%" stop-color="#14415c"/>
-      </linearGradient>
-      <linearGradient id="wat" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#17506f"/><stop offset="45%" stop-color="#0e304a"/>
-        <stop offset="100%" stop-color="#071b28"/>
-      </linearGradient>
-      <linearGradient id="au" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#3fe0b0" stop-opacity="0"/>
-        <stop offset="32%" stop-color="#3fe0b0" stop-opacity=".5"/>
-        <stop offset="62%" stop-color="#5aa8ff" stop-opacity=".4"/>
-        <stop offset="100%" stop-color="#9d7ce8" stop-opacity="0"/>
-      </linearGradient>
-      <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#1d4863"/><stop offset="100%" stop-color="#122f45"/>
-      </linearGradient>
-      <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#16374f"/><stop offset="100%" stop-color="#0c2334"/>
-      </linearGradient>
-      <filter id="bl"><feGaussianBlur stdDeviation="34"/></filter>
-      <radialGradient id="vig" cx="50%" cy="46%" r="72%">
-        <stop offset="52%" stop-color="#000" stop-opacity="0"/>
-        <stop offset="100%" stop-color="#000" stop-opacity=".7"/>
-      </radialGradient>
-    </defs>
-
-    <rect width="1600" height="900" fill="url(#sky)"/>
-    <g id="stars" fill="#dceefc"></g>
-
-    <g filter="url(#bl)">
-      <path fill="url(#au)" d="M-200 250 C 200 120, 520 300, 880 180 S 1500 240, 1800 130 L1800 330 C1500 430, 1160 300, 880 380 S 200 320, -200 430 Z">
-        <animateTransform attributeName="transform" type="translate" values="0 0; 60 -22; -40 14; 0 0" dur="26s" repeatCount="indefinite"/>
-      </path>
-    </g>
-
-    <path fill="url(#far)" d="M-100 560 L 90 430 L 190 480 L 320 360 L 430 452 L 520 400 L 640 470 L 760 372 L 880 462 L 1010 402 L 1130 476 L 1250 392 L 1380 470 L 1500 420 L 1700 520 L 1700 620 L -100 620 Z"/>
-    <path fill="#cfe4f2" opacity=".45" d="M 320 360 L 366 398 L 344 402 L 372 428 L 268 428 L 296 400 L 276 396 Z M 760 372 L 806 412 L 782 416 L 812 442 L 706 442 L 736 414 L 714 410 Z M 1250 392 L 1294 430 L 1272 434 L 1300 458 L 1198 458 L 1226 432 L 1206 428 Z"/>
-    <path fill="url(#mid)" d="M-100 620 L 130 512 L 260 570 L 400 486 L 540 566 L 700 500 L 860 578 L 1020 508 L 1180 580 L 1340 520 L 1480 586 L 1700 540 L 1700 700 L -100 700 Z"/>
-
-    <rect x="-100" y="668" width="1800" height="300" fill="url(#wat)"/>
-    <g opacity=".2" fill="#9fd8f4">
-      <rect x="-100" y="690" width="600" height="1.6"><animate attributeName="x" values="-100;60;-100" dur="13s" repeatCount="indefinite"/></rect>
-      <rect x="700" y="726" width="520" height="1.4"><animate attributeName="x" values="700;560;700" dur="17s" repeatCount="indefinite"/></rect>
-      <rect x="200" y="770" width="700" height="1.2"><animate attributeName="x" values="200;340;200" dur="21s" repeatCount="indefinite"/></rect>
-    </g>
-
-    <path fill="#0b1d2c" d="M-100 790 C 180 754, 420 786, 640 764 C 900 738, 1140 782, 1380 756 C 1500 744, 1620 762, 1700 750 L 1700 980 L -100 980 Z"/>
-    <g fill="#04101a">
-      <path d="M 660 764 L 700 726 L 860 726 L 900 764 Z"/><rect x="672" y="762" width="216" height="34"/>
-      <path d="M 520 776 L 548 750 L 576 776 Z"/><rect x="528" y="774" width="40" height="24"/>
-      <path d="M 960 772 L 986 748 L 1012 772 Z"/><rect x="968" y="770" width="38" height="26"/>
-    </g>
-    <g fill="#ffcf7a">
-      <rect x="690" y="776" width="5" height="7" opacity=".85"><animate attributeName="opacity" values=".85;.5;.85" dur="3.4s" repeatCount="indefinite"/></rect>
-      <rect x="820" y="776" width="5" height="7" opacity=".85"><animate attributeName="opacity" values=".85;.45;.85" dur="4.6s" repeatCount="indefinite"/></rect>
-      <rect x="540" y="782" width="5" height="7" opacity=".8"><animate attributeName="opacity" values=".8;.4;.8" dur="5.2s" repeatCount="indefinite"/></rect>
-    </g>
-
-    <rect width="1600" height="900" fill="url(#vig)"/>
-  </svg>
+  <video id="bgvid" src="/login_bg.mp4" poster="/login_bg.jpg"
+         autoplay muted loop playsinline preload="auto"></video>
+  <div id="bgdim"></div>
 </div>
 
 <div class="card">
@@ -183,21 +127,7 @@
 </div>
 
 <script>
-  // Yıldızlar
-  (function () {
-    let s = 7 * 9301 + 49297;
-    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-    const g = document.getElementById('stars');
-    let out = '';
-    for (let i = 0; i < 110; i++) {
-      const x = (rnd() * 1600).toFixed(0), y = (rnd() * 380).toFixed(0);
-      const r = (0.4 + rnd() * 1.1).toFixed(2), o = (0.25 + rnd() * 0.6).toFixed(2);
-      const d = (2 + rnd() * 5).toFixed(1);
-      out += '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" opacity="' + o + '">'
-           + '<animate attributeName="opacity" values="' + o + ';' + (o * 0.3).toFixed(2) + ';' + o + '" dur="' + d + 's" repeatCount="indefinite"/></circle>';
-    }
-    g.innerHTML = out;
-  })();
+  // Yildizlar SVG'si kaldirildi - arka plan artik video (login_bg.mp4)
 
   const qs = new URLSearchParams(location.search);
   const SERVER = qs.get('server') || 'http://localhost:3311';
@@ -247,6 +177,27 @@
     say('Token temizlendi.', 'ok');
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
+</script>
+<script>
+(function () {
+  var v = document.getElementById('bgvid');
+  if (!v) return;
+  v.muted = true; v.defaultMuted = true;
+  var done = false;
+  function go() {
+    if (done) return;
+    var pr = v.play();
+    if (pr && pr.then) pr.then(function () { done = true; }).catch(function () {});
+    else done = true;
+  }
+  ['loadedmetadata','loadeddata','canplay','canplaythrough'].forEach(function (e) {
+    v.addEventListener(e, go);
+  });
+  ['pointerdown','keydown','touchstart'].forEach(function (e) {
+    window.addEventListener(e, go);
+  });
+  go();
+})();
 </script>
 </body>
 </html>

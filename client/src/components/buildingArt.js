@@ -39,6 +39,9 @@ import loncaKilImg from '../assets/buildings/loncaKil.jpg';
 import loncaTasImg from '../assets/buildings/loncaTas.jpg';
 import loncaOdunImg from '../assets/buildings/loncaOdun.jpg';
 import loncaDemirImg from '../assets/buildings/loncaDemir.jpg';
+import koskImg from '../assets/buildings/kosk.jpg';
+import sarayImg from '../assets/buildings/saray.jpg';
+import tavernaImg from '../assets/buildings/taverna.jpg';
 
 import anaBinaVideo from '../assets/buildings/videos/anaBina.mp4';
 import loncaDemirVideo from '../assets/buildings/videos/loncaDemir.mp4';
@@ -58,10 +61,19 @@ import loncaTasVideo from '../assets/buildings/videos/loncaTas.mp4';
 import zirhVideo from '../assets/buildings/videos/zirh.mp4';
 import silahciVideo from '../assets/buildings/videos/silahci.mp4';
 import kislaVideo from '../assets/buildings/videos/kisla.mp4';
+import atolyeVideo from '../assets/buildings/videos/atolye.mp4';
+import ahirVideo from '../assets/buildings/videos/ahir.mp4';
+import saglikCadiriVideo from '../assets/buildings/videos/saglikCadiri.mp4';
+import cephaneVideo from '../assets/buildings/videos/cephane.mp4';
+import hendekVideo from '../assets/buildings/videos/hendek.mp4';
 import evVideo from '../assets/buildings/videos/ev.mp4';
 import surVideo from '../assets/buildings/videos/sur.mp4';
+import pazarVideo from '../assets/buildings/videos/pazar.mp4';
 import kuleVideo from '../assets/buildings/videos/kule.mp4';
 import islenmisMalDepoVideo from '../assets/buildings/videos/islenmisMalDepo.mp4';
+import koskVideo from '../assets/buildings/videos/kosk.mp4';
+import sarayVideo from '../assets/buildings/videos/saray.mp4';
+import tavernaVideo from '../assets/buildings/videos/taverna.mp4';
 
 // Panel arka planinda oynayan bina videolari (varsa jpg yerine bu kullanilir)
 export const BUILDING_VIDEO = {
@@ -87,6 +99,15 @@ export const BUILDING_VIDEO = {
   zirh: zirhVideo,
   silahci: silahciVideo,
   kisla: kislaVideo,
+  atolye: atolyeVideo,
+  ahir: ahirVideo,
+  saglikCadiri: saglikCadiriVideo,
+  cephane: cephaneVideo,
+  hendek: hendekVideo,
+  pazar: pazarVideo,
+  kosk: koskVideo,
+  saray: sarayVideo,
+  taverna: tavernaVideo,
 };
 
 export const EMBLEM_DY = 26;
@@ -152,6 +173,9 @@ export const BUILDING_TEXTURE = {
   loncaOdun: loncaOdunImg,
   loncaDemir: loncaDemirImg,
   anaBina: anaBinaImg,
+  kosk: koskImg,
+  saray: sarayImg,
+  taverna: tavernaImg,
 };
 
 // Merkez hex'i (0,0) icin gorsel - eski merkez2.png yerine

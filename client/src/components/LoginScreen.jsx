@@ -10,7 +10,7 @@
  */
 import { useState } from 'react';
 import { C, FONT, panel, btn, label as lbl } from '../theme';
-import NordicBackdrop from './NordicBackdrop';
+import LoginBackdrop from './LoginBackdrop';
 import MusicButton from './MusicButton';
 
 const field = {
@@ -33,7 +33,6 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
   const [pass, setPass]   = useState('');
   const [busy, setBusy]   = useState(false);
   const [err, setErr]     = useState('');
-
   const isRegister = mode === 'register';
 
   async function submit(e) {
@@ -73,7 +72,8 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
 
   return (
     <div style={{ position: 'relative', minHeight: '100dvh', background: C.abyss }}>
-      <NordicBackdrop dim={0.25} />
+      {/* Ana ekran anahtar gorseli - kadin savasci solda, koy sagda */}
+      <LoginBackdrop />
       {/* Müzik giriş ekranında da çalıyor — kapatmak isteyen burada bulsun */}
       <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 5 }}>
         <MusicButton />
