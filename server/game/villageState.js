@@ -158,8 +158,57 @@ function hydrateVillage(raw) {
     raw.nextMarchId = raw.marches.reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
   }
 
+  repairWorkerAccounting(raw);
+
   // endTime alanları sayıya dön (JSON'da number olarak saklanır, sorun yok)
   return raw;
 }
 
-module.exports = { createVillage, hydrateVillage, TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };
+/**
+ * KAYBOLAN KÖYLÜLERİ GERİ GETİR.
+ *
+ * Değişmez kural: köyün nüfusu her zaman şu kovaların toplamıdır —
+ *
+ *     nüfus = boş işçi + tarla işçisi + tarla yükseltme işçisi
+ *           + bina personeli + inşaat işçisi + ordu
+ *           + eğitim kuyruğunda rezerve edilmiş işçi + seferdeki asker
+ *
+ * Eski bir hata (dev_setup süren inşaatı iptal ederken `buildWorkers`ı havuza
+ * döndürmeden siliyordu) bu kuralı bozmuş kayıtlar bıraktı: nüfus sayısı
+ * yerinde duruyor ama o kişiler hiçbir kovada görünmüyor — ne çalışıyorlar ne
+ * boşta. Kayıp varsa BOŞ İŞÇİ havuzuna geri yazılıyor; fazlalık varsa (kova
+ * toplamı nüfustan büyükse) nüfus yukarı çekiliyor, çünkü kovalardaki kişiler
+ * gerçekten bir işte duruyor ve onları silmek üretimi bozar.
+ *
+ * Onarım YÜKLEMEDE bir kez çalışır ve yalnız gerekiyorsa iz bırakır.
+ */
+function repairWorkerAccounting(v) {
+  const tiles = Object.values(v.productionTiles || {});
+  const bldgs = Object.values(v.villageBuildings || {});
+  let kuyruk = 0;
+  for (const q of Object.values(v.unitQueues || {})) {
+    for (const o of q || []) if (o && o.workerReserved) kuyruk++;
+  }
+  let seferde = 0;
+  for (const m of v.marches || []) {
+    for (const n of Object.values(m.units || {})) seferde += n || 0;
+  }
+  const mesgul =
+      tiles.reduce((s, t) => s + (t.workers || 0) + (t.upgradeWorkersAssigned || 0), 0)
+    + bldgs.reduce((s, b) => s + (b.workers || 0) + (b.buildWorkers || 0), 0)
+    + Object.values(v.army || {}).reduce((s, n) => s + (n || 0), 0)
+    + kuyruk + seferde;
+
+  const bos = v.freeWorkers || 0;
+  const fark = (v.population || 0) - (mesgul + bos);
+  if (fark === 0) return null;
+
+  if (fark > 0) v.freeWorkers = bos + fark;         // kaybolanlar havuza döner
+  else v.population = mesgul + bos;                 // kovalar doğru, nüfus düzeltilir
+  console.log(`[İŞÇİ ONARIM] ${fark > 0 ? `${fark} kayıp köylü boş işçi havuzuna döndü`
+    : `nüfus ${-fark} yukarı çekildi`} (meşgul ${mesgul}, boştaydı ${bos})`);
+  return { fark, mesgul, bos };
+}
+
+module.exports = { createVillage, hydrateVillage, repairWorkerAccounting,
+  TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };

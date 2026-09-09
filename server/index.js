@@ -2042,6 +2042,14 @@ io.on('connection', async socket => {
         } else {
           const [, b] = entry;
           b.level = Math.max(b.level, lv);
+          /**
+           * İŞÇİ KAÇAĞI DÜZELTMESİ: süren inşaat burada iptal ediliyordu ama
+           * `buildWorkers` havuza DÖNDÜRÜLMEDEN siliniyordu. Yükseltme
+           * sırasında TEST DOLDUR'a basmak o işçileri yok ediyordu — nüfus
+           * sayısı yerinde kalıyor, kimse hiçbir işte görünmüyordu (ölçüldü:
+           * 7 işçilik yükseltmede tam 7 kişi kayboldu).
+           */
+          if (b.building && b.buildWorkers) village.freeWorkers += b.buildWorkers;
           delete b.building; delete b.buildEndTime; delete b.buildWorkers;
           kurulan.push(`${type} lvl${b.level}`);
         }
