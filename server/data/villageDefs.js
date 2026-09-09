@@ -49,7 +49,7 @@ const VILLAGE_DEFS = {
   // ── Merkez ──────────────────────────────────────────────────────
   // Ana Bina oyunun başında Lvl 1 olarak '0,0' slotunda kuruludur.
   // Her seviye +1 üretim alanı slotu açar: Lvl 1 → 6, Lvl 11 → 16 (max).
-  anaBina: {
+  anaBina: { cpPerLevel:2,
     name:'Ana Bina', category:'merkez', icon:'🏛️',
     description:'Köyün kalbi. Her seviye +1 üretim alanı slotu açar. Lvl 1: 6 slot, Lvl 11: 16 slot (maks).',
     unique:true, maxLevel:11,
@@ -61,42 +61,42 @@ const VILLAGE_DEFS = {
 
   // ── İşleme Binaları ─────────────────────────────────────────────
   // inputPerHour / outputPerHour: 1 işçi başına saatlik miktar
-  keresteci: {
+  keresteci: { cpPerLevel:1,
     name:'Keresteci', category:'isleme', icon:'🪚',
     description:'Odunu keresteye dönüştürür. 1 işçi: 8 odun → 6 kereste/sa.',
     unique:true, maxLevel:null, workersPerLevel:3,
     processes:{ input:'odun', inputPerHour:8, output:'kereste', outputPerHour:6 },
     buildBaseWork:20, buildMultiplier:1.8, cost:{ odun:100, tas:40 }
   },
-  tuglaci: {
+  tuglaci: { cpPerLevel:1,
     name:'Tuğlacı', category:'isleme', icon:'🧱',
     description:'Kili pişirerek tuğla üretir. 1 işçi: 8 kil → 6 tuğla/sa.',
     unique:true, maxLevel:null, workersPerLevel:3,
     processes:{ input:'kil', inputPerHour:8, output:'tugla', outputPerHour:6 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:60, kil:50 }
   },
-  tasci: {
+  tasci: { cpPerLevel:1,
     name:'Taşçı', category:'isleme', icon:'🪨',
     description:'Ham taşı yontar. 1 işçi: 8 taş → 6 yontma taş/sa.',
     unique:true, maxLevel:null, workersPerLevel:3,
     processes:{ input:'tas', inputPerHour:8, output:'yontmaTas', outputPerHour:6 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:70, tas:40 }
   },
-  demirci: {
+  demirci: { cpPerLevel:1,
     name:'Demirci', category:'isleme', icon:'🔨',
     description:'Demir cevherini külçe demire dönüştürür. 1 işçi: 5 demir → 4 külçe/sa.',
     unique:true, maxLevel:null, workersPerLevel:3,
     processes:{ input:'demir', inputPerHour:5, output:'demirKulce', outputPerHour:4 },
     buildBaseWork:20, buildMultiplier:1.8, cost:{ odun:80, tas:40 }
   },
-  degirmen: {
+  degirmen: { cpPerLevel:1,
     name:'Değirmen', category:'isleme', icon:'⚙️',
     description:'Tahılı una öğütür. 1 işçi: 10 tahıl → 8 un/sa.',
     unique:true, maxLevel:null, workersPerLevel:3,
     processes:{ input:'tahil', inputPerHour:10, output:'un', outputPerHour:8 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:90, tas:30 }
   },
-  firin: {
+  firin: { cpPerLevel:1,
     name:'Fırın', category:'isleme', icon:'🔥',
     description:'Unu ekmek hâline getirir. 1 işçi: 8 un → 6 ekmek/sa.',
     unique:true, maxLevel:null, workersPerLevel:3,
@@ -107,35 +107,35 @@ const VILLAGE_DEFS = {
   // ── Askeri ──────────────────────────────────────────────────────
   // workersPerLevel: her seviye +N işçi slotu (max = level × workersPerLevel)
   // İşçi sayısı hem üretim hem eğitim süresini doğrudan hızlandırır: süre = base / workers
-  zirh:         { name:'Zırhçı',           category:'askeri',   icon:'🛡️', description:'Külçe demirden zırh ve kalkan üretir. İşçi sayısı üretim hızını belirler.',
+  zirh:         { cpPerLevel:1, name:'Zırhçı',           category:'askeri',   icon:'🛡️', description:'Külçe demirden zırh ve kalkan üretir. İşçi sayısı üretim hızını belirler.',
                    unique:true,  maxLevel:null, workersPerLevel:3,
                    buildBaseWork:25, buildMultiplier:1.8, cost:{ kereste:70, yontmaTas:30, demirKulce:20 },
                    upgradeCostBase:{ kereste:70, yontmaTas:30, demirKulce:20 }, upgradeCostMultiplier:1.6 },
-  silahci:      { name:'Silahçı',          category:'askeri',   icon:'⚔️', description:'Külçe demirden kılıç ve mızrak üretir. İşçi sayısı üretim hızını belirler.',
+  silahci:      { cpPerLevel:1, name:'Silahçı',          category:'askeri',   icon:'⚔️', description:'Külçe demirden kılıç ve mızrak üretir. İşçi sayısı üretim hızını belirler.',
                    unique:true,  maxLevel:null, workersPerLevel:3,
                    buildBaseWork:25, buildMultiplier:1.8, cost:{ kereste:70, yontmaTas:30, demirKulce:20 },
                    upgradeCostBase:{ kereste:70, yontmaTas:30, demirKulce:20 }, upgradeCostMultiplier:1.6 },
-  ahir:         { name:'Ahır',             category:'askeri',   icon:'🐎', description:'At yetiştirir ve süvari birliklerini eğitir. Seviye × 5 kadar at depolayabilir.',
+  ahir:         { cpPerLevel:1, name:'Ahır',             category:'askeri',   icon:'🐎', description:'At yetiştirir ve süvari birliklerini eğitir. Seviye × 5 kadar at depolayabilir.',
                    unique:true,  maxLevel:null, workersPerLevel:3, horseCapPerLevel:5,
                    buildBaseWork:35, buildMultiplier:1.9, cost:{ kereste:100, tahil:60 },
                    upgradeCostBase:{ kereste:100, tahil:60 }, upgradeCostMultiplier:1.7 },
-  kisla:        { name:'Kışla',            category:'askeri',   icon:'🛡️', description:'Piyade askerlerini eğitir. İşçi sayısı eğitim süresini kısaltır.',
+  kisla:        { cpPerLevel:1, name:'Kışla',            category:'askeri',   icon:'🛡️', description:'Piyade askerlerini eğitir. İşçi sayısı eğitim süresini kısaltır.',
                    unique:true,  maxLevel:null, workersPerLevel:3,
                    buildBaseWork:35, buildMultiplier:1.9, cost:{ kereste:100, yontmaTas:60 },
                    upgradeCostBase:{ kereste:100, yontmaTas:60 }, upgradeCostMultiplier:1.7 },
-  atolye:       { name:'Atölye',           category:'askeri',   icon:'🏗️', description:'Mancınık ve koç başı üreten bina.',
+  atolye:       { cpPerLevel:1, name:'Atölye',           category:'askeri',   icon:'🏗️', description:'Mancınık ve koç başı üreten bina.',
                    unique:true,  maxLevel:null, workersPerLevel:3,
                    buildBaseWork:30, buildMultiplier:1.9, cost:{ kereste:120, demirKulce:40 },
                    upgradeCostBase:{ kereste:120, demirKulce:40 }, upgradeCostMultiplier:1.7 },
-  cephane:      { name:'Cephanelik',       category:'askeri',   icon:'🏹', description:'Kılıç, mızrak, kalkan ve zırh ORTAK bir depoyu paylaşır. Her seviye havuza +200 yer katar.',
+  cephane:      { cpPerLevel:1, name:'Cephanelik',       category:'askeri',   icon:'🏹', description:'Kılıç, mızrak, kalkan ve zırh ORTAK bir depoyu paylaşır. Her seviye havuza +200 yer katar.',
                    unique:true,  maxLevel:null, equipmentCapPerLevel:50, poolCapPerLevel:200,
                    buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:60, demirKulce:20 },
                    upgradeCostBase:{ kereste:100, yontmaTas:60, demirKulce:20 }, upgradeCostMultiplier:1.6 },
-  saglikCadiri: { name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Savaşta yaralanan askerleri iyileştiren bina.',
+  saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Savaşta yaralanan askerleri iyileştiren bina.',
                    unique:true,  maxLevel:null, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:60, tahil:30 } },
 
   // ── Depo ────────────────────────────────────────────────────────
-  hammaddeDepo: {
+  hammaddeDepo: { cpPerLevel:1,
     name:'Hammadde Deposu', category:'depo', icon:'📦',
     description:'Ham odun, kil, taş, demir ve tahıl depolar.',
     unique:true, maxLevel:null,
@@ -143,7 +143,7 @@ const VILLAGE_DEFS = {
     baseCapacity:1000, capacityPerLevel:500,
     buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:50, tugla:30 }
   },
-  islenmisMalDepo: {
+  islenmisMalDepo: { cpPerLevel:1,
     name:'İşlenmiş Mal Deposu', category:'depo', icon:'🏭',
     description:'Kereste, tuğla, yontma taş ve külçe demir depolar.',
     unique:true, maxLevel:null,
@@ -151,7 +151,7 @@ const VILLAGE_DEFS = {
     baseCapacity:800, capacityPerLevel:400,
     buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:80, yontmaTas:50, tugla:40 }
   },
-  tahilAmbar: {
+  tahilAmbar: { cpPerLevel:1,
     name:'Tahıl Ambarı', category:'depo', icon:'🌾',
     description:'Ham tahıl depolar.',
     unique:true, maxLevel:null,
@@ -159,7 +159,7 @@ const VILLAGE_DEFS = {
     baseCapacity:2000, capacityPerLevel:1000,
     buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:80, yontmaTas:40 }
   },
-  granary: {
+  granary: { cpPerLevel:1,
     name:'Granary', category:'depo', icon:'🍞',
     description:'Un ve ekmek depolar.',
     unique:true, maxLevel:null,
@@ -169,15 +169,51 @@ const VILLAGE_DEFS = {
   },
 
   // ── Ekonomik ────────────────────────────────────────────────────
-  pazar:      { name:'Pazar',               category:'ekonomik', icon:'🏪', description:'Hammadde al-sat ve başka köylere gönderi yap.',  unique:true, maxLevel:null, buildBaseWork:40, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:80 } },
-  loncaDemir: { name:'Demirciler Loncası',  category:'ekonomik', icon:'🔩', description:'Demir üretimini artırır. Her seviye +%5. Maks 5.',unique:true, maxLevel:5, bonusPerLevel:5, affects:'demir',  buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, demirKulce:50 } },
-  loncaOdun:  { name:'Oduncular Loncası',   category:'ekonomik', icon:'🪓', description:'Odun üretimini artırır. Her seviye +%5. Maks 5.', unique:true, maxLevel:5, bonusPerLevel:5, affects:'odun',   buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:100, yontmaTas:40 } },
-  loncaTas:   { name:'Taşçılar Loncası',    category:'ekonomik', icon:'⛏️', description:'Taş üretimini artırır. Her seviye +%5. Maks 5.',  unique:true, maxLevel:5, bonusPerLevel:5, affects:'tas',    buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, yontmaTas:60 } },
-  loncaKil:   { name:'Kilciler Loncası',    category:'ekonomik', icon:'🟫', description:'Kil üretimini artırır. Her seviye +%5. Maks 5.',  unique:true, maxLevel:5, bonusPerLevel:5, affects:'kil',    buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, tugla:60 } },
-  loncaTahil: { name:'Tahılcılar Loncası',  category:'ekonomik', icon:'🌾', description:'Tahıl üretimini artırır. Her seviye +%5. Maks 5.',unique:true, maxLevel:5, bonusPerLevel:5, affects:'tahil',  buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, tahil:60 } },
+  pazar:      { cpPerLevel:2, name:'Pazar',               category:'ekonomik', icon:'🏪', description:'Hammadde al-sat ve başka köylere gönderi yap.',  unique:true, maxLevel:null, buildBaseWork:40, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:80 } },
+  loncaDemir: { cpPerLevel:2, name:'Demirciler Loncası',  category:'ekonomik', icon:'🔩', description:'Demir üretimini artırır. Her seviye +%5. Maks 5.',unique:true, maxLevel:5, bonusPerLevel:5, affects:'demir',  buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, demirKulce:50 } },
+  loncaOdun:  { cpPerLevel:2, name:'Oduncular Loncası',   category:'ekonomik', icon:'🪓', description:'Odun üretimini artırır. Her seviye +%5. Maks 5.', unique:true, maxLevel:5, bonusPerLevel:5, affects:'odun',   buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:100, yontmaTas:40 } },
+  loncaTas:   { cpPerLevel:2, name:'Taşçılar Loncası',    category:'ekonomik', icon:'⛏️', description:'Taş üretimini artırır. Her seviye +%5. Maks 5.',  unique:true, maxLevel:5, bonusPerLevel:5, affects:'tas',    buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, yontmaTas:60 } },
+  loncaKil:   { cpPerLevel:2, name:'Kilciler Loncası',    category:'ekonomik', icon:'🟫', description:'Kil üretimini artırır. Her seviye +%5. Maks 5.',  unique:true, maxLevel:5, bonusPerLevel:5, affects:'kil',    buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, tugla:60 } },
+  loncaTahil: { cpPerLevel:2, name:'Tahılcılar Loncası',  category:'ekonomik', icon:'🌾', description:'Tahıl üretimini artırır. Her seviye +%5. Maks 5.',unique:true, maxLevel:5, bonusPerLevel:5, affects:'tahil',  buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, tahil:60 } },
+
+  // ── Yönetim ─────────────────────────────────────────────────────
+  // Köşk ve Saray yeni köy KURMA HAKKI verir; ikisi bir arada olamaz
+  // (Travian kuralı). Saray yalnız MERKEZ köye kurulabilir ve yıkılıp
+  // başka köyde kurulunca merkez oraya taşınır.
+  kosk: {
+    name:'Köşk', category:'yonetim', icon:'🏯',
+    description:'Yeni köy kurma hakkı verir: Lvl 10 ve Lvl 20\'de birer hak. Göçmen burada eğitilir. Sarayla birlikte olamaz.',
+    unique:true, maxLevel:20, cpPerLevel:3,
+    expansionAt:[10, 20], trainsSettlers:true, excludes:'saray',
+    buildBaseWork:40, buildMultiplier:1.8,
+    upgradeCostBase:{ kereste:120, tugla:100, yontmaTas:80, demirKulce:40 },
+    upgradeCostMultiplier:1.7,
+    cost:{ kereste:120, tugla:100, yontmaTas:80, demirKulce:40 }
+  },
+  saray: {
+    name:'Saray', category:'yonetim', icon:'👑',
+    description:'YALNIZ merkez köye kurulur. Lvl 10, 15 ve 20\'de birer yeni köy hakkı verir. Göçmen burada da eğitilir. Köşkle birlikte olamaz.',
+    unique:true, maxLevel:20, cpPerLevel:4,
+    expansionAt:[10, 15, 20], trainsSettlers:true, excludes:'kosk',
+    capitalOnly:true,
+    buildBaseWork:60, buildMultiplier:1.9,
+    upgradeCostBase:{ kereste:200, tugla:180, yontmaTas:150, demirKulce:100 },
+    upgradeCostMultiplier:1.7,
+    cost:{ kereste:200, tugla:180, yontmaTas:150, demirKulce:100 }
+  },
+  taverna: {
+    name:'Taverna', category:'yonetim', icon:'🍺',
+    description:'Şölen düzenleyip kültür puanı üretir. Küçük şölen bu köyün, büyük şölen bütün köylerin günlük üretimi kadar puan verir.',
+    unique:true, maxLevel:20, cpPerLevel:3,
+    festival:true,
+    buildBaseWork:35, buildMultiplier:1.7,
+    upgradeCostBase:{ kereste:150, tugla:120, tahil:100 },
+    upgradeCostMultiplier:1.6,
+    cost:{ kereste:150, tugla:120, tahil:100 }
+  },
 
   // ── Nüfus ───────────────────────────────────────────────────────
-  ev: {
+  ev: { cpPerLevel:1,
     name:'Ev', category:'nufus', icon:'🏠',
     description:'Her seviye 50 nüfus kapasitesi ekler. Birden fazla inşa edilebilir.',
     unique:false, maxLevel:5, populationPerLevel:50,
@@ -185,9 +221,9 @@ const VILLAGE_DEFS = {
   },
 
   // ── Savunma ─────────────────────────────────────────────────────
-  sur:    { name:'Sur',            category:'savunma', icon:'🏰', description:'Savunmacılara savunma bonusu verir. Maks Lvl 20.',    unique:true,  maxLevel:20, buildBaseWork:50, buildMultiplier:2.0, bonusTable:SUR_BONUS,    cost:{ yontmaTas:160, kereste:40 } },
-  hendek: { name:'Hendek',         category:'savunma', icon:'〰️', description:'Sur ile birleşik. Surun yarısı kadar bonus verir.',   unique:true,  maxLevel:20, buildBaseWork:40, buildMultiplier:1.9, bonusTable:HENDEK_BONUS, cost:{ kereste:40, yontmaTas:80 } },
-  kule:   { name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat savunma bonusu.',     unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:KULE_BONUS, maxInstances:6, workersPerLevel:4, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
+  sur:    { cpPerLevel:1, name:'Sur',            category:'savunma', icon:'🏰', description:'Savunmacılara savunma bonusu verir. Maks Lvl 20.',    unique:true,  maxLevel:20, buildBaseWork:50, buildMultiplier:2.0, bonusTable:SUR_BONUS,    cost:{ yontmaTas:160, kereste:40 } },
+  hendek: { cpPerLevel:1, name:'Hendek',         category:'savunma', icon:'〰️', description:'Sur ile birleşik. Surun yarısı kadar bonus verir.',   unique:true,  maxLevel:20, buildBaseWork:40, buildMultiplier:1.9, bonusTable:HENDEK_BONUS, cost:{ kereste:40, yontmaTas:80 } },
+  kule:   { cpPerLevel:1, name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat savunma bonusu.',     unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:KULE_BONUS, maxInstances:6, workersPerLevel:4, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
 };
 
 module.exports = {

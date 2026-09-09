@@ -21,12 +21,14 @@ import { BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 const CAT_LABEL = {
   merkez: 'Merkez', isleme: 'İşleme', askeri: 'Askeri', depo: 'Depo',
   ekonomik: 'Ekonomik', nufus: 'Nüfus', savunma: 'Savunma',
+  yonetim: 'Yönetim',
 };
 const CAT_EDGE = {
   merkez: '#f0c860', isleme: '#7ae07a', askeri: '#8fbcff', depo: '#c0a8f8',
   ekonomik: '#f0d868', nufus: '#68e8e0', savunma: '#ff8080',
+  yonetim: '#e0b357',
 };
-const CAT_ORDER = ['merkez', 'isleme', 'askeri', 'savunma', 'depo', 'nufus', 'ekonomik'];
+const CAT_ORDER = ['merkez', 'yonetim', 'isleme', 'askeri', 'savunma', 'depo', 'nufus', 'ekonomik'];
 const UNIT_CAT = { piyade: 'Piyade', suvari: 'Süvari', kusatma: 'Kuşatma' };
 
 /* ── küçük parçalar ───────────────────────────────────────────────── */
@@ -189,6 +191,47 @@ function BuildingDetail({ id, def, hourSeconds, worldSpeed, equipmentByBuilding,
               v={(Array.isArray(def.stores) ? def.stores : [def.stores])
                 .map(r => RES_LABEL[r] || r).join(', ')} />
           )}
+        </>
+      )}
+
+      {/* KÜLTÜR PUANI ve YENİ KÖY HAKKI */}
+      {def.cpPerLevel > 0 && (
+        <>
+          <Head>Kültür puanı</Head>
+          <Row k="Seviye başına" v={`+${def.cpPerLevel}/gün`} c={C.good}
+            note="Kültür puanı yeni köy kurma hakkının ölçüsü; köyün bütün binaları toplanır." />
+          <Row k="Lvl 10'da" v={`+${def.cpPerLevel * 10}/gün`} />
+        </>
+      )}
+
+      {Array.isArray(def.expansionAt) && (
+        <>
+          <Head>Yeni köy hakkı</Head>
+          <Row k="Hak veren seviyeler" v={def.expansionAt.map(l => `Lvl ${l}`).join(' · ')}
+            c={C.good} note={`Toplam ${def.expansionAt.length} hak. Yeni köy için ayrıca`
+              + ' kültür puanı eşiği de gerekiyor — hangisi azsa tavan o.'} />
+          {def.capitalOnly && (
+            <Row k="Kısıt" v="Yalnız merkez köy" c={C.warn}
+              note="Saray sadece merkez köye kurulur. Yıkılıp başka köyde kurulunca merkez oraya taşınır." />
+          )}
+          {def.excludes && (
+            <Row k="Birlikte olamaz" v={VILLAGE_DEFS[def.excludes]?.name || def.excludes}
+              c={C.warn} note="Bir köyde ikisinden yalnız biri bulunabilir." />
+          )}
+          {def.trainsSettlers && (
+            <Row k="Göçmen" v="burada eğitilir"
+              note="Yeni köy kurmak için 3 göçmen boş bir araziye gönderilir." />
+          )}
+        </>
+      )}
+
+      {def.festival && (
+        <>
+          <Head>Şölen</Head>
+          <Row k="Küçük şölen" v="Lvl 1 · 12 saat"
+            note="Bu köyün günlük kültür puanı üretimi kadar puan verir." />
+          <Row k="Büyük şölen" v="Lvl 10 · 24 saat"
+            note="Bütün köylerin günlük üretimi × 2. Aynı anda tek şölen düzenlenebilir." />
         </>
       )}
 

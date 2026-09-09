@@ -138,6 +138,7 @@ function StatusRail({
   buildQueue = [], onCancelBuild,
   army = {}, unitDefs = {}, tickMs = 1000,
   populationPerHour = 0, hourSeconds = 3600, worldSpeed = 1,
+  culture = null, festival = null,
 }) {
   const [tip, setTip] = useState(null);
 
@@ -247,6 +248,73 @@ function StatusRail({
             </div>
           </div>
         </div>
+
+        {/* ══ KÜLTÜR PUANI ══
+          * Yeni köy kurma hakkının ölçüsü. Sıradaki eşiğe ne kadar kaldığı ve
+          * neyin engellediği (kültür puanı mı, köşk/saray seviyesi mi) burada
+          * görünüyor — oyuncu "neden köy kuramıyorum" sorusunu buradan çözer.
+          */}
+        {culture && (
+          <div
+            onMouseEnter={(e) => place(e, {
+              title: 'Kültür puanı', icon: 'kultur',
+              rows: [
+                { k: 'Toplam', v: Math.floor(culture.points || 0) },
+                { k: 'Üretim', v: `+${culture.cpPerDay || 0}/gün`, c: C.good },
+                { k: 'Sıradaki eşik', v: culture.cpNext || 0 },
+                { k: 'Kalan', v: culture.cpMissing || 0,
+                  c: culture.cpMissing > 0 ? C.warn : C.good },
+                { k: 'Köy', v: `${culture.owned} / ${culture.allowed}` },
+                { k: 'Köşk-saray hakkı', v: culture.slots || 0 },
+              ],
+              note: culture.blockedBy === 'yok'
+                ? 'Yeni köy kurabilirsin — köşk ya da saraydan göçmen çıkar.'
+                : culture.blockedBy === 'kultur'
+                  ? `Kültür puanı yetmiyor: ${culture.cpMissing} puan daha`
+                    + (isFinite(culture.daysToNext) ? ` (~${culture.daysToNext} gün)` : '')
+                    + '. Taverna\'da şölen düzenlemek hızlandırır.'
+                  : culture.blockedBy === 'bina'
+                    ? 'Kültür puanı yeterli ama köy hakkı yok: köşkü Lvl 10/20\'ye ya da sarayı Lvl 10/15/20\'ye çıkar.'
+                    : 'Hem kültür puanı hem köşk/saray seviyesi gerekiyor.',
+            })}
+            onMouseMove={(e) => tip && place(e, tip)}
+            onMouseLeave={() => setTip(null)}
+            style={glass({ padding: '6px 9px', cursor: 'help', flexShrink: 0 })}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+              <Icon name="kultur" size={10} color={C.iceDeep} />
+              <span style={lbl({ fontSize: 7.5, letterSpacing: 1.3, flex: 1 })}>Kültür</span>
+              <span style={num({ fontSize: 11, color: C.frost })}>
+                {Math.floor(culture.points || 0)}
+              </span>
+              <span style={num({ fontSize: 8.5, color: C.textMute })}>
+                /{culture.cpNext || 0}
+              </span>
+            </div>
+            <Bar
+              pct={culture.cpNext > 0 ? (culture.points || 0) / culture.cpNext : 0}
+              color={culture.blockedBy === 'yok' ? C.good : C.iceDeep} />
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
+              <span style={num({ fontSize: 8.5, color: C.good })}>
+                +{culture.cpPerDay || 0}/gün
+              </span>
+              <span style={num({ fontSize: 8.5, color: C.textFaint, marginLeft: 'auto' })}>
+                köy {culture.owned}/{culture.allowed}
+              </span>
+            </div>
+            {festival && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <Icon name="solen" size={9} color={C.warn} className="tn-pulse" />
+                <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.warn, flex: 1 }}>
+                  {festival.label}
+                </span>
+                <span style={num({ fontSize: 8.5, color: C.warn })}>
+                  {fmtTime(festival.timeLeft)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ══ İNŞAAT / YÜKSELTME LİSTESİ ══ */}
         {buildQueue.length > 0 && (

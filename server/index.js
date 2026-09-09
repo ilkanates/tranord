@@ -11,7 +11,7 @@ const { simulateBattle, towerBonusPct } = require('./game/combat');
 const ARMY = require('./game/army');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
-const { initDB, loadVillage, saveVillage, loadAllVillages,
+const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot } = require('./db');
 const W = require('./game/world');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -45,6 +45,7 @@ const server = http.createServer(app);
  * yerel geliştirme adresleri açık kalır.
  */
 const { IS_PROD, IS_DEV_ENTRY, envReason } = require('./env');
+const CULTURE = require('./game/culture');
 const DEV_ORIGINS = [
   'http://localhost:5180', 'http://localhost:5173', 'http://localhost:3000',
   'http://127.0.0.1:5180',
@@ -79,6 +80,73 @@ app.use('/auth', authRouter);
 
 // Per-user state: userId -> { village, tickMs, nextTickAt, socketId, dirty }
 const userSessions = new Map();
+
+/**
+ * ÇOKLU KÖY OTURUMU.
+ *
+ * `villages` bir Map<slotKey, village>; `activeSlot` oyuncunun ekranda
+ * hangi köyü gördüğü. Mevcut komut işleyicilerinin tamamı `session.village`
+ * ve `session.dirty` üzerinden çalışıyordu — o yüzden bunlar GETTER olarak
+ * korunuyor:
+ *   • session.village  → aktif köy
+ *   • session.dirty    → herhangi bir köy kirli mi (true atamak aktif köyü
+ *                        kirletir, false hepsini temizler)
+ * Böylece tek köy varsayımıyla yazılmış ~30 çağrı yeri değişmeden doğru
+ * çalışıyor; yalnız tick ve kayıt döngüleri bütün köyleri geziyor.
+ */
+function makeSession(userId, { villages, activeSlot, capitalSlot, tickMs, socketId = null }) {
+  const sess = {
+    userId,
+    villages,
+    activeSlot,
+    capitalSlot: capitalSlot || activeSlot,
+    tickMs,
+    nextTickAt: Date.now() + tickMs,
+    lastTickAt: Date.now(),
+    socketId,
+    dirtySlots: new Set(),
+  };
+  Object.defineProperty(sess, 'village', {
+    get() { return sess.villages.get(sess.activeSlot) || null; },
+    enumerable: false, configurable: true,
+  });
+  Object.defineProperty(sess, 'dirty', {
+    get() { return sess.dirtySlots.size > 0; },
+    set(v) {
+      if (v) { if (sess.activeSlot) sess.dirtySlots.add(sess.activeSlot); }
+      else sess.dirtySlots.clear();
+    },
+    enumerable: false, configurable: true,
+  });
+  return sess;
+}
+
+/** Oyuncunun bütün köylerinin kültür puanı toplamı — havuz oyuncuya ait */
+function totalCulturePoints(session) {
+  let cp = 0;
+  for (const v of session.villages.values()) cp += v.culturePoints || 0;
+  return cp;
+}
+
+/** Arayüzdeki köy değiştirici için hafif liste */
+function villageList(session) {
+  const out = [];
+  for (const [slotKey, v] of session.villages) {
+    const slot = WORLD.slotByKey.get(slotKey);
+    out.push({
+      slotKey,
+      name: slot?.name || slotKey,
+      isCapital: slotKey === session.capitalSlot,
+      active: slotKey === session.activeSlot,
+      population: v.population || 0,
+      q: slot?.q ?? v.worldQ ?? 0,
+      r: slot?.r ?? v.worldR ?? 0,
+      building: Object.values(v.villageBuildings || {}).some(b => b.building),
+      starving: !!v.isStarving,
+    });
+  }
+  return out.sort((a, b) => (b.isCapital - a.isCapital) || a.slotKey.localeCompare(b.slotKey));
+}
 const socketToUser  = new Map();
 
 const DEFAULT_TICK_MS = 1000;
@@ -182,6 +250,17 @@ function canBuildAt(village, slotKey, buildingType) {
   if (isDefence !== (buildingType === kind)) return false;
 
   if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) return false;
+
+  /**
+   * YÖNETİM BİNALARI (Travian kuralı):
+   *  • Saray YALNIZ merkez köye kurulur.
+   *  • Köşk ve saray aynı köyde bir arada olamaz.
+   * Çoklu köy mimarisi gelene kadar tek köy zaten merkezdir (isCapital
+   * tanımsızsa merkez sayılır), yani saray şimdilik kurulabilir.
+   */
+  if (def.capitalOnly && village.isCapital === false) return false;
+  if (def.excludes
+    && Object.values(village.villageBuildings).some(b => b.type === def.excludes)) return false;
   const maxKule = VILLAGE_DEFS.kule?.maxInstances || TOWER_SLOT_NAMES.length;
   if (buildingType === 'kule'
     && Object.values(village.villageBuildings).filter(b => b.type === 'kule').length >= maxKule) return false;
@@ -208,11 +287,13 @@ function hexOwnedByOther(wq, wr, selfUserId) {
   }
   for (const [uid, sess] of userSessions) {
     if (uid === selfUserId) continue;
-    const v = sess.village;
-    const bq = v.worldQ || 0, br = v.worldR || 0;
-    for (const k of Object.keys(v.productionTiles)) {
-      const [lq, lr] = k.split(',').map(Number);
-      if (bq + lq === wq && br + lr === wr) return true;
+    // ÇOKLU KÖY: oyuncunun HER köyünün toprağı kontrol edilmeli
+    for (const v of sess.villages.values()) {
+      const bq = v.worldQ || 0, br = v.worldR || 0;
+      for (const k of Object.keys(v.productionTiles)) {
+        const [lq, lr] = k.split(',').map(Number);
+        if (bq + lq === wq && br + lr === wr) return true;
+      }
     }
   }
   return false;
@@ -252,9 +333,11 @@ function canBuildProductionAt(village, slotKey, type, userId) {
 const STATIC_PAYLOAD_KEYS = [
   'unitDefs', 'baseStats', 'unitsByBuilding',
   'equipmentDefs', 'equipmentByBuilding', 'tickMsRange',
+  'festivalDefs',
 ];
 
 function buildPayload(village, tickMs, opts = {}) {
+  // opts.session verilirse çoklu köy alanları da eklenir (aşağıda)
   const productionPerHour = { odun:0, kil:0, tas:0, demir:0, tahil:0 };
   Object.entries(village.productionTiles).forEach(([slotKey, b]) => {
     if (b.workers > 0 && b.level >= 1) {
@@ -399,6 +482,35 @@ function buildPayload(village, tickMs, opts = {}) {
     populationGrowthRate: village.population < village.maxPopulation ? 1 : 0,
     // Gerçek artış hızı — arayüz "+X/sa" ve "+1 nüfus için kalan süre" gösteriyor
     populationPerHour: popPerGameHour(village.villageBuildings['0,0']?.level),
+
+    /**
+     * KÜLTÜR PUANI ve genişleme durumu. `culture` tek nesnede geliyor:
+     * mevcut puan, günlük üretim, sıradaki eşik, neyin engellediği.
+     */
+    /**
+     * KÜLTÜR PUANI oyuncuya ait: bütün köylerin katkısı toplanır. Köy
+     * nesnesinde her köy kendi payını biriktiriyor (kalıcılık ve merkez
+     * taşınması bu şekilde sorunsuz).
+     */
+    culturePoints: Math.floor(opts.culturePoints ?? (village.culturePoints || 0)),
+    culture: opts.culture || {
+      ...CULTURE.expansionStatus([village], village.culturePoints || 0, VILLAGE_DEFS),
+      points: Math.floor(village.culturePoints || 0),
+    },
+    // ÇOKLU KÖY: değiştirici için hafif liste + hangi köyün açık olduğu
+    villages: opts.villages || null,
+    activeSlot: opts.activeSlot || null,
+    isCapital: village.isCapital !== false,
+    festival: village.festival
+      ? {
+        kind: village.festival.kind,
+        label: CULTURE.FESTIVALS[village.festival.kind]?.label || village.festival.kind,
+        timeLeft: GT.clockToRealSeconds(
+          Math.max(0, village.festival.endTime - village.clockMs), WORLD.speed),
+        cpAtStart: village.festival.cpAtStart,
+      }
+      : null,
+    festivalDefs: CULTURE.FESTIVALS,
     isStarving: !!village.isStarving, starveCounter: village.starveCounter || 0,
     consumption, tickMs, tickMsRange: { min: MIN_TICK_MS, max: MAX_TICK_MS, default: DEFAULT_TICK_MS },
     // İstemci kaynakları iki yayın ARASINDA kendisi ilerletiyor; bunun için
@@ -450,6 +562,8 @@ const FULL_SYNC_MS = 30000;
 function structFingerprint(v) {
   const q = v.unitQueues || {}, eq = v.equipmentQueues || {};
   let s = `${v.population}|${v.maxPopulation}|${v.freeWorkers}|${v.isStarving ? 1 : 0}`
+    + `|${v.festival ? v.festival.kind : '-'}`
+    + `|${v.isCapital ? 'C' : '-'}`
     + `|${(v.marches || []).length}|${(v.reports || []).length}|${v.tickMs || 0}`
     + `|${q.kisla?.length || 0},${q.ahir?.length || 0},${q.atolye?.length || 0}`
     + `|${eq.silahci?.length || 0},${eq.zirh?.length || 0},${eq.ahir?.length || 0}`;
@@ -505,25 +619,35 @@ function emitVillage(session, { force = false, statics = false } = {}) {
 
   // Raporlar kalp atışına BİNMİYOR: 6 KB tutuyorlar ve yalnız yeni rapor
   // geldiğinde değişiyorlar; istemci listeyi kendinde tutuyor.
+  /**
+   * Kültür puanı ve köy listesi OTURUM düzeyinde: köy nesnesi tek başına
+   * oyuncunun kaç köyü olduğunu ya da toplam puanını bilmiyor.
+   */
+  const cpTotal = totalCulturePoints(session);
+  const culture = {
+    ...CULTURE.expansionStatus([...session.villages.values()], cpTotal, VILLAGE_DEFS),
+    points: Math.floor(cpTotal),
+  };
+
   sock.emit('village_update', buildPayload(v, session.tickMs, {
     statics,
     reports: statics || reportsChanged,
+    culturePoints: cpTotal,
+    culture,
+    villages: villageList(session),
+    activeSlot: session.activeSlot,
   }));
 }
 
-function runTickForUser(userId, session) {
-  const { village, tickMs } = session;
-  /**
-   * İlerleme GEÇEN GERÇEK SÜREYE göre — tick sayısına göre değil.
-   * Böylece hız çarpanı tick aralığını kısaltmak zorunda kalmıyor (eskiden
-   * MIN_TICK_MS=100 yüzünden en fazla 10× oluyordu) ve döngü gecikse bile
-   * oyun temposu kaymıyor.
-   */
-  const speed = WORLD.speed;
-  const nowReal = Date.now();
-  const elapsed = Math.min(5000, nowReal - (session.lastTickAt || nowReal - DEFAULT_TICK_MS));
-  session.lastTickAt = nowReal;
-  processTick(village, GT.realMsToGameHours(elapsed, speed));
+/**
+ * TEK KÖYÜ ilerlet. Çoklu köyde oyuncunun HER köyü için çalışır — yalnız
+ * aktif köy değil, yoksa arkadaki köyler donar.
+ *
+ * `userId` sadece log için; köyün kendisi hangi oyuncuya ait olduğunu
+ * bilmiyor.
+ */
+function advanceVillage(village, gameHours, userId) {
+  processTick(village, gameHours);
 
   const now = village.clockMs;
   Object.entries(village.villageBuildings).forEach(([, b]) => {
@@ -541,15 +665,65 @@ function runTickForUser(userId, session) {
    * NÜFUS: hız ana bina seviyesinden gelir (popPerGameHour), tavan evlerden.
    * Aç olan ya da tavana dayanmış köy büyümez.
    */
+  /**
+   * KÜLTÜR PUANI — köyün CP/GÜN üretimi oyun saatine bölünüp birikir.
+   * Puan oyuncuya ait (çoklu köy gelince bütün köyler aynı havuza akacak),
+   * bu yüzden köy nesnesinde `culturePoints` olarak tutuluyor ve payload'da
+   * gönderiliyor.
+   */
+  const cpDay = CULTURE.villageCpPerDay(village, VILLAGE_DEFS);
+  village.culturePoints = (village.culturePoints || 0) + (cpDay / 24) * gameHours;
+
+  /**
+   * ŞÖLEN bitti mi? Puan şölenin SONUNDA yazılır — süresi boyunca ekranda
+   * geri sayım görünüyor. Küçük şölen bu köyün, büyük şölen bütün köylerin
+   * günlük üretimi kadar (tek köyde ikisi aynı, büyük şölen ×2 katsayılı).
+   */
+  if (village.festival && village.clockMs >= village.festival.endTime) {
+    const f = CULTURE.FESTIVALS[village.festival.kind];
+    const kazanc = Math.round((village.festival.cpAtStart || cpDay) * (f?.multiplier || 1));
+    village.culturePoints += kazanc;
+    console.log(`[ŞÖLEN] kullanıcı ${userId}: ${f?.label || village.festival.kind}`
+      + ` bitti, +${kazanc} CP (toplam ${Math.round(village.culturePoints)})`);
+    delete village.festival;
+  }
+
+  /**
+   * DİKKAT — eski tutarsızlık düzeltildi: kaynaklar `processTick` ile GEÇEN
+   * GERÇEK SÜREYE göre ilerliyordu ama nüfus/kültür sabit `HOURS_PER_TICK`
+   * kullanıyordu. Yani nüfus artışı tick sıklığına bağlıydı, oyun zamanına
+   * değil; hız kaydırıcısı oynatıldığında ölçek kayıyordu.
+   * Varsayılan hızda ikisi birebir aynı değer (ölçüldü), o yüzden normal
+   * oyun temposu değişmiyor — yalnız hızlandırılmış modda doğru davranıyor.
+   */
   const popRate = popPerGameHour(village.villageBuildings['0,0']?.level);
-  village.popAccum = (village.popAccum || 0) + GT.HOURS_PER_TICK * popRate;
+  village.popAccum = (village.popAccum || 0) + gameHours * popRate;
   while (village.popAccum >= 1) {
     village.popAccum -= 1;
     if (village.isStarving || village.population >= village.maxPopulation) break;
     village.population++;
     village.freeWorkers++;
   }
-  session.dirty = true;
+}
+
+function runTickForUser(userId, session) {
+  /**
+   * İlerleme GEÇEN GERÇEK SÜREYE göre — tick sayısına göre değil.
+   * Böylece hız çarpanı tick aralığını kısaltmak zorunda kalmıyor (eskiden
+   * MIN_TICK_MS=100 yüzünden en fazla 10× oluyordu) ve döngü gecikse bile
+   * oyun temposu kaymıyor.
+   */
+  const speed = WORLD.speed;
+  const nowReal = Date.now();
+  const elapsed = Math.min(5000, nowReal - (session.lastTickAt || nowReal - DEFAULT_TICK_MS));
+  session.lastTickAt = nowReal;
+  const gameHours = GT.realMsToGameHours(elapsed, speed);
+
+  // BÜTÜN köyler ilerler; sadece aktif olan yayınlanır
+  for (const [slotKey, village] of session.villages) {
+    advanceVillage(village, gameHours, userId);
+    session.dirtySlots.add(slotKey);
+  }
 
   emitVillage(session);
 }
@@ -562,7 +736,8 @@ const WORLD = {
   slotByKey: new Map(),
   npcs: new Map(),           // slotKey -> { slot, village }
   playerBySlot: new Map(),   // slotKey -> { userId, email, name }
-  slotByUser: new Map(),     // userId  -> slotKey
+  slotByUser: new Map(),     // userId  -> MERKEZ (ya da ilk) slotKey
+  slotsByUser: new Map(),    // userId  -> Set<slotKey>  (çoklu köy)
   npcTick: 0,
   /**
    * KİRLİ NPC'LER — yalnız bunlar diske yazılır.
@@ -622,7 +797,11 @@ async function bootWorld() {
         return;
       }
       WORLD.playerBySlot.set(p.slotKey, { userId: p.userId, email: p.email, name: p.name });
-      WORLD.slotByUser.set(p.userId, p.slotKey);
+      if (!WORLD.slotByUser.has(p.userId) || p.isCapital) {
+        WORLD.slotByUser.set(p.userId, p.slotKey);
+      }
+      if (!WORLD.slotsByUser.has(p.userId)) WORLD.slotsByUser.set(p.userId, new Set());
+      WORLD.slotsByUser.get(p.userId).add(p.slotKey);
     });
   } catch (err) { console.error('[WORLD] oyuncu slotları:', err.message); }
 
@@ -821,8 +1000,10 @@ function villageAtSlot(slotKey) {
   const p = WORLD.playerBySlot.get(slotKey);
   if (p) {
     const s = userSessions.get(p.userId);
+    // ÇOKLU KÖY: aktif köy değil, SLOTUN köyü. Aksi hâlde oyuncunun başka
+    // bir köyüne yapılan saldırı yanlış köyü vuruyordu.
     return {
-      village: s?.village || null, name: p.name, kind: 'player',
+      village: s?.villages.get(slotKey) || null, name: p.name, kind: 'player',
       userId: p.userId, offline: !s,
     };
   }
@@ -835,12 +1016,14 @@ function villageAtSlot(slotKey) {
  * değişken var (DB'den yüklenen köy listesi) ve gölgeleme karışıklık yaratır.
  */
 function* marchingVillages() {
+  // ÇOKLU KÖY: her köy kendi seferlerini taşıyor, oyuncunun hepsi gezilir
   for (const [userId, session] of userSessions) {
-    yield {
-      village: session.village, kind: 'player', userId,
-      slotKey: WORLD.slotByUser.get(userId) || null,
-      dirty: () => { session.dirty = true; },
-    };
+    for (const [slotKey, village] of session.villages) {
+      yield {
+        village, kind: 'player', userId, slotKey,
+        dirty: () => { session.dirtySlots.add(slotKey); },
+      };
+    }
   }
   for (const n of WORLD.npcs.values()) {
     yield {
@@ -854,9 +1037,15 @@ function markNpcDirty(slotKey) {
   if (slotKey) WORLD.dirtyNpcs.add(slotKey);
 }
 
-function markUserDirty(userId) {
+/**
+ * Oyuncunun bir köyünü kirlet. `slotKey` verilmezse (eski çağrı yerleri)
+ * bütün köyleri işaretlenir — kaydetmek zararsız, kaydetmemek veri kaybı.
+ */
+function markUserDirty(userId, slotKey = null) {
   const s = userSessions.get(userId);
-  if (s) s.dirty = true;
+  if (!s) return;
+  if (slotKey && s.villages.has(slotKey)) s.dirtySlots.add(slotKey);
+  else for (const k of s.villages.keys()) s.dirtySlots.add(k);
 }
 
 /** Eve varışta depoya ne sığar — fazlası çöp olur (bkz. depositLoot) */
@@ -888,7 +1077,7 @@ function processMarches(hours) {
         if (tgt && tgt.offline) { m.remainingHours = 0; continue; }   // beklet
         ARMY.resolveArrival(m, v, tgt?.village || null, { targetName: tgt?.name });
         entry.dirty();
-        if (tgt?.userId) markUserDirty(tgt.userId);
+        if (tgt?.userId) markUserDirty(tgt.userId, m.toKey);
         else if (tgt?.kind === 'npc') markNpcDirty(m.toKey);
       } else {
         const { caps, foodRoom } = lootRoom(v);
@@ -1040,10 +1229,13 @@ function buildStats(forUserId) {
   for (const [slotKey, p] of WORLD.playerBySlot) {
     const session = userSessions.get(p.userId);
     if (!session) continue;             // çevrimdışı oyuncunun köyü bellekte yok
+    // ÇOKLU KÖY: satır o SLOTUN köyünden, aktif köyden değil
+    const v = session.villages.get(slotKey);
+    if (!v) continue;
     rows.push({
       key: slotKey, name: p.name, kind: p.userId === forUserId ? 'self' : 'player',
       tier: WORLD.slotByKey.get(slotKey)?.tier ?? null, tierLabel: 'Oyuncu',
-      m: villageMetrics(session.village),
+      m: villageMetrics(v),
     });
   }
 
@@ -1074,7 +1266,10 @@ async function ensurePlayerSlot(userId, email) {
   const name = (email || 'oyuncu').split('@')[0];
   WORLD.playerBySlot.set(slot.key, { userId, email, name });
   WORLD.slotByUser.set(userId, slot.key);
-  try { await setPlayerSlot(userId, slot.key, name); }
+  if (!WORLD.slotsByUser.has(userId)) WORLD.slotsByUser.set(userId, new Set());
+  WORLD.slotsByUser.get(userId).add(slot.key);
+  // İlk köy MERKEZ olur
+  try { await setPlayerSlot(userId, slot.key, name, true); }
   catch (err) { console.error('[WORLD] slot kaydı:', err.message); }
   console.log(`[WORLD] ${email} → ${slot.key} (${slot.name}, ring ${slot.ring})`);
   return slot.key;
@@ -1127,8 +1322,9 @@ function migrateTilesIntoClaim(village, who = '') {
 }
 
 /** Harita anlık görüntüsü — sekme açıldığında istenir, her tick gönderilmez */
-function worldSnapshot(forUserId) {
-  const mySlot = WORLD.slotByUser.get(forUserId) || null;
+function worldSnapshot(forUserId, activeSlot = null) {
+  // ÇOKLU KÖY: harita AKTİF köyün çevresine odaklanır
+  const mySlot = activeSlot || WORLD.slotByUser.get(forUserId) || null;
   const me = mySlot ? WORLD.slotByKey.get(mySlot) : null;
 
   // Yakındaki köylerin TARLALARI da gönderilir; harita onları oyuncunun
@@ -1196,14 +1392,29 @@ setInterval(() => {
   }
 }, 50);
 
-// Periyodik DB kaydet (30sn)
-setInterval(async () => {
-  for (const [userId, session] of userSessions) {
-    if (session.dirty) {
-      try { await saveVillage(userId, session.village); session.dirty = false; }
-      catch (err) { console.error(`[DB SAVE] userId=${userId}`, err.message); }
+/**
+ * Kirli köyleri kaydet. Çoklu köyde oyuncunun her köyü AYRI satır, o yüzden
+ * `dirtySlots` gezilir. Bir köyün kaydı patlarsa o slot kirli kalır ve
+ * sonraki turda yeniden denenir — diğer köyler etkilenmez.
+ */
+async function flushSession(userId, session) {
+  if (!session.dirtySlots.size) return;
+  const slots = [...session.dirtySlots];
+  for (const slotKey of slots) {
+    const v = session.villages.get(slotKey);
+    if (!v) { session.dirtySlots.delete(slotKey); continue; }
+    try {
+      await saveVillage(userId, slotKey, v);
+      session.dirtySlots.delete(slotKey);
+    } catch (err) {
+      console.error(`[DB SAVE] userId=${userId} slot=${slotKey}`, err.message);
     }
   }
+}
+
+// Periyodik DB kaydet (30sn)
+setInterval(async () => {
+  for (const [userId, session] of userSessions) await flushSession(userId, session);
 }, 30000);
 
 // Socket.io auth middleware
@@ -1235,26 +1446,52 @@ io.on('connection', async socket => {
     session.socketId = socket.id;
     session.userId = userId;
   } else {
-    let village;
+    /**
+     * ÇOKLU KÖY: oyuncunun bütün köyleri yüklenir. Hiç kaydı yoksa ilk köy
+     * kurulur ve MERKEZ olur. Kayıtlı ama slotu dünyada bulunmayan köy
+     * atlanır (dünya yeniden tohumlanmış olabilir).
+     */
+    const villages = new Map();
+    let capitalSlot = null;
     try {
-      const saved = await loadVillage(userId);
-      village = saved ? hydrateVillage(saved) : createVillage(slot?.q || 0, slot?.r || 0);
+      const rows = await loadVillages(userId);
+      for (const row of rows) {
+        if (!row.state || !row.slotKey) continue;
+        const sl = WORLD.slotByKey.get(row.slotKey);
+        if (!sl) {
+          console.warn(`[DB LOAD] userId=${userId} slot ${row.slotKey} dünyada yok, atlandı`);
+          continue;
+        }
+        const v = hydrateVillage(row.state);
+        // Eski kayıtlar konumsuz olabilir — slotuna oturt
+        if (v.worldQ !== sl.q || v.worldR !== sl.r) { v.worldQ = sl.q; v.worldR = sl.r; }
+        v.isCapital = !!row.isCapital;
+        villages.set(row.slotKey, v);
+        if (row.isCapital) capitalSlot = row.slotKey;
+      }
     } catch (err) {
       console.error(`[DB LOAD] userId=${userId}`, err.message);
-      village = createVillage(slot?.q || 0, slot?.r || 0);
     }
-    // Eski kayıtlar konumsuz olabilir — slotuna oturt
-    if (slot && (village.worldQ !== slot.q || village.worldR !== slot.r)) {
-      village.worldQ = slot.q;
-      village.worldR = slot.r;
+
+    if (!villages.size) {
+      const v = createVillage(slot?.q || 0, slot?.r || 0);
+      v.isCapital = true;
+      villages.set(slotKey, v);
+      capitalSlot = slotKey;
     }
-    // NOT: yayılma artık halka ile sınırlı olmadığı için halka dışı tarlaları
-    // taşımaya gerek yok — migrateTilesIntoClaim yalnızca geriye dönük araç olarak duruyor.
-    session = {
-      village, userId, tickMs: DEFAULT_TICK_MS,
-      nextTickAt: Date.now() + DEFAULT_TICK_MS, socketId: socket.id, dirty: false,
-    };
+    capitalSlot ||= [...villages.keys()][0];
+    // Merkez bayrağı köy nesnelerinde de tutarlı olsun (canBuildAt okuyor)
+    for (const [k, v] of villages) v.isCapital = (k === capitalSlot);
+
+    session = makeSession(userId, {
+      villages, activeSlot: capitalSlot, capitalSlot,
+      tickMs: DEFAULT_TICK_MS, socketId: socket.id,
+    });
     userSessions.set(userId, session);
+    if (villages.size > 1) {
+      console.log(`[CONNECT] userId=${userId} ${villages.size} köy yüklendi`
+        + ` (merkez ${capitalSlot})`);
+    }
   }
   socketToUser.set(socket.id, userId);
   emitVillage(session, { force: true, statics: true });
@@ -1262,6 +1499,24 @@ io.on('connection', async socket => {
   const v     = () => session.village;
   const emit  = () => emitVillage(session, { force: true });
   const dirty = () => { session.dirty = true; };
+
+  /**
+   * KÖY DEĞİŞTİR. Sunucu tarafında yalnız `activeSlot` değişiyor: bütün
+   * komut işleyicileri `v()` = aktif köy üzerinden çalıştığı için otomatik
+   * olarak yeni köye uygulanıyor. Köylerin hepsi zaten tick alıyor, yani
+   * arkadaki köyler çalışmaya devam ediyor.
+   */
+  socket.on('switch_village', ({ slotKey } = {}) => {
+    if (!slotKey || !session.villages.has(slotKey)) {
+      if (IS_DEV_ENTRY) console.warn(`[KÖY DEĞİŞ RED] ${slotKey}: oyuncunun köyü değil`);
+      return;
+    }
+    if (session.activeSlot === slotKey) return;
+    session.activeSlot = slotKey;
+    // Statikleri de gönder: yeni köyün panelleri baştan kurulacak
+    emitVillage(session, { force: true, statics: true });
+    console.log(`[KÖY] userId=${userId} → ${slotKey}`);
+  });
 
   socket.on('assign_production_workers', ({ slotKey, workers }) => {
     const b = v().productionTiles[slotKey];
@@ -1362,6 +1617,41 @@ io.on('connection', async socket => {
     if (diff > v().freeWorkers) return;
     v().freeWorkers -= diff; b.workers = newW;
     dirty(); emit();
+  });
+
+  /**
+   * ŞÖLEN BAŞLAT — taverna. Kaynak peşin alınır, puan şölenin SONUNDA
+   * yazılır (bkz. runTickForUser). Aynı anda tek şölen.
+   *
+   * `cpAtStart` başlangıçtaki günlük üretim: şölen sürerken bina yıkıp
+   * puanı şişirmeyi engelliyor, ayrıca oyuncu ne kazanacağını baştan
+   * biliyor.
+   */
+  socket.on('start_festival', ({ kind } = {}) => {
+    const village = v();
+    const f = CULTURE.FESTIVALS[kind];
+    const reject = (why) => { if (IS_DEV_ENTRY) console.warn(`[ŞÖLEN RED] ${kind}: ${why}`); };
+    if (!f) return reject('bilinmeyen şölen türü');
+    if (village.festival) return reject('zaten bir şölen sürüyor');
+
+    const tav = Object.values(village.villageBuildings)
+      .find(b => b.type === 'taverna' && b.level >= 1);
+    if (!tav) return reject('taverna yok');
+    if (tav.level < f.minLevel) return reject(`taverna Lvl ${f.minLevel} gerekiyor (şu an ${tav.level})`);
+
+    for (const [res, amt] of Object.entries(f.cost)) {
+      if ((village.resources[res] || 0) < amt) return reject(`${res} yetersiz`);
+    }
+    for (const [res, amt] of Object.entries(f.cost)) village.resources[res] -= amt;
+
+    village.festival = {
+      kind,
+      endTime: village.clockMs + GT.minutesToClock(f.hours * 60),
+      cpAtStart: CULTURE.villageCpPerDay(village, VILLAGE_DEFS),
+    };
+    dirty(); emit();
+    console.log(`[ŞÖLEN] kullanıcı ${userId}: ${f.label} başladı`
+      + ` (${f.hours} oyun saati, +${Math.round(village.festival.cpAtStart * f.multiplier)} CP)`);
   });
 
   socket.on('demolish_village', ({ slotKey }) => {
@@ -1468,7 +1758,7 @@ io.on('connection', async socket => {
   });
 
   socket.on('request_world', () => {
-    try { socket.emit('world_snapshot', worldSnapshot(userId)); }
+    try { socket.emit('world_snapshot', worldSnapshot(userId, session.activeSlot)); }
     catch (err) {
       console.error('[WORLD SNAPSHOT]', err.message);
       socket.emit('world_snapshot', { villages: [], emptySlots: [], radius: W.WORLD_RADIUS, tiers: W.TIERS, mySlot: null });
@@ -1501,7 +1791,8 @@ io.on('connection', async socket => {
   socket.on('send_army', ({ targetKey, mode, units } = {}) => {
     const fail = (reason) => socket.emit('army_error', { reason });
     const village = v();
-    const mySlot = WORLD.slotByUser.get(userId);
+    // ÇOKLU KÖY: sefer AKTİF köyden çıkar, oyuncunun "ilk" köyünden değil
+    const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
     if (!mySlot) return fail('konum_yok');
     if (targetKey === mySlot) return fail('kendi_koyun');
     if ((village.marches || []).length >= MAX_MARCHES_PER_TOWN) return fail('sefer_limiti');
@@ -1638,8 +1929,7 @@ io.on('connection', async socket => {
     console.log(`[DISCONNECT] ${userEmail} (${userId})`);
     socketToUser.delete(socket.id);
     if (session.socketId === socket.id) session.socketId = null;
-    try { await saveVillage(userId, session.village); session.dirty = false; }
-    catch (err) { console.error(`[DB SAVE ERR] ${userEmail}`, err.message); }
+    await flushSession(userId, session);
   });
 });
 
@@ -1672,10 +1962,22 @@ async function bootServer() {
   const allVillages = await loadAllVillages();
   const now = Date.now();
 
-  for (const { userId, state, updatedAt } of allVillages) {
+  /**
+   * ÇOKLU KÖY: `loadAllVillages` köy başına bir satır döndürüyor, oyuncu
+   * başına bir tane değil. Aynı oyuncunun köyleri tek oturumda toplanır;
+   * offline telafi KÖY BAŞINA kendi `updated_at`'inden yapılır.
+   */
+  const byUser = new Map();
+  let telafiEdilen = 0;
+
+  for (const { userId, slotKey, isCapital, state, updatedAt } of allVillages) {
+    if (!slotKey) {
+      console.warn(`[BOOT] userId=${userId} slotsuz köy kaydı atlandı`);
+      continue;
+    }
     const village = hydrateVillage(state);
-    // Oturumun ekran tazeleme aralığı (hız çubuğu bunu değiştirir)
-    const tickMs = village.tickMs || DEFAULT_TICK_MS;
+    village.isCapital = !!isCapital;
+
     // NPC'lerle AYNI tavan — oyun saati cinsinden, kaba adımlarla
     const offlineHours = Math.min(MAX_CATCHUP_HOURS,
       (now - updatedAt.getTime()) / 1000 / GT.HOUR_SECONDS);
@@ -1685,22 +1987,34 @@ async function bootServer() {
     // processTick tek başına bina inşaatını bitirmiyordu; oyuncu offline dönerken
     // inşaatları asılı kalıyordu.
     for (let i = 0; i < offlineTicks; i++) stepVillage(village, GT.CATCHUP_HOURS_PER_STEP);
+    if (offlineTicks > 0) telafiEdilen++;
 
-    userSessions.set(userId, {
-      village,
-      tickMs,
-      nextTickAt: now + tickMs,
-      lastTickAt: now,        // ilk tick geçmişten sıçramasın
-      socketId: null,
-      userId,
-      dirty: offlineTicks > 0
-    });
-    if (offlineTicks > 0) {
-      console.log(`[BOOT] userId=${userId} — ${offlineTicks} offline tick uygulandı`);
-    }
+    let rec = byUser.get(userId);
+    if (!rec) { rec = { villages: new Map(), capitalSlot: null, tickMs: null, dirty: new Set() }; byUser.set(userId, rec); }
+    rec.villages.set(slotKey, village);
+    if (isCapital) rec.capitalSlot = slotKey;
+    rec.tickMs ||= village.tickMs || DEFAULT_TICK_MS;
+    if (offlineTicks > 0) rec.dirty.add(slotKey);
   }
 
-  console.log(`[BOOT] ${allVillages.length} oyuncu köyü yüklendi`);
+  for (const [userId, rec] of byUser) {
+    const capitalSlot = rec.capitalSlot || [...rec.villages.keys()][0];
+    for (const [k, v] of rec.villages) v.isCapital = (k === capitalSlot);
+    const sess = makeSession(userId, {
+      villages: rec.villages,
+      activeSlot: capitalSlot,
+      capitalSlot,
+      tickMs: rec.tickMs || DEFAULT_TICK_MS,
+    });
+    sess.nextTickAt = now + sess.tickMs;
+    sess.lastTickAt = now;              // ilk tick geçmişten sıçramasın
+    for (const k of rec.dirty) sess.dirtySlots.add(k);
+    userSessions.set(userId, sess);
+  }
+
+  console.log(`[BOOT] ${allVillages.length} oyuncu köyü yüklendi`
+    + ` (${byUser.size} oyuncu`
+    + (telafiEdilen ? `, ${telafiEdilen} köye offline telafi` : '') + ')');
 
   await bootWorld();
 

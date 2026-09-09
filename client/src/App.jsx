@@ -4,6 +4,7 @@ import MapView         from './components/MapView';
 import VillageCenter   from './components/VillageCenter';
 import HelpScreen      from './components/HelpScreen';
 import MusicButton     from './components/MusicButton';
+import VillageSwitcher from './components/VillageSwitcher';
 import { startMusic }  from './audio';
 import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
@@ -151,7 +152,8 @@ function scaleLabel(hourSeconds, mult) {
   return `1 oyun saati = ${s.toFixed(s < 10 ? 1 : 0)} sn`;
 }
 
-function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, onDevSetup }) {
+function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, onDevSetup,
+  villages = [], activeSlot = null, onSwitchVillage }) {
   const currentMult = +(1000 / tickMs).toFixed(4);
   const speedIdx = SPEED_STEPS.reduce(
     (best, m, i) => (Math.abs(m - currentMult) < Math.abs(SPEED_STEPS[best] - currentMult) ? i : best), 2
@@ -187,6 +189,17 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
           <div style={lbl({ fontSize: 7.5, letterSpacing: 2, marginTop: 3 })}>fiyort krallığı</div>
         </div>
       </div>
+
+      {/* Köy değiştirici — tek köyde kendini gizler */}
+      {villages.length > 1 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', padding: '0 8px',
+          borderRight: `1px solid ${C.lineSoft}`,
+        }}>
+          <VillageSwitcher villages={villages} activeSlot={activeSlot}
+            onSwitch={onSwitchVillage} />
+        </div>
+      )}
 
       {/* Sekmeler */}
       <nav className="tn-scroll"
@@ -409,6 +422,16 @@ function Game({ token, onLogout }) {
    * TRANORD_DEV_CHEATS=1 olmadan bu olayı hiç dinlemiyor.
    */
   const devSetup = () => socket.emit('dev_setup', { level: 10, fill: true });
+  const startFestival = (kind) => socket.emit('start_festival', { kind });
+  /**
+   * KÖY DEĞİŞTİR. Sunucu yeni köyün payload'unu statiklerle birlikte
+   * gönderiyor. Harita sekmesi açıkken de anlık görüntü yenilenmeli —
+   * yoksa harita eski köyün çevresinde kalıyor.
+   */
+  const switchVillage = (slotKey) => {
+    socket.emit('switch_village', { slotKey });
+    socket.emit('request_world');
+  };
 
   const tickMs = village.tickMs || 1000;
 
@@ -437,7 +460,10 @@ function Game({ token, onLogout }) {
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []) }}
         hourSeconds={village.marchInfo?.hourSeconds || 3600}
-        onDevSetup={devSetup} />
+        onDevSetup={devSetup}
+        villages={village.villages || []}
+        activeSlot={village.activeSlot || null}
+        onSwitchVillage={switchVillage} />
 
       {/* Gelen saldırı: hangi sekmede olursam olayım görünür. Ordu sekmesinde
           uyarı listenin başında zaten var, orada tekrar etmesin. */}
@@ -500,6 +526,10 @@ function Game({ token, onLogout }) {
               world={village.world}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}
               worldSpeed={village.worldSpeed || 1}
+              culture={village.culture || null}
+              festival={village.festival || null}
+              festivalDefs={village.festivalDefs || {}}
+              onStartFestival={startFestival}
               villageBuildings={village.villageBuildings || {}}
               towerSlots={village.towerSlots || []}
               freeWorkers={village.freeWorkers}
@@ -610,6 +640,8 @@ function Game({ token, onLogout }) {
             freeWorkers={village.freeWorkers}
             populationGrowthRate={village.populationGrowthRate || 0}
             populationPerHour={village.populationPerHour || 0}
+            culture={village.culture || null}
+            festival={village.festival || null}
             hourSeconds={village.marchInfo?.hourSeconds || 3600}
             worldSpeed={village.worldSpeed || 1}
             isStarving={village.isStarving || false}

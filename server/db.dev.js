@@ -19,9 +19,56 @@ function load() {
       db.world ||= {};
       db.playerSlots ||= {};
       db.nextUserId ||= db.users.length + 1;
+      migrateToMultiVillage();
     }
   } catch (err) {
     console.warn('[DEV DB] .dev-data.json okunamadi, sifirdan baslaniyor:', err.message);
+  }
+}
+
+/**
+ * GÖÇ — tek köyden çoklu köye.
+ *
+ * Eski biçim:  db.villages[userId]          = { state, updated_at }
+ * Yeni biçim:  db.villages[userId][slotKey] = { state, updated_at, name, isCapital }
+ *
+ * Slot anahtarı eski kayıtta yok; `db.playerSlots[userId].slotKey`'den
+ * alınıyor, o da yoksa köyün dünya koordinatından türetiliyor. Tek köy
+ * doğal olarak MERKEZ sayılır.
+ */
+function migrateToMultiVillage() {
+  let gocen = 0;
+  for (const [userId, row] of Object.entries(db.villages)) {
+    if (!row || typeof row !== 'object') continue;
+    // Yeni biçim mi? (slot anahtarları '<q>,<r>' şeklinde, altında state var)
+    const ilk = Object.values(row)[0];
+    if (row.state === undefined && ilk && typeof ilk === 'object' && 'state' in ilk) continue;
+
+    const st = row.state;
+    const slotKey = db.playerSlots?.[userId]?.slotKey
+      || (st && st.worldQ != null ? `${st.worldQ},${st.worldR}` : null);
+    if (!slotKey) {
+      console.warn(`[DEV DB] userId=${userId} için slot bulunamadı, köy atlandı`);
+      continue;
+    }
+    db.villages[userId] = {
+      [slotKey]: {
+        state: st,
+        updated_at: row.updated_at || new Date().toISOString(),
+        name: db.playerSlots?.[userId]?.name || null,
+        isCapital: true,
+      },
+    };
+    gocen++;
+  }
+  /**
+   * Göç bellekte yapılıyor; DİSKE de yazılmalı. Yoksa dosya eski biçimde
+   * kalıyor ve göç her açılışta yeniden koşuyor — kısmi bir yazma araya
+   * girerse iki biçim karışabilir.
+   */
+  if (gocen) {
+    console.log(`[DEV DB] ${gocen} köy çoklu köy biçimine göç ettirildi`);
+    persist();
   }
 }
 
@@ -36,7 +83,9 @@ function persist() {
 
 async function initDB() {
   load();
-  console.log(`[DEV DB] Hazir - ${db.users.length} kullanici, ${Object.keys(db.villages).length} koy, ${Object.keys(db.world).length} NPC`);
+  const koySayisi = Object.values(db.villages)
+    .reduce((n, byKoy) => n + Object.keys(byKoy || {}).length, 0);
+  console.log(`[DEV DB] Hazir - ${db.users.length} kullanici, ${koySayisi} koy, ${Object.keys(db.world).length} NPC`);
 }
 
 async function createUser(email, passwordHash) {
@@ -72,8 +121,24 @@ async function findUserById(id) {
  */
 const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
 
+/** Bir oyuncunun BÜTÜN köyleri — merkez önce, sonra slot anahtarına göre */
+async function loadVillages(userId) {
+  const byKoy = db.villages[userId] || {};
+  return Object.entries(byKoy)
+    .map(([slotKey, row]) => ({
+      slotKey,
+      name: row.name || null,
+      isCapital: !!row.isCapital,
+      state: clone(row.state) || null,
+      updatedAt: new Date(row.updated_at || Date.now()),
+    }))
+    .sort((a, b) => (b.isCapital - a.isCapital) || a.slotKey.localeCompare(b.slotKey));
+}
+
+/** Geriye dönük: tek köy bekleyen çağrı yerleri için merkez/ilk köy */
 async function loadVillage(userId) {
-  return clone(db.villages[userId]?.state) || null;
+  const list = await loadVillages(userId);
+  return list.find(x => x.state)?.state || null;
 }
 
 function serialize(state) {
@@ -86,17 +151,48 @@ function serialize(state) {
   }));
 }
 
-async function saveVillage(userId, state) {
-  db.villages[userId] = { state: serialize(state), updated_at: new Date().toISOString() };
+async function saveVillage(userId, slotKey, state) {
+  if (!slotKey) throw new Error('saveVillage: slotKey zorunlu (çoklu köy)');
+  db.villages[userId] ||= {};
+  const eski = db.villages[userId][slotKey] || {};
+  db.villages[userId][slotKey] = {
+    ...eski,
+    state: serialize(state),
+    updated_at: new Date().toISOString(),
+  };
   persist();
 }
 
+/** Merkez köyü taşı — oyuncunun yalnız BİR merkezi olabilir */
+async function setCapital(userId, slotKey) {
+  const byKoy = db.villages[userId] || {};
+  for (const [k, row] of Object.entries(byKoy)) row.isCapital = (k === slotKey);
+  persist();
+}
+
+/** Oyuncunun bir köyünü sil */
+async function deleteVillage(userId, slotKey) {
+  if (db.villages[userId]) delete db.villages[userId][slotKey];
+  persist();
+}
+
+/** Tüm oyuncu köyleri — köy başına bir kayıt */
 async function loadAllVillages() {
-  return Object.entries(db.villages).map(([userId, row]) => ({
-    userId: Number(userId),
-    state: clone(row.state),
-    updatedAt: new Date(row.updated_at),
-  }));
+  const out = [];
+  for (const [userId, byKoy] of Object.entries(db.villages)) {
+    for (const [slotKey, row] of Object.entries(byKoy || {})) {
+      if (!row?.state) continue;
+      out.push({
+        userId: Number(userId),
+        slotKey,
+        name: row.name || null,
+        isCapital: !!row.isCapital,
+        state: clone(row.state),
+        updatedAt: new Date(row.updated_at || Date.now()),
+      });
+    }
+  }
+  return out;
 }
 
 // ─── Dünya haritası ────────────────────────────────────────────────
@@ -120,21 +216,52 @@ async function saveNpcVillages(list) {
 }
 
 async function loadPlayerSlots() {
-  return Object.entries(db.playerSlots).map(([userId, row]) => {
+  const out = [];
+  for (const [userId, row] of Object.entries(db.playerSlots)) {
     const u = db.users.find(x => x.id === Number(userId));
-    return { userId: Number(userId), slotKey: row.slotKey, name: row.name, email: u?.email || '' };
-  });
+    for (const s of normalizeSlots(row)) {
+      out.push({
+        userId: Number(userId), slotKey: s.slotKey, name: s.name,
+        email: u?.email || '',
+        isCapital: !!db.villages[userId]?.[s.slotKey]?.isCapital,
+      });
+    }
+  }
+  return out;
 }
 
-async function setPlayerSlot(userId, slotKey, name) {
-  db.playerSlots[userId] = { slotKey, name };
+/**
+ * Oyuncuya slot yaz. `playerSlots` ARTIK dizi: bir oyuncunun birden fazla
+ * slotu olabiliyor. Eski biçim (tek nesne) okunurken diziye çevriliyor.
+ */
+async function setPlayerSlot(userId, slotKey, name, isCapital = false) {
+  const mevcut = normalizeSlots(db.playerSlots[userId]);
+  const i = mevcut.findIndex(x => x.slotKey === slotKey);
+  if (i >= 0) mevcut[i] = { ...mevcut[i], name };
+  else mevcut.push({ slotKey, name });
+  db.playerSlots[userId] = mevcut;
+
+  db.villages[userId] ||= {};
+  db.villages[userId][slotKey] ||= { state: null, updated_at: new Date().toISOString() };
+  db.villages[userId][slotKey].name = name;
+  if (isCapital) {
+    for (const [k, row] of Object.entries(db.villages[userId])) row.isCapital = (k === slotKey);
+  }
   persist();
+}
+
+/** Eski tek-nesne biçimini de kabul et */
+function normalizeSlots(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  return v.slotKey ? [{ slotKey: v.slotKey, name: v.name }] : [];
 }
 
 const pool = { query: async () => { throw new Error('[DEV DB] dogrudan SQL desteklenmiyor'); } };
 
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
-  loadVillage, saveVillage, loadAllVillages,
+  loadVillage, loadVillages, saveVillage, loadAllVillages,
+  setCapital, deleteVillage,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
 };

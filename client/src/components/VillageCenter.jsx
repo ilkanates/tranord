@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import BuildMenu from './BuildMenu';
 import EquipmentPanel from './EquipmentPanel';
 import UnitTrainingPanel from './UnitTrainingPanel';
+import FestivalPanel from './FestivalPanel';
 import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/villageDefs';
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
@@ -48,6 +49,7 @@ const CAT_FILL = {
   depo:     '#453a5e',
   ekonomik: '#5c5320',
   savunma:  '#5c2a30',
+  yonetim:  '#5c4a1e',
   nufus:    '#1f5a5a',
   anaBina:  '#5a4820',
   merkez:   '#5a4820',
@@ -59,6 +61,7 @@ const CAT_EDGE = {
   depo:     '#c0a8f8',
   ekonomik: '#f0d868',
   savunma:  '#ff8080',
+  yonetim:  '#e0b357',
   nufus:    '#68e8e0',
   anaBina:  '#f0c860',
   merkez:   '#f0c860',
@@ -728,6 +731,7 @@ export default function VillageCenter({
   world = null,
   // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
   hourSeconds = 3600, worldSpeed = 1,
+  culture = null, festival = null, festivalDefs = {}, onStartFestival,
 }) {
   const [selected, setSelected] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -1043,6 +1047,8 @@ export default function VillageCenter({
           const hasTraining = !!selectedBuilding && selectedBuilding.level >= 1
             && TRAINING_BUILDINGS.has(selectedBuilding.type)
             && (unitsByBuilding[selectedBuilding.type] || []).length > 0;
+          // Taverna: şölen paneli (kültür puanı üretimi)
+          const hasFestival = selectedBuilding?.type === 'taverna';
 
           /**
            * ARKA PLAN: görsel panelin tamamına yayılır ama KOYU bir gradyanla
@@ -1172,6 +1178,20 @@ export default function VillageCenter({
             <div style={{ ...glass, display: 'flex', flexDirection: 'column' }}>
 
             {/* SIRA: bina gorseli -> savascilar -> isci/yukseltme + ekipman */}
+            {hasFestival && (
+              <div style={{ padding: '0 12px 10px', order: 1 }}>
+                <FestivalPanel
+                  level={selectedBuilding.level}
+                  culture={culture}
+                  festival={festival}
+                  festivalDefs={festivalDefs}
+                  resources={resources}
+                  hourSeconds={hourSeconds}
+                  worldSpeed={worldSpeed}
+                  onStartFestival={onStartFestival} />
+              </div>
+            )}
+
             {hasTraining && (
               <div style={{ padding: '0 12px 10px', order: 1 }}>
                 <UnitTrainingPanel

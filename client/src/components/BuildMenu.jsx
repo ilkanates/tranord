@@ -9,6 +9,7 @@ import { popHeader, popCols, popCol } from './popoverStyle';
 const CAT_LABEL = {
   isleme: 'İşleme', askeri: 'Askeri', depo: 'Depo',
   ekonomik: 'Ekonomik', nufus: 'Nüfus', savunma: 'Savunma',
+  yonetim: 'Yönetim',
 };
 const SLOT_LABEL = {
   sur:    'Sur',
@@ -17,10 +18,11 @@ const SLOT_LABEL = {
   hex:    'Boş Arazi',
 };
 
-const CAT_ORDER = ['isleme', 'askeri', 'depo', 'nufus', 'ekonomik', 'savunma'];
+const CAT_ORDER = ['isleme', 'askeri', 'depo', 'nufus', 'yonetim', 'ekonomik', 'savunma'];
 const CAT_EDGE = {
   isleme: '#4ecfa8', askeri: '#7fb4ff', depo: '#a99cf0',
   ekonomik: '#d9c069', nufus: '#5fd8d0', savunma: '#e8636f',
+  yonetim: '#e0b357',
 };
 
 // Personel atanabilen binalar. Kule de personel alır — ama adı OKÇU.

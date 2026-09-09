@@ -31,9 +31,15 @@ async function initDB() {
       created_at   TIMESTAMP DEFAULT NOW()
     );
 
+    /**
+     * ÇOKLU KÖY: user_id artık UNIQUE DEĞİL. Bir oyuncunun birden fazla köyü
+     * olabiliyor; köyü benzersiz kılan şey (user_id, slot_key) çifti.
+     * Yeni kurulumlarda kısıt hiç konmuyor, eski kurulumlarda aşağıdaki
+     * göç adımında düşürülüyor.
+     */
     CREATE TABLE IF NOT EXISTS villages (
       id         SERIAL PRIMARY KEY,
-      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
       state      JSONB NOT NULL,
       updated_at TIMESTAMP DEFAULT NOW()
     );
@@ -54,12 +60,47 @@ async function initDB() {
   await pool.query(`
     ALTER TABLE villages ADD COLUMN IF NOT EXISTS slot_key     TEXT;
     ALTER TABLE villages ADD COLUMN IF NOT EXISTS village_name TEXT;
+    ALTER TABLE villages ADD COLUMN IF NOT EXISTS is_capital   BOOLEAN NOT NULL DEFAULT FALSE;
   `);
+
+  /**
+   * GÖÇ — tek köyden çoklu köye.
+   *
+   * Eski şemada `user_id UNIQUE` vardı; adı otomatik üretildiği için
+   * (villages_user_id_key) doğrudan düşürmek yerine katalogdan bulup
+   * düşürüyoruz. Kısıt yoksa hiçbir şey yapılmaz, yani bu blok her
+   * açılışta güvenle çalışır.
+   */
+  await pool.query(`
+    DO $$
+    DECLARE con text;
+    BEGIN
+      SELECT conname INTO con FROM pg_constraint
+        WHERE conrelid = 'villages'::regclass AND contype = 'u'
+          AND pg_get_constraintdef(oid) = 'UNIQUE (user_id)';
+      IF con IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE villages DROP CONSTRAINT %I', con);
+        RAISE NOTICE 'villages: user_id UNIQUE kisiti dusuruldu (coklu koy)';
+      END IF;
+    END $$;
+  `);
+
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS villages_slot_key_idx
       ON villages (slot_key) WHERE slot_key IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS villages_user_slot_idx
+      ON villages (user_id, slot_key);
   `);
-  console.log('[DB] Tablolar hazır');
+
+  // Merkezi olmayan oyuncularda ilk köy merkez sayılır
+  await pool.query(`
+    UPDATE villages v SET is_capital = TRUE
+    WHERE NOT EXISTS (
+      SELECT 1 FROM villages w WHERE w.user_id = v.user_id AND w.is_capital
+    )
+    AND v.id = (SELECT MIN(id) FROM villages x WHERE x.user_id = v.user_id);
+  `);
+  console.log('[DB] Tablolar hazır (çoklu köy şeması)');
 }
 
 // Kullanıcı kayıt
@@ -102,12 +143,31 @@ function realState(st) {
     ? st : null;
 }
 
-async function loadVillage(userId) {
+/**
+ * Bir oyuncunun BÜTÜN köyleri. Merkez köy önce gelir, sonrası slot
+ * anahtarına göre sıralı — arayüzdeki köy listesi böylece hep aynı sırada.
+ * Yer tutucu satırlar (slot alınmış ama köy kurulmamış) `state: null` döner.
+ */
+async function loadVillages(userId) {
   const res = await pool.query(
-    'SELECT state FROM villages WHERE user_id = $1',
+    `SELECT slot_key, village_name, is_capital, state, updated_at
+     FROM villages WHERE user_id = $1
+     ORDER BY is_capital DESC, slot_key ASC`,
     [userId]
   );
-  return realState(res.rows[0]?.state);
+  return res.rows.map(r => ({
+    slotKey: r.slot_key,
+    name: r.village_name,
+    isCapital: !!r.is_capital,
+    state: realState(r.state),
+    updatedAt: r.updated_at,
+  }));
+}
+
+/** Geriye dönük: tek köy bekleyen çağrı yerleri için merkez/ilk köy */
+async function loadVillage(userId) {
+  const list = await loadVillages(userId);
+  return list.find(x => x.state)?.state || null;
 }
 
 // ─── Dünya haritası ────────────────────────────────────────────────
@@ -158,50 +218,83 @@ async function loadPlayerSlots() {
   }));
 }
 
-async function setPlayerSlot(userId, slotKey, name) {
+/**
+ * Oyuncuya bir slot yaz. Çoklu köyde çakışma anahtarı (user_id, slot_key):
+ * aynı slot yeniden yazılırsa adı güncellenir, yeni slot ise YENİ SATIR
+ * açılır. `isCapital` verilirse o köy merkez olur ve oyuncunun diğer
+ * köylerinin merkezliği düşürülür (merkez tek olabilir).
+ */
+async function setPlayerSlot(userId, slotKey, name, isCapital = false) {
   await pool.query(
-    `INSERT INTO villages (user_id, state, slot_key, village_name, updated_at)
-     VALUES ($1, '{}'::jsonb, $2, $3, NOW())
-     ON CONFLICT (user_id) DO UPDATE
-     SET slot_key = EXCLUDED.slot_key, village_name = EXCLUDED.village_name`,
-    [userId, slotKey, name]
+    `INSERT INTO villages (user_id, state, slot_key, village_name, is_capital, updated_at)
+     VALUES ($1, '{}'::jsonb, $2, $3, $4, NOW())
+     ON CONFLICT (user_id, slot_key) DO UPDATE
+     SET village_name = EXCLUDED.village_name`,
+    [userId, slotKey, name, !!isCapital]
+  );
+  if (isCapital) await setCapital(userId, slotKey);
+}
+
+/** Merkez köyü taşı — oyuncunun yalnız BİR merkezi olabilir */
+async function setCapital(userId, slotKey) {
+  await pool.query(
+    `UPDATE villages SET is_capital = (slot_key = $2) WHERE user_id = $1`,
+    [userId, slotKey]
+  );
+}
+
+/** Oyuncunun bir köyünü sil (fethedilme / terk) */
+async function deleteVillage(userId, slotKey) {
+  await pool.query(
+    'DELETE FROM villages WHERE user_id = $1 AND slot_key = $2',
+    [userId, slotKey]
   );
 }
 
 // Köy state'ini kaydet / güncelle
-async function saveVillage(userId, state) {
-  // TOWER_SLOTS ve PRODUCTION_RING_1 Set/Array oldukları için
-  // JSON'a serialize ederken array'e dönüştür
+/**
+ * Bir köyü kaydet. Çoklu köyde `slotKey` ZORUNLU: hangi köy olduğunu o
+ * belirliyor. TOWER_SLOTS ve PRODUCTION_RING_1 Set/Array olduğu için
+ * JSON'a yazarken diziye çevrilir.
+ */
+async function saveVillage(userId, slotKey, state) {
+  if (!slotKey) throw new Error('saveVillage: slotKey zorunlu (çoklu köy)');
   const serializable = {
     ...state,
     TOWER_SLOTS: [...state.TOWER_SLOTS],
-    PRODUCTION_RING_1: [...state.PRODUCTION_RING_1]
+    PRODUCTION_RING_1: [...state.PRODUCTION_RING_1],
   };
-
   await pool.query(
-    `INSERT INTO villages (user_id, state, updated_at)
-     VALUES ($1, $2, NOW())
-     ON CONFLICT (user_id) DO UPDATE
-     SET state = $2, updated_at = NOW()`,
-    [userId, JSON.stringify(serializable)]
+    `INSERT INTO villages (user_id, slot_key, state, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (user_id, slot_key) DO UPDATE
+     SET state = $3, updated_at = NOW()`,
+    [userId, slotKey, JSON.stringify(serializable)]
   );
 }
 
 // Tüm köyleri yükle (sunucu başlangıcında offline catch-up için)
+/** Tüm oyuncu köyleri (açılışta offline telafi için) — köy başına bir satır */
 async function loadAllVillages() {
-  const res = await pool.query('SELECT user_id, state, updated_at FROM villages');
+  const res = await pool.query(
+    'SELECT user_id, slot_key, village_name, is_capital, state, updated_at FROM villages'
+  );
   // Yer tutucu satırlar (slot alınmış ama köy henüz kaydedilmemiş) atlanır
   return res.rows
     .filter(row => realState(row.state))
     .map(row => ({
       userId: row.user_id,
+      slotKey: row.slot_key,
+      name: row.village_name,
+      isCapital: !!row.is_capital,
       state: row.state,
-      updatedAt: row.updated_at  // JS Date objesi
+      updatedAt: row.updated_at,
     }));
 }
 
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
-  loadVillage, saveVillage, loadAllVillages,
+  loadVillage, loadVillages, saveVillage, loadAllVillages,
+  setCapital, deleteVillage,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
 };

@@ -31,42 +31,21 @@ Yapılacaklar:
 - İstemciye köy değiştirici (üstte sekme veya açılır liste); bütün paneller aktif köye bağlanmalı.
 - Kendi köyleri arasında kaynak/asker gönderimi (mevcut yürüyüş altyapısı kullanılabilir).
 
-### 1. Kültür puanı
-- Her bina her seviyesinde belirli bir **kültür puanı** üretir; köyün toplamı oyuncunun toplamına eklenir.
-- Belirli eşiklere ulaşınca yeni köy hakkı açılır (2. köy için X puan, 3. için Y…).
-- Ekranda görünmeli: mevcut puan, sıradaki eşik, kalan.
-- **Karar gerekiyor:** puan tablosu (bina başına kaç puan) ve eşikler.
-
-### 2. Köşk ve Saray
-- **Köşk** — her köye kurulabilir. Lvl **10** ve **20**'de birer yeni köy hakkı verir (toplam 2).
-- **Saray** — YALNIZCA merkez köye kurulabilir. Lvl **10**, **15** ve **20**'de birer hak verir (toplam 3).
-- Saray yıkılıp başka bir köyde kurulabilir → **merkez köy oraya taşınır**.
-- Bir köyde ikisi birden olamaz (Travian kuralı) — karar: bu kural konsun mu?
-- **Karar gerekiyor:** saray yıkılınca o hakla alınmış köyler ne olur? (Travian'da köyler kalır, hak yeniden kullanılamaz.)
-- **Karar gerekiyor:** merkez köyün başka bir avantajı olsun mu (yıkılamazlık, üretim bonusu)?
-
-### 3. Göçmen ve yeni köy kurma
+### 1. Göçmen ve yeni köy kurma
 - Göçmen köşk veya saraydan üretilir (asker gibi kuyruklu üretim).
 - **3 göçmen** boş bir araziye gönderilir → oraya yeni köy kurulur.
 - Kurulum için hem kültür puanı eşiği hem köy hakkı (köşk/saray seviyesi) sağlanmış olmalı.
 - Boş arazi seçimi: haritada slotu olan ama sahibi olmayan hex.
 - **Karar gerekiyor:** göçmen maliyeti (kaynak + nüfus) ve üretim süresi.
 
-### 4. Taverna ve festivaller
-- Yeni bina: **Taverna**. Festival düzenleyip kültür puanı üretir.
-- **Küçük festival** — az kaynak, az puan, kısa süre.
-- **Büyük festival** — çok kaynak, çok puan, uzun süre; muhtemelen daha yüksek taverna seviyesi gerektirir.
-- Aynı anda tek festival; süre boyunca geri sayım görünmeli.
-- **Karar gerekiyor:** maliyet / süre / puan değerleri ve taverna seviye gereksinimleri.
-
-### 5. Elçilik ve birlik (ittifak)
+### 2. Elçilik ve birlik (ittifak)
 - Yeni bina: **Elçilik**. Buradan birlik kurulur ve başka oyuncular birliğe davet edilir.
 - Haritada birlik üyeleri **koyu yeşil** görünmeli (kendi köyüm açık yeşil, rakip oyuncu kırmızı, NPC gri).
 - Elçilik seviyesi birlik üye sayısı tavanını belirlesin (Travian mantığı).
 - **Karar gerekiyor:** davet/kabul akışı, birlik yönetimi (kurucu yetkileri, üye atma), birliğe saldırı yasağı olsun mu.
 - Sunucu tarafı: birlik tablosu + üyelik, harita anlık görüntüsüne köy başına `allianceId` eklenmesi.
 
-### 6. Ayarlar menüsü ve ses
+### 3. Ayarlar menüsü ve ses
 - **Ayarlar menüsü** eklenmeli (üst barda dişli ikonu).
 - ~~**Arka plan müziği**~~ — yapıldı: `client/src/audio.js` + üst bardaki müzik düğmesi (aç/kapa, ses seviyesi, sıradaki parça). Ayarlar menüsü gelince oraya taşınmalı.
 - **Olay sesleri** — her biri tek tek açılıp kapanabilir ve seviyesi ayarlanabilir olmalı:
@@ -144,6 +123,16 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Savunma bonusu tavanı %150**: paylar doğrudan veriliyor — sur maks **%80**, hendek **%35**, altı kule lvl20 tam kadro **%35**. Üçü aynı eğriden ölçekleniyor (`curveTo`); `combat.js` ayrıca sert üst sınır uyguluyor.
 - **Kule bonusu okçu dolulukla ölçekli**: boş kule %0 katkı, tam kadro seviye bonusunun tamamı. Kule başına kapasite = seviye × 4 okçu.
 - Sur ve hendekten "işçi" ibaresi tamamen kalktı (personel almıyorlar); kulede personelin adı **okçu**.
+
+### Kültür puanı, köşk/saray/taverna (Eylül 2026)
+- Mekanikler Travian'dan alındı (kaynaklı): **köşk** Lvl 10 ve 20'de birer hak (2), **saray** Lvl 10/15/20'de birer hak (3), saray yalnız merkez köye, köşk ve saray aynı köyde olamaz, yeni köy için **3 göçmen**.
+- **Sayılar bu oyunun ekonomisine kalibre edildi.** Travian'ın 2.000 CP eşiği burada 29. güne düşüyordu (simülasyon: gerçekçi kurulum sırası, günde ~4 bina seviyesi). Eşikler Travian'ın oranlarını koruyarak yeniden ölçeklendi: **300 / 1.200 / 3.000 / 5.850**, sonra ×1.8. Hedef: 2. köy ~11. gün, 3. ~22, 4. ~34.
+- Her binaya `cpPerLevel` verildi (1–4 arası, 31 bina). Köyün CP/gün'ü bina seviyelerinin ağırlıklı toplamı; oyun saati başına birikiyor.
+- Gerçek tavan `min(kültür puanı, 1 + köşk/saray hakkı)` — ikisi de gerekiyor. Sağ rayda kültür bloğu: puan, günlük üretim, sıradaki eşik, kalan süre ve **neyin engellediği** (kültür mü, bina mı).
+- **Taverna** + şölenler: küçük (Lvl 1, 12 saat, bu köyün günlük üretimi), büyük (Lvl 10, 24 saat, bütün köyler × 2). Puan şölenin sonunda yazılır; `cpAtStart` sayesinde şölen sürerken bina yıkıp puan şişirilemiyor.
+- Yeni "yonetim" kategorisi + 5 ikon (köşk, saray, taverna, kültür, şölen).
+- Doğrulama: CP birikimi 86.400 tick'te tam 1 oyun günü tutuyor; yardım ekranı 56/56 sayfa render oldu; şölen paneli 5 durumda test edildi (kaynak yeter/yetmez, seviye kilidi, süren şölen geri sayımı).
+- **Henüz yok:** göçmen üretimi ve gerçek ikinci köy — çoklu köy mimarisi gerekiyor.
 
 ### Dünya büyütüldü ve sıfırlandı (Eylül 2026)
 - Yarıçap **60 → 134**. NPC sayısı aynı (200) kaldı, köyler birbirinden uzaklaştı: slot 332 → **1.729**, doluluk %60 → **%12**, NPC'lerin merkeze ortalama uzaklığı 40 → **89 halka**. İkinci/üçüncü köyler için **1.528 boş slot** var.
