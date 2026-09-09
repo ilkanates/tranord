@@ -162,4 +162,4 @@ function hydrateVillage(raw) {
   return raw;
 }
 
-module.exports = { createVillage, hydrateVillage, TOWER_SLOTS_ARR, WALL_SLOTS_ARR };
+module.exports = { createVillage, hydrateVillage, TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };

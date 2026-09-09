@@ -5,7 +5,8 @@ const cors       = require('cors');
 
 const { createVillage, hydrateVillage,
         TOWER_SLOTS_ARR: TOWER_SLOT_NAMES,
-        WALL_SLOTS_ARR: WALL_SLOT_NAMES } = require('./game/villageState');
+        WALL_SLOTS_ARR: WALL_SLOT_NAMES,
+        DEFENCE_TYPES } = require('./game/villageState');
 const { processTick, getUpgradeSeconds, hexDistanceFromCenter, getProductionMultiplier, getSlotTotalMultiplier, getUnitTrainSeconds, getEquipmentCap, getEquipmentPool, getConsumptionRates, getStorageCaps } = require('./game/tick');
 const { simulateBattle, towerBonusPct } = require('./game/combat');
 const ARMY = require('./game/army');
@@ -262,10 +263,18 @@ function canBuildAt(village, slotKey, buildingType, otherVillages = null) {
   const def = VILLAGE_DEFS[buildingType];
   if (!def || buildingType === 'anaBina') return false;
 
-  // Her savunma yapısı YALNIZ kendi slotuna, her slot yalnız kendi yapısına
+  /**
+   * Her savunma yapısı YALNIZ kendi isimli slotuna, her savunma slotu da
+   * yalnız kendi yapısına.
+   *
+   * DÜZELTME: eski koşul `isDefence !== (buildingType === kind)` idi. Normal
+   * bir hex'te (kind='hex') isDefence=false ve buildingType==='hex' de false
+   * olduğu için false!==false çıkıyor ve koşul GEÇİYORDU: sur, hendek ve kule
+   * herhangi bir hex'e kurulabiliyordu. Savunma slotları doğru çalıştığı için
+   * hata yalnız "hex'e savunma yapısı" durumunda görünüyordu (3 vaka).
+   */
   const kind = slotKind(village, slotKey);
-  const isDefence = kind !== 'hex';
-  if (isDefence !== (buildingType === kind)) return false;
+  if (kind !== (DEFENCE_TYPES.has(buildingType) ? buildingType : 'hex')) return false;
 
   if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) return false;
 
@@ -303,11 +312,10 @@ function buildRefusalReason(village, slotKey, buildingType, otherVillages = null
   if (slotKey === '0,0') return 'Ana bina hex\'i değiştirilemez.';
   if (village.villageBuildings[slotKey]) return 'Bu alan zaten dolu.';
   const kind = slotKind(village, slotKey);
-  const isDefence = kind !== 'hex';
-  if (isDefence !== (buildingType === kind)) {
-    return isDefence
+  if (kind !== (DEFENCE_TYPES.has(buildingType) ? buildingType : 'hex')) {
+    return kind !== 'hex'
       ? `Bu slota yalnız ${VILLAGE_DEFS[kind]?.name || kind} kurulabilir.`
-      : `${def.name} yalnız kendi savunma slotuna kurulur.`;
+      : `${def.name} köy içine kurulamaz — kendi savunma slotuna kurulur.`;
   }
   if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) {
     return `${def.name} bu köyde zaten var.`;

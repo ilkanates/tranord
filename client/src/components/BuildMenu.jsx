@@ -19,6 +19,9 @@ const SLOT_LABEL = {
 };
 
 const CAT_ORDER = ['isleme', 'askeri', 'depo', 'nufus', 'yonetim', 'ekonomik', 'savunma'];
+/** Kendi isimli slotu olan yapılar — normal hex'e kurulamaz */
+const DEFENCE_TYPES = new Set(['sur', 'hendek', 'kule']);
+
 const CAT_EDGE = {
   isleme: '#4ecfa8', askeri: '#7fb4ff', depo: '#a99cf0',
   ekonomik: '#d9c069', nufus: '#5fd8d0', savunma: '#e8636f',
@@ -192,8 +195,15 @@ export default function BuildMenu({
    */
   const canBuild = (key, d) => {
     if (key === 'anaBina') return false;
-    const isDefenceSlot = slotKind !== 'hex';
-    if (isDefenceSlot !== (key === slotKind)) return false;
+    /**
+     * Her savunma yapısı YALNIZ kendi isimli slotuna, her savunma slotu da
+     * yalnız kendi yapısına — sunucudaki canBuildAt ile aynı kural.
+     *
+     * DÜZELTME: eski koşul `isDefenceSlot !== (key === slotKind)` idi. Normal
+     * hex'te iki taraf da false çıktığı için koşul geçiyor ve sur/hendek/kule
+     * herhangi bir hex'e kurulabiliyordu.
+     */
+    if (slotKind !== (DEFENCE_TYPES.has(key) ? key : 'hex')) return false;
     if (d.unique && builtTypes.has(key)) return false;
     if (key === 'kule') {
       const max = d.maxInstances || 6;
