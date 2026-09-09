@@ -8,7 +8,8 @@
  * tarafı da TRANORD_DEV_CHEATS=1 istiyor — üretimde ne düğme ne olay var.
  */
 import { useEffect, useRef, useState } from 'react';
-import { C, FONT, label as lbl } from '../theme';
+import { C, FONT, btn, label as lbl, num } from '../theme';
+import Icon from './Icons';
 
 /** Menüdeki her satır: ne yaptığını açıkça yazsın */
 const ITEMS = [
@@ -38,7 +39,15 @@ const ITEMS = [
   },
 ];
 
-export default function DevMenu({ socket }) {
+export default function DevMenu({
+  socket,
+  /**
+   * HIZ — üst bardan buraya taşındı. Oyuncunun sürekli göreceği bir denetim
+   * değil: 128×'e kadar çıkıyor ve tek işi test etmeyi hızlandırmak.
+   */
+  tickMs = 1000, setSpeed, hourSeconds = 3600,
+  speedSteps = [1], scaleLabel = null,
+}) {
   const [open, setOpen] = useState(false);
   /**
    * Son sonuç. Eskiden tuşa basınca HİÇBİR geri bildirim yoktu: sunucu eski
@@ -87,6 +96,11 @@ export default function DevMenu({ socket }) {
   };
 
   const SARI = '#e0b357';
+
+  /** Mevcut tick aralığına en yakın hız kademesi (üst bardaki hesabın aynısı) */
+  const carpan = +(1000 / tickMs).toFixed(4);
+  const hizIdx = speedSteps.reduce(
+    (best, m, i) => (Math.abs(m - carpan) < Math.abs(speedSteps[best] - carpan) ? i : best), 0);
 
   return (
     <div ref={boxRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -144,6 +158,42 @@ export default function DevMenu({ socket }) {
               </div>
             </button>
           ))}
+
+          {setSpeed && speedSteps.length > 1 && (
+            <div style={{
+              marginTop: 4, paddingTop: 6,
+              borderTop: `1px solid rgba(224,179,87,0.22)`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 7px 4px' }}>
+                <Icon name="hiz" size={11} color={SARI} />
+                <span style={lbl({ fontSize: 7.5, letterSpacing: 1.3, flex: 1, color: SARI })}>
+                  Oyun hızı
+                </span>
+                <span style={num({ fontSize: 11, color: C.iceSoft })}>
+                  {speedSteps[hizIdx]}×
+                </span>
+              </div>
+
+              <div style={{ padding: '0 7px' }}>
+                <input type="range" min={0} max={speedSteps.length - 1} step={1} value={hizIdx}
+                  onChange={(e) => setSpeed(Math.round(1000 / speedSteps[Number(e.target.value)]))}
+                  style={{ width: '100%', height: 4 }}
+                  title={`${speedSteps[hizIdx]}× hız`} />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{
+                    flex: 1, fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint,
+                  }}>
+                    {scaleLabel ? scaleLabel(hourSeconds, speedSteps[hizIdx]) : ''}
+                  </span>
+                  <button type="button" onClick={() => setSpeed(1000)}
+                    disabled={speedSteps[hizIdx] === 1}
+                    style={btn(speedSteps[hizIdx] === 1 ? 'disabled' : 'ghost',
+                      { padding: '2px 8px', fontSize: 9 })}>1×</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{
             padding: '5px 7px 2px', fontFamily: FONT.ui, fontSize: 8.5,

@@ -580,14 +580,6 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, kind = 'hex', flo
             position: 'absolute', inset: 0, pointerEvents: 'none',
             background: 'linear-gradient(180deg, rgba(6,12,20,0) 62%, rgba(8,17,28,0.92) 100%)',
           }} />
-          <div style={{
-            position: 'absolute', top: 8, right: 9,
-            display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: 14,
-            background: 'rgba(8,14,24,0.66)', border: `1px solid ${edge}66`,
-            transform: hoverEm.rot ? `rotate(${hoverEm.rot}deg)` : undefined,
-          }}>
-            <Icon name={hoverEm.icon} size={hoverEm.size} color={edge} strokeWidth={1.5} />
-          </div>
         </div>
       )}
 

@@ -157,11 +157,6 @@ function scaleLabel(hourSeconds, mult) {
 
 function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
   villages = [], activeSlot = null, onSwitchVillage }) {
-  const currentMult = +(1000 / tickMs).toFixed(4);
-  const speedIdx = SPEED_STEPS.reduce(
-    (best, m, i) => (Math.abs(m - currentMult) < Math.abs(SPEED_STEPS[best] - currentMult) ? i : best), 2
-  );
-
   return (
     <header style={{
       flexShrink: 0, zIndex: 20, position: 'relative',
@@ -246,32 +241,22 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
         padding: '0 14px', flexShrink: 0,
         borderLeft: `1px solid ${C.lineSoft}`,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="hiz" size={14} color={C.iceDeep} />
-          <input type="range" min={0} max={SPEED_STEPS.length - 1} step={1} value={speedIdx}
-            onChange={(e) => setSpeed(Math.round(1000 / SPEED_STEPS[Number(e.target.value)]))}
-            style={{ width: 96 }}
-            title={`${SPEED_STEPS[speedIdx]}× hız`} />
-          <div style={{ minWidth: 96 }}>
-            <div style={num({ fontSize: 12, color: C.iceSoft, lineHeight: 1.1 })}>
-              {SPEED_STEPS[speedIdx]}×
-            </div>
-            <div style={{ fontFamily: FONT.ui, fontSize: 8, color: C.textMute, whiteSpace: 'nowrap' }}>
-              {scaleLabel(hourSeconds, SPEED_STEPS[speedIdx])}
-            </div>
-          </div>
-          <button onClick={() => setSpeed(1000)} style={btn('ghost', { padding: '3px 7px', fontSize: 9 })}>1×</button>
-        </div>
-
-        <div style={{ width: 1, alignSelf: 'stretch', background: C.lineSoft, margin: '10px 0' }} />
-
         {/* Müzik — tam ayarlar menüsü gelene kadar tek denetim burası */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px' }}>
           <MusicButton />
         </div>
 
-        {/* TEST kısayolları — yalnız geliştirme derlemesinde */}
-        {import.meta.env.DEV && <DevMenu socket={socket} />}
+        {/*
+          TEST menüsü — yalnız geliştirme derlemesinde. HIZ KAYDIRICISI da
+          buraya taşındı: üst bar sekmeler taşacak kadar kalabalıklaşmıştı ve
+          hız zaten bir test aracı (128×'e kadar çıkıyor), oyuncunun sürekli
+          göreceği bir denetim değil.
+        */}
+        {import.meta.env.DEV && (
+          <DevMenu socket={socket} tickMs={tickMs} setSpeed={setSpeed}
+            hourSeconds={hourSeconds} speedSteps={SPEED_STEPS}
+            scaleLabel={scaleLabel} />
+        )}
 
         <div style={{ width: 1, alignSelf: 'stretch', background: C.lineSoft, margin: '10px 0' }} />
 
