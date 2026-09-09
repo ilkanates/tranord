@@ -34,13 +34,21 @@ function Stat({ icon, value, color, title }) {
 function UnitCard({
   u, def, color, img, qty, setQty, equipment, equipmentDefs,
   freeWorkers, trainerWorkers, onTrain, onOpen,
+  buildingLevel = 0, buildingName = 'Bina',
   hourSeconds = 3600, worldSpeed = 1,
 }) {
   const eqList = def.equipment || [];
   const eqOk = eqList.every(e => (equipment[e] || 0) >= 1);
   const workerOk = freeWorkers >= 1;
   const trainerOk = trainerWorkers >= 1;
-  const ready = eqOk && workerOk && trainerOk;
+  /**
+   * SEVİYE KİLİDİ — iyi asker iyi kışla ister. Kilitli birim listeden
+   * gizlenmiyor: oyuncu neyi hedeflediğini görsün, kartın üstünde kaçıncı
+   * seviyede açılacağı yazıyor.
+   */
+  const gereken = def.minLevel || 1;
+  const kilitli = buildingLevel < gereken;
+  const ready = !kilitli && eqOk && workerOk && trainerOk;
   const secs = gameMinutesToRealSeconds(effMinutes(def, trainerWorkers), hourSeconds, worldSpeed);
   const cav = def.category === 'suvari';
 
@@ -78,8 +86,9 @@ function UnitCard({
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             objectFit: 'cover', objectPosition: '50% 12%',
-            // Üretilemeyen birimin görseli GRİLEŞTİRİLMEZ; eksiklik kırmızı
-            // ekipman rozetleri ve devre dışı EĞİT butonundan okunur.
+            // Eksik ekipman görseli GRİLEŞTİRMEZ (kırmızı rozetlerden okunur),
+            // ama SEVİYE KİLİDİ yapısal bir engel: kart bakışta soluk görünsün.
+            filter: kilitli ? 'grayscale(0.85) brightness(0.55)' : 'none',
             transform: hov ? 'scale(1.04)' : 'none',
             transition: 'transform .2s ease-out',
           }} />
@@ -95,7 +104,14 @@ function UnitCard({
         display: 'flex', alignItems: 'flex-start', gap: 3,
       }}>
         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', flex: 1 }}>
-          {eqList.map(e => {
+          {kilitli && (
+            <span title={`${buildingName} Lvl ${gereken} gerekiyor (şu an ${buildingLevel})`}
+              style={{ ...pill, borderColor: 'rgba(224,179,87,0.55)' }}>
+              <Icon name="kilit" size={9} color="#e0b357" />
+              <span style={num({ fontSize: 8, color: '#e8cf9a' })}>Lvl {gereken}</span>
+            </span>
+          )}
+          {!kilitli && eqList.map(e => {
             const have = equipment[e] || 0;
             const ok = have >= 1;
             return (
@@ -136,14 +152,15 @@ function UnitCard({
           style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Qty value={qty} onChange={setQty} />
           <button onClick={() => onTrain(u, qty)} disabled={!ready}
-            title={!trainerOk ? 'Eğitmen işçi yok'
+            title={kilitli ? `${buildingName} Lvl ${gereken} gerekiyor (şu an ${buildingLevel})`
+              : !trainerOk ? 'Eğitmen işçi yok'
               : !eqOk ? 'Yetersiz ekipman'
               : !workerOk ? 'Askere dönüşecek boş işçi yok'
               : 'Eğitim kuyruğuna ekle'}
             style={btn(ready ? 'good' : 'disabled', {
               flex: 1, padding: '3px 4px', fontSize: 8.5, letterSpacing: 0.8,
             })}>
-            EĞİT
+            {kilitli ? `LVL ${gereken}` : 'EĞİT'}
           </button>
         </div>
       </div>
@@ -152,13 +169,15 @@ function UnitCard({
 }
 
 export default function UnitTrainingPanel({
-  buildingType,
+  buildingType, buildingLevel = 0, buildingName = 'Bina',
   unitsByBuilding = {}, unitDefs = {}, equipmentDefs = {},
   equipment = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
   onTrain, onCancel,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
-  const allowed = unitsByBuilding[buildingType] || [];
+  // Kilit sırasına göre diz: açık birimler önce, sıradaki hedef hemen arkada
+  const allowed = [...(unitsByBuilding[buildingType] || [])]
+    .sort((a, b) => (unitDefs[a]?.minLevel || 1) - (unitDefs[b]?.minLevel || 1));
   const [qty, setQty] = useState(() => Object.fromEntries(allowed.map(k => [k, 1])));
   const [detail, setDetail] = useState(null);
 
@@ -183,7 +202,8 @@ export default function UnitTrainingPanel({
         <Icon name="kisla" size={13} color={C.iceDeep} />
         <span style={lbl({ fontSize: 8.5, letterSpacing: 1.5 })}>Birim eğitimi</span>
         <span style={num({ fontSize: 9, color: C.textMute, marginLeft: 'auto' })}>
-          {allowed.length} tür
+          {allowed.filter(u => buildingLevel >= (unitDefs[u]?.minLevel || 1)).length}
+          /{allowed.length} tür
         </span>
       </div>
 
@@ -223,6 +243,7 @@ export default function UnitTrainingPanel({
               setQty={(n) => setQty(s => ({ ...s, [u]: n }))}
               equipment={equipment} equipmentDefs={equipmentDefs}
               freeWorkers={freeWorkers} trainerWorkers={trainerWorkers}
+              buildingLevel={buildingLevel} buildingName={buildingName}
               hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               onTrain={onTrain} onOpen={() => setDetail(u)} />
           );

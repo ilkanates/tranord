@@ -1687,6 +1687,21 @@ io.on('connection', async socket => {
     if (!allowed?.includes(unitType)) return;
     const b = Object.values(v().villageBuildings).find(vb => vb.type === buildingType);
     if (!b || b.level < 1) return;
+    /**
+     * BİRİM SEVİYE KİLİDİ — iyi asker iyi kışla ister.
+     *
+     * Her birimin `minLevel`i var (kışla/ahır 1-10); en iyi birim Lvl 10'da
+     * açılıyor. Arayüz kilitli birimin EĞİT düğmesini kapatıyor, ama tek
+     * doğruluk kaynağı burası: istemciye güvenilmez.
+     */
+    const gerekenSeviye = UNIT_DEFS[unitType]?.minLevel || 1;
+    if (b.level < gerekenSeviye) {
+      if (IS_DEV_ENTRY) {
+        console.warn(`[BİRİM RED] ${unitType}: ${buildingType} Lvl ${b.level}`
+          + `, gereken Lvl ${gerekenSeviye}`);
+      }
+      return;
+    }
     const q = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
     (v().unitQueues[buildingType] ||= []).push({ id: v().nextUnitOrderId++, type: unitType, total: q, remaining: q, waiting: true, startTime: null, endTime: null, workerReserved: false });
     dirty(); emit();

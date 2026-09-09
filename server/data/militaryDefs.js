@@ -65,6 +65,7 @@ const UNIT_DEFS = {
     name: 'Fjordvakt',
     category: 'piyade',
     trainedAt: 'kisla',
+    minLevel: 1,
     equipment: ['kilic'],
     stats: { saldiri: 30, yayaSav: 30, atliSav: 20, hiz: 7, kapasite: 50 }
   },
@@ -72,6 +73,7 @@ const UNIT_DEFS = {
     name: 'Skjoldvakt',
     category: 'piyade',
     trainedAt: 'kisla',
+    minLevel: 3,
     equipment: ['kilic', 'kalkan'],
     stats: { saldiri: 35, yayaSav: 55, atliSav: 35, hiz: 5, kapasite: 40 }
   },
@@ -79,6 +81,7 @@ const UNIT_DEFS = {
     name: 'Nordkamper',
     category: 'piyade',
     trainedAt: 'kisla',
+    minLevel: 7,
     equipment: ['kilic', 'zirh'],
     stats: { saldiri: 50, yayaSav: 35, atliSav: 25, hiz: 5, kapasite: 45 }
   },
@@ -86,6 +89,7 @@ const UNIT_DEFS = {
     name: 'Ulv Savaşçısı',
     category: 'piyade',
     trainedAt: 'kisla',
+    minLevel: 10,
     equipment: ['kilic', 'zirh', 'kalkan'],
     stats: { saldiri: 55, yayaSav: 60, atliSav: 40, hiz: 3, kapasite: 35 }
   },
@@ -93,6 +97,7 @@ const UNIT_DEFS = {
     name: 'Spydvakt',
     category: 'piyade',
     trainedAt: 'kisla',
+    minLevel: 1,
     equipment: ['mizrak'],
     stats: { saldiri: 10, yayaSav: 20, atliSav: 40, hiz: 8, kapasite: 55 }
   },
@@ -100,6 +105,7 @@ const UNIT_DEFS = {
     name: 'Isbjørn',
     category: 'piyade',
     trainedAt: 'kisla',
+    minLevel: 5,
     equipment: ['mizrak', 'zirh'],
     stats: { saldiri: 30, yayaSav: 25, atliSav: 45, hiz: 6, kapasite: 50 }
   },
@@ -109,6 +115,7 @@ const UNIT_DEFS = {
     name: 'Kuzey İzcisi',
     category: 'suvari',
     trainedAt: 'ahir',
+    minLevel: 1,
     equipment: ['at'],
     stats: { saldiri: 10, yayaSav: 30, atliSav: 30, hiz: 14, kapasite: 110 }
   },
@@ -116,6 +123,7 @@ const UNIT_DEFS = {
     name: 'Demir Atlı',
     category: 'suvari',
     trainedAt: 'ahir',
+    minLevel: 3,
     equipment: ['at', 'kilic'],
     stats: { saldiri: 40, yayaSav: 50, atliSav: 40, hiz: 11, kapasite: 100 }
   },
@@ -123,6 +131,7 @@ const UNIT_DEFS = {
     name: 'Skjoldreiter',
     category: 'suvari',
     trainedAt: 'ahir',
+    minLevel: 6,
     equipment: ['at', 'kilic', 'kalkan'],
     stats: { saldiri: 45, yayaSav: 75, atliSav: 55, hiz: 9, kapasite: 90 }
   },
@@ -130,6 +139,7 @@ const UNIT_DEFS = {
     name: 'Buz Süvarisi',
     category: 'suvari',
     trainedAt: 'ahir',
+    minLevel: 8,
     equipment: ['at', 'kilic', 'zirh'],
     stats: { saldiri: 60, yayaSav: 55, atliSav: 45, hiz: 9, kapasite: 95 }
   },
@@ -137,6 +147,7 @@ const UNIT_DEFS = {
     name: 'Jernridder',
     category: 'suvari',
     trainedAt: 'ahir',
+    minLevel: 10,
     equipment: ['at', 'kilic', 'kalkan', 'zirh'],
     stats: { saldiri: 65, yayaSav: 80, atliSav: 60, hiz: 7, kapasite: 85 }
   },
@@ -144,6 +155,7 @@ const UNIT_DEFS = {
     name: 'Vindreiter',
     category: 'suvari',
     trainedAt: 'ahir',
+    minLevel: 4,
     equipment: ['at', 'mizrak'],
     stats: { saldiri: 20, yayaSav: 40, atliSav: 60, hiz: 12, kapasite: 105 }
   },
@@ -151,6 +163,7 @@ const UNIT_DEFS = {
     name: 'Stormridder',
     category: 'suvari',
     trainedAt: 'ahir',
+    minLevel: 7,
     equipment: ['at', 'mizrak', 'zirh'],
     stats: { saldiri: 30, yayaSav: 45, atliSav: 65, hiz: 10, kapasite: 100 }
   },
@@ -160,6 +173,7 @@ const UNIT_DEFS = {
     name: 'Kale Kıran',
     category: 'kusatma',
     trainedAt: 'atolye',
+    minLevel: 1,
     equipment: ['koc_basi'],
     stats: { saldiri: 60, yayaSav: 30, atliSav: 75, hiz: 4, kapasite: 0 }
   },
@@ -167,6 +181,7 @@ const UNIT_DEFS = {
     name: 'Alev Mancınığı',
     category: 'kusatma',
     trainedAt: 'atolye',
+    minLevel: 10,
     equipment: ['mancinik'],
     stats: { saldiri: 75, yayaSav: 60, atliSav: 10, hiz: 3, kapasite: 0 }
   }

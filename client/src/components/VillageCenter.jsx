@@ -1196,6 +1196,8 @@ export default function VillageCenter({
               <div style={{ padding: '0 12px 10px', order: 1 }}>
                 <UnitTrainingPanel
                   buildingType={selectedBuilding.type}
+                  buildingLevel={selectedBuilding.level || 0}
+                  buildingName={VILLAGE_DEFS[selectedBuilding.type]?.name || 'Bina'}
                   unitsByBuilding={unitsByBuilding}
                   unitDefs={unitDefs}
                   equipmentDefs={equipmentDefs}
