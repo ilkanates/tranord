@@ -184,7 +184,7 @@ export function AnaBinaPanel({
               }}>
                 <Icon name="insaat" size={18} color={C.ice} className="tn-pulse" />
                 <div style={num({ fontSize: 22, color: C.frost, lineHeight: 1.2, marginTop: 3 })}>
-                  {anaBina.buildTimeLeft}<span style={{ fontSize: 11, color: C.textFaint }}>sn</span>
+                  {fmtTime(anaBina.buildTimeLeft)}
                 </div>
               </div>
               <button onClick={onCancelBuild} style={btn('danger', {

@@ -407,7 +407,7 @@ export default function BuildMenu({
             }}>
               <Icon name="insaat" size={18} color={C.ice} className="tn-pulse" />
               <div style={num({ fontSize: 22, color: C.frost, lineHeight: 1.2, marginTop: 3 })}>
-                {building.buildTimeLeft}<span style={{ fontSize: 11, color: C.textFaint }}>sn</span>
+                {fmtTime(building.buildTimeLeft)}
               </div>
               <div style={lbl({ fontSize: 7.5, marginTop: 2 })}>
                 {building.buildWorkers || 0} inşaat işçisi

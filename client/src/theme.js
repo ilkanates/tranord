@@ -170,11 +170,24 @@ export function signed(n, digits = 1) {
  * saniyeler bir saatin üstünde tamamen kayboluyordu. Tek biçim: 0:00:45,
  * 0:12:30, 3:20:05. Saat 24'ü aşabilir (1× ölçekte inşaatlar uzun sürüyor).
  */
+/**
+ * SÜRE — saat:dakika:saniye, sıfır dolgusu YOK.
+ *
+ * Eskiden her süre `0:00:07` gibi üç alanla yazılıyordu; 7 saniyelik bir iş
+ * için ekranın çoğu sıfırdı. Artık boş üst birimler hiç yazılmıyor ve
+ * hiçbir alan iki haneye doldurulmuyor:
+ *
+ *     98.355 sn → 27:19:15      1.155 sn → 19:15      7 sn → 7
+ *
+ * Gün YOK: 4 günlük bir iş 99:19:15 diye saat olarak yazılır (istenen bu).
+ */
 export function fmtTime(seconds) {
   if (!isFinite(seconds) || seconds <= 0) return '—';
   const t = Math.ceil(seconds);
   const h = Math.floor(t / 3600);
   const m = Math.floor((t % 3600) / 60);
   const s = t % 60;
-  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  if (h > 0) return `${h}:${m}:${s}`;
+  if (m > 0) return `${m}:${s}`;
+  return `${s}`;
 }
