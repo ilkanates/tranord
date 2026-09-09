@@ -4,7 +4,7 @@
  */
 import { memo, useState } from 'react';
 import { C, FONT, label as lbl, num, fmtTime } from '../theme';
-import { EQ_LABEL, RES_LABEL } from '../flows';
+import { EQ_LABEL, RES_LABEL, gameHoursToRealSeconds } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 
 // Ortak havuzu paylaşan türler (at ayrı: ahır deposu)
@@ -137,6 +137,7 @@ function StatusRail({
   equipmentPool = { capacity: 0, used: 0, free: 0 },
   buildQueue = [], onCancelBuild,
   army = {}, unitDefs = {}, tickMs = 1000,
+  populationPerHour = 0, hourSeconds = 3600, worldSpeed = 1,
 }) {
   const [tip, setTip] = useState(null);
 
@@ -153,7 +154,15 @@ function StatusRail({
   const popPct = maxPopulation > 0 ? population / maxPopulation : 0;
   const busy = Math.max(0, population - freeWorkers);
   const armyTot = Object.values(army).reduce((a, b) => a + (b || 0), 0);
-  const growSecs = (tickMs * 10) / 1000;
+  /**
+   * +1 nüfus için kalan gerçek süre. Eskiden `tickMs * 10 / 1000` idi —
+   * tick sayısına dayalı eski kuraldan kalmış, gerçek hızla ilgisi yoktu.
+   * Hız artık ana bina seviyesinden geliyor (sunucu populationPerHour
+   * gönderiyor) ve oyun saati → gerçek saniye çevirisi tek yerden.
+   */
+  const growSecs = populationPerHour > 0
+    ? gameHoursToRealSeconds(1 / populationPerHour, hourSeconds, worldSpeed)
+    : Infinity;
   const [fold, toggleFold] = useCollapse();
   const armyList = Object.entries(army).filter(([, n]) => n > 0);
 
@@ -184,7 +193,8 @@ function StatusRail({
               ? 'Açlık sürüyor: nüfus artmıyor ve kayıp veriyorsun. Fırına işçi ata.'
               : population >= maxPopulation
                 ? 'Nüfus tavanda. EV inşa ederek kapasiteyi +50/seviye artır.'
-                : `Her ${fmtTime(growSecs)} içinde +1 nüfus.`,
+                : `+${populationPerHour.toFixed(1)} nüfus/saat (ana bina seviyesi)`
+                  + ` — her ${fmtTime(growSecs)} içinde 1 kişi. Tavanı EV belirler.`,
           })}
           onMouseMove={(e) => tip && place(e, tip)}
           onMouseLeave={() => setTip(null)}

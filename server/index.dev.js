@@ -23,6 +23,9 @@ Module._load = function (request, parent, isMain) {
 // Bu giriş noktası TANIMI GEREĞİ yerel geliştirme: makinede global bir
 // DATABASE_URL/NODE_ENV olsa bile sunucu kendini üretim sanmasın (bkz. env.js).
 process.env.TRANORD_DEV = '1';
+// Dev girişinde test kolaylıkları açık: dev_grant (ordu/kaynak) ve dev_setup
+// (depoları yükselt + doldur). Üretim girişinde (index.js) tanımlanmaz.
+process.env.TRANORD_DEV_CHEATS ||= '1';
 process.env.JWT_SECRET ||= 'tranord-local-dev-secret';
 process.env.PORT       ||= '3311';
 

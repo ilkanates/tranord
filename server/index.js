@@ -83,7 +83,25 @@ const socketToUser  = new Map();
 
 const DEFAULT_TICK_MS = 1000;
 /** Aç değilken ve tavan altındayken saatte kaç kişi katılır */
-const POP_PER_GAME_HOUR = 1;
+/**
+ * NÜFUS ARTIŞ HIZI — ANA BİNA SEVİYESİNE BAĞLI.
+ *
+ * Eskiden sabit 1 kişi/oyun saatiydi; ana binayı yükseltmenin nüfusa hiçbir
+ * etkisi yoktu. Artık hız ana binadan gelir, TAVAN ise evlerden (bkz.
+ * maxPopulation). Yani ana bina "ne kadar hızlı büyürüm", ev "ne kadar
+ * büyüyebilirim" sorusunu cevaplıyor.
+ *
+ * Lvl 1'de eski hızın aynısı (1/saat = 24/gün), her seviye +0.6:
+ *   lvl 1 → 1.0/sa   lvl 5 → 3.4/sa   lvl 10 → 6.4/sa   lvl 11 → 7.0/sa
+ */
+const POP_PER_HOUR_BASE = 1.0;
+const POP_PER_HOUR_STEP = 0.6;
+
+function popPerGameHour(anaBinaLevel) {
+  const lv = Math.max(0, Math.floor(anaBinaLevel || 0));
+  if (lv < 1) return 0;                       // ana bina yoksa büyüme yok
+  return POP_PER_HOUR_BASE + (lv - 1) * POP_PER_HOUR_STEP;
+}
 /**
  * En küçük tick aralığı = en yüksek hız. 1000/7,8125 = 128× (üst bardaki
  * çubuğun son kademesi). Eskiden 100 ms idi ve çubuk 10×'te sessizce
@@ -105,12 +123,29 @@ function getVillageBuildMinutes(type, level, workers) {
 }
 const getVillageBuildSeconds = getVillageBuildMinutes;   // geriye dönük ad
 
+/**
+ * YÜKSELTME MALİYETİ — HER SEVİYE İÇİN.
+ *
+ * Eskiden yalnızca `upgradeCostBase` tanımlı binalar ücret alıyordu ve o alan
+ * SADECE anaBina'da vardı: diğer 27 bina Lvl 1'den sonra BEDAVA yükseliyordu.
+ * Artık taban yok ise binanın İNŞA maliyeti taban kabul edilir, yani her
+ * binanın her seviye artışının bir bedeli var.
+ *
+ * Maliyet = taban × çarpan^(mevcut seviye - 1). Çarpan bina tanımında
+ * verilmezse UPGRADE_MULT_DEFAULT. 1.25 seçildi: Lvl 10'da ~7.5×, Lvl 20'de
+ * ~73× taban — depo kapasitesinin (seviye × 500) ulaşabileceği aralıkta kalır.
+ * anaBina kendi çarpanını (1.7) korur, dengesi elle ayarlanmış.
+ */
+const UPGRADE_MULT_DEFAULT = 1.25;
+
 function getScaledUpgradeCost(type, currentLevel) {
   const def = VILLAGE_DEFS[type];
-  if (!def?.upgradeCostBase) return null;
-  const mult = Math.pow(def.upgradeCostMultiplier || 1.5, currentLevel - 1);
+  const base = def?.upgradeCostBase || def?.cost;
+  if (!base) return null;
+  const mult = Math.pow(def.upgradeCostMultiplier || UPGRADE_MULT_DEFAULT,
+    Math.max(0, currentLevel - 1));
   return Object.fromEntries(
-    Object.entries(def.upgradeCostBase).map(([k, v]) => [k, Math.round(v * mult)])
+    Object.entries(base).map(([k, v]) => [k, Math.round(v * mult)])
   );
 }
 
@@ -362,6 +397,8 @@ function buildPayload(village, tickMs, opts = {}) {
     },
     productionPerHour, depotCapacities, granaryCapacity, processingRates,
     populationGrowthRate: village.population < village.maxPopulation ? 1 : 0,
+    // Gerçek artış hızı — arayüz "+X/sa" ve "+1 nüfus için kalan süre" gösteriyor
+    populationPerHour: popPerGameHour(village.villageBuildings['0,0']?.level),
     isStarving: !!village.isStarving, starveCounter: village.starveCounter || 0,
     consumption, tickMs, tickMsRange: { min: MIN_TICK_MS, max: MAX_TICK_MS, default: DEFAULT_TICK_MS },
     // İstemci kaynakları iki yayın ARASINDA kendisi ilerletiyor; bunun için
@@ -501,11 +538,11 @@ function runTickForUser(userId, session) {
   village.maxPopulation = 50 + evBuildings.reduce((sum, b) => sum + 50 * b.level, 0);
   village.tickCount++;
   /**
-   * NÜFUS: saat başına POP_PER_GAME_HOUR kişi (aç değilken ve tavanın altında).
-   * Eskiden "her 10 tick'te 1" idi; tick artık 1/3600 oyun saati işlediği için
-   * o kural saniyede bir nüfus demeye gelirdi.
+   * NÜFUS: hız ana bina seviyesinden gelir (popPerGameHour), tavan evlerden.
+   * Aç olan ya da tavana dayanmış köy büyümez.
    */
-  village.popAccum = (village.popAccum || 0) + GT.HOURS_PER_TICK * POP_PER_GAME_HOUR;
+  const popRate = popPerGameHour(village.villageBuildings['0,0']?.level);
+  village.popAccum = (village.popAccum || 0) + GT.HOURS_PER_TICK * popRate;
   while (village.popAccum >= 1) {
     village.popAccum -= 1;
     if (village.isStarving || village.population >= village.maxPopulation) break;
@@ -822,6 +859,7 @@ function markUserDirty(userId) {
   if (s) s.dirty = true;
 }
 
+/** Eve varışta depoya ne sığar — fazlası çöp olur (bkz. depositLoot) */
 function lootRoom(village) {
   const { caps, granaryCap } = getStorageCaps(village);
   const foodHeld = (village.resources.un || 0) + (village.resources.ekmek || 0);
@@ -1530,6 +1568,69 @@ io.on('connection', async socket => {
       }
       dirty(); emit();
       console.log(`[DEV] ${userEmail} ordu +${added}`);
+    });
+
+    /**
+     * TEST KURULUMU — depoları belirtilen seviyeye çıkarıp tam doldurur.
+     *
+     * Amaç: oyunu denemek için kaynak biriktirmeyi beklememek. Eskiden bunun
+     * tek yolu sunucuyu kapatıp kayıt dosyasını elle yamalamaktı; sunucu
+     * açıkken yamalanan dosyayı bellekteki durum geri yazıyordu.
+     *
+     * Depo binası yoksa boş bir hex'e KURULUR; varsa seviyesi yükseltilir.
+     * Ücret alınmaz, süre beklenmez — kasten, bu bir test kolaylığı.
+     */
+    socket.on('dev_setup', ({ level = 10, fill = true } = {}) => {
+      const village = v();
+      const lv = Math.max(1, Math.min(20, Math.floor(Number(level) || 10)));
+      const STORAGE = ['hammaddeDepo', 'islenmisMalDepo', 'tahilAmbar', 'granary'];
+
+      /**
+       * Boş hex slotları. Sunucu ayrı bir slot listesi tutmuyor (canBuildAt
+       * yalnızca "dolu mu" diye bakıyor), o yüzden istemcinin yerleşim
+       * halkaları burada üretiliyor: merkez + halka 1..3 = 37 hücre.
+       */
+      const free = [];
+      for (let q = -3; q <= 3; q++) {
+        for (let r = -3; r <= 3; r++) {
+          const ring = (Math.abs(q) + Math.abs(q + r) + Math.abs(r)) / 2;
+          if (ring < 1 || ring > 3) continue;          // merkez ve dışı atla
+          const key = `${q},${r}`;
+          if (!village.villageBuildings[key]) free.push({ key, ring });
+        }
+      }
+      // İç halkalar önce: depolar en dış kenara tek sıra dizilmesin
+      free.sort((a, b) => a.ring - b.ring || a.key.localeCompare(b.key));
+
+      const kurulan = [];
+      for (const type of STORAGE) {
+        let entry = Object.entries(village.villageBuildings)
+          .find(([, b]) => b.type === type);
+        if (!entry) {
+          const spot = free.shift();
+          if (!spot) { console.warn(`[DEV] boş hex kalmadı, ${type} kurulamadı`); continue; }
+          const key = spot.key;
+          village.villageBuildings[key] = { type, level: lv, workers: 0 };
+          kurulan.push(`${type}@${key} yeni lvl${lv}`);
+        } else {
+          const [, b] = entry;
+          b.level = Math.max(b.level, lv);
+          delete b.building; delete b.buildEndTime; delete b.buildWorkers;
+          kurulan.push(`${type} lvl${b.level}`);
+        }
+      }
+
+      if (fill) {
+        const { caps, granaryCap } = getStorageCaps(village);
+        for (const [res, cap] of Object.entries(caps)) village.resources[res] = cap;
+        // Un ve ekmek ORTAK ambarı paylaşıyor — tavanı ikiye böl
+        village.resources.un = Math.floor(granaryCap / 2);
+        village.resources.ekmek = granaryCap - village.resources.un;
+      }
+
+      dirty(); emit();
+      console.log(`[DEV] ${userEmail} test kurulumu: ${kurulan.join(' · ')}`
+        + (fill ? ' · depolar dolduruldu' : ''));
     });
   }
 

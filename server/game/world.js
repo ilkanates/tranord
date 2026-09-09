@@ -10,7 +10,21 @@
  * DB'de yalnızca köy durumları saklanır.
  */
 
-const WORLD_RADIUS  = 60;    // 3*60*61+1 = 10.981 hex
+/**
+ * DÜNYA YARIÇAPI 60 → 134.
+ *
+ * Amaç: NPC sayısı aynı (200) kalırken köyler birbirinden uzaklaşsın ve
+ * ikinci/üçüncü köyler için boş slot kalsın. Ölçüm:
+ *   R= 60 →   332 slot, 200 NPC = %60 doluluk (yer yok)
+ *   R=134 → 1.729 slot, 200 NPC = %12 doluluk (1.529 boş slot)
+ * NPC'lerin merkeze ortalama uzaklığı 40 → 89 halkaya çıkıyor.
+ *
+ * Yarıçap ×5 (R=300, 9.006 slot) denendi ama uzak zoom arazi çizimi dünyanın
+ * TAMAMINI tek seferde boyuyor: 53.837 hex ≈ 320.000 çizgi parçası, her
+ * pan'de yeniden. Kaydırma takılıyordu. Görüş alanına göre parçalı çizim
+ * yazılmadan R=300'e çıkılmamalı.
+ */
+const WORLD_RADIUS  = 134;   // 3*134*135+1 = 54.271 hex
 const CLAIM_RADIUS  = 2;     // köyün sahip olduğu halka (18 tarla)
 const MIN_DISTANCE  = 6;     // köy merkezleri arası min mesafe (2+2+1 tampon)
 const NPC_TARGET    = 200;
@@ -62,11 +76,17 @@ function fieldMultiplier(worldQ, worldR, localQ, localR, buildingType) {
 }
 
 // ── Kademe: merkeze yakın zayıf, uzak güçlü (yarıçap 60'a göre) ─────
+/**
+ * Kademe halkaları YARIÇAPLA BİRLİKTE ölçeklenir (eski değerler × 134/60).
+ * Ölçeklenmezse dünya büyüyünce NPC'lerin neredeyse tamamı en dış kademeye
+ * düşüyor — ölçüldü: 200 NPC'nin 170'i "Konak" (en güçlü) oluyordu, oyunun
+ * başı imkânsız hâle geliyordu. Ölçekli hâlde dağılım eskisiyle aynı kalıyor.
+ */
 const TIERS = [
-  { tier: 1, maxRing: 15,  label: 'Çiftlik',   power: 0.10 },
-  { tier: 2, maxRing: 27,  label: 'Kasaba',    power: 0.28 },
-  { tier: 3, maxRing: 39,  label: 'Kale',      power: 0.52 },
-  { tier: 4, maxRing: 51,  label: 'Jarl Köyü', power: 0.78 },
+  { tier: 1, maxRing: 34,  label: 'Çiftlik',   power: 0.10 },
+  { tier: 2, maxRing: 60,  label: 'Kasaba',    power: 0.28 },
+  { tier: 3, maxRing: 87,  label: 'Kale',      power: 0.52 },
+  { tier: 4, maxRing: 114, label: 'Jarl Köyü', power: 0.78 },
   { tier: 5, maxRing: 999, label: 'Konak',     power: 1.00 },
 ];
 const tierForRing = (ring) => TIERS.find(t => ring <= t.maxRing) || TIERS[TIERS.length - 1];

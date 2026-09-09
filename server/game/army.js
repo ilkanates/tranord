@@ -164,6 +164,14 @@ function applyLossesToVillage(village, losses) {
  * Hedefin deposundan ganimet al. Kapasiteye kadar, mevcut olanlarla
  * ORANTILI dağıtılır — böylece tek kaynak süpürülmez.
  */
+/**
+ * Ganimet — YALNIZCA taşıma kapasitesine göre alınır.
+ *
+ * Saldırganın deposunda yer olup olmadığına bakılmaz: ordu ne taşıyabiliyorsa
+ * onu yükler. Eve varışta depoya sığmayan kısım ÇÖP OLUR (bkz. depositLoot),
+ * ve kaybedilen miktar rapora `lootLost` olarak yazılır — oyuncu ne kadarının
+ * ziyan olduğunu görür. Bu bilinçli bir tercih: depo yönetmek oyunun parçası.
+ */
 function takeLoot(target, capacity, mode) {
   const loot = {};
   if (!(capacity > 0)) return loot;

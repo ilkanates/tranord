@@ -12,18 +12,6 @@ Sıralama önem sırasına göre. Her madde bitince **Tamamlandı** bölümüne 
 - Bazı köylerde ekmek üretimi tüketimin altında ve hiç toparlanmıyor; NPC'ler sonsuz açlıkta kalıyor.
 - Nüfus/asker/at tüketimi ile fırın kapasitesi arasındaki denge gözden geçirilecek.
 
-### 2. Nüfus artışı yok
-- `StatusRail` "Her X içinde +1 nüfus" yazıyor ama sunucuda nüfusu artıran **hiçbir kod yok**.
-- Nüfus sadece asker eğitiminde (işçi → asker) ve dev-cheat ile değişiyor.
-- Karar gerekiyor: ev seviyesine bağlı artış hızı mı, tahıl fazlasına bağlı mı?
-
-### 3. Bayat NPC kayıtları
-- Veritabanında 278 NPC kaydı artık hiçbir slota bağlı değil (dünya yeniden tohumlanınca kalmış).
-- Temizlik betiği yazılacak; `.dev-data.json` boyutu da düşer.
-
-### 4. Ganimet boş depo kadar sınırlanmalı
-- Şu an ganimet hedefin deposundan alınıyor ama saldırganın boş depo yeri kontrol edilmiyor — taşma oluyor.
-
 ---
 
 ## 🟠 Büyük iş: Çoklu köy ve genişleme
@@ -80,7 +68,7 @@ Yapılacaklar:
 
 ### 6. Ayarlar menüsü ve ses
 - **Ayarlar menüsü** eklenmeli (üst barda dişli ikonu).
-- **Arka plan müziği** — açık/kapalı + ses seviyesi.
+- ~~**Arka plan müziği**~~ — yapıldı: `client/src/audio.js` + üst bardaki müzik düğmesi (aç/kapa, ses seviyesi, sıradaki parça). Ayarlar menüsü gelince oraya taşınmalı.
 - **Olay sesleri** — her biri tek tek açılıp kapanabilir ve seviyesi ayarlanabilir olmalı:
   - saldırı geldiğinde / saldırı sonucu
   - bina inşası bittiğinde
@@ -156,6 +144,40 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Savunma bonusu tavanı %150**: paylar doğrudan veriliyor — sur maks **%80**, hendek **%35**, altı kule lvl20 tam kadro **%35**. Üçü aynı eğriden ölçekleniyor (`curveTo`); `combat.js` ayrıca sert üst sınır uyguluyor.
 - **Kule bonusu okçu dolulukla ölçekli**: boş kule %0 katkı, tam kadro seviye bonusunun tamamı. Kule başına kapasite = seviye × 4 okçu.
 - Sur ve hendekten "işçi" ibaresi tamamen kalktı (personel almıyorlar); kulede personelin adı **okçu**.
+
+### Dünya büyütüldü ve sıfırlandı (Eylül 2026)
+- Yarıçap **60 → 134**. NPC sayısı aynı (200) kaldı, köyler birbirinden uzaklaştı: slot 332 → **1.729**, doluluk %60 → **%12**, NPC'lerin merkeze ortalama uzaklığı 40 → **89 halka**. İkinci/üçüncü köyler için **1.528 boş slot** var.
+- Kademe halkaları yarıçapla birlikte ölçeklendi (×134/60). Ölçeklenmezse 200 NPC'nin **170'i** en güçlü kademeye ("Konak") düşüyordu — ölçüldü; ölçekli hâlde dağılım eskisiyle aynı (12/29/46/62/51).
+- Yarıçap ×5 (R=300, 9.006 slot) denendi ama **uzak zoom arazi çizimi** dünyanın tamamını tek seferde boyuyor: 53.837 hex ≈ 320.000 çizgi parçası, her pan'de yeniden — kaydırma takılıyor. R=300'e çıkmadan önce görüş alanına göre parçalı çizim yazılmalı.
+- Dünya **sıfırdan tohumlandı** (kullanıcı kararı: her şey silinsin, hesaplar korundu). Bu aynı zamanda 191 bayat NPC kaydını da temizledi: `.dev-data.json` 1.690 KB → **705 KB**, bayat kayıt **0**.
+- Sıfırlama öncesi yedek: `server/.dev-data.YEDEK-*.json` (gitignore kapsamında).
+- İlk tohumlama 11.5 sn sürüyor (200 NPC × yaş simülasyonu); sonraki açılışlar kayıttan okuyor.
+
+### Ganimet kuralı netleşti (Eylül 2026)
+- **Karar:** ganimet yalnızca taşıma kapasitesine göre alınır; saldırganın deposunda yer olup olmadığına BAKILMAZ. Eve varışta sığmayan kısım **çöp olur**. Depo yönetmek oyunun parçası.
+- Kaybedilen miktar rapora `lootLost` olarak yazılıyor ve rapor ekranında "deponun yeri yetmediği için X ziyan oldu" diye görünüyor — bu zaten vardı.
+- Boş depoya göre sınırlama denendi, sonra bu karar üzerine geri alındı.
+
+### Yükseltme maliyeti her seviye için (Eylül 2026)
+- 21 binada yükseltme **bedavaydı**: sunucu yalnızca `upgradeCostBase` tanımlıysa ücret alıyordu, o alan da sadece 7 binada vardı. Artık taban yoksa binanın **inşa maliyeti** taban kabul ediliyor — her binanın her seviye artışının bedeli var.
+- Maliyet = taban × çarpan^(seviye−1). Öntanımlı çarpan **1.25** (Lvl 10'da ~7.5×, Lvl 20'de ~73×); kendi çarpanı olan 7 bina (anaBina 1.7, askeri binalar 1.6–1.7) korundu.
+- **İki tanım dosyası birbirinden ayrılmıştı**: 6 askeri binada (zırhçı, silahçı, ahır, kışla, atölye, cephanelik) sunucu maliyet alıyor ama istemcide o alan yoktu — oyuncu "bedava" görürken kaynak düşüyordu. Senkronlandı; 28 bina × 20 seviye = 560 vakada istemci ile sunucu tam eşleşiyor.
+- `BuildMenu` kendi formülünü kullanıyordu ve `Math.ceil` ile hesaplıyordu (sunucu `Math.round`) — ekranda 1 fazla gösterebiliyordu. Tek kaynağa çekildi: `villageDefs.upgradeCostAt`.
+- Yardım sayfasındaki tablo artık **her seviye** için maliyet + süre (1/3/10 işçi) satırı gösteriyor.
+
+### Yardım / ansiklopedi ekranı (Eylül 2026)
+- Yeni sekme **Yardım**: 28 köy binası, 5 üretim alanı, bütün birlikler ve ekipman — aramalı liste + detay sayfası.
+- İçerik ELLE YAZILMIYOR: bütün sayılar `villageDefs`, `buildingDefs` ve payload'daki `unitDefs`/`equipmentDefs`'ten türetiliyor. Dengeyi kodda değiştirince sayfa kendiliğinden güncelleniyor.
+- Her sayfada: kategori, maksimum seviye, köyde kaç tane, işçi kapasitesi, inşa/yükseltme maliyeti, seviye başına süre tablosu (1/3/10 işçi), üretim oranları, depo kapasitesi, bonus tabloları.
+- Bina panelinde **"?" düğmesi** → o binanın yardım sayfasına derin bağlantı (hem poster hem sade başlıkta).
+- Süreler tek zaman çeviriciden geçiyor, hız kaydırıcısıyla birlikte değişiyor.
+- Gerçek render testi: **53/53 sayfa** sorunsuz basıldı, içerik değerleri örneklemeyle doğrulandı.
+
+### Nüfus artışı ana binaya bağlandı (Eylül 2026)
+- Artış hızı **ana bina seviyesinden** gelir, tavanı **ev** belirler. Eskiden sabit 1 kişi/oyun saatiydi; ana binayı yükseltmenin nüfusa etkisi yoktu.
+- `popPerGameHour(lv) = 1.0 + (lv-1) × 0.6` → lvl 1: 1/sa (24/gün), lvl 10: 6.4/sa (154/gün), lvl 11: 7/sa.
+- Aç ya da tavana dayanmış köy büyümez (eskisi gibi).
+- `StatusRail`'deki "+1 nüfus için kalan süre" düzeltildi: `tickMs × 10 / 1000` idi, tick sayısına dayalı eski kuraldan kalmıştı ve gerçek hızla ilgisi yoktu. Artık sunucunun `populationPerHour` değeri + tek zaman çevirici.
 
 ### `[STARVE]` log seli kesildi (Eylül 2026)
 - Kök neden: `quiet: true` yalnızca `seedNpcVillage`'da atanıyor ve kayda yazılmıyordu; kayıttan yüklenen 200 NPC konuşkan dönüyordu.

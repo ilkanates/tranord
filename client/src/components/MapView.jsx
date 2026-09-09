@@ -1018,7 +1018,7 @@ export default function MapView({
   // Kırpma penceresi S adımlarına yuvarlanır → küçük pan'lerde liste değişmez
   const cullX = Math.round(pan.x / S) * S;
   const cullY = Math.round(pan.y / S) * S;
-  const radius = snap?.radius || 60;
+  const radius = snap?.radius || 134;
 
   const wildHexes = useMemo(
     () => computeWild({ w: size.w, h: size.h, scale, pan, myClaim, tileOwners, radius }),
@@ -1157,7 +1157,7 @@ export default function MapView({
         err: Math.round(Math.hypot(e.clientX - sx, e.clientY - sy)),
       });
     }
-    if (myClaim.has(key) || hexDistance(q, r) > (snap?.radius || 60)) { setHoverWild(null); return; }
+    if (myClaim.has(key) || hexDistance(q, r) > (snap?.radius || 134)) { setHoverWild(null); return; }
     setHoverWild(prev => (prev === key ? prev : key));
   }, [scale, pan.x, pan.y, size.w, size.h, myClaim, snap?.radius, dbg]);
 
