@@ -103,16 +103,16 @@ const VILLAGE_DEFS = {
   },
   degirmen: { cpPerLevel:1,
     name:'Değirmen', category:'isleme', icon:'⚙️',
-    description:'Tahılı una öğütür. 1 işçi: 10 tahıl -> 8 un/sa.',
+    description:'Tahılı una öğütür. 1 işçi: 30 tahıl -> 24 un/sa.',
     unique:true, maxLevel:20, workersPerLevel:3,
-    processes:{ input:'tahil', inputPerHour:10, output:'un', outputPerHour:8 },
+    processes:{ input:'tahil', inputPerHour:30, output:'un', outputPerHour:24 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:90, tas:30 }
   },
   firin: { cpPerLevel:1,
     name:'Fırın', category:'isleme', icon:'🔥',
-    description:'Unu ekmek hâline getirir. 1 işçi: 8 un -> 6 ekmek/sa.',
+    description:'Unu ekmek hâline getirir. 1 işçi: 24 un -> 18 ekmek/sa.',
     unique:true, maxLevel:20, workersPerLevel:3,
-    processes:{ input:'un', inputPerHour:8, output:'ekmek', outputPerHour:6 },
+    processes:{ input:'un', inputPerHour:24, output:'ekmek', outputPerHour:18 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:60, kil:40 }
   },
 
