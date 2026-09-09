@@ -1858,6 +1858,7 @@ io.on('connection', async socket => {
         if (village.resources[k] != null) village.resources[k] += Math.floor(Number(n) || 0);
       }
       dirty(); emit();
+      socket.emit('dev_result', { ok: true, message: `Ordu +${added} asker` });
       console.log(`[DEV] ${userEmail} ordu +${added}`);
     });
 
@@ -1920,6 +1921,8 @@ io.on('connection', async socket => {
       }
 
       dirty(); emit();
+      socket.emit('dev_result', { ok: true, message: `Depolar Lvl ${lv}`
+        + (fill ? ' ve dolu' : '') });
       console.log(`[DEV] ${userEmail} test kurulumu: ${kurulan.join(' · ')}`
         + (fill ? ' · depolar dolduruldu' : ''));
     });
@@ -1943,6 +1946,7 @@ io.on('connection', async socket => {
         if (d < bestD) { bestD = d; best = sl; }
       }
       if (!best) {
+        socket.emit('dev_result', { ok: false, message: 'Boş dünya slotu kalmadı' });
         console.warn(`[DEV] ${userEmail} boş slot bulunamadı, köy kurulamadı`);
         return;
       }
@@ -1967,6 +1971,8 @@ io.on('connection', async socket => {
       emitVillage(session, { force: true, statics: true });
       try { socket.emit('world_snapshot', worldSnapshot(userId, session.activeSlot)); }
       catch { /* harita yenilenmezse oyuncu kendisi açar */ }
+      socket.emit('dev_result', { ok: true,
+        message: `${best.name} (${best.key}) kuruldu — ${session.villages.size} köy` });
       console.log(`[DEV] ${userEmail} yeni köy ${best.key} (${best.name},`
         + ` merkezden ${bestD} hex) — toplam ${session.villages.size} köy`);
     });

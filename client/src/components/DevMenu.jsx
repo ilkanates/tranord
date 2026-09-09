@@ -40,7 +40,28 @@ const ITEMS = [
 
 export default function DevMenu({ socket }) {
   const [open, setOpen] = useState(false);
+  /**
+   * Son sonuç. Eskiden tuşa basınca HİÇBİR geri bildirim yoktu: sunucu eski
+   * kodla çalışıyorsa (olay tanımlı değil) tık boşa gidiyor ve oyuncu neden
+   * olmadığını anlamıyordu. Artık sunucu her kısayolda `dev_result` yolluyor;
+   * 3 saniyede yanıt gelmezse bunu ayrıca söylüyoruz.
+   */
+  const [sonuc, setSonuc] = useState(null);   // { ok, message } | { bekliyor } | { sessiz }
   const boxRef = useRef(null);
+  const zamanRef = useRef(null);
+
+  // Sunucu yanıtı
+  useEffect(() => {
+    if (!socket) return;
+    const gelen = (r) => {
+      clearTimeout(zamanRef.current);
+      setSonuc({ ok: r?.ok !== false, message: r?.message || (r?.ok === false ? 'başarısız' : 'tamam') });
+    };
+    socket.on('dev_result', gelen);
+    return () => socket.off('dev_result', gelen);
+  }, [socket]);
+
+  useEffect(() => () => clearTimeout(zamanRef.current), []);
 
   // Dışına tıklanınca kapan
   useEffect(() => {
@@ -54,7 +75,15 @@ export default function DevMenu({ socket }) {
 
   const calistir = (item) => {
     socket.emit(item.emit[0], item.emit[1]);
-    setOpen(false);
+    setSonuc({ bekliyor: true, message: item.label + '…' });
+    clearTimeout(zamanRef.current);
+    // Yanıt gelmiyorsa sebebi neredeyse her zaman aynı: sunucu bu olayı
+    // tanımayan eski sürümle çalışıyor ya da dev kısayolları kapalı.
+    zamanRef.current = setTimeout(() => setSonuc({
+      ok: false,
+      message: 'Sunucu yanıt vermedi. Sunucu eski kodla mı çalışıyor? '
+        + '(yeniden başlat) — TRANORD_DEV_CHEATS=1 gerekiyor.',
+    }), 3000);
   };
 
   const SARI = '#e0b357';
@@ -118,9 +147,14 @@ export default function DevMenu({ socket }) {
 
           <div style={{
             padding: '5px 7px 2px', fontFamily: FONT.ui, fontSize: 8.5,
-            color: C.textFaint, lineHeight: 1.45,
+            color: sonuc
+              ? (sonuc.bekliyor ? C.textDim : (sonuc.ok ? C.good : C.danger))
+              : C.textFaint,
+            lineHeight: 1.45,
           }}>
-            Kural tanımaz kısayollar. Sunucuda TRANORD_DEV_CHEATS=1 gerekiyor.
+            {sonuc
+              ? (sonuc.bekliyor ? sonuc.message : (sonuc.ok ? '✓ ' : '✕ ') + sonuc.message)
+              : 'Kural tanımaz kısayollar. Sunucuda TRANORD_DEV_CHEATS=1 gerekiyor.'}
           </div>
         </div>
       )}
