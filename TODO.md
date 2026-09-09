@@ -141,6 +141,13 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Kısıt artık TAHIL (Eylül 2026)
+- İstek: "kısıt tahıl olmalı, un ya da ekmek değil." Karar: zincir aynen kalsın (asker de ekmek yesin), ama **değirmen/fırın tarlaların verebileceğinden fazlasını işleyebilsin** — yoksa darboğaz zincir olur, tahıl değil.
+- Ölçüm: 16 tahıl tarlası Lvl 20 tam kadro = **5.120 tahıl/sa**. Değirmen 60 işçiyle bunu öğütebilmeli → işçi başına ≥86 tahıl. Girdi 30 → 1.800/sa (zincir tıkar), 60 → 3.600/sa (yine tıkar), **90 → 5.400/sa (tarlaları geçer)**.
+- Yeni: değirmen `90 tahıl → 72 un`, fırın `72 un → 54 ekmek`. Zincir sonu 3.240 ekmek/sa, kapasitesi 5.400 tahıl/sa > tarla tavanı 5.120.
+- Doğrulama (gerçek motor, 5.550 nüfus, 16 tahıl tarlası, 24 oyun saati): 1.000 asker → açlık yok, tahıl 51k birikiyor; 9.000 asker → açlık yok; 15.000 asker → 2. saatte açlık ve **tahıl sıfıra iniyor** (un/ekmek birikmiyor), yani darboğaz tahıl üretimi.
+- Bu köyün besleyebildiği ordu ~9.500 asker. 50k hedefi tek köyle mümkün değil — takviye (başka köyden asker gönderip burada besleme) geldiğinde besleyen köyün tahılı belirleyici olacak.
+
 ### Depo kapasitesi ve çoklu depo (Eylül 2026)
 - **Ölçüt:** Lvl 20 tek depo ≈ **1 günlük tam üretim** tutsun.
 - Yeni tavanlar (Lvl 20, tek depo): hammadde **31.500** (eski 10.500), işlenmiş **25.200** (8.400), tahıl ambarı **126.000** (21.000), granary/un+ekmek **26.250** (5.250). Dayanak: 4 odun tarlası Lvl 20 günde 26.880; işleme binası günde 8.640; 16 tahıl tarlası günde 122.880; fırın günde 25.920.
