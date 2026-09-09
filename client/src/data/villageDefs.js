@@ -189,10 +189,11 @@ const VILLAGE_DEFS = {
   },
   saray: {
     name:'Saray', category:'yonetim', icon:'👑',
-    description:'YALNIZ merkez köye kurulur. Lvl 10, 15 ve 20\'de birer yeni köy hakkı verir. Göçmen burada da eğitilir. Köşkle birlikte olamaz.',
+    description:'Oyuncunun YALNIZ BİR köyünde olabilir. Lvl 10, 15 ve 20\'de birer yeni köy hakkı verir. Göçmen burada da eğitilir. İçinden "bu köyü merkez yap" denilebilir. Köşkle birlikte olamaz.',
     unique:true, maxLevel:20, cpPerLevel:4,
     expansionAt:[10, 15, 20], trainsSettlers:true, excludes:'kosk',
-    capitalOnly:true,
+    // Oyuncu capinda tek: baska koye kurmak icin once buradaki yikilmali.
+    oncePerPlayer:true, canSetCapital:true,
     buildBaseWork:60, buildMultiplier:1.9,
     upgradeCostBase:{ kereste:200, tugla:180, yontmaTas:150, demirKulce:100 },
     upgradeCostMultiplier:1.7,

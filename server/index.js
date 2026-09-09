@@ -128,6 +128,24 @@ function totalCulturePoints(session) {
   return cp;
 }
 
+/**
+ * Oyuncu çapında tek olabilen binalar (şu an yalnız saray) hangi köyde?
+ * Boşsa null döner, yani "hiçbir köyde yok, kurulabilir".
+ */
+function uniqueOwnersOf(session) {
+  const tekler = Object.entries(VILLAGE_DEFS)
+    .filter(([, d]) => d.oncePerPlayer).map(([k]) => k);
+  if (!tekler.length) return {};
+  const out = {};
+  for (const t of tekler) {
+    out[t] = null;
+    for (const [slotKey, v] of session.villages) {
+      if (Object.values(v.villageBuildings || {}).some(b => b.type === t)) { out[t] = slotKey; break; }
+    }
+  }
+  return out;
+}
+
 /** Arayüzdeki köy değiştirici için hafif liste */
 function villageList(session) {
   const out = [];
@@ -238,7 +256,7 @@ function slotKind(village, slotKey) {
   return 'hex';
 }
 
-function canBuildAt(village, slotKey, buildingType) {
+function canBuildAt(village, slotKey, buildingType, otherVillages = null) {
   if (slotKey === '0,0') return false;
   if (village.villageBuildings[slotKey]) return false;
   const def = VILLAGE_DEFS[buildingType];
@@ -252,19 +270,70 @@ function canBuildAt(village, slotKey, buildingType) {
   if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) return false;
 
   /**
-   * YÖNETİM BİNALARI (Travian kuralı):
-   *  • Saray YALNIZ merkez köye kurulur.
+   * YÖNETİM BİNALARI:
+   *  • Saray oyuncunun YALNIZ BİR köyünde olabilir (`oncePerPlayer`). Merkez
+   *    köy şartı YOK: saray hangi köyde kuruluysa oradan "bu köyü merkez yap"
+   *    denilebiliyor. Başka köye taşımak için önce mevcut saray yıkılmalı.
    *  • Köşk ve saray aynı köyde bir arada olamaz.
-   * Çoklu köy mimarisi gelene kadar tek köy zaten merkezdir (isCapital
-   * tanımsızsa merkez sayılır), yani saray şimdilik kurulabilir.
    */
-  if (def.capitalOnly && village.isCapital === false) return false;
+  if (def.oncePerPlayer && otherVillages) {
+    for (const [k, other] of otherVillages) {
+      if (other === village) continue;
+      if (Object.values(other.villageBuildings || {}).some(b => b.type === buildingType)) return false;
+    }
+  }
   if (def.excludes
     && Object.values(village.villageBuildings).some(b => b.type === def.excludes)) return false;
   const maxKule = VILLAGE_DEFS.kule?.maxInstances || TOWER_SLOT_NAMES.length;
   if (buildingType === 'kule'
     && Object.values(village.villageBuildings).filter(b => b.type === 'kule').length >= maxKule) return false;
   return true;
+}
+
+/**
+ * İNŞA REDDİNİN SEBEBİ — arayüzde gösterilecek tek cümle.
+ *
+ * `canBuildAt` yalnız true/false döndürüyor; oyuncu düğmeye basıp hiçbir şey
+ * olmayınca sebebini bilemiyordu (saray örneği). Burada aynı kurallar sırayla
+ * tekrar bakılıp insanca bir cümle üretiliyor.
+ */
+function buildRefusalReason(village, slotKey, buildingType, otherVillages = null, workers = 1) {
+  const def = VILLAGE_DEFS[buildingType];
+  if (!def) return 'Böyle bir bina yok.';
+  if (slotKey === '0,0') return 'Ana bina hex\'i değiştirilemez.';
+  if (village.villageBuildings[slotKey]) return 'Bu alan zaten dolu.';
+  const kind = slotKind(village, slotKey);
+  const isDefence = kind !== 'hex';
+  if (isDefence !== (buildingType === kind)) {
+    return isDefence
+      ? `Bu slota yalnız ${VILLAGE_DEFS[kind]?.name || kind} kurulabilir.`
+      : `${def.name} yalnız kendi savunma slotuna kurulur.`;
+  }
+  if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) {
+    return `${def.name} bu köyde zaten var.`;
+  }
+  if (def.oncePerPlayer && otherVillages) {
+    for (const [k, other] of otherVillages) {
+      if (other === village) continue;
+      if (Object.values(other.villageBuildings || {}).some(b => b.type === buildingType)) {
+        const ad = WORLD.slotByKey.get(k)?.name || k;
+        return `${def.name} yalnız tek köyde olabilir — şu an ${ad} köyünde.`
+          + ` Taşımak için oradaki ${def.name.toLowerCase()} yıkılmalı.`;
+      }
+    }
+  }
+  if (def.excludes
+    && Object.values(village.villageBuildings).some(b => b.type === def.excludes)) {
+    return `${def.name} ile ${VILLAGE_DEFS[def.excludes]?.name || def.excludes} aynı köyde olamaz.`;
+  }
+  const maxKule = VILLAGE_DEFS.kule?.maxInstances || TOWER_SLOT_NAMES.length;
+  if (buildingType === 'kule'
+    && Object.values(village.villageBuildings).filter(b => b.type === 'kule').length >= maxKule) {
+    return `En fazla ${maxKule} kule kurulabilir.`;
+  }
+  if (!workers || workers < 1) return 'En az 1 inşaat işçisi gerekiyor.';
+  if (workers > village.freeWorkers) return `Yeterli boş işçi yok (${village.freeWorkers} boş).`;
+  return 'İnşa edilemedi.';
 }
 
 const VALID_PRODUCTION_TYPES = new Set(['odun','kil','tas','demir','tahil']);
@@ -500,6 +569,13 @@ function buildPayload(village, tickMs, opts = {}) {
     // ÇOKLU KÖY: değiştirici için hafif liste + hangi köyün açık olduğu
     villages: opts.villages || null,
     activeSlot: opts.activeSlot || null,
+    capitalSlot: opts.capitalSlot || null,
+    /**
+     * Oyuncu çapında TEK olan binalar hangi köyde? (`{ saray: '0,0' }`)
+     * Arayüz bunu bilmezse "kur" düğmesini açık gösterip sunucunun sessizce
+     * reddetmesine yol açıyor — saray tam bunu yapıyordu.
+     */
+    uniqueOwners: opts.uniqueOwners || null,
     isCapital: village.isCapital !== false,
     festival: village.festival
       ? {
@@ -636,6 +712,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     culture,
     villages: villageList(session),
     activeSlot: session.activeSlot,
+    capitalSlot: session.capitalSlot,
+    uniqueOwners: uniqueOwnersOf(session),
   }));
 }
 
@@ -1518,6 +1596,34 @@ io.on('connection', async socket => {
     console.log(`[KÖY] userId=${userId} → ${slotKey}`);
   });
 
+  /**
+   * MERKEZ KÖYÜ TAŞI. Saraydan çağrılıyor: saray oyuncu çapında tek olduğu
+   * için "merkez" onun bulunduğu köye taşınabiliyor. Şart: istenen köyde
+   * kurulmuş (seviye ≥ 1) bir saray olmalı.
+   *
+   * Merkez bayrağı köy nesnelerinde de tutuluyor (canBuildAt ve payload
+   * okuyor), o yüzden hepsi baştan yazılıyor.
+   */
+  socket.on('set_capital', ({ slotKey } = {}) => {
+    const hedef = slotKey || session.activeSlot;
+    const village = session.villages.get(hedef);
+    if (!village) return;
+    if (session.capitalSlot === hedef) return;
+    const saray = Object.values(village.villageBuildings || {})
+      .find(b => b.type === 'saray' && b.level >= 1 && !b.building);
+    if (!saray) {
+      socket.emit('build_refused', { slotKey: hedef, buildingType: 'saray',
+        reason: 'Merkez yapmak için bu köyde tamamlanmış bir saray gerekiyor.' });
+      return;
+    }
+    session.capitalSlot = hedef;
+    for (const [k, v2] of session.villages) v2.isCapital = (k === hedef);
+    for (const k of session.villages.keys()) session.dirtySlots.add(k);
+    setCapital(userId, hedef).catch(err => console.error('[MERKEZ] kayıt:', err.message));
+    emitVillage(session, { force: true, statics: true });
+    console.log(`[MERKEZ] userId=${userId} → ${hedef}`);
+  });
+
   socket.on('assign_production_workers', ({ slotKey, workers }) => {
     const b = v().productionTiles[slotKey];
     // Yükseltme sırasında da işçi atanabilir — bina çalışmaya devam ediyor.
@@ -1570,7 +1676,13 @@ io.on('connection', async socket => {
   });
 
   socket.on('build_village', ({ slotKey, buildingType, workers }) => {
-    if (!canBuildAt(v(), slotKey, buildingType) || !workers || workers < 1 || workers > v().freeWorkers) return;
+    if (!canBuildAt(v(), slotKey, buildingType, session.villages)
+      || !workers || workers < 1 || workers > v().freeWorkers) {
+      // Sessiz red oyuncuyu koru bırakıyordu ("saray kuramıyorum, sebep yok").
+      socket.emit('build_refused', { slotKey, buildingType,
+        reason: buildRefusalReason(v(), slotKey, buildingType, session.villages, workers) });
+      return;
+    }
     const def = VILLAGE_DEFS[buildingType];
     const cost = def?.cost || {};
     for (const [res, amount] of Object.entries(cost)) { if ((v().resources[res] || 0) < amount) return; }

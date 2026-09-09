@@ -157,6 +157,12 @@ export default function BuildMenu({
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onClose,
   hourSeconds = 3600, worldSpeed = 1,
   onOpenHelp,
+  /**
+   * ÇOKLU KÖY kuralları: `uniqueOwners` oyuncu çapında tek olan binaların
+   * (saray) hangi köyde olduğunu, `villages` de o köyün adını söylüyor.
+   * Bunlar bilinmezse menü "kur" derken sunucu sessizce reddediyor.
+   */
+  uniqueOwners = {}, villages = [], activeSlot = null,
   // Poster biçiminde başlık bina görselinin üstünde çiziliyor; burada tekrar etmesin
   posterHeader = false,
 }) {
@@ -195,6 +201,24 @@ export default function BuildMenu({
     }
     return true;
   };
+
+  /**
+   * Menüde GÖRÜNEN ama şu an kurulamayan bina için sebep. Listeden silmiyoruz:
+   * oyuncu sarayın var olduğunu ve neden kurulamadığını görsün.
+   */
+  const blockReason = (key, d) => {
+    if (d.excludes && builtTypes.has(d.excludes)) {
+      return `${VILLAGE_DEFS[d.excludes]?.name || d.excludes} ile aynı köyde olamaz`;
+    }
+    if (d.oncePerPlayer) {
+      const sahip = uniqueOwners?.[key];
+      if (sahip && sahip !== activeSlot) {
+        const ad = villages.find(v => v.slotKey === sahip)?.name || sahip;
+        return `Yalnız tek köyde olabilir — şu an ${ad} köyünde`;
+      }
+    }
+    return null;
+  };
   const canAfford = (cost) => !cost || Object.entries(cost).every(([r, a]) => (resources[r] || 0) >= a);
 
   const grouped = useMemo(() => {
@@ -212,7 +236,8 @@ export default function BuildMenu({
 
   const selDef = selectedType ? VILLAGE_DEFS[selectedType] : null;
   const affordable = selDef ? canAfford(selDef.cost) : false;
-  const buildReady = affordable && freeWorkers >= 1;
+  const blocked = selDef ? blockReason(selectedType, selDef) : null;
+  const buildReady = affordable && freeWorkers >= 1 && !blocked;
 
   /**
    * Maliyet tek yerden: villageDefs.upgradeCostAt — sunucudaki
@@ -549,13 +574,29 @@ export default function BuildMenu({
                       </span>
                     </div>
                   )}
-                  <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
-                    freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
-                    effect={(w) => `süre ${fmtTime(realSecs(buildMinutes(selectedType, 1, w)))}`} />
+                  {blocked && (
+                    <div style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 6,
+                      padding: '6px 8px', borderRadius: 5, marginTop: 2,
+                      background: 'rgba(224,179,87,0.10)',
+                      border: '1px solid rgba(224,179,87,0.4)',
+                      fontFamily: FONT.ui, fontSize: 9.5, color: '#e8cf9a', lineHeight: 1.45,
+                    }}>
+                      <Icon name="kilit" size={11} color="#e0b357" />
+                      <span>{blocked}</span>
+                    </div>
+                  )}
+                  {!blocked && (
+                    <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
+                      freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
+                      effect={(w) => `süre ${fmtTime(realSecs(buildMinutes(selectedType, 1, w)))}`} />
+                  )}
                   <button onClick={() => { if (buildReady) onBuild(selectedType, buildWorkers); }}
                     disabled={!buildReady}
+                    title={blocked || undefined}
                     style={btn(buildReady ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
-                    İNŞA ET · {fmtTime(realSecs(buildMinutes(selectedType, 1, buildWorkers)))}
+                    {blocked ? 'KURULAMAZ'
+                      : `İNŞA ET · ${fmtTime(realSecs(buildMinutes(selectedType, 1, buildWorkers)))}`}
                   </button>
                 </>
               ) : (

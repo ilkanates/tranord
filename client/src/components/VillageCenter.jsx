@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import BuildMenu from './BuildMenu';
+import CapitalPanel from './CapitalPanel';
 import EquipmentPanel from './EquipmentPanel';
 import UnitTrainingPanel from './UnitTrainingPanel';
 import FestivalPanel from './FestivalPanel';
@@ -732,6 +733,12 @@ export default function VillageCenter({
   // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
   hourSeconds = 3600, worldSpeed = 1,
   culture = null, festival = null, festivalDefs = {}, onStartFestival,
+  /**
+   * ÇOKLU KÖY: saray oyuncu çapında tek, merkez de saraydan taşınıyor.
+   * `uniqueOwners` hangi köyde saray var, `capitalSlot` merkez hangi köy.
+   */
+  villages = [], activeSlot = null, capitalSlot = null, uniqueOwners = {},
+  onSetCapital,
 }) {
   const [selected, setSelected] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -1049,6 +1056,8 @@ export default function VillageCenter({
             && (unitsByBuilding[selectedBuilding.type] || []).length > 0;
           // Taverna: şölen paneli (kültür puanı üretimi)
           const hasFestival = selectedBuilding?.type === 'taverna';
+          // Saray: merkez taşıma denetimi burada
+          const hasCapital  = selectedBuilding?.type === 'saray';
 
           /**
            * ARKA PLAN: görsel panelin tamamına yayılır ama KOYU bir gradyanla
@@ -1178,6 +1187,18 @@ export default function VillageCenter({
             <div style={{ ...glass, display: 'flex', flexDirection: 'column' }}>
 
             {/* SIRA: bina gorseli -> savascilar -> isci/yukseltme + ekipman */}
+            {hasCapital && (
+              <div style={{ padding: '0 12px 10px', order: 1 }}>
+                <CapitalPanel
+                  level={selectedBuilding.level}
+                  building={!!selectedBuilding.building}
+                  isCapital={!capitalSlot || capitalSlot === activeSlot}
+                  capitalName={villages.find(v => v.slotKey === capitalSlot)?.name || null}
+                  villageName={villages.find(v => v.slotKey === activeSlot)?.name || 'bu köy'}
+                  onSetCapital={() => onSetCapital?.(activeSlot)} />
+              </div>
+            )}
+
             {hasFestival && (
               <div style={{ padding: '0 12px 10px', order: 1 }}>
                 <FestivalPanel
@@ -1221,6 +1242,9 @@ export default function VillageCenter({
             <BuildMenu
               posterHeader={!!panelTex}
               onOpenHelp={onOpenHelp}
+              uniqueOwners={uniqueOwners}
+              villages={villages}
+              activeSlot={activeSlot}
               hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               slotKey={selected}
               building={selectedBuilding}

@@ -336,6 +336,15 @@ function Game({ token, onLogout }) {
   const [helpTopic, setHelpTopic] = useState(null);
   const openHelp = (topic) => { setHelpTopic(topic); setTab('yardim'); };
   const [connected, setConnected] = useState(socket.connected);
+  /**
+   * SUNUCU REDDİ — kısa bir uyarı şeridi.
+   *
+   * Eskiden sunucu inşa/merkez isteğini sessizce reddediyordu: oyuncu düğmeye
+   * basıyor, hiçbir şey olmuyor, sebebi de hiçbir yerde yazmıyordu ("saray
+   * kuramıyorum"). Artık sunucu `build_refused` yolluyor ve sebebi burada
+   * beliriyor.
+   */
+  const [refusal, setRefusal] = useState(null);
   const userEmail = emailFromToken(token || '');
 
   useEffect(() => {
@@ -345,13 +354,22 @@ function Game({ token, onLogout }) {
     };
     const onConn = () => setConnected(true);
     const onDisc = () => setConnected(false);
+    let zaman = null;
+    const onRefused = (r) => {
+      setRefusal({ text: r?.reason || 'İşlem reddedildi.', at: Date.now() });
+      clearTimeout(zaman);
+      zaman = setTimeout(() => setRefusal(null), 7000);
+    };
     socket.on('village_update', onUpdate);
     socket.on('connect', onConn);
     socket.on('disconnect', onDisc);
+    socket.on('build_refused', onRefused);
     return () => {
+      clearTimeout(zaman);
       socket.off('village_update', onUpdate);
       socket.off('connect', onConn);
       socket.off('disconnect', onDisc);
+      socket.off('build_refused', onRefused);
     };
   }, []);
 
@@ -419,6 +437,11 @@ function Game({ token, onLogout }) {
     socket.emit('switch_village', { slotKey });
     socket.emit('request_world');
   };
+  /**
+   * MERKEZ KÖYÜ TAŞI — saray panelinden. Sunucu sarayın o köyde ve
+   * tamamlanmış olmasını şart koşuyor; reddederse `build_refused` geliyor.
+   */
+  const setCapital = (slotKey) => socket.emit('set_capital', { slotKey });
 
   const tickMs = village.tickMs || 1000;
 
@@ -440,6 +463,23 @@ function Game({ token, onLogout }) {
             style={btn('ghost', { marginLeft: 'auto', padding: '3px 10px', fontSize: 9.5, letterSpacing: 1 })}>
             YENİLE
           </button>
+        </div>
+      )}
+
+      {refusal && (
+        <div onClick={() => setRefusal(null)}
+          title="Kapatmak için tıkla"
+          style={{
+            position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 9100, maxWidth: 520, cursor: 'pointer',
+            background: 'rgba(78,58,16,0.96)', border: '1px solid rgba(224,179,87,0.6)',
+            borderRadius: 7, padding: '9px 14px',
+            display: 'flex', alignItems: 'flex-start', gap: 9,
+            boxShadow: '0 12px 34px rgba(0,0,0,.55)',
+            fontFamily: FONT.ui, fontSize: 11.5, color: '#f0ddb0', lineHeight: 1.5,
+          }}>
+          <Icon name="kilit" size={14} color="#e0b357" />
+          <span>{refusal.text}</span>
         </div>
       )}
 
@@ -517,6 +557,11 @@ function Game({ token, onLogout }) {
               festival={village.festival || null}
               festivalDefs={village.festivalDefs || {}}
               onStartFestival={startFestival}
+              villages={village.villages || []}
+              activeSlot={village.activeSlot || null}
+              capitalSlot={village.capitalSlot || null}
+              uniqueOwners={village.uniqueOwners || {}}
+              onSetCapital={setCapital}
               villageBuildings={village.villageBuildings || {}}
               towerSlots={village.towerSlots || []}
               freeWorkers={village.freeWorkers}
