@@ -8,7 +8,7 @@ import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/v
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, signed, fmtTime } from '../theme';
-import { RES_LABEL, NO_WORKER_TYPES, workerTerm } from '../flows';
+import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 // Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
 import surTexture from '../assets/buildings/sur-doku.jpg';
@@ -963,9 +963,10 @@ export default function VillageCenter({
                 {/* İşçi sayacı */}
                 {building && building.level >= 1 && (() => {
                   const d = VILLAGE_DEFS[building.type];
-                  const maxW = d ? building.level * (d.workersPerLevel || 3) : 0;
-                  const assignable = d?.processes || ['silahci','zirh','ahir','kisla','atolye'].includes(building.type);
-                  if (!assignable || maxW <= 0) return null;
+                  // Tek kaynak flows.js: buradaki elle yazılmış kopyada `kule`
+                  // eksikti, o yüzden kulelerin okçu sayacı hiç görünmüyordu.
+                  const maxW = maxWorkersOf(building.type, d, building.level);
+                  if (maxW <= 0) return null;
                   return (
                     <g transform={`translate(${x - 16} ${y + 4})`}>
                       <rect x="0" y="0" width="32" height="14" rx="3"

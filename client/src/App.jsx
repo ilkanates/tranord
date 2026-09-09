@@ -6,6 +6,7 @@ import HelpScreen      from './components/HelpScreen';
 import MusicButton     from './components/MusicButton';
 import VillageSwitcher from './components/VillageSwitcher';
 import DevMenu        from './components/DevMenu';
+import WorkerScreen   from './components/WorkerScreen';
 import { startMusic }  from './audio';
 import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
@@ -130,6 +131,7 @@ function dropSocket() {
 const TABS = [
   { key: 'harita',    label: 'Harita',           icon: 'harita' },
   { key: 'koy',       label: 'Köy Merkezi',      icon: 'koy' },
+  { key: 'isciler',   label: 'Köylüler',         icon: 'isci' },
   { key: 'ordu',      label: 'Ordu',             icon: 'ordu' },
   { key: 'raporlar',  label: 'Raporlar',         icon: 'savas' },
   { key: 'istatistik', label: 'İstatistik',      icon: 'bonus' },
@@ -589,6 +591,27 @@ function Game({ token, onLogout }) {
               onTrainUnit={trainUnit}
               onCancelUnitOrder={cancelUnitOrder}
             />
+          )}
+
+          {tab === 'isciler' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+            }}>
+              <WorkerScreen
+                population={village.population || 0}
+                freeWorkers={village.freeWorkers || 0}
+                villageBuildings={village.villageBuildings || {}}
+                productionTiles={village.productionTiles || {}}
+                army={village.army || {}}
+                unitQueues={village.unitQueues || {}}
+                marches={village.marches || []}
+                unitDefs={village.unitDefs || {}}
+                villageName={(village.villages || [])
+                  .find(v => v.slotKey === village.activeSlot)?.name || null}
+                onAssignVillageWorkers={assignVillageWorkers}
+                onAssignProductionWorkers={assignProductionWorkers} />
+            </div>
           )}
 
           {tab === 'ordu' && (

@@ -213,6 +213,27 @@ export function gameMinutesToRealSeconds(minutes, hourSeconds = 3600, speed = 1)
  *  • Kule personel alır ama onlar işçi değil OKÇU.
  */
 export const NO_WORKER_TYPES = new Set(['sur', 'hendek']);
+
+/**
+ * PERSONEL ALAN ASKERİ BİNALAR — sunucudaki WORKER_ASSIGNABLE_MILITARY'nin
+ * aynısı. Bu liste iki yerde ayrı ayrı yazılıydı ve VillageCenter'daki
+ * kopyada `kule` eksikti; tek kaynak burası olsun.
+ */
+export const WORKER_ASSIGNABLE_MILITARY = new Set([
+  'silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule',
+]);
+
+/** Bu bina personel alır mı? (üretim yapan her bina + askeri liste) */
+export function takesWorkers(type, def) {
+  if (!def || NO_WORKER_TYPES.has(type)) return false;
+  return !!def.processes || WORKER_ASSIGNABLE_MILITARY.has(type);
+}
+
+/** Binanın personel kapasitesi — seviye × workersPerLevel */
+export function maxWorkersOf(type, def, level) {
+  if (!takesWorkers(type, def) || !level || level < 1) return 0;
+  return level * (def.workersPerLevel || 3);
+}
 const WORKER_TERM = { kule: 'Okçu' };
 export const workerTerm  = (type) => WORKER_TERM[type] || 'İşçi';
 export const workerTermLc = (type) => (WORKER_TERM[type] || 'İşçi').toLowerCase();
