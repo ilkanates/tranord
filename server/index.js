@@ -19,7 +19,8 @@ const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/np
 
 // Kule de personel alır (arayüzde "okçu" adıyla); sur ve hendek almaz.
 const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule']);
-const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS } = require('./data');
+const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS,
+        maxPopulationOf } = require('./data');
 
 const TRAINABLE_UNITS = Object.fromEntries(
   Object.entries(UNIT_DEFS).filter(([_, def]) => {
@@ -744,8 +745,8 @@ function advanceVillage(village, gameHours, userId) {
     }
   });
 
-  const evBuildings = Object.values(village.villageBuildings).filter(b => b.type === 'ev' && !(b.building && b.level === 0));
-  village.maxPopulation = 50 + evBuildings.reduce((sum, b) => sum + 50 * b.level, 0);
+  // Nüfus tavanı tek kaynaktan: data/villageDefs.js maxPopulationOf
+  village.maxPopulation = maxPopulationOf(village);
   village.tickCount++;
   /**
    * NÜFUS: hız ana bina seviyesinden gelir (popPerGameHour), tavan evlerden.

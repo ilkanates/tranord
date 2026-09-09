@@ -213,8 +213,8 @@ const VILLAGE_DEFS = {
   // ── Nüfus ───────────────────────────────────────────────────────
   ev: { cpPerLevel:1,
     name:'Ev', category:'nufus', icon:'🏠',
-    description:'Her seviye 50 nüfus kapasitesi ekler.',
-    unique:false, maxLevel:5, populationPerLevel:50,
+    description:'Her seviye 100 nüfus kapasitesi ekler.',
+    unique:false, maxLevel:5, populationPerLevel:100,
     buildBaseWork:15, buildMultiplier:1.6, cost:{ kereste:80, tugla:50 }
   },
 
@@ -223,5 +223,8 @@ const VILLAGE_DEFS = {
   hendek: { cpPerLevel:1, name:'Hendek',         category:'savunma', icon:'〰️', description:'Sur ile birleşik, yarı bonus. Maks Lvl 20.', unique:true,  maxLevel:20, buildBaseWork:40, buildMultiplier:1.9, bonusTable:HENDEK_BONUS, cost:{ kereste:40, yontmaTas:80 } },
   kule:   { cpPerLevel:1, name:'Savunma Kulesi', category:'savunma', icon:'🗼', description:'Kuleye atanan askerlere iki kat bonus.',      unique:false, maxLevel:20, buildBaseWork:45, buildMultiplier:2.0, bonusTable:KULE_BONUS, maxInstances:6, workersPerLevel:4, cost:{ kereste:80, yontmaTas:80, demirKulce:40 } }
 };
+
+/** Evsiz köyün taban nüfus kapasitesi — sunucudaki BASE_POPULATION ile aynı */
+export const BASE_POPULATION = 50;
 
 export default VILLAGE_DEFS;

@@ -141,6 +141,14 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Nüfus tavanı: ev başına 50 → 100 (Eylül 2026)
+- **Soru:** ana bina max olunca kaç üretim alanı alınabiliyor, ve her şey fullenince her binaya işçi yetiyor mu?
+- **Ölçüm:** ana bina Lvl 11 (max) → **16 üretim tarlası** (`min(16, 5+seviye)`). Tam max bir köyün işçi talebi **1.780**: 16 tarla Lvl 20 = 640, 6 kule Lvl 20 okçu = 480, 11 işleme/askeri bina Lvl 20 = 660.
+- 36 hex'in 25'i benzersiz binalara gidiyor (köşk ve saray aynı köyde olamaz), eve 11 hex kalıyor. Eski 50/seviye ile talebi karşılamak **11 evin hepsini** gerektiriyordu.
+- **Karar (İlkan):** ev başına nüfus 50 → **100**/seviye. Artık **4 ev** (2.050) talebi karşılıyor, 5 ev 770 asker kadrosu bırakıyor, 8 ev 2.270.
+- İlkan'ın merkez köyünde zaten 8 ev var: tavan **1.800 → 3.550**, talep 1.780 → askere 1.770 kişi.
+- Sayı üç yerde elle yazılıydı (index.js + npcAi'de iki yer). Tek kaynak oldu: `villageDefs.maxPopulationOf(village)` ve `BASE_POPULATION`. İstemci arayüzü zaten `populationPerLevel`i tanımdan okuyordu.
+
 ### Tarla kadro eğrisi + akıllı işçi dağıtımı (Eylül 2026)
 - **Ölçüm:** tarla üretimi `işçi × işçi-başına × arazi çarpanı` — **seviye üretime hiç katkı vermiyor**, yalnız kadro tavanını açıyor. Eski eğri Lvl 20'de **490 işçi** istiyordu (Lvl 1'in 490 katı); nüfus ise 4 ev ile 1.050'ye çıkıyor. 11 tarla = **5.390 kadro**, nüfus 589. Yükseltmek işe yaramıyordu.
 - **Karar (İlkan):** model kalsın, yalnız kadro eğrisi yumuşasın. Yeni eğri `1,2,3,5,6,8,10,12,14,16,18,20,22,25,27,30,32,35,37,40` (Lvl 20: 490 → **40**). 11 tarla artık 440 işçiyle tam çalışıyor. `productionDefs.js` (sunucu) ve `buildingDefs.js` (istemci) birebir aynı — 5 kaynak × 20 seviye karşılaştırıldı.

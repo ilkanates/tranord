@@ -12,6 +12,7 @@ const GT = require('./gameTime');
 const { getUpgradeSeconds, getEquipmentPool, getStorageCaps, getConsumptionRates, processTick } = require('./tick');
 const {
   PRODUCTION_DEFS, VILLAGE_DEFS, UNIT_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING,
+  maxPopulationOf,
 } = require('../data');
 const { rand01 } = require('./world');
 
@@ -127,8 +128,7 @@ function seedInstant(slot) {
   }
 
   // ── Nüfus ve işçi dağıtımı ──
-  const evs = buildingsOfType(v, 'ev');
-  v.maxPopulation = 50 + evs.reduce((s, b) => s + 50 * b.level, 0);
+  v.maxPopulation = maxPopulationOf(v);
   v.population = Math.max(20, Math.min(v.maxPopulation,
     Math.round(v.maxPopulation * lerp(0.55, 0.95, p) * jitter(101, 0.3))));
   v.freeWorkers = v.population;
@@ -415,9 +415,7 @@ function stepVillage(v, hours = GT.HOURS_PER_TICK) {
       delete b.building; delete b.buildEndTime; delete b.buildWorkers;
     }
   });
-  const evs = Object.values(v.villageBuildings)
-    .filter(b => b.type === 'ev' && !(b.building && b.level === 0));
-  v.maxPopulation = 50 + evs.reduce((sum, b) => sum + 50 * b.level, 0);
+  v.maxPopulation = maxPopulationOf(v);
   v.tickCount++;
   // Nüfus: saatte 1 kişi (index.js'deki oyuncu kuralıyla aynı)
   v.popAccum = (v.popAccum || 0) + hours;

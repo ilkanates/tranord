@@ -5,7 +5,8 @@
  */
 
 const PRODUCTION_DEFS                              = require('./productionDefs');
-const { VILLAGE_DEFS, SUR_BONUS, HENDEK_BONUS, KULE_BONUS, DEF_BONUS_CAP } = require('./villageDefs');
+const { VILLAGE_DEFS, SUR_BONUS, HENDEK_BONUS, KULE_BONUS, DEF_BONUS_CAP,
+        BASE_POPULATION, maxPopulationOf } = require('./villageDefs');
 const { EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS, EQUIPMENT_RULES } = require('./militaryDefs');
 
 module.exports = {
@@ -15,6 +16,8 @@ module.exports = {
   HENDEK_BONUS,
   KULE_BONUS,
   DEF_BONUS_CAP,
+  BASE_POPULATION,
+  maxPopulationOf,
   EQUIPMENT_DEFS,
   EQUIPMENT_BY_BUILDING,
   UNIT_DEFS,
