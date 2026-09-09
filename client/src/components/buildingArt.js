@@ -1,5 +1,18 @@
 // Bina gorselleri ve hex amblem haritalari - VillageCenter'dan ayri tutuldu
+import bosTex from '../assets/bos.png';
+import ormanTex from '../assets/orman_tile.png';
+import kilTex from '../assets/kil_ocagi.png';
+import tasTex from '../assets/tas_ocagi.png';
+import demirTex from '../assets/demir_madeni.png';
+import tahilTex from '../assets/tahil_tile.png';
+
+// Koy cevresindeki dunya karolari icin arazi dokulari (MapView ile ayni kaynak)
+export const TERRAIN_TEX = {
+  bos: bosTex, odun: ormanTex, kil: kilTex,
+  tas: tasTex, demir: demirTex, tahil: tahilTex,
+};
 import zirhImg from '../assets/buildings/zirh.jpg';
+import anaBinaImg from '../assets/buildings/anaBina.jpg';
 import tahilAmbarImg from '../assets/buildings/tahilAmbar.jpg';
 import kislaImg from '../assets/buildings/kisla.jpg';
 import ahirImg from '../assets/buildings/ahir.jpg';
@@ -27,6 +40,10 @@ import loncaTasImg from '../assets/buildings/loncaTas.jpg';
 import loncaOdunImg from '../assets/buildings/loncaOdun.jpg';
 import loncaDemirImg from '../assets/buildings/loncaDemir.jpg';
 
+import anaBinaVideo from '../assets/buildings/videos/anaBina.mp4';
+import loncaDemirVideo from '../assets/buildings/videos/loncaDemir.mp4';
+import loncaTahilVideo from '../assets/buildings/videos/loncaTahil.mp4';
+import loncaKilVideo from '../assets/buildings/videos/loncaKil.mp4';
 import evVideo from '../assets/buildings/videos/ev.mp4';
 import surVideo from '../assets/buildings/videos/sur.mp4';
 import kuleVideo from '../assets/buildings/videos/kule.mp4';
@@ -38,6 +55,10 @@ export const BUILDING_VIDEO = {
   sur: surVideo,
   kule: kuleVideo,
   islenmisMalDepo: islenmisMalDepoVideo,
+  anaBina: anaBinaVideo,
+  loncaDemir: loncaDemirVideo,
+  loncaTahil: loncaTahilVideo,
+  loncaKil: loncaKilVideo,
 };
 
 export const EMBLEM_DY = 26;
@@ -102,4 +123,8 @@ export const BUILDING_TEXTURE = {
   loncaTas: loncaTasImg,
   loncaOdun: loncaOdunImg,
   loncaDemir: loncaDemirImg,
+  anaBina: anaBinaImg,
 };
+
+// Merkez hex'i (0,0) icin gorsel - eski merkez2.png yerine
+export const MERKEZ_IMG = anaBinaImg;
