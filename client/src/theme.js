@@ -162,11 +162,19 @@ export function signed(n, digits = 1) {
   return (v > 0 ? '+' : '') + v.toFixed(digits);
 }
 
+/**
+ * SÜRE BİÇİMİ — her yerde saat:dakika:saniye.
+ *
+ * Önce ölçeğe göre değişen ("45sn", "12dk 30sn", "3sa 20dk") bir biçim vardı;
+ * aynı ekranda üç ayrı biçim yan yana gelince okumak zorlaşıyordu ve
+ * saniyeler bir saatin üstünde tamamen kayboluyordu. Tek biçim: 0:00:45,
+ * 0:12:30, 3:20:05. Saat 24'ü aşabilir (1× ölçekte inşaatlar uzun sürüyor).
+ */
 export function fmtTime(seconds) {
   if (!isFinite(seconds) || seconds <= 0) return '—';
-  const s = Math.ceil(seconds);
-  if (s < 60) return s + 'sn';
-  if (s < 3600) return `${Math.floor(s / 60)}dk ${s % 60}sn`;
-  const h = Math.floor(s / 3600);
-  return `${h}sa ${Math.floor((s % 3600) / 60)}dk`;
+  const t = Math.ceil(seconds);
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { C, FONT, RES_COLOR, num } from '../theme';
-import { EQ_LABEL, RES_LABEL } from '../flows';
+import { C, FONT, RES_COLOR, num, fmtTime } from '../theme';
+import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon from './Icons';
 import { PanelShell, WorkerNote, Qty, OrderButton, QueueList } from './queueUI';
 
@@ -13,6 +13,7 @@ export default function EquipmentPanel({
   equipment = {}, equipmentCaps = {}, equipmentPool = { capacity: 0, used: 0, free: 0 },
   queue = [], resources = {}, buildingWorkers = 0,
   onQueue, onCancel,
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const allowed = equipmentByBuilding[buildingType] || [];
   const [qty, setQty] = useState(() => Object.fromEntries(allowed.map(k => [k, 1])));
@@ -66,8 +67,11 @@ export default function EquipmentPanel({
           const cap = equipmentCaps[eq] ?? 0;
           const full = isHorse ? (cap > 0 && stock >= cap) : poolFull;
           const afford = Object.entries(def.cost).every(([r, a]) => (resources[r] || 0) >= a * q);
-          const speed = Math.max(1, buildingWorkers);
-          const secs = Math.max(1, Math.ceil(Math.ceil(def.productionHours) / speed));
+          // Sunucu ile birebir: productionHours GERÇEKTEN oyun saati; dakikaya
+          // çevrilip işçiye bölünür, MIN_PRODUCTION_MINUTES (=1) altına inmez.
+          const workers = Math.max(1, buildingWorkers);
+          const mins = Math.max(1, (def.productionHours * 60) / workers);
+          const secs = gameMinutesToRealSeconds(mins, hourSeconds, worldSpeed);
           const ready = afford && !full;
 
           return (
@@ -90,7 +94,7 @@ export default function EquipmentPanel({
                       <span style={{ fontFamily: FONT.ui, fontSize: 9, color: C.danger }}>DOLU</span>
                     )}
                     <span style={num({ fontSize: 9.5, color: C.iceDeep, marginLeft: 'auto' })}>
-                      {secs}sn{buildingWorkers > 1 ? ` (${buildingWorkers}×)` : ''}
+                      {fmtTime(secs)}{buildingWorkers > 1 ? ` (${buildingWorkers}×)` : ''}
                     </span>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 /**
  * Ekipman ve birim kuyruğu panellerinin paylaştığı parçalar (nordic).
  */
-import { C, FONT, btn, label as lbl, num } from '../theme';
+import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
 import Icon from './Icons';
 
 export const WAIT_LABEL = {
@@ -142,7 +142,7 @@ export function QueueList({ queue, nameOf, iconOf, onCancel, emptyText = 'kuyruk
                   </span>
                 ) : (
                   <span style={num({ fontSize: 11, color: C.good, flexShrink: 0 })}>
-                    {o.timeLeft != null ? `${o.timeLeft}sn` : '—'}
+                    {fmtTime(o.timeLeft)}
                   </span>
                 )}
 

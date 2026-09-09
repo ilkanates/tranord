@@ -40,11 +40,86 @@ function getToken() {
 }
 
 function makeSocket(token, onAuthFail) {
-  const s = io(SERVER_URL, { auth: { token }, reconnectionAttempts: 5 });
+  /**
+   * YENİDEN BAĞLANMA SINIRSIZ.
+   *
+   * Eskiden `reconnectionAttempts: 5` vardı: sunucu yeniden başlatıldığında
+   * istemci beş kez deneyip KALICI olarak vazgeçiyordu. Bu, kaynaklar sunucu
+   * paketiyle ilerlerken hemen belli oluyordu (sayılar donardı); artık
+   * kaynakları istemci kendi hesapladığı için ekran canlı görünüyor ve hiçbir
+   * komutun işlemediği fark edilmiyor. Sınırsız deneme + aşağıdaki uyarı
+   * şeridi bu sessiz hatayı ortadan kaldırıyor.
+   */
+  const s = io(SERVER_URL, {
+    auth: { token },
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 4000,
+    timeout: 8000,
+  });
   s.on('connect_error', (err) => {
     if (err.message === 'auth:token_missing' || err.message === 'auth:token_invalid') onAuthFail();
   });
+
+  /**
+   * TEŞHİS KANCASI (yalnız geliştirme).
+   *
+   * Konsola `__tnDebug()` yazınca bağlantının gerçekten ayakta olup olmadığı,
+   * son paketin ne kadar önce geldiği ve sunucunun komutlara cevap verip
+   * vermediği tek satırda görünür. "Ekran canlı ama hiçbir tuş işlemiyor"
+   * durumunun sessizce sürmesini engelliyor.
+   */
+  if (import.meta.env.DEV) {
+    window.__tnSocket = s;
+    s.on('village_update', () => { window.__tnLastPacket = Date.now(); });
+    window.__tnDebug = () => {
+      const age = window.__tnLastPacket ? Math.round((Date.now() - window.__tnLastPacket) / 1000) : null;
+      const out = {
+        bagli: s.connected,
+        socketId: s.id || '(yok)',
+        sonPaket: age == null ? 'hiç gelmedi' : age + ' sn önce',
+        transport: s.io?.engine?.transport?.name || '(yok)',
+        denemeSayisi: s.io?.backoff?.attempts ?? 0,
+      };
+      console.log('[TN]', JSON.stringify(out));
+      // Sunucu komutlara cevap veriyor mu? request_stats -> stats_snapshot
+      const t0 = Date.now();
+      const done = () => console.log('[TN] sunucu cevabi:', (Date.now() - t0) + ' ms');
+      s.once('stats_snapshot', done);
+      s.emit('request_stats');
+      setTimeout(() => {
+        s.off('stats_snapshot', done);
+        console.log('[TN] cevap gelmediyse yukarida "sunucu cevabi" satiri yok demektir');
+      }, 4000);
+      return out;
+    };
+  }
   return s;
+}
+
+/**
+ * TEK SOCKET — modül seviyesinde tutulur.
+ *
+ * Socket `useMemo` içinde kuruluyordu; React StrictMode geliştirmede render'ı
+ * iki kez çalıştırdığı için useMemo fabrikası da iki kez koşuyor ve İKİ socket
+ * açılıyordu. Sunucu oturum başına son bağlanan socket'e yayın yaptığından
+ * paket, dinleyicisi olmayan yetim socket'e gidiyor ve arayüz donuyordu
+ * (komut sunucuda işlense bile). Modül seviyesindeki tekil, bu sınıf hatayı
+ * kökten kaldırıyor; sunucu tarafında da yayın artık kullanıcı odasına gidiyor.
+ */
+let _socket = null;
+let _socketToken = null;
+function getSocket(token, onAuthFail) {
+  if (_socket && _socketToken === token) return _socket;
+  if (_socket) { try { _socket.close(); } catch { /* zaten kapalı */ } }
+  _socketToken = token;
+  _socket = makeSocket(token, onAuthFail);
+  return _socket;
+}
+function dropSocket() {
+  if (_socket) { try { _socket.close(); } catch { /* zaten kapalı */ } }
+  _socket = null; _socketToken = null;
 }
 
 const TABS = [
@@ -204,9 +279,9 @@ function Game({ token, onLogout }) {
    */
   const logoutRef = useRef(onLogout);
   logoutRef.current = onLogout;
-  const socket = useMemo(() => makeSocket(token, () => logoutRef.current()), [token]);
+  const socket = getSocket(token, () => logoutRef.current());
   const handleLogout = () => {
-    try { socket.close(); } catch { /* zaten kapalı */ }
+    dropSocket();
     logoutRef.current();
   };
 
@@ -251,10 +326,14 @@ function Game({ token, onLogout }) {
     return () => clearInterval(id);
   }, []);
 
+  /**
+   * Bağlantı kopukken ara doldurma DURUR: sayılar donar, böylece oyuncu
+   * "canlı ama hiçbir şey işlemiyor" durumuna düşmez.
+   */
   const village = useMemo(
-    () => extrapolate(serverVillage, Date.now() - stampRef.current),
+    () => (connected ? extrapolate(serverVillage, Date.now() - stampRef.current) : serverVillage),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [serverVillage, beat]);
+    [serverVillage, beat, connected]);
 
   const flows = useMemo(() => (village ? computeFlows(village) : {}), [village]);
 
@@ -300,6 +379,25 @@ function Game({ token, onLogout }) {
 
   return (
     <>
+      {!connected && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000,
+          background: 'rgba(120,26,32,0.96)', borderBottom: '1px solid #ff8f8f',
+          padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 10,
+          fontFamily: FONT.ui, fontSize: 12, color: '#ffe4e6',
+        }}>
+          <Icon name="uyari" size={15} color="#ffb8bd" />
+          <span>
+            <b>Sunucu bağlantısı kopuk.</b> Yeniden bağlanmaya çalışıyorum —
+            bu sırada hiçbir komut (inşa, iptal, asker) işlemez. Sunucu penceresi açık mı?
+          </span>
+          <button onClick={() => window.location.reload()}
+            style={btn('ghost', { marginLeft: 'auto', padding: '3px 10px', fontSize: 9.5, letterSpacing: 1 })}>
+            YENİLE
+          </button>
+        </div>
+      )}
+
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []) }}
@@ -335,6 +433,8 @@ function Game({ token, onLogout }) {
             <MapView
               socket={socket}
               world={village.world}
+              hourSeconds={village.marchInfo?.hourSeconds || 3600}
+              worldSpeed={village.worldSpeed || 1}
               productionTiles={village.productionTiles || {}}
               maxProductionSlots={village.maxProductionSlots || 6}
               anaBina={village.villageBuildings?.['0,0']}
@@ -361,6 +461,9 @@ function Game({ token, onLogout }) {
 
           {tab === 'koy' && (
             <VillageCenter
+              world={village.world}
+              hourSeconds={village.marchInfo?.hourSeconds || 3600}
+              worldSpeed={village.worldSpeed || 1}
               villageBuildings={village.villageBuildings || {}}
               towerSlots={village.towerSlots || []}
               freeWorkers={village.freeWorkers}

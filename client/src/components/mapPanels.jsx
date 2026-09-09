@@ -7,7 +7,7 @@ import BUILDING_DEFS from '../data/buildingDefs';
 import VILLAGE_DEFS from '../data/villageDefs';
 import { popoverStyle, popHeader, popBody, popCols, popCol } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed, short } from '../theme';
-import { RES_LABEL } from '../flows';
+import { RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import { worldTileBonus, localEfficiency, fieldMultiplier, hexDistance } from '../data/worldConfig';
 import Icon from './Icons';
 import WorkerAssign from './WorkerAssign';
@@ -129,6 +129,7 @@ export function YieldStrip({ wq, wr, lq, lr, type }) {
 export function AnaBinaPanel({
   anaBina, resources, freeWorkers, popoverPos, worldName,
   onUpgrade, onEnterVillage, onCancelBuild, onClose,
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const [workers, setWorkers] = useState(1);
   const def = VILLAGE_DEFS.anaBina;
@@ -138,8 +139,11 @@ export function AnaBinaPanel({
   const mult = Math.pow(def.upgradeCostMultiplier, level - 1);
   const cost = Object.fromEntries(Object.entries(def.upgradeCostBase).map(([k, v]) => [k, Math.ceil(v * mult)]));
   const canAfford = Object.entries(cost).every(([k, v]) => (resources[k] || 0) >= v);
+  // buildBaseWork oyun DAKİKASI cinsinden iş; işçiye bölünüp gerçek saniyeye çevrilir
   const baseWork = def.buildBaseWork * Math.pow(def.buildMultiplier, level - 1);
-  const secs = workers > 0 ? Math.ceil(baseWork / workers) : Infinity;
+  const secs = workers > 0
+    ? gameMinutesToRealSeconds(baseWork / workers, hourSeconds, worldSpeed)
+    : Infinity;
   const slots = Math.min(16, 5 + level);
   const ready = canAfford && freeWorkers >= 1;
 
@@ -200,7 +204,9 @@ export function AnaBinaPanel({
               <CostGrid cost={cost} resources={resources} />
               <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={workers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setWorkers}
-                effect={(w) => `süre ${fmtTime(w > 0 ? Math.ceil(baseWork / w) : Infinity)}`} />
+                effect={(w) => `süre ${fmtTime(w > 0
+                  ? gameMinutesToRealSeconds(baseWork / w, hourSeconds, worldSpeed)
+                  : Infinity)}`} />
               <button onClick={() => onUpgrade(workers)} disabled={!ready}
                 style={btn(ready ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
                 YÜKSELT · {fmtTime(secs)}
@@ -217,6 +223,7 @@ export function AnaBinaPanel({
 export function FieldPanel({
   localKey, wq, wr, tile, resources, freeWorkers, flows, popoverPos,
   onUpgrade, onDemolish, onAssignWorkers, onCancelBuild, onClose,
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const def = BUILDING_DEFS[tile.type];
   const [buildWorkers, setBuildWorkers] = useState(1);
@@ -225,7 +232,10 @@ export function FieldPanel({
   const [lq, lr] = localKey.split(',').map(Number);
   const mult = fieldMultiplier(wq, wr, lq, lr, tile.type);
   const canAfford = next ? Object.entries(next.cost).every(([k, v]) => (resources[k] || 0) >= v) : false;
-  const secs = next && buildWorkers > 0 ? Math.ceil(next.sureSaat / buildWorkers) : Infinity;
+  // sureSaat aslında oyun DAKİKASI (bkz. server/game/tick.js getUpgradeMinutes)
+  const secs = next && buildWorkers > 0
+    ? gameMinutesToRealSeconds(next.sureSaat / buildWorkers, hourSeconds, worldSpeed)
+    : Infinity;
   const maxOper = def?.levels?.[tile.level - 1]?.workers || 1;
   const perWorker = (def?.baseProductionPerWorker || 0) * mult;
   const f = flows?.[tile.type];
@@ -334,7 +344,9 @@ export function FieldPanel({
               <CostGrid cost={next.cost} resources={resources} />
               <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
-                effect={(w) => `süre ${fmtTime(w > 0 ? Math.ceil(next.sureSaat / w) : Infinity)}`} />
+                effect={(w) => `süre ${fmtTime(w > 0
+                  ? gameMinutesToRealSeconds(next.sureSaat / w, hourSeconds, worldSpeed)
+                  : Infinity)}`} />
               <button onClick={() => onUpgrade(buildWorkers)} disabled={!ready}
                 style={btn(ready ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
                 YÜKSELT · {fmtTime(secs)}
@@ -350,6 +362,7 @@ export function FieldPanel({
 // ── Boş tarla (kendi toprağında) ────────────────────────────────────
 export function BuildFieldPanel({
   localKey, wq, wr, freeWorkers, resources, slotsFull, connected, popoverPos, onBuild, onClose,
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const [lq, lr] = localKey.split(',').map(Number);
   const bonus = worldTileBonus(wq + lq, wr + lr);
@@ -358,7 +371,9 @@ export function BuildFieldPanel({
   const def = BUILDING_DEFS[type];
   const lvl1 = def?.levels?.[0];
   const canAfford = lvl1 ? Object.entries(lvl1.cost).every(([k, v]) => (resources[k] || 0) >= v) : false;
-  const secs = lvl1 && workers > 0 ? Math.ceil(lvl1.sureSaat / workers) : Infinity;
+  const secs = lvl1 && workers > 0
+    ? gameMinutesToRealSeconds(lvl1.sureSaat / workers, hourSeconds, worldSpeed)
+    : Infinity;
   const mult = fieldMultiplier(wq, wr, lq, lr, type);
   const perWorker = (def?.baseProductionPerWorker || 0) * mult;
   const blocked = slotsFull || !connected;
@@ -416,7 +431,9 @@ export function BuildFieldPanel({
               <CostGrid cost={lvl1?.cost} resources={resources} />
               <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={workers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setWorkers}
-                effect={(w) => `süre ${fmtTime(w > 0 ? Math.ceil((lvl1?.sureSaat || 5) / w) : Infinity)}`} />
+                effect={(w) => `süre ${fmtTime(w > 0
+                  ? gameMinutesToRealSeconds((lvl1?.sureSaat || 5) / w, hourSeconds, worldSpeed)
+                  : Infinity)}`} />
               <div style={{
                 padding: '6px 8px', borderRadius: 5,
                 background: 'rgba(8,17,28,0.5)', border: `1px solid ${C.lineSoft}`,
@@ -482,6 +499,7 @@ export function ForeignVillagePanel({
           }}>
             <span style={{ color: C.ice }}>Keşfedildi</span> · ordu {short(intel.armyTotal)} ·
             {' '}sur {intel.surLevel}/{intel.hendekLevel} ·
+            {intel.kulePct ? <> {' '}kule +{intel.kulePct}% · </> : null}
             {' '}depo {short(Object.values(intel.resources || {}).reduce((a, b) => a + b, 0))}
           </div>
         )}

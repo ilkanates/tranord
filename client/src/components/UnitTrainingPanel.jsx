@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { C, FONT, btn, label as lbl, num } from '../theme';
-import { EQ_LABEL } from '../flows';
+import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
+import { EQ_LABEL, gameMinutesToRealSeconds } from '../flows';
 import { unitImage } from '../data/unitImages';
 import UnitDetail from './UnitDetail';
 import Icon from './Icons';
 import { Qty, QueueList } from './queueUI';
 
-// Birim eğitim süresi (1 eğitmen): ekipman sayısı × 5sn, min 3sn
-const baseSeconds = (def) => Math.max(3, (def?.equipment || []).length * 5);
-const effSeconds = (def, trainers) =>
-  trainers <= 0 ? baseSeconds(def) : Math.max(1, Math.ceil(baseSeconds(def) / trainers));
+// Birim eğitim süresi — oyun DAKİKASI. Sunucudaki getUnitTrainMinutes ile
+// birebir: ekipman sayısı × 5 dk, en az 3 dk; eğitmen sayısına bölünür ve
+// MIN_PRODUCTION_MINUTES (=1) altına düşmez.
+const baseMinutes = (def) => Math.max(3, (def?.equipment || []).length * 5);
+const effMinutes = (def, trainers) =>
+  trainers <= 0 ? baseMinutes(def) : Math.max(1, baseMinutes(def) / trainers);
 
 const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069' };
 
@@ -32,13 +34,14 @@ function Stat({ icon, value, color, title }) {
 function UnitCard({
   u, def, color, img, qty, setQty, equipment, equipmentDefs,
   freeWorkers, trainerWorkers, onTrain, onOpen,
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const eqList = def.equipment || [];
   const eqOk = eqList.every(e => (equipment[e] || 0) >= 1);
   const workerOk = freeWorkers >= 1;
   const trainerOk = trainerWorkers >= 1;
   const ready = eqOk && workerOk && trainerOk;
-  const secs = effSeconds(def, trainerWorkers);
+  const secs = gameMinutesToRealSeconds(effMinutes(def, trainerWorkers), hourSeconds, worldSpeed);
   const cav = def.category === 'suvari';
 
   const [hov, setHov] = useState(false);
@@ -105,7 +108,7 @@ function UnitCard({
           })}
         </div>
         <span style={{ ...pill, borderColor: `${color}55` }}>
-          <span style={num({ fontSize: 8, color })}>{secs}sn</span>
+          <span style={num({ fontSize: 8, color })}>{fmtTime(secs)}</span>
         </span>
       </div>
 
@@ -153,6 +156,7 @@ export default function UnitTrainingPanel({
   unitsByBuilding = {}, unitDefs = {}, equipmentDefs = {},
   equipment = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
   onTrain, onCancel,
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const allowed = unitsByBuilding[buildingType] || [];
   const [qty, setQty] = useState(() => Object.fromEntries(allowed.map(k => [k, 1])));
@@ -219,6 +223,7 @@ export default function UnitTrainingPanel({
               setQty={(n) => setQty(s => ({ ...s, [u]: n }))}
               equipment={equipment} equipmentDefs={equipmentDefs}
               freeWorkers={freeWorkers} trainerWorkers={trainerWorkers}
+              hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               onTrain={onTrain} onOpen={() => setDetail(u)} />
           );
         })}

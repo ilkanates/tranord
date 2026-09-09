@@ -45,6 +45,12 @@ export function computeFlows(v = {}) {
   const caps        = v.depotCapacities || {};
   const granaryCap  = v.granaryCapacity || 0;
   const consumption = v.consumption || {};
+  // Bütün oranlar oyun SAATİ başına; ETA da oyun saati çıkıyor. Ekranda
+  // gerçek saniye göstermek için zaman ölçeğiyle çevrilmesi gerekiyor.
+  const hourSeconds = v.marchInfo?.hourSeconds || 3600;
+  const speed       = v.worldSpeed || 1;
+  const toRealSecs  = (gameHours) => Math.ceil(
+    gameHours * hourSeconds / Math.max(0.01, speed));
 
   const gross    = {};
   const consumed = {};
@@ -95,10 +101,10 @@ export function computeFlows(v = {}) {
     if (net > 0.01 && capacity > 0) {
       const room = capacity - fillBase;
       if (room <= 0) { etaKind = 'full'; }
-      else { etaKind = 'fill'; etaSeconds = room / net; }
+      else { etaKind = 'fill'; etaSeconds = toRealSecs(room / net); }
     } else if (net < -0.01) {
       if (value <= 0) { etaKind = 'empty'; }
-      else { etaKind = 'drain'; etaSeconds = value / -net; }
+      else { etaKind = 'drain'; etaSeconds = toRealSecs(value / -net); }
     }
 
     out[key] = {
@@ -173,3 +179,40 @@ export function extrapolate(v, elapsedMs) {
   }
   return next;
 }
+
+/**
+ * Oyun DAKİKASI → GERÇEK saniye.
+ *
+ * Tanım dosyalarındaki bütün süreler (tarla `sureSaat`, bina `buildBaseWork`,
+ * birim eğitimi, ekipman `productionHours`×60) oyun DAKİKASI cinsindendir.
+ * Sunucu bunları `GT.minutesToClock` ile sanal saate çevirip geri sayımı
+ * `GT.clockToRealSeconds` ile gerçek saniyeye döndürüyor. İstemcideki tahmin
+ * kutuları da AYNI çeviriyi kullanmalı; yoksa "8 sn" yazıp 8 dakika sürer.
+ *
+ * hourSeconds: bir oyun saatinin kaç gerçek saniye sürdüğü (payload'da gelir)
+ * speed:       oyuncunun hız çarpanı (village.worldSpeed)
+ */
+export function gameHoursToRealSeconds(hours, hourSeconds = 3600, speed = 1) {
+  if (!isFinite(hours) || hours <= 0) return hours === 0 ? 0 : Infinity;
+  return Math.ceil(hours * (hourSeconds || 3600) / Math.max(0.01, speed || 1));
+}
+
+export function gameMinutesToRealSeconds(minutes, hourSeconds = 3600, speed = 1) {
+  if (!isFinite(minutes) || minutes <= 0) return minutes === 0 ? 0 : Infinity;
+  // Sunucudaki iki adımın AYNISI: minutesToClock -> clockToRealSeconds.
+  // Kayan nokta yuvarlaması yüzünden tek adımda hesaplayınca 1 sn sapma
+  // olabiliyor (40 dk için 2400 yerine 2401); adımlar birebir taklit edildi.
+  const clock = minutes * (1000 / 60);            // CLOCK_PER_GAME_MINUTE
+  const gameHours = clock / 1000;                 // CLOCK_PER_GAME_HOUR
+  return Math.ceil(gameHours * (hourSeconds || 3600) / Math.max(0.01, speed || 1));
+}
+
+/**
+ * SAVUNMA YAPILARINDA PERSONEL
+ *  • Sur ve hendek personel almaz — arayüzde hiç işçi ibaresi çıkmamalı.
+ *  • Kule personel alır ama onlar işçi değil OKÇU.
+ */
+export const NO_WORKER_TYPES = new Set(['sur', 'hendek']);
+const WORKER_TERM = { kule: 'Okçu' };
+export const workerTerm  = (type) => WORKER_TERM[type] || 'İşçi';
+export const workerTermLc = (type) => (WORKER_TERM[type] || 'İşçi').toLowerCase();
