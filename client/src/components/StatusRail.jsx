@@ -19,6 +19,71 @@ const glass = (extra = {}) => ({
   ...extra,
 });
 
+/**
+ * KATLANABILIR BLOK BASLIGI
+ *
+ * Sag ray dort blok tasiyor (nufus, insaat, ekipman, ordu) ve hepsi birden
+ * ekrani doldurabiliyor. Basliga tiklayinca blok kapanir; kapaliyken bile
+ * ozet sayi gorunur, boylece bilgi kaybi olmaz. Secim tarayicida saklanir.
+ */
+const COLLAPSE_KEY = 'tn.rail.collapsed';
+
+function readCollapsed() {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    const o = raw ? JSON.parse(raw) : null;
+    return (o && typeof o === 'object') ? o : {};
+  } catch { return {}; }
+}
+
+function useCollapse() {
+  const [state, setState] = useState(readCollapsed);
+  const toggle = (key) => setState(prev => {
+    const next = { ...prev, [key]: !prev[key] };
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)); } catch { /* yoksay */ }
+    return next;
+  });
+  return [state, toggle];
+}
+
+/** Blok basligi — tiklanabilir, sagda ozet + katlanma oku */
+function RailHead({
+  icon, iconColor = C.iceDeep, iconClass, title, summary, summaryColor = C.iceSoft,
+  collapsed, onToggle, pad = '0 7px 3px',
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      role="button" tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      title={collapsed ? `${title} — aç` : `${title} — kapat`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 5, padding: pad,
+        cursor: 'pointer', userSelect: 'none', borderRadius: 4,
+        background: hov ? 'rgba(127,212,255,0.07)' : 'transparent',
+        transition: 'background .14s',
+      }}
+    >
+      <Icon name={icon} size={10} color={iconColor} className={collapsed ? undefined : iconClass} />
+      <span style={lbl({ fontSize: 7.5, letterSpacing: 1.3, flex: 1 })}>{title}</span>
+      {summary != null && (
+        <span style={num({ fontSize: 9.5, color: summaryColor })}>{summary}</span>
+      )}
+      {/* katlanma oku — kapalıda sağa, açıkta aşağı */}
+      <svg width="9" height="9" viewBox="0 0 12 12" style={{
+        flexShrink: 0, opacity: hov ? 0.95 : 0.5,
+        transform: collapsed ? 'rotate(-90deg)' : 'none',
+        transition: 'transform .16s, opacity .14s',
+      }}>
+        <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke={C.iceSoft}
+          strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
 function Bar({ pct, color, danger }) {
   return (
     <div style={{ height: 2, borderRadius: 1, background: 'rgba(255,255,255,0.09)', overflow: 'hidden' }}>
@@ -89,6 +154,7 @@ function StatusRail({
   const busy = Math.max(0, population - freeWorkers);
   const armyTot = Object.values(army).reduce((a, b) => a + (b || 0), 0);
   const growSecs = (tickMs * 10) / 1000;
+  const [fold, toggleFold] = useCollapse();
   const armyList = Object.entries(army).filter(([, n]) => n > 0);
 
   return (
@@ -175,13 +241,11 @@ function StatusRail({
         {/* ══ İNŞAAT / YÜKSELTME LİSTESİ ══ */}
         {buildQueue.length > 0 && (
           <div style={glass({ padding: '5px 3px 6px', flexShrink: 0 })}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 7px 3px' }}>
-              <Icon name="insaat" size={10} color={C.ice} className="tn-pulse" />
-              <span style={lbl({ fontSize: 7.5, letterSpacing: 1.3, flex: 1 })}>İnşaat</span>
-              <span style={num({ fontSize: 9.5, color: C.ice })}>{buildQueue.length}</span>
-            </div>
+            <RailHead icon="insaat" iconColor={C.ice} iconClass="tn-pulse"
+              title="İnşaat" summary={buildQueue.length} summaryColor={C.ice}
+              collapsed={!!fold.insaat} onToggle={() => toggleFold('insaat')} />
 
-            {buildQueue.slice(0, 4).map((it) => {
+            {!fold.insaat && buildQueue.slice(0, 4).map((it) => {
               const isNew = it.kind === 'build';
               return (
                 <div key={`${it.area}:${it.slotKey}`}
@@ -190,7 +254,7 @@ function StatusRail({
                     rows: [
                       { k: 'İşlem', v: isNew ? 'İlk inşaat' : `Lvl ${it.fromLevel} → ${it.toLevel}`,
                         c: isNew ? C.ice : C.good },
-                      { k: 'Kalan süre', v: `${it.timeLeft}sn` },
+                      { k: 'Kalan süre', v: fmtTime(it.timeLeft) },
                       { k: 'İnşaat işçisi', v: it.workers },
                       { k: 'Slot', v: `${it.area === 'production' ? 'harita' : 'köy'} ${it.slotKey}` },
                       ...Object.entries(it.refund || {}).map(([r, a]) => ({
@@ -223,7 +287,7 @@ function StatusRail({
                       {isNew ? 'yeni' : `L${it.toLevel}`}
                     </span>
                     <span style={num({ fontSize: 10.5, color: C.frost, minWidth: 30, textAlign: 'right' })}>
-                      {it.timeLeft}sn
+                      {fmtTime(it.timeLeft)}
                     </span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onCancelBuild?.(it); }}
@@ -246,7 +310,7 @@ function StatusRail({
                 </div>
               );
             })}
-            {buildQueue.length > 4 && (
+            {!fold.insaat && buildQueue.length > 4 && (
               <div style={{ padding: '2px 7px', fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute }}>
                 +{buildQueue.length - 4} tane daha
               </div>
@@ -284,20 +348,31 @@ function StatusRail({
                 })}
                 onMouseMove={(e) => tip && place(e, tip)}
                 onMouseLeave={() => setTip(null)}
-                style={{ padding: '0 7px 4px', cursor: 'help' }}
+                onClick={() => toggleFold('ekipman')}
+                title={fold.ekipman ? 'Ekipman — aç' : 'Ekipman — kapat'}
+                style={{ padding: '0 7px 4px', cursor: 'pointer', userSelect: 'none' }}
               >
+                {/* Havuz barı kapalıyken de görünür — özet bilgi kaybolmasın */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                   <Icon name="cephane" size={10} color={poolFull ? C.warn : C.iceDeep} />
                   <span style={lbl({ fontSize: 7.5, letterSpacing: 1.3, flex: 1 })}>Ekipman havuzu</span>
                   <span style={num({ fontSize: 10, color: poolFull ? C.warn : C.frost })}>
                     {poolUsed}<span style={{ color: C.textMute }}>/{poolCap}</span>
                   </span>
+                  <svg width="9" height="9" viewBox="0 0 12 12" style={{
+                    flexShrink: 0, opacity: 0.55,
+                    transform: fold.ekipman ? 'rotate(-90deg)' : 'none',
+                    transition: 'transform .16s',
+                  }}>
+                    <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke={C.iceSoft}
+                      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </div>
                 <Bar pct={poolPct} color={C.iceDeep} danger={poolFull} />
               </div>
 
               {/* Havuzdaki türler — kapasite paylaşımlı, tek tek sınır yok */}
-              {POOL_KEYS.map(k => {
+              {!fold.ekipman && POOL_KEYS.map(k => {
                 const val = equipment[k] || 0;
                 const share = poolCap > 0 ? val / poolCap : 0;
                 return (
@@ -339,7 +414,10 @@ function StatusRail({
               })}
 
               {/* At — ayrı depo (ahır) */}
+              {!fold.ekipman && (
               <div style={{ height: 1, background: C.lineSoft, margin: '4px 7px 3px' }} />
+              )}
+              {!fold.ekipman && (
               <div
                 onMouseEnter={(e) => place(e, {
                   title: 'At', icon: 'at',
@@ -375,19 +453,25 @@ function StatusRail({
                   <Bar pct={atCap > 0 ? Math.min(1, atVal / atCap) : 0} color={C.iceDeep} danger={atFull} />
                 </div>
               </div>
+              )}
             </div>
           );
         })()}
 
         {/* ══ ORDU ══ */}
         {armyTot > 0 && (
-          <div style={glass({ padding: '4px 3px 5px', flexShrink: 1, minHeight: 0, overflow: 'hidden' })}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 7px 2px' }}>
-              <Icon name="ordu" size={10} color={C.iceDeep} />
-              <span style={lbl({ fontSize: 7.5, letterSpacing: 1.3 })}>Ordu</span>
-              <span style={num({ fontSize: 9.5, color: C.iceSoft, marginLeft: 'auto' })}>{armyTot}</span>
-            </div>
-            {armyList.slice(0, 6).map(([type, n]) => {
+          <div style={glass({
+            padding: '4px 3px 5px', minHeight: 0, overflow: 'hidden',
+            flexShrink: fold.ordu ? 0 : 1,
+            // Başlık sabit kalsın, liste kendi içinde kaysın
+            display: 'flex', flexDirection: 'column',
+          })}>
+            <RailHead icon="ordu" title="Ordu" summary={armyTot} pad="0 7px 2px"
+              collapsed={!!fold.ordu} onToggle={() => toggleFold('ordu')} />
+            {/* Tüm birlikler listelenir; sığmazsa blok kendi içinde kayar */}
+            {!fold.ordu && (
+            <div className="tn-scroll" style={{ overflowY: 'auto', minHeight: 0 }}>
+            {armyList.map(([type, n]) => {
               const d = unitDefs[type];
               const cav = d?.category === 'suvari';
               return (
@@ -424,12 +508,7 @@ function StatusRail({
                 </div>
               );
             })}
-            {armyList.length > 6 && (
-              <div style={{
-                padding: '2px 7px', fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute,
-              }}>
-                +{armyList.length - 6} tür daha — Ordu sekmesinde
-              </div>
+            </div>
             )}
           </div>
         )}

@@ -73,6 +73,18 @@ const hueColor = (h) => ({
 const PLAYER_COL = { line: FOE_COLOR, soft: 'rgba(255,111,120,0.32)' };
 
 /**
+ * NPC KÖYLERİ GRİ.
+ *
+ * Köy başına ayrı hue rengarenk bir harita üretiyordu ve göz asıl önemli
+ * şeyi (kendi toprağım / gerçek oyuncular) seçemiyordu. NPC'ler artık tek
+ * nötr gri; renk yalnızca anlam taşıyanlara ayrıldı:
+ *   sarı = benim · kırmızı = rakip oyuncu · koyu yeşil = birliğim (planlı)
+ * `assignVillageHues` ve PALETTE_H hâlâ duruyor — birlik dışı ayrım gerekirse
+ * geri dönmek için.
+ */
+const NPC_COL = { line: '#93a1ad', soft: 'rgba(147,161,173,0.26)' };
+
+/**
  * Renge saydamlık ekle.
  *
  * DİKKAT — BU FONKSİYON BİR HATANIN İLACI: `${color}26` gibi dize birleştirme
@@ -229,9 +241,53 @@ function computeWild({ w, h, scale, pan, myClaim, tileOwners, radius }) {
   return out;
 }
 
+/**
+ * UZAK ZOOM ARAZİ RENKLERİ.
+ *
+ * Uzaklaştırınca dokular kapanıyor ve harita bomboş kalıyordu. Artık kaynak
+ * hex'leri DÜZ renkle boyanıyor: resim yok, hex başına çizim yok — kaynak
+ * türü başına TEK `fill()`. Tonlar bilinçli olarak soluk ve düşük doygunlukta;
+ * amaç "bu ne" sorusunu uzaktan cevaplamak, harita rengarenk olmasın.
+ * Bonussuz vahşi arazi hiç boyanmaz, zemin olarak kalır.
+ */
+const RES_FLAT = {
+  odun:  '#3b5733',   // orman — yeşil
+  tahil: '#7d7038',   // tahıl — buğday sarısı
+  tas:   '#666b70',   // taş — gri
+  kil:   '#7d5a41',   // kil — kiremit
+  demir: '#4a5e6e',   // demir — çelik mavisi
+};
+
+/**
+ * Tüm dünyanın kaynak hex'leri kaynak türüne göre TEK Path2D'de toplanır.
+ * Deterministik (worldTileBonus) olduğu için yarıçap başına bir kez kurulur:
+ * 60 yarıçapta ~2.160 hex, beş yol. Çizim maliyeti beş `fill()`.
+ */
+let _farPaths = null, _farRadius = -1;
+function farResourcePaths(radius) {
+  if (_farRadius === radius && _farPaths) return _farPaths;
+  const paths = new Map();
+  for (let q = -radius; q <= radius; q++) {
+    for (let r = -radius; r <= radius; r++) {
+      if (hexDistance(q, r) > radius) continue;
+      const b = worldTileBonus(q, r);
+      if (!b || !RES_FLAT[b.resource]) continue;
+      let p = paths.get(b.resource);
+      if (!p) { p = new Path2D(); paths.set(b.resource, p); }
+      const { x, y } = hexToPixel(q, r, S);
+      p.addPath(hexPath2D(x, y, S));
+    }
+  }
+  _farPaths = paths; _farRadius = radius;
+  return paths;
+}
+
 /** Vahşi araziyi canvas'a çiz. Yalnızca pan/zoom commit'inde çağrılır. */
-function drawTerrain(cv, { w, h, scale, pan, list, showBadge }) {
-  if (!cv || !_sprites) return;
+function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worked = null }) {
+  if (!cv) return;
+  // Uzak zoom: sprite beklemeye gerek yok, düz renk yeter
+  const far = scale < Z_TERRAIN;
+  if (!far && !_sprites) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const W = w + 2 * PAD, H = h + 2 * PAD;
   const pxW = Math.round(W * dpr), pxH = Math.round(H * dpr);
@@ -245,6 +301,36 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge }) {
   // dünya koordinatı → canvas pikseli
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale,
     dpr * (W / 2 + pan.x * scale), dpr * (H / 2 + pan.y * scale));
+
+  // ── UZAK ZOOM: kaynak hex'leri düz renk, beş fill ──
+  if (far) {
+    // 1) dünyanın ham kaynak hex'leri — soluk
+    const paths = farResourcePaths(radius);
+    ctx.globalAlpha = 0.72;
+    for (const [res, path] of paths) {
+      ctx.fillStyle = RES_FLAT[res];
+      ctx.fill(path);
+    }
+    /**
+     * 2) İŞLENMİŞ TARLALAR — kurulu tarlanın TÜRÜ boyanır (ham bonus değil).
+     * Oyuncu bonussuz bir hex'e de tarla kurabiliyor; o hex ham kaynak
+     * listesinde olmadığı için uzak zoom'da bomboş kalıyordu. Kurulu tarlalar
+     * ayrıca daha parlak çizilir: "işlenmiş toprak" ham araziden ayrılsın.
+     */
+    if (worked && worked.size) {
+      ctx.globalAlpha = 1;
+      for (const [res, pts] of worked) {
+        const fill = RES_FLAT[res];
+        if (!fill) continue;
+        const path = new Path2D();
+        for (const [x, y] of pts) path.addPath(hexPath2D(x, y, S));
+        ctx.fillStyle = fill;
+        ctx.fill(path);
+      }
+    }
+    ctx.globalAlpha = 1;
+    return;
+  }
 
   // 1) dokular — hex başına tek blit.
   // Yabancı köyün KURULU tarlası varsa o kaynağın dokusu çizilir (boş arazi değil),
@@ -372,7 +458,9 @@ function outlinePath(localKeys, cq, cr) {
         + `L${(x + S * Math.cos(a1)).toFixed(1)} ${(y + S * Math.sin(a1)).toFixed(1)}`;
     }
   }
-  if (_outlineCache.size > 400) _outlineCache.clear();
+  // 200+ köyün tamamı uzak zoom'da çiziliyor; sınır düşük kalırsa önbellek
+  // her karede temizlenip yeniden hesaplanıyordu.
+  if (_outlineCache.size > 4000) _outlineCache.clear();
   _outlineCache.set(ck, d);
   return d;
 }
@@ -500,12 +588,19 @@ function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onC
   const isSelf = v.kind === 'self';
   const on = hovered || selected;
   const near = scale >= Z_TERRAIN;
-  const rad = near ? S * 0.78 : S * (isSelf ? 1.05 : 0.6 + Math.min(0.45, (v.score || 500) / 15000));
+  /**
+   * Uzaklaştırınca artık toprak şekli asıl görsel; köy işareti yalnızca
+   * merkezi belli etsin diye küçük kalıyor (eskiden puana göre büyüyen
+   * altıgen toprak şeklini bastırıyordu).
+   */
+  const rad = near
+    ? S * 0.78
+    : S * (isSelf ? 0.62 : 0.40 + Math.min(0.16, (v.score || 500) / 40000));
 
   return (
     <g onMouseEnter={onEnter} onMouseLeave={onLeave} onClick={onClick}
       style={{ cursor: 'pointer' }}>
-      {isSelf && !near && (
+      {isSelf && !near && scale >= Z_CLUSTER && (
         <circle cx={x} cy={y} r={S * 1.7} fill="none" stroke={CLAIM_GREEN}
           strokeWidth={1.2 / scale} opacity={0.5}>
           <animate attributeName="r" values={`${S * 1.4};${S * 2.2};${S * 1.4}`}
@@ -520,7 +615,7 @@ function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onC
         <path d={`M ${x - 6} ${y + 4} L ${x - 6} ${y - 2} L ${x} ${y - 7} L ${x + 6} ${y - 2} L ${x + 6} ${y + 4} Z`}
           fill="none" stroke={color} strokeWidth={1.2} opacity={0.85} />
       )}
-      {scale > 0.62 && (
+      {scale > 0.72 && (
         <text x={x} y={y + rad + 9 / Math.max(0.5, scale)} textAnchor="middle"
           fontFamily={FONT.ui} fontSize={8 / Math.max(0.5, scale)}
           fill={on ? C.frost : C.textFaint} style={{ userSelect: 'none' }}>
@@ -569,6 +664,7 @@ export default function MapView({
   army = {}, unitDefs = {}, intel = {}, marchInfo = {},
   onBuild, onUpgrade, onDemolish, onAssignWorkers, onCancelBuild,
   onUpgradeAnaBina, onEnterVillageCenter,
+  hourSeconds = 3600, worldSpeed = 1,
 }) {
   const wq = world?.q || 0;
   const wr = world?.r || 0;
@@ -696,7 +792,8 @@ export default function MapView({
   const paint = (px, py) => {
     const np = { x: px, y: py };
     drawTerrain(canvasRef.current, {
-      w: size.w, h: size.h, scale, pan: np, showBadge: scale >= Z_LABEL,
+      w: size.w, h: size.h, scale, pan: np, showBadge: scale >= Z_LABEL, radius,
+      worked: workedTiles,
       list: computeWild({ w: size.w, h: size.h, scale, pan: np, myClaim, tileOwners, radius }),
     });
     drawSig.current = sigOf(px, py, scale);
@@ -705,7 +802,7 @@ export default function MapView({
   const commitPan = (px, py) => {
     // Üç DOM yazısı da AYNI karede: SVG transform, canvas içeriği, katman sıfırlaması.
     if (gRef.current) gRef.current.setAttribute('transform', panTransform(px, py));
-    if (spritesReady) paint(px, py);
+    if (spritesReady || scale < Z_TERRAIN) paint(px, py);
     shiftLayer(0, 0);
     setPan({ x: px, y: py });
   };
@@ -819,7 +916,9 @@ export default function MapView({
    */
   const villageHues = useMemo(() => assignVillageHues(villages), [villages]);
   const colOf = useCallback((v) => (
-    v.kind === 'player' ? PLAYER_COL : hueColor(villageHues.get(v.key) ?? PALETTE_H[0])
+    v.kind === 'player' ? PLAYER_COL
+      : v.kind === 'npc' ? NPC_COL
+      : hueColor(villageHues.get(v.key) ?? PALETTE_H[0])
   ), [villageHues]);
 
   const claimBlocked = useMemo(() => {
@@ -888,6 +987,33 @@ export default function MapView({
     return s;
   }, [myFieldKeys, wq, wr]);
 
+  /**
+   * UZAK ZOOM'DA İŞLENMİŞ TARLALAR.
+   * Kendi tarlalarım (productionTiles, yerel anahtar) ve veri gelen yabancı
+   * köylerin kurulu tarlaları — kaynak türüne göre gruplanmış dünya pikselleri.
+   * Sadece tarla verisi değişince yeniden kurulur.
+   */
+  const workedTiles = useMemo(() => {
+    const byRes = new Map();
+    const add = (q, r, res) => {
+      if (!res) return;
+      let a = byRes.get(res);
+      if (!a) { a = []; byRes.set(res, a); }
+      const { x, y } = hexToPixel(q, r, S);
+      a.push([x, y]);
+    };
+    for (const [lk, t] of Object.entries(productionTiles)) {
+      const [lq, lr] = lk.split(',').map(Number);
+      add(wq + lq, wr + lr, t?.type);
+    }
+    for (const [wk, info] of tileOwners) {
+      if (!info.tile) continue;
+      const [q, r] = wk.split(',').map(Number);
+      add(q, r, info.tile[0]);
+    }
+    return byRes;
+  }, [productionTiles, tileOwners, wq, wr]);
+
   // ── Görünür vahşi hex'ler (viewport kırpma) ──
   // Kırpma penceresi S adımlarına yuvarlanır → küçük pan'lerde liste değişmez
   const cullX = Math.round(pan.x / S) * S;
@@ -902,6 +1028,24 @@ export default function MapView({
   );
 
   // ── Yakın zoom'da görünen yabancı köyler ──
+  /**
+   * Toprak şekilleri ZOOM'DAN BAĞIMSIZ hesaplanır: sadece köy listesi ve
+   * renkler değişince yeniden kurulur. Zoom/pan sırasında tek yaptığı şey
+   * hazır `d` dizelerini basmak — pan akıcı kalıyor.
+   */
+  const territories = useMemo(() => shownVillages.map(v => {
+    const color = v.kind === 'self' ? CLAIM_GREEN : colOf(v).line;
+    // ownedOf aşağıda tanımlı (TDZ) — aynı ifade burada satır içi
+    const owned = ['0,0', ...Object.keys(v.tiles || {})];
+    const solo = owned.length <= 1;
+    return {
+      key: v.key, solo,
+      d: outlinePath(owned, v.q, v.r),
+      fill: alpha(color, solo ? 0.14 : 0.11),
+      stroke: alpha(color, solo ? 0.45 : 0.6),
+    };
+  }), [shownVillages, colOf]);
+
   const visibleForeign = useMemo(() => {
     if (scale < Z_TERRAIN) return [];
     const halfW = (size.w / 2 + PAD) / scale + 4 * S;
@@ -1105,16 +1249,17 @@ export default function MapView({
 
   // ── Araziyi canvas'a çiz: yalnızca pan/zoom commit'inde ya da veri değişince ──
   useEffect(() => {
-    if (!spritesReady) return;
+    // Uzak zoom düz renk kullanıyor; sprite yüklenmesini beklemesin
+    if (!spritesReady && scale >= Z_TERRAIN) return;
     const sig = sigOf(pan.x, pan.y, scale);
     if (drawSig.current === sig) return;          // commit anında çizilmişti
     drawTerrain(canvasRef.current, {
-      w: size.w, h: size.h, scale, pan,
-      list: wildHexes, showBadge: scale >= Z_LABEL,
+      w: size.w, h: size.h, scale, pan, radius,
+      list: wildHexes, showBadge: scale >= Z_LABEL, worked: workedTiles,
     });
     drawSig.current = sig;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spritesReady, size.w, size.h, scale, pan.x, pan.y, wildHexes, snapSeq]);
+  }, [spritesReady, size.w, size.h, scale, pan.x, pan.y, wildHexes, workedTiles, snapSeq]);
 
   // ── Kademe halkaları ──
   const tierRings = useMemo(() => (snap?.tiers || []).filter(t => t.maxRing < 90), [snap]);
@@ -1201,15 +1346,23 @@ export default function MapView({
             </g>
           )}
 
-          {/* Orta zoom: köy toprakları küme olarak */}
-          {scale >= Z_CLUSTER && scale < Z_TERRAIN && shownVillages.map(v => {
-            const p = hexToPixel(v.q, v.r, S);
-            const color = v.kind === 'self' ? CLAIM_GREEN : colorOf(v);
-            return (
-              <polygon key={`c${v.key}`} points={hexPoints(p.x, p.y, S * 2.6)}
-                fill={alpha(color, 0.07)} stroke={alpha(color, 0.27)} strokeWidth={0.9 / scale} />
-            );
-          })}
+          {/* UZAKLAŞTIRINCA: GERÇEK TOPRAK ŞEKLİ
+            * Eskiden her köy 2.6·S yarıçaplı UYDURMA bir altıgenle çiziliyordu —
+            * kimin nereyi aldığı görünmüyordu. Şimdi gerçekten sahip olunan
+            * hex'lerin birleşim sınırı çiziliyor (yakın zoom'daki aynı
+            * `outlinePath`). Resim yok, doku yok: sade dolgu + ince kontur,
+            * yani uzaklaştıkça harita hafifliyor.
+            *
+            * Sunucu tarla verisini yalnızca 30 hex yarıçapında gönderiyor;
+            * daha uzak köyler için elde sadece merkez var, o yüzden tek hex
+            * çiziliyor — şişirilmiş sahte alan değil.
+            */}
+          {scale < Z_TERRAIN && territories.map(t => (
+            <path key={`c${t.key}`} d={t.d}
+              fill={t.fill} stroke={t.stroke}
+              strokeWidth={(t.solo ? 0.9 : 1.3) / scale}
+              strokeLinejoin="round" />
+          ))}
 
           {/* Boş slotlar */}
           {scale >= Z_CLUSTER && scale < Z_TERRAIN && (snap?.emptySlots || []).map(s => {
@@ -1356,6 +1509,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
       {selField === '0,0' && popoverPos && (
         <AnaBinaPanel anaBina={anaBina} resources={resources} freeWorkers={freeWorkers}
           popoverPos={popoverPos} worldName={world?.name}
+          hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           onUpgrade={(w) => { onUpgradeAnaBina(w); setSelField(null); }}
           onEnterVillage={() => { setSelField(null); onEnterVillageCenter?.(); }}
           onCancelBuild={() => { onCancelBuild?.('village', '0,0'); setSelField(null); }}
@@ -1365,6 +1519,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
       {selField && selField !== '0,0' && selectedTile && popoverPos && (
         <FieldPanel localKey={selField} wq={wq} wr={wr} tile={selectedTile}
           resources={resources} freeWorkers={freeWorkers} flows={flows} popoverPos={popoverPos}
+          hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           onUpgrade={(w) => { onUpgrade(selField, w); setSelField(null); }}
           onDemolish={() => { onDemolish(selField); setSelField(null); }}
           onAssignWorkers={(w) => onAssignWorkers(selField, w)}
@@ -1375,6 +1530,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
       {selField && selField !== '0,0' && !selectedTile && popoverPos && (
         <BuildFieldPanel localKey={selField} wq={wq} wr={wr}
           freeWorkers={freeWorkers} resources={resources}
+          hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           slotsFull={slotsFull} connected={isConnected(selField)} popoverPos={popoverPos}
           onBuild={(type, w) => { onBuild(selField, type, w); setSelField(null); }}
           onClose={() => setSelField(null)} />
