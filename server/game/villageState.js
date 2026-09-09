@@ -170,6 +170,28 @@ function hydrateVillage(raw) {
 }
 
 /**
+ * SİVİL NÜFUS — asker olmayan herkes.
+ *
+ * `population` köyün TOPLAM insanı: siviller + asker. Ev tavanı ise yalnız
+ * SİVİLLERİ sınırlar. Sebebi: asker de nüfusta sayılıp tavana dahil edilince,
+ * tavana oturmuş bir köyde işçiyi askere çevirmek yer AÇMIYOR, dolayısıyla
+ * yeni köylü hiç doğmuyordu — ekmek bol olsa bile. (Ölçüldü: 200 oyun saati,
+ * 1.000 işçi askere çevrildi, 0 yeni köylü.) Artık asker "evden çıkıp
+ * kışlaya gidiyor", yeri boşalıyor ve nüfus yerini dolduruyor.
+ *
+ * Seferdeki asker de sivil değildir; eğitim kuyruğunda rezerve edilmiş işçi
+ * ise henüz asker olmadığı için sivil sayılır.
+ */
+function civilianCount(village) {
+  let asker = 0;
+  for (const n of Object.values(village.army || {})) asker += n || 0;
+  for (const m of village.marches || []) {
+    for (const n of Object.values(m.units || {})) asker += n || 0;
+  }
+  return Math.max(0, (village.population || 0) - asker);
+}
+
+/**
  * SEVİYE TAVANINI AŞMIŞ BİNALARI GERİ ÇEK.
  *
  * 18 binanın `maxLevel`i tanımsızdı ve yükseltme kontrolü
@@ -287,5 +309,5 @@ function repairWorkerAccounting(v) {
 }
 
 module.exports = { createVillage, hydrateVillage, repairWorkerAccounting,
-  clampWorkersToCapacity, clampBuildingLevels,
+  clampWorkersToCapacity, clampBuildingLevels, civilianCount,
   TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };

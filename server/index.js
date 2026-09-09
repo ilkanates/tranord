@@ -6,7 +6,7 @@ const cors       = require('cors');
 const { createVillage, hydrateVillage,
         TOWER_SLOTS_ARR: TOWER_SLOT_NAMES,
         WALL_SLOTS_ARR: WALL_SLOT_NAMES,
-        DEFENCE_TYPES } = require('./game/villageState');
+        DEFENCE_TYPES, civilianCount } = require('./game/villageState');
 const { processTick, getUpgradeSeconds, hexDistanceFromCenter, getProductionMultiplier, getSlotTotalMultiplier, getUnitTrainSeconds, getEquipmentCap, getEquipmentPool, getConsumptionRates, getStorageCaps } = require('./game/tick');
 const { simulateBattle, towerBonusPct } = require('./game/combat');
 const ARMY = require('./game/army');
@@ -183,7 +183,13 @@ const DEFAULT_TICK_MS = 1000;
  *   lvl 1 → 1.0/sa   lvl 5 → 3.4/sa   lvl 10 → 6.4/sa   lvl 11 → 7.0/sa
  */
 const POP_PER_HOUR_BASE = 1.0;
-const POP_PER_HOUR_STEP = 0.6;
+/**
+ * Seviye başına artış 0,6 → 2. Eski hızda (Lvl 11'de 7 kişi/oyun saati)
+ * tahılın besleyebildiği ~9.500 kişilik orduyu kurmak 56 oyun günü sürüyordu.
+ * Yeni hızda Lvl 11 = 21, Lvl 20 = 39 kişi/saat; ana binayı yükseltmek de
+ * gerçekten değerli oluyor.
+ */
+const POP_PER_HOUR_STEP = 2.0;
 
 function popPerGameHour(anaBinaLevel) {
   const lv = Math.max(0, Math.floor(anaBinaLevel || 0));
@@ -552,6 +558,8 @@ function buildPayload(village, tickMs, opts = {}) {
         || 'Köyün',
     },
     population: village.population, maxPopulation: village.maxPopulation, freeWorkers: village.freeWorkers,
+    // Ev tavanı yalnız sivilleri sınırlar; arayüz "siviller / tavan" gösterir
+    civilians: civilianCount(village),
     // Yuvarlama SADECE burada: motor içinde kesirli kalır, yoksa 1× ölçekte
     // tick başına düşen küçük artışlar yuvarlanarak yok oluyor.
     resources: Object.fromEntries(Object.entries(village.resources)
@@ -815,7 +823,9 @@ function advanceVillage(village, gameHours, userId) {
   village.popAccum = (village.popAccum || 0) + gameHours * popRate;
   while (village.popAccum >= 1) {
     village.popAccum -= 1;
-    if (village.isStarving || village.population >= village.maxPopulation) break;
+    // Tavan yalnız SİVİLLERİ sayar: asker evden çıkıp kışlaya gittiği için
+    // yerine yeni köylü doğabilir (bkz. civilianCount).
+    if (village.isStarving || civilianCount(village) >= village.maxPopulation) break;
     village.population++;
     village.freeWorkers++;
   }

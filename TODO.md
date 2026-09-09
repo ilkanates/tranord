@@ -141,6 +141,14 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Tahıl → köylü → asker döngüsü oturtuldu (Eylül 2026)
+- **Bulunan çıkmaz:** asker `population` içinde sayılıyor ve ev tavanı toplam nüfusu sınırlıyordu. Tavana oturmuş bir köyde işçiyi askere çevirmek yer AÇMIYORDU, dolayısıyla yeni köylü hiç doğmuyordu — ekmek bol olsa bile. Ölçüldü: 200 oyun saati, 1.000 işçi askere çevrildi, **0 yeni köylü**. Toplam asker sonsuza dek "nüfus tavanı − elde tutulan işçi" ile sınırlıydı.
+- **Karar 1:** ev tavanı yalnız **SİVİLLERİ** sayar (`civilianCount` = nüfus − ordu − seferdeki asker). Asker evden çıkıp kışlaya gider, yeri boşalır, nüfus yerini doldurur. `population` hâlâ toplamı tutuyor, bu yüzden **işçi muhasebesi hiç değişmedi** (diğer seçenek 6 dosyayı elden geçirmekti).
+- **Karar 2:** nüfus artış hızı seviye başına 0,6 → **2,0**. Ana bina Lvl 11 = 21 kişi/saat, Lvl 20 = 39. Eski hızda tahılın besleyebildiği ~9.500 kişilik ordu 56 oyun günü sürüyordu.
+- Doğrulama (gerçek motor): 5 turda 1.000'er asker basıldı; her turda sivil 1.050 → 50'ye düşüp 50 oyun saatinde tavana geri döndü. **5 turda 5.000 asker**, havuz her seferinde doldu. Eski modelde ikinci tur 50 askerde tükeniyordu.
+- Döngü artık: **ev → sivil tavanı**, **ana bina → büyüme hızı**, **köylü → asker (yeri boşalır)**, **tahıl → herkesi besler**. Gerçek sınır tahıl üretimi.
+- Arayüz: sağ rayda büyük rakam artık sivil nüfus (`siviller / tavan`), yanında "+N asker"; toplam ipucu kutusunda.
+
 ### Kısıt artık TAHIL (Eylül 2026)
 - İstek: "kısıt tahıl olmalı, un ya da ekmek değil." Karar: zincir aynen kalsın (asker de ekmek yesin), ama **değirmen/fırın tarlaların verebileceğinden fazlasını işleyebilsin** — yoksa darboğaz zincir olur, tahıl değil.
 - Ölçüm: 16 tahıl tarlası Lvl 20 tam kadro = **5.120 tahıl/sa**. Değirmen 60 işçiyle bunu öğütebilmeli → işçi başına ≥86 tahıl. Girdi 30 → 1.800/sa (zincir tıkar), 60 → 3.600/sa (yine tıkar), **90 → 5.400/sa (tarlaları geçer)**.

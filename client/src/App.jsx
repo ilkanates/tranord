@@ -679,6 +679,7 @@ function Game({ token, onLogout }) {
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 6, display: 'flex' }}>
           <StatusRail
             population={village.population}
+            civilians={village.civilians ?? null}
             maxPopulation={village.maxPopulation}
             freeWorkers={village.freeWorkers}
             populationGrowthRate={village.populationGrowthRate || 0}

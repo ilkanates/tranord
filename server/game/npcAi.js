@@ -6,7 +6,7 @@
  * Bu yüzden sahte büyüme eğrisi yerine gerçek simülasyon kullanılıyor.
  */
 
-const { createVillage } = require('./villageState');
+const { createVillage, civilianCount } = require('./villageState');
 const { towerBonusPct } = require('./combat');
 const GT = require('./gameTime');
 const { getUpgradeSeconds, getEquipmentPool, getStorageCaps, getConsumptionRates, processTick } = require('./tick');
@@ -421,7 +421,8 @@ function stepVillage(v, hours = GT.HOURS_PER_TICK) {
   v.popAccum = (v.popAccum || 0) + hours;
   while (v.popAccum >= 1) {
     v.popAccum -= 1;
-    if (v.isStarving || v.population >= v.maxPopulation) break;
+    // Tavan yalnız sivilleri sayar (bkz. villageState.civilianCount)
+    if (v.isStarving || civilianCount(v) >= v.maxPopulation) break;
     v.population++; v.freeWorkers++;
   }
 }

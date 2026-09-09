@@ -131,7 +131,7 @@ function Tip({ at, title, icon, rows, note }) {
 }
 
 function StatusRail({
-  population = 0, maxPopulation = 0, freeWorkers = 0,
+  population = 0, maxPopulation = 0, freeWorkers = 0, civilians = null,
   populationGrowthRate = 0, isStarving = false,
   consumption = {}, equipment = {}, equipmentCaps = {},
   equipmentPool = { capacity: 0, used: 0, free: 0 },
@@ -152,9 +152,17 @@ function StatusRail({
     setTip({ ...payload, at: { x, y } });
   };
 
-  const popPct = maxPopulation > 0 ? population / maxPopulation : 0;
-  const busy = Math.max(0, population - freeWorkers);
+  /**
+   * Ev tavanı yalnız SİVİLLERİ sınırlıyor (asker evden çıkıp kışlaya gider),
+   * bu yüzden büyük rakam ve çubuk sivil sayısını gösteriyor. Toplam nüfus
+   * ipucu kutusunda duruyor. `civilians` eski sunucudan gelmezse toplamdan
+   * hesaplanır.
+   */
   const armyTot = Object.values(army).reduce((a, b) => a + (b || 0), 0);
+  const sivil = civilians != null ? civilians : Math.max(0, population - armyTot);
+  const popPct = maxPopulation > 0 ? sivil / maxPopulation : 0;
+  const busy = Math.max(0, population - freeWorkers - armyTot);
+  const tavanda = sivil >= maxPopulation;
   /**
    * +1 nüfus için kalan gerçek süre. Eskiden `tickMs * 10 / 1000` idi —
    * tick sayısına dayalı eski kuraldan kalmış, gerçek hızla ilgisi yoktu.
@@ -181,10 +189,11 @@ function StatusRail({
           onMouseEnter={(e) => place(e, {
             title: 'Nüfus', icon: 'nufus',
             rows: [
-              { k: 'Toplam', v: `${population} / ${maxPopulation}` },
+              { k: 'Siviller', v: `${sivil} / ${maxPopulation}`, c: tavanda ? C.warn : C.frost },
               { k: 'Çalışan', v: busy, c: C.iceSoft },
               { k: 'Boşta', v: freeWorkers, c: freeWorkers > 0 ? C.good : C.warn },
               { k: 'Asker', v: armyTot, c: armyTot ? C.iceSoft : C.textMute },
+              { k: 'Toplam', v: population },
               { k: 'Yiyecek', v: `−${(consumption.foodPerHour || 0).toFixed(1)}/sa`, c: C.warn },
               ...(consumption.horses
                 ? [{ k: 'At (tahıl)', v: `−${(consumption.grainPerHour || 0).toFixed(1)}/sa`, c: C.warn }]
@@ -192,10 +201,12 @@ function StatusRail({
             ],
             note: isStarving
               ? 'Açlık sürüyor: nüfus artmıyor ve kayıp veriyorsun. Fırına işçi ata.'
-              : population >= maxPopulation
-                ? 'Nüfus tavanda. EV inşa ederek kapasiteyi +50/seviye artır.'
+              : tavanda
+                ? 'Sivil nüfus tavanda. EV inşa et — ya da işçileri askere al:'
+                  + ' asker tavana sayılmaz, yeri boşalır ve nüfus yerini doldurur.'
                 : `+${populationPerHour.toFixed(1)} nüfus/saat (ana bina seviyesi)`
-                  + ` — her ${fmtTime(growSecs)} içinde 1 kişi. Tavanı EV belirler.`,
+                  + ` — her ${fmtTime(growSecs)} içinde 1 kişi. Tavanı EV belirler,`
+                  + ' asker tavana sayılmaz.',
           })}
           onMouseMove={(e) => tip && place(e, tip)}
           onMouseLeave={() => setTip(null)}
@@ -217,9 +228,15 @@ function StatusRail({
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
             <span style={num({ fontSize: 24, lineHeight: 1, color: C.frost, fontWeight: 500 })}>
-              {population}
+              {sivil}
             </span>
             <span style={num({ fontSize: 11, color: C.textFaint })}>/ {maxPopulation}</span>
+            {armyTot > 0 && (
+              <span style={num({ fontSize: 9.5, color: C.textMute, marginLeft: 'auto' })}
+                title={`${population} toplam (${sivil} sivil + ${armyTot} asker)`}>
+                +{armyTot} asker
+              </span>
+            )}
           </div>
 
           <div style={{ marginTop: 5 }}>
