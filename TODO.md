@@ -141,6 +141,12 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Oyun yayında: Raspberry Pi (Eylül 2026)
+- Oyun İlkan'ın evindeki Raspberry Pi 4'te yayında: **https://tranord.tail09b828.ts.net** (Tailscale Funnel → nginx :80 → Node :3311 + yerel Postgres). Railway/Vercel planı iptal; istemci de Pi'den servis ediliyor, tek origin.
+- Dağıtım: lokalde geliştir → `git push` → `deploy.bat` (ssh + `sudo tranord-guncelle` → `deploy/guncelle.sh`: origin/main'e reset, npm ci, derle, servisi yeniden başlat). **Derleme başarısız olursa servise dokunmuyor.** Gecelik yedek 03:15, 14 gün.
+- Şema göçleri `initDB()` içinde idempotent; servis her başlayışta uyguluyor. Yeni kolon/tablo eklerken `IF NOT EXISTS` ile oraya yazılmalı.
+- **`deploy/kurulum.sh`'taki iki hata düzeltildi** (İlkan kurulum sırasında yaşayıp belgelemişti): (1) `.ssh` dizinini root oluşturup anahtarı `tranord` kullanıcısına yazdırıyordu → dizin sahipliği artık ssh-keygen'den ÖNCE veriliyor; (2) betik `/home/pi/...` altından çalıştırılınca `sudo -u tranord git ls-remote` çalışma dizinini stat edemeyip patlıyordu → betik başında `cd /tmp`. Ayrıca depo public olduğu için HTTPS adresinde deploy-key adımı tamamen atlanıyor (`NEEDS_KEY`), varsayılan adres HTTPS oldu.
+
 ### Asker yemeği iki kez sayılıyordu (Eylül 2026)
 - Şikâyet: "9 tarlam var ama tahıl hâlâ çok az geliyor." Ölçüm bambaşka bir yere çıktı.
 - **Hata:** `getConsumptionRates` ve `processFoodConsumption` sivil payını `population` üzerinden hesaplıyordu ama `population` askerleri de içeriyor. Yani her asker günde **3 (köylü olarak) + 6 (asker olarak) = 9 ekmek** yiyordu. İlkan'ın köyünde 2.643 asker × 3 / 24 = **331 ekmek/sa hayalet tüketim** — 1.553'lük tüketimin beşte biri.

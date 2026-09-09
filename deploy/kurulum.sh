@@ -12,12 +12,15 @@
 #                                    └─────────►  postgres 127.0.0.1:5432
 #
 # Kullanım (root olarak):
-#   bash kurulum.sh git@github.com:ilkanates/tranord.git
+#   bash kurulum.sh https://github.com/ilkanates/tranord.git
+#
+# Depo public olduğu sürece HTTPS adresi yeter; SSH adresi verilirse betik
+# sunucuya salt-okunur bir deploy key üretip GitHub'a eklemeni ister.
 #
 # Betik iki kez çalıştırılabilir: var olanı bozmadan eksikleri tamamlar.
 set -euo pipefail
 
-REPO="${1:-git@github.com:ilkanates/tranord.git}"
+REPO="${1:-https://github.com/ilkanates/tranord.git}"
 APP_USER=tranord
 APP_DIR=/opt/tranord
 NODE_MAJOR=22
@@ -28,6 +31,13 @@ log() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 die() { printf '\n\033[1;31mHATA: %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" = 0 ] || die "root olarak çalıştır (sudo -i)."
+
+# Betik /home/pi/... altından çalıştırılırsa `sudo -u tranord ...` komutları
+# çalışma dizinini stat edemeyip patlıyor ("could not chdir"): tranord bir
+# sistem kullanıcısı ve /home/pi'ye erişimi yok. Betik hiçbir göreli yol
+# kullanmıyor (her şey $APP_DIR üzerinden), o yüzden herkesin okuyabildiği
+# bir dizine geçmek yeterli.
+cd /tmp
 
 log "1/9 Sistem paketleri"
 export DEBIAN_FRONTEND=noninteractive
@@ -57,11 +67,21 @@ id -u "$APP_USER" >/dev/null 2>&1 || adduser --system --group --home "$APP_DIR" 
 mkdir -p "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
-# ── Depoya erişim: salt-okunur deploy key ────────────────────────────
-# Depo private olduğu için sunucunun kendi anahtarı olmalı. Anahtar burada
-# üretilir ve ÖZEL kısmı sunucudan hiç çıkmaz.
+# ── Depoya erişim ────────────────────────────────────────────────────
+# HTTPS adresi verildiyse (public depo) anahtara hiç gerek yok; SSH adresi
+# verildiyse sunucunun kendi salt-okunur deploy key'i üretilir ve ÖZEL kısmı
+# sunucudan hiç çıkmaz.
+case "$REPO" in
+  https://*|http://*) NEEDS_KEY=0 ;;
+  *)                  NEEDS_KEY=1 ;;
+esac
+
+if [ "$NEEDS_KEY" = 1 ]; then
 SSH_DIR="$APP_DIR/.ssh"
 mkdir -p "$SSH_DIR"; chmod 700 "$SSH_DIR"
+# Dizini root oluşturuyor ama anahtarı APP_USER yazacak — sahipliği ÖNCE ver,
+# yoksa ssh-keygen "Permission denied" ile düşüyor.
+chown "$APP_USER:$APP_USER" "$SSH_DIR"
 if [ ! -f "$SSH_DIR/id_ed25519" ]; then
   sudo -u "$APP_USER" ssh-keygen -t ed25519 -N '' -C "tranord-deploy" -f "$SSH_DIR/id_ed25519" >/dev/null
 fi
@@ -88,6 +108,7 @@ MSG
 MSG
   exit 2
 fi
+fi   # NEEDS_KEY
 
 log "5/9 Kod"
 if [ -d "$APP_DIR/.git" ]; then
