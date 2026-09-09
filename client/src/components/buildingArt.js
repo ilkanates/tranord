@@ -44,6 +44,20 @@ import anaBinaVideo from '../assets/buildings/videos/anaBina.mp4';
 import loncaDemirVideo from '../assets/buildings/videos/loncaDemir.mp4';
 import loncaTahilVideo from '../assets/buildings/videos/loncaTahil.mp4';
 import loncaKilVideo from '../assets/buildings/videos/loncaKil.mp4';
+import degirmenVideo from '../assets/buildings/videos/degirmen.mp4';
+import firinVideo from '../assets/buildings/videos/firin.mp4';
+import keresteciVideo from '../assets/buildings/videos/keresteci.mp4';
+import tuglaciVideo from '../assets/buildings/videos/tuglaci.mp4';
+import tasciVideo from '../assets/buildings/videos/tasci.mp4';
+import demirciVideo from '../assets/buildings/videos/demirci.mp4';
+import hammaddeDepoVideo from '../assets/buildings/videos/hammaddeDepo.mp4';
+import tahilAmbarVideo from '../assets/buildings/videos/tahilAmbar.mp4';
+import granaryVideo from '../assets/buildings/videos/granary.mp4';
+import loncaOdunVideo from '../assets/buildings/videos/loncaOdun.mp4';
+import loncaTasVideo from '../assets/buildings/videos/loncaTas.mp4';
+import zirhVideo from '../assets/buildings/videos/zirh.mp4';
+import silahciVideo from '../assets/buildings/videos/silahci.mp4';
+import kislaVideo from '../assets/buildings/videos/kisla.mp4';
 import evVideo from '../assets/buildings/videos/ev.mp4';
 import surVideo from '../assets/buildings/videos/sur.mp4';
 import kuleVideo from '../assets/buildings/videos/kule.mp4';
@@ -59,6 +73,20 @@ export const BUILDING_VIDEO = {
   loncaDemir: loncaDemirVideo,
   loncaTahil: loncaTahilVideo,
   loncaKil: loncaKilVideo,
+  degirmen: degirmenVideo,
+  firin: firinVideo,
+  keresteci: keresteciVideo,
+  tuglaci: tuglaciVideo,
+  tasci: tasciVideo,
+  demirci: demirciVideo,
+  hammaddeDepo: hammaddeDepoVideo,
+  tahilAmbar: tahilAmbarVideo,
+  granary: granaryVideo,
+  loncaOdun: loncaOdunVideo,
+  loncaTas: loncaTasVideo,
+  zirh: zirhVideo,
+  silahci: silahciVideo,
+  kisla: kislaVideo,
 };
 
 export const EMBLEM_DY = 26;

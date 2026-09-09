@@ -398,6 +398,53 @@ const P = {
       <path d="M6 6l12 12M18 6 6 18" />
     </>
   ),
+  // Köşk — çok katlı yönetim binası, üstte küçük kule
+  kosk: (
+    <>
+      <path d="M4 21h16" />
+      <path d="M6 21V11l6-4 6 4v10" />
+      <path d="M9.5 21v-5h5v5" />
+      <path d="M12 7V3.5" />
+      <path d="M10.4 4.6 12 3l1.6 1.6" />
+    </>
+  ),
+  // Saray — geniş taban, üç kubbe, merkezde taç
+  saray: (
+    <>
+      <path d="M3 21h18" />
+      <path d="M5 21V12M12 21V10M19 21V12" />
+      <path d="M5 12a2.2 2.2 0 0 1 4.4 0" />
+      <path d="M14.6 12a2.2 2.2 0 0 1 4.4 0" />
+      <path d="M9.4 10a2.6 2.6 0 0 1 5.2 0" />
+      <path d="M12 7.4V4.6l2 1.2-2-2.8-2 2.8 2-1.2Z" />
+    </>
+  ),
+  // Taverna — bira maşrapası
+  taverna: (
+    <>
+      <path d="M5 8h9v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z" />
+      <path d="M14 11h3.2a1.8 1.8 0 0 1 0 5H14" />
+      <path d="M5 11.5h9" />
+      <path d="M7.5 5.2a1.6 1.6 0 0 1 3 0M11 5.2a1.6 1.6 0 0 1 2.4.6" />
+    </>
+  ),
+  // Kültür puanı — defne yaprağı / parşömen
+  kultur: (
+    <>
+      <path d="M12 3v18" />
+      <path d="M12 7c2.6-2.2 5.4-2.4 6.4-1.6.8.8.4 3.4-1.6 5.2-1.8 1.6-4 1.6-4.8 1.4" />
+      <path d="M12 13c-2.6-2.2-5.4-2.4-6.4-1.6-.8.8-.4 3.4 1.6 5.2 1.8 1.6 4 1.6 4.8 1.4" />
+    </>
+  ),
+  // Şölen — kadeh tokuşturma
+  solen: (
+    <>
+      <path d="M4 4h5l-.7 5a1.9 1.9 0 0 1-3.6 0L4 4Z" />
+      <path d="M6.5 11v8M4.5 19h4" />
+      <path d="M15 4h5l-.7 5a1.9 1.9 0 0 1-3.6 0L15 4Z" />
+      <path d="M17.5 11v8M15.5 19h4" />
+    </>
+  ),
   // Bilgi / yardım — daire içinde soru işareti
   bilgi: (
     <>
