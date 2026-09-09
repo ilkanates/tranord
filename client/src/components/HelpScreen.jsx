@@ -17,6 +17,7 @@ import { C, FONT, label as lbl, num, panel, fmtTime } from '../theme';
 import { RES_LABEL, EQ_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import { BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG, TEXTURE_EMBLEM } from './buildingArt';
+import RuleDetail, { RULE_PAGES } from './RuleDetail';
 
 const CAT_LABEL = {
   merkez: 'Merkez', isleme: 'İşleme', askeri: 'Askeri', depo: 'Depo',
@@ -404,8 +405,19 @@ export default function HelpScreen({
       byCat.get(cat).push({ id: `bina:${id}`, name: d.name,
         icon: TEXTURE_EMBLEM[id]?.icon || buildingIcon(id), edge: CAT_EDGE[cat] });
     }
-    const out = CAT_ORDER.filter(c => byCat.has(c))
-      .map(c => ({ title: CAT_LABEL[c], items: byCat.get(c).sort((a, b) => a.name.localeCompare(b.name, 'tr')) }));
+    /**
+     * KURALLAR en üstte: oyuncu önce sistemi, sonra tek tek binaları okusun.
+     * Sayfaların içeriği RuleDetail.jsx'te ve oradaki bütün sayılar da tanım
+     * dosyalarından hesaplanıyor.
+     */
+    const out = [{
+      title: 'Oyunun kuralları',
+      items: Object.entries(RULE_PAGES).map(([k, r]) => ({
+        id: `kural:${k}`, name: r.name, icon: r.icon, edge: '#f0c860',
+      })),
+    }];
+    out.push(...CAT_ORDER.filter(c => byCat.has(c))
+      .map(c => ({ title: CAT_LABEL[c], items: byCat.get(c).sort((a, b) => a.name.localeCompare(b.name, 'tr')) })));
 
     out.push({
       title: 'Üretim alanları',
@@ -445,14 +457,16 @@ export default function HelpScreen({
   }, [groups, q]);
 
   const [kind, id] = sel.split(':');
-  const def = kind === 'bina' ? VILLAGE_DEFS[id]
-    : kind === 'tarla' ? BUILDING_DEFS[id]
-      : kind === 'birim' ? unitDefs[id]
-        : equipmentDefs[id];
+  const def = kind === 'kural' ? RULE_PAGES[id]
+    : kind === 'bina' ? VILLAGE_DEFS[id]
+      : kind === 'tarla' ? BUILDING_DEFS[id]
+        : kind === 'birim' ? unitDefs[id]
+          : equipmentDefs[id];
 
   const title = !def ? 'Seç' : (kind === 'ekip' ? (EQ_LABEL[id] || def.name) : def.name);
-  const edge = kind === 'bina' ? (CAT_EDGE[id === 'anaBina' ? 'merkez' : def?.category] || C.ice)
-    : kind === 'tarla' ? '#7ae07a' : kind === 'birim' ? '#8fbcff' : '#c0a8f8';
+  const edge = kind === 'kural' ? '#f0c860'
+    : kind === 'bina' ? (CAT_EDGE[id === 'anaBina' ? 'merkez' : def?.category] || C.ice)
+      : kind === 'tarla' ? '#7ae07a' : kind === 'birim' ? '#8fbcff' : '#c0a8f8';
 
   const tex = kind === 'bina'
     ? (id === 'anaBina' ? MERKEZ_IMG : BUILDING_TEXTURE[id])
@@ -536,14 +550,16 @@ export default function HelpScreen({
                   ? 'linear-gradient(180deg, rgba(6,12,20,0.1) 30%, rgba(8,17,28,0.94) 100%)'
                   : 'transparent',
               }}>
-                <Icon name={kind === 'bina' ? buildingIcon(id) : id} size={22} color={edge} />
+                <Icon name={kind === 'kural' ? def.icon : kind === 'bina' ? buildingIcon(id) : id}
+                  size={22} color={edge} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontFamily: FONT.head, fontSize: 19, fontWeight: 700, color: C.frost }}>
                     {title}
                   </div>
                   <div style={lbl({ fontSize: 8, letterSpacing: 1.4, marginTop: 2 })}>
-                    {kind === 'bina' ? 'köy binası' : kind === 'tarla' ? 'üretim alanı'
-                      : kind === 'birim' ? 'birlik' : 'ekipman'}
+                    {kind === 'kural' ? 'oyun kuralı'
+                      : kind === 'bina' ? 'köy binası' : kind === 'tarla' ? 'üretim alanı'
+                        : kind === 'birim' ? 'birlik' : 'ekipman'}
                   </div>
                 </div>
               </div>
@@ -557,6 +573,7 @@ export default function HelpScreen({
                 }}>{def.description}</div>
               )}
 
+              {kind === 'kural' && <RuleDetail id={id} unitDefs={unitDefs} />}
               {kind === 'bina' && (
                 <BuildingDetail id={id} def={def} hourSeconds={hourSeconds} worldSpeed={worldSpeed}
                   equipmentByBuilding={equipmentByBuilding} unitDefs={unitDefs} />

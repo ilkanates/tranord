@@ -141,6 +141,11 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Yardım ekranına "Oyunun kuralları" (Eylül 2026)
+- Yardım listesinin en üstüne **9 kural sayfası** eklendi (`RuleDetail.jsx`): Oyunun döngüsü, Nüfus ve büyüme, İşçi ve üretim, Yiyecek ve açlık, Depolar, Seviye tavanları, Ordu ve birimler, Savunma bonusu, Köyler ve kültür.
+- Sayfalardaki **sayıların hiçbiri elle yazılmadı** — hepsi `villageDefs` / `buildingDefs` / `unitDefs`'ten hesaplanıyor (kapasiteler, işleme oranları, kadro eğrileri, savunma eğrileri, birim seviye kilitleri, ev/nüfus formülü). Denge değişince yardım kendiliğinden güncelleniyor. Yalnız sunucudaki sabitlerin (nüfus hızı, yiyecek oranları) ikizi var; kaynak dosya adıyla not düşüldü.
+- Doğrulama: 9 sayfanın 9'u sunucu tarafında render edildi (4,2–13,4 KB), hiçbirinde `undefined`/`NaN` yok; kritik değerler metinde arandı ve bulundu (16 tarla, 5.120 tahıl/sa, 90→72 un, 72→54 ekmek, 3 ve 6 ekmek/gün, depo 31.500/126.000/26.250, Lvl 10 birim kilidi, 21 kişi/saat, ev +100/seviye). Yardım ekranının tamamı da her sayfa açılarak test edildi, eski bina/tarla/birim sayfaları bozulmadı.
+
 ### Tahıl → köylü → asker döngüsü oturtuldu (Eylül 2026)
 - **Bulunan çıkmaz:** asker `population` içinde sayılıyor ve ev tavanı toplam nüfusu sınırlıyordu. Tavana oturmuş bir köyde işçiyi askere çevirmek yer AÇMIYORDU, dolayısıyla yeni köylü hiç doğmuyordu — ekmek bol olsa bile. Ölçüldü: 200 oyun saati, 1.000 işçi askere çevrildi, **0 yeni köylü**. Toplam asker sonsuza dek "nüfus tavanı − elde tutulan işçi" ile sınırlıydı.
 - **Karar 1:** ev tavanı yalnız **SİVİLLERİ** sayar (`civilianCount` = nüfus − ordu − seferdeki asker). Asker evden çıkıp kışlaya gider, yeri boşalır, nüfus yerini doldurur. `population` hâlâ toplamı tutuyor, bu yüzden **işçi muhasebesi hiç değişmedi** (diğer seçenek 6 dosyayı elden geçirmekti).
