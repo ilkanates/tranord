@@ -16,7 +16,7 @@ import BUILDING_DEFS from '../data/buildingDefs';
 import { C, FONT, label as lbl, num, panel, fmtTime } from '../theme';
 import { RES_LABEL, EQ_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon, { buildingIcon } from './Icons';
-import { BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
+import { BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG, TEXTURE_EMBLEM } from './buildingArt';
 
 const CAT_LABEL = {
   merkez: 'Merkez', isleme: 'İşleme', askeri: 'Askeri', depo: 'Depo',
@@ -399,9 +399,10 @@ export default function HelpScreen({
     for (const [id, d] of Object.entries(VILLAGE_DEFS)) {
       const cat = id === 'anaBina' ? 'merkez' : d.category;
       if (!byCat.has(cat)) byCat.set(cat, []);
-      // `img`: köy ekranındaki gerçek görsel; yoksa vektör simgeye düşer
-      byCat.get(cat).push({ id: `bina:${id}`, name: d.name, icon: buildingIcon(id),
-        img: BUILDING_TEXTURE[id] || null, edge: CAT_EDGE[cat] });
+      // Amblem: köy ekranında hex'in üstünde duran tanıtıcı işaretin AYNISI.
+      // Küçük listede fotoğraf okunmuyor, amblem siluet olduğu için okunuyor.
+      byCat.get(cat).push({ id: `bina:${id}`, name: d.name,
+        icon: TEXTURE_EMBLEM[id]?.icon || buildingIcon(id), edge: CAT_EDGE[cat] });
     }
     const out = CAT_ORDER.filter(c => byCat.has(c))
       .map(c => ({ title: CAT_LABEL[c], items: byCat.get(c).sort((a, b) => a.name.localeCompare(b.name, 'tr')) }));
@@ -491,22 +492,7 @@ export default function HelpScreen({
                       color: on ? C.frost : C.textDim, cursor: 'pointer',
                       fontFamily: FONT.ui, fontSize: 11, textAlign: 'left',
                     }}>
-                    {it.img ? (
-                      <span style={{
-                        width: 18, height: 18, flexShrink: 0, borderRadius: 3,
-                        overflow: 'hidden', display: 'block', background: '#0b1420',
-                        border: `1px solid ${(on ? it.edge : C.lineSoft)}66`,
-                      }}>
-                        <img src={it.img} alt="" draggable={false}
-                          style={{
-                            width: '100%', height: '100%', objectFit: 'cover',
-                            objectPosition: '50% 32%', display: 'block',
-                            filter: on ? 'none' : 'grayscale(0.45) brightness(0.85)',
-                          }} />
-                      </span>
-                    ) : (
-                      <Icon name={it.icon} size={13} color={on ? it.edge : C.textFaint} />
-                    )}
+                    <Icon name={it.icon} size={15} color={on ? it.edge : C.textFaint} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {it.name}
                     </span>

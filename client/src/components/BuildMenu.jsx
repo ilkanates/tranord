@@ -3,7 +3,7 @@ import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm } from '../flows';
 import Icon, { buildingIcon } from './Icons';
-import { BUILDING_TEXTURE } from './buildingArt';
+import { TEXTURE_EMBLEM } from './buildingArt';
 import WorkerAssign from './WorkerAssign';
 import { popHeader, popCols, popCol } from './popoverStyle';
 
@@ -63,33 +63,17 @@ function Row({ k, v, c = C.frost, strong }) {
 }
 
 /**
- * BuildingThumb — inşa listesinde binanın GERÇEK görseli.
+ * BuildingBadge — inşa listesinde binanın AMBLEMİ.
  *
- * Eskiden burada vektör simge vardı; köy ekranında hex'e basılan resimle
- * hiç ilgisi yoktu, oyuncu "ev" simgesine bakıp ekranda başka bir şey
- * görüyordu. Aynı kaynak (BUILDING_TEXTURE) kullanılıyor artık; görseli
- * olmayan bina için vektör simgeye düşülür.
+ * İlk denemede binanın fotoğrafı küpür olarak konmuştu; 24 px'te ne olduğu
+ * anlaşılmıyordu. Köy ekranında hex'in üstünde de zaten fotoğraf değil bu
+ * amblem duruyor (VillageCenter · TEXTURE_EMBLEM), yani tanıtıcı işaret
+ * bu. Aynı kaynak kullanılıyor; amblemi olmayan üç yönetim binası için
+ * (köşk, saray, taverna) normal çizgi simgeye düşülür.
  */
-function BuildingThumb({ type, size = 22, color, dim = false }) {
-  const img = BUILDING_TEXTURE[type];
-  if (!img) {
-    return <Icon name={buildingIcon(type)} size={Math.round(size * 0.68)} color={color} />;
-  }
-  return (
-    <span style={{
-      width: size, height: size, flexShrink: 0, borderRadius: 4, overflow: 'hidden',
-      display: 'block', border: `1px solid ${color}55`, background: '#0b1420',
-    }}>
-      <img src={img} alt="" draggable={false}
-        style={{
-          width: '100%', height: '100%', objectFit: 'cover',
-          // Kare kaynağın üst kısmı binanın kendisi; alt kısım zemin.
-          objectPosition: '50% 32%',
-          filter: dim ? 'grayscale(0.7) brightness(0.7)' : 'none',
-          display: 'block',
-        }} />
-    </span>
-  );
+function BuildingBadge({ type, size = 18, color }) {
+  const amblem = TEXTURE_EMBLEM[type]?.icon;
+  return <Icon name={amblem || buildingIcon(type)} size={size} color={color} />;
 }
 
 function ColLabel({ children, icon, color }) {
@@ -569,8 +553,8 @@ export default function BuildMenu({
                         border: `1px solid ${on ? CAT_EDGE[activeCat] : C.lineSoft}`,
                         opacity: ok ? 1 : 0.6,
                       }}>
-                      <BuildingThumb type={key} size={24}
-                        color={ok ? CAT_EDGE[activeCat] : C.textMute} dim={!ok} />
+                      <BuildingBadge type={key} size={18}
+                        color={ok ? CAT_EDGE[activeCat] : C.textMute} />
                       <span style={{
                         flex: 1, fontFamily: FONT.ui, fontSize: 10,
                         color: on ? C.frost : ok ? C.text : C.textFaint,
@@ -592,7 +576,7 @@ export default function BuildMenu({
               {selDef ? (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <BuildingThumb type={selectedType} size={34}
+                    <BuildingBadge type={selectedType} size={22}
                       color={CAT_EDGE[selDef.category]} />
                     <span style={lbl({ fontSize: 8.5, letterSpacing: 1.4 })}>{selDef.name}</span>
                   </div>
