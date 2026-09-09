@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import MapView         from './components/MapView';
 import VillageCenter   from './components/VillageCenter';
+import HelpScreen      from './components/HelpScreen';
+import MusicButton     from './components/MusicButton';
+import { startMusic }  from './audio';
 import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
 import { MarchPanel, IncomingAlert } from './components/WarPanel';
@@ -129,6 +132,7 @@ const TABS = [
   { key: 'raporlar',  label: 'Raporlar',         icon: 'savas' },
   { key: 'istatistik', label: 'İstatistik',      icon: 'bonus' },
   { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilic' },
+  { key: 'yardim',    label: 'Yardım',           icon: 'bilgi' },
 ];
 
 const SPEED_STEPS = [0.1, 0.5, 1, 2, 4, 8, 16, 32, 64, 128];
@@ -147,7 +151,7 @@ function scaleLabel(hourSeconds, mult) {
   return `1 oyun saati = ${s.toFixed(s < 10 ? 1 : 0)} sn`;
 }
 
-function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600 }) {
+function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, onDevSetup }) {
   const currentMult = +(1000 / tickMs).toFixed(4);
   const speedIdx = SPEED_STEPS.reduce(
     (best, m, i) => (Math.abs(m - currentMult) < Math.abs(SPEED_STEPS[best] - currentMult) ? i : best), 2
@@ -245,6 +249,24 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
 
         <div style={{ width: 1, alignSelf: 'stretch', background: C.lineSoft, margin: '10px 0' }} />
 
+        {/* Müzik — tam ayarlar menüsü gelene kadar tek denetim burası */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px' }}>
+          <MusicButton />
+        </div>
+
+        {/* TEST — yalnız geliştirme derlemesinde */}
+        {import.meta.env.DEV && onDevSetup && (
+          <button onClick={onDevSetup} title="Depoları Lvl 10 yap ve doldur (test)"
+            style={btn('ghost', {
+              padding: '3px 8px', fontSize: 9, marginLeft: 4,
+              borderColor: 'rgba(224,179,87,0.45)', color: '#e0b357',
+            })}>
+            TEST DOLDUR
+          </button>
+        )}
+
+        <div style={{ width: 1, alignSelf: 'stretch', background: C.lineSoft, margin: '10px 0' }} />
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
             width: 6, height: 6, borderRadius: 3, flexShrink: 0,
@@ -300,6 +322,13 @@ function Game({ token, onLogout }) {
   const stampRef = useRef(0);
   const [beat, setBeat] = useState(0);
   const [tab, setTab] = useState('harita');
+  /**
+   * Yardım sayfasına DERİN BAĞLANTI: bina panelindeki "?" düğmesi buraya
+   * 'bina:kisla' gibi bir konu yazıp sekmeyi değiştiriyor. HelpScreen konuyu
+   * uyguladıktan sonra geri temizliyor, yoksa sekmeye her dönüşte zıplardı.
+   */
+  const [helpTopic, setHelpTopic] = useState(null);
+  const openHelp = (topic) => { setHelpTopic(topic); setTab('yardim'); };
   const [connected, setConnected] = useState(socket.connected);
   const userEmail = emailFromToken(token || '');
 
@@ -374,6 +403,12 @@ function Game({ token, onLogout }) {
   const trainUnit       = (buildingType, unitType, quantity) => socket.emit('train_unit', { buildingType, unitType, quantity });
   const cancelUnitOrder = (buildingType, orderId) => socket.emit('cancel_unit_order', { buildingType, orderId });
   const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
+  /**
+   * TEST KURULUMU — depoları Lvl 10'a çıkarıp doldurur.
+   * Yalnız geliştirme derlemesinde görünür; sunucu tarafı da
+   * TRANORD_DEV_CHEATS=1 olmadan bu olayı hiç dinlemiyor.
+   */
+  const devSetup = () => socket.emit('dev_setup', { level: 10, fill: true });
 
   const tickMs = village.tickMs || 1000;
 
@@ -401,7 +436,8 @@ function Game({ token, onLogout }) {
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []) }}
-        hourSeconds={village.marchInfo?.hourSeconds || 3600} />
+        hourSeconds={village.marchInfo?.hourSeconds || 3600}
+        onDevSetup={devSetup} />
 
       {/* Gelen saldırı: hangi sekmede olursam olayım görünür. Ordu sekmesinde
           uyarı listenin başında zaten var, orada tekrar etmesin. */}
@@ -485,6 +521,7 @@ function Game({ token, onLogout }) {
               onDemolish={demolishVillage}
               onAssignVillageWorkers={assignVillageWorkers}
               onCancelBuild={cancelVillageBuild}
+              onOpenHelp={openHelp}
               onQueueEquipment={queueEquipment}
               onCancelEquipment={cancelEquipment}
               onTrainUnit={trainUnit}
@@ -533,6 +570,23 @@ function Game({ token, onLogout }) {
             </div>
           )}
 
+          {tab === 'yardim' && (
+            <div style={{
+              height: '100%', minHeight: 0,
+              padding: `8px ${RAIL_W + 8}px 8px ${RAIL_W + 8}px`,
+              boxSizing: 'border-box',
+            }}>
+              <HelpScreen
+                unitDefs={village.unitDefs || {}}
+                equipmentDefs={village.equipmentDefs || {}}
+                equipmentByBuilding={village.equipmentByBuilding || {}}
+                hourSeconds={village.marchInfo?.hourSeconds || 3600}
+                worldSpeed={village.worldSpeed || 1}
+                topic={helpTopic}
+                onTopicHandled={() => setHelpTopic(null)} />
+            </div>
+          )}
+
           {tab === 'simulator' && (
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
@@ -555,6 +609,9 @@ function Game({ token, onLogout }) {
             maxPopulation={village.maxPopulation}
             freeWorkers={village.freeWorkers}
             populationGrowthRate={village.populationGrowthRate || 0}
+            populationPerHour={village.populationPerHour || 0}
+            hourSeconds={village.marchInfo?.hourSeconds || 3600}
+            worldSpeed={village.worldSpeed || 1}
             isStarving={village.isStarving || false}
             consumption={village.consumption || {}}
             equipment={village.equipment || {}}
@@ -583,6 +640,12 @@ function Game({ token, onLogout }) {
  */
 export default function App() {
   const [token, setToken] = useState(() => getToken());
+
+  /**
+   * Müzik oyun AÇILIR AÇILMAZ başlar — giriş ekranı dahil. Tarayıcı sesli
+   * otomatik oynatmayı engellerse çalar ilk tıklamayı bekler (bkz. audio.js).
+   */
+  useEffect(() => { startMusic(); }, []);
 
   const onToken = (t) => { localStorage.setItem(TOKEN_KEY, t); setToken(t); };
   const onLogout = () => { localStorage.removeItem(TOKEN_KEY); setToken(null); };

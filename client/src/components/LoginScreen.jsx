@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import { C, FONT, panel, btn, label as lbl } from '../theme';
 import NordicBackdrop from './NordicBackdrop';
+import MusicButton from './MusicButton';
 
 const field = {
   width: '100%',
@@ -73,6 +74,10 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
   return (
     <div style={{ position: 'relative', minHeight: '100dvh', background: C.abyss }}>
       <NordicBackdrop dim={0.25} />
+      {/* Müzik giriş ekranında da çalıyor — kapatmak isteyen burada bulsun */}
+      <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 5 }}>
+        <MusicButton />
+      </div>
       <div style={{
         position: 'relative', zIndex: 2, minHeight: '100dvh',
         display: 'grid', placeItems: 'center', padding: 20,

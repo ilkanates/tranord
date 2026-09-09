@@ -1,0 +1,183 @@
+/**
+ * MÜZİK — arka plan çalar.
+ *
+ * TARAYICI KURALI: kullanıcı sayfayla etkileşmeden önce sesli oynatma
+ * engelleniyor (Chrome/Safari "autoplay policy"). Bu yüzden çalar açılışta
+ * bir kez denenir; engellenirse İLK tıklama/tuşa basma anında kendiliğinden
+ * başlar. Kullanıcı sessizi açıkça seçtiyse hiç denenmez.
+ *
+ * Modül seviyesinde TEK örnek: React StrictMode bileşenleri iki kez
+ * kurduğu için bileşen içinde audio yaratmak iki müzik çalıyordu.
+ */
+
+const STORE_KEY = 'tn.audio';
+
+/**
+ * Ana menü / oyun müzikleri — client/public/muzik/ altında servis edilir.
+ *
+ * `public/` altında duruyorlar, yani derlemeye GÖMÜLMÜYORLAR: tarayıcı
+ * yalnızca çalınan parçayı indiriyor. Toplam ~56 MB olmasının ilk açılış
+ * süresine etkisi bu yüzden yok.
+ */
+export const TRACKS = [
+  { src: '/muzik/vindstillhet-1.mp3', name: 'Vindstillhet I' },
+  { src: '/muzik/vindstillhet-2.mp3', name: 'Vindstillhet II' },
+  { src: '/muzik/vintersorg-1.mp3',   name: 'Vintersorg I' },
+  { src: '/muzik/vintersorg-2.mp3',   name: 'Vintersorg II' },
+  { src: '/muzik/skoldborg-1.mp3',    name: 'Sköldborg I' },
+  { src: '/muzik/skoldborg-2.mp3',    name: 'Sköldborg II' },
+  { src: '/muzik/vindvidd-1.mp3',     name: 'Vindvidd I' },
+  { src: '/muzik/vindvidd-2.mp3',     name: 'Vindvidd II' },
+  { src: '/muzik/white-road-1.mp3',   name: 'White Road I' },
+  { src: '/muzik/white-road-2.mp3',   name: 'White Road II' },
+  { src: '/muzik/cold-and-open-sky-1.mp3', name: 'Cold and Open Sky I' },
+  { src: '/muzik/cold-and-open-sky-2.mp3', name: 'Cold and Open Sky II' },
+  { src: '/muzik/kuzeyin-ogullari-1.mp3',  name: 'Kuzeyin Oğulları I' },
+  { src: '/muzik/kuzeyin-ogullari-2.mp3',  name: 'Kuzeyin Oğulları II' },
+  { src: '/muzik/thar-er-land-mitt-1.mp3', name: 'Þar er land mitt I' },
+  { src: '/muzik/thar-er-land-mitt-2.mp3', name: 'Þar er land mitt II' },
+  { src: '/muzik/jarn-skal-tala-1.mp3',    name: 'Járn skal tala I' },
+  { src: '/muzik/jarn-skal-tala-2.mp3',    name: 'Járn skal tala II' },
+];
+
+const DEFAULTS = { muted: false, volume: 0.45 };
+
+function read() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    const o = raw ? JSON.parse(raw) : null;
+    if (!o || typeof o !== 'object') return { ...DEFAULTS };
+    return {
+      muted: !!o.muted,
+      volume: Number.isFinite(o.volume) ? Math.min(1, Math.max(0, o.volume)) : DEFAULTS.volume,
+    };
+  } catch { return { ...DEFAULTS }; }
+}
+
+function write(s) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch { /* yoksay */ }
+}
+
+let state = read();
+let el = null;                 // tek <audio>
+let order = [];                // karışık çalma sırası
+let idx = 0;
+let unlockBound = false;
+const listeners = new Set();
+
+const notify = () => { for (const fn of listeners) fn(snapshot()); };
+
+/** Sırayı karıştır — her açılışta aynı parça ile başlamasın */
+function shuffle() {
+  order = TRACKS.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  idx = 0;
+}
+
+function ensure() {
+  if (el) return el;
+  if (typeof Audio === 'undefined') return null;
+  shuffle();
+  el = new Audio();
+  el.preload = 'auto';
+  el.loop = false;                       // sıradaki parçaya geçilecek
+  el.volume = state.muted ? 0 : state.volume;
+  el.addEventListener('ended', () => {
+    idx += 1;
+    if (idx >= order.length) shuffle();  // listeyi bitirince yeniden karıştır
+    load();
+    play();
+  });
+  load();
+  return el;
+}
+
+function load() {
+  if (!el) return;
+  const t = TRACKS[order[idx]];
+  if (t) el.src = t.src;
+}
+
+/** Oynatmayı dene. Tarayıcı reddederse ilk etkileşimde tekrar denenir. */
+function play() {
+  if (!el || state.muted) return;
+  const p = el.play();
+  if (p && typeof p.catch === 'function') p.catch(() => bindUnlock());
+}
+
+/**
+ * Otomatik oynatma engellendiğinde: ilk tıklama/tuş/dokunma anında başlat.
+ * Dinleyiciler `once` — bir kez iş görüp kendini kaldırıyor.
+ */
+function bindUnlock() {
+  if (unlockBound || state.muted) return;
+  unlockBound = true;
+  const go = () => {
+    unlockBound = false;
+    for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+      window.removeEventListener(ev, go);
+    }
+    if (!state.muted) play();
+  };
+  for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+    window.addEventListener(ev, go, { once: true, passive: true });
+  }
+}
+
+export function snapshot() {
+  return {
+    muted: state.muted,
+    volume: state.volume,
+    playing: !!el && !el.paused,
+    track: el ? (TRACKS[order[idx]]?.name || '') : '',
+  };
+}
+
+/** Oyun açılınca çağrılır. Sessiz seçilmişse hiçbir şey yapmaz. */
+export function startMusic() {
+  if (state.muted) return;
+  ensure();
+  play();
+  notify();
+}
+
+export function setMuted(m) {
+  state = { ...state, muted: !!m };
+  write(state);
+  if (state.muted) {
+    if (el) { el.pause(); el.volume = 0; }
+  } else {
+    ensure();
+    if (el) el.volume = state.volume;
+    play();
+  }
+  notify();
+}
+
+export function setVolume(v) {
+  const vol = Math.min(1, Math.max(0, Number(v) || 0));
+  state = { ...state, volume: vol };
+  write(state);
+  if (el && !state.muted) el.volume = vol;
+  // Sesi sıfırdan yukarı çekmek sessizden çıkmak anlamına gelir
+  if (vol > 0 && state.muted) setMuted(false);
+  else notify();
+}
+
+/** Sıradaki parçaya geç */
+export function nextTrack() {
+  ensure();
+  idx = (idx + 1) % Math.max(1, order.length);
+  load();
+  play();
+  notify();
+}
+
+export function subscribe(fn) {
+  listeners.add(fn);
+  fn(snapshot());
+  return () => listeners.delete(fn);
+}
