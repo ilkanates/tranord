@@ -26,6 +26,12 @@ const ITEMS = [
     emit: ['dev_new_village', {}],
   },
   {
+    key: 'maks',
+    label: 'Binaları son seviyeye',
+    note: 'bütün binalar + tarlalar Lvl 20',
+    emit: ['dev_max_buildings', { level: 20, tiles: true }],
+  },
+  {
     key: 'ordu',
     label: 'Ordu ver',
     note: '200 piyade · 60 süvari · 5 kuşatma',

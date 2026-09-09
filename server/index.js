@@ -2071,6 +2071,51 @@ io.on('connection', async socket => {
     });
 
     /**
+     * TEST — BÜTÜN BİNALARI SON SEVİYEYE ÇIKAR.
+     *
+     * Üst seviye içeriği (Lvl 10 birimler, 20. seviye savunma, köşk/saray
+     * hakları) beklemeden denemek için. Kaynak alınmaz, süre beklenmez.
+     *
+     * `maxLevel` tanımsız olan 18 bina için tavan 20 kabul ediliyor — tarla
+     * tablosu ve sur/kule tavanıyla aynı hizada.
+     *
+     * DİKKAT: süren inşaatlar burada iptal ediliyor; inşaat işçileri havuza
+     * GERİ VERİLİYOR. dev_setup'ta tam bu satır eksik olduğu için 83 köylü
+     * kaybolmuştu (bkz. repairWorkerAccounting).
+     */
+    socket.on('dev_max_buildings', ({ level = 20, tiles = true } = {}) => {
+      const village = v();
+      const tavan = Math.max(1, Math.min(20, Math.floor(Number(level) || 20)));
+      let bina = 0, tarla = 0, iadeIsci = 0;
+
+      for (const b of Object.values(village.villageBuildings)) {
+        if (b.building && b.buildWorkers) { iadeIsci += b.buildWorkers; village.freeWorkers += b.buildWorkers; }
+        delete b.building; delete b.buildEndTime; delete b.buildWorkers;
+        const def = VILLAGE_DEFS[b.type];
+        const hedef = Math.min(def?.maxLevel || tavan, tavan);
+        if (b.level < hedef) { b.level = hedef; bina++; }
+      }
+
+      if (tiles) {
+        for (const t of Object.values(village.productionTiles)) {
+          if (t.upgrading && t.upgradeWorkersAssigned) {
+            iadeIsci += t.upgradeWorkersAssigned;
+            village.freeWorkers += t.upgradeWorkersAssigned;
+          }
+          t.upgrading = false; t.upgradeEndTime = null; t.upgradeWorkersAssigned = 0;
+          const hedef = Math.min(BUILDING_DEFS[t.type]?.levels?.length || tavan, tavan);
+          if (t.level < hedef) { t.level = hedef; tarla++; }
+        }
+      }
+
+      dirty(); emit();
+      socket.emit('dev_result', { ok: true,
+        message: `${bina} bina${tiles ? ` + ${tarla} tarla` : ''} son seviyeye çıktı` });
+      console.log(`[DEV] ${userEmail} maks seviye: ${bina} bina, ${tarla} tarla`
+        + (iadeIsci ? ` · ${iadeIsci} inşaat işçisi havuza döndü` : ''));
+    });
+
+    /**
      * TEST — İKİNCİ KÖY. Kültür puanı biriktirmeyi ve köşk/saray dikmeyi
      * beklemeden çoklu köy arayüzünü (köy değiştirici, ayrı tick, ayrı
      * kayıt) denemek için. Kurallar KASTEN atlanıyor: göçmen, kaynak,
