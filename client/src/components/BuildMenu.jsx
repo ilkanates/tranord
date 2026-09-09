@@ -208,6 +208,15 @@ export default function BuildMenu({
    * YALNIZ kendi isimli slotuna, her savunma slotu da yalnız kendi yapısına
    * izin veriyor — sunucudaki canBuildAt ile aynı kural.
    */
+  /** Sunucudaki canRepeat ile aynı kural */
+  const cokAltinaGirer = (key, d) => {
+    const mevcut = Object.values(placedBuildings).filter(b => b.type === key);
+    if (!mevcut.length) return true;
+    if (!d.repeatableWhenMaxed) return false;
+    const tavan = d.maxLevel || 20;
+    return mevcut.every(b => b.level >= tavan && !b.building);
+  };
+
   const canBuild = (key, d) => {
     if (key === 'anaBina') return false;
     /**
@@ -219,7 +228,8 @@ export default function BuildMenu({
      * herhangi bir hex'e kurulabiliyordu.
      */
     if (slotKind !== (DEFENCE_TYPES.has(key) ? key : 'hex')) return false;
-    if (d.unique && builtTypes.has(key)) return false;
+    // Depolar: mevcut olanların HEPSİ tavandaysa bir tane daha kurulabilir
+    if (d.unique && !cokAltinaGirer(key, d)) return false;
     if (key === 'kule') {
       const max = d.maxInstances || 6;
       return Object.values(placedBuildings).filter(b => b.type === 'kule').length < max;

@@ -277,7 +277,14 @@ function canBuildAt(village, slotKey, buildingType, otherVillages = null) {
   const kind = slotKind(village, slotKey);
   if (kind !== (DEFENCE_TYPES.has(buildingType) ? buildingType : 'hex')) return false;
 
-  if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) return false;
+  /**
+   * TEK OLMA KURALI.
+   *
+   * `repeatableWhenMaxed` olan binalar (depolar) bir tane daha kurulabilir —
+   * ama ancak MEVCUT OLANLARIN HEPSİ tavan seviyedeyse. Böylece oyuncu on
+   * tane yarım depo dikip alan israf etmiyor, önce elindekini bitiriyor.
+   */
+  if (def.unique && !canRepeat(village, buildingType, def)) return false;
 
   /**
    * YÖNETİM BİNALARI:
@@ -301,6 +308,20 @@ function canBuildAt(village, slotKey, buildingType, otherVillages = null) {
 }
 
 /**
+ * Bu türden bir tane daha kurulabilir mi?
+ *  • Hiç yoksa: evet.
+ *  • `repeatableWhenMaxed` değilse: hayır (klasik tek örnek).
+ *  • Öyleyse: mevcut olanların HEPSİ tavan seviyede ve inşaatı bitmişse evet.
+ */
+function canRepeat(village, buildingType, def) {
+  const mevcut = Object.values(village.villageBuildings).filter(b => b.type === buildingType);
+  if (!mevcut.length) return true;
+  if (!def.repeatableWhenMaxed) return false;
+  const tavan = maxLevelOf(buildingType);
+  return mevcut.every(b => b.level >= tavan && !b.building);
+}
+
+/**
  * İNŞA REDDİNİN SEBEBİ — arayüzde gösterilecek tek cümle.
  *
  * `canBuildAt` yalnız true/false döndürüyor; oyuncu düğmeye basıp hiçbir şey
@@ -318,7 +339,14 @@ function buildRefusalReason(village, slotKey, buildingType, otherVillages = null
       ? `Bu slota yalnız ${VILLAGE_DEFS[kind]?.name || kind} kurulabilir.`
       : `${def.name} köy içine kurulamaz — kendi savunma slotuna kurulur.`;
   }
-  if (def.unique && Object.values(village.villageBuildings).some(b => b.type === buildingType)) {
+  if (def.unique && !canRepeat(village, buildingType, def)) {
+    if (def.repeatableWhenMaxed) {
+      const tavan = maxLevelOf(buildingType);
+      const eksik = Object.values(village.villageBuildings)
+        .filter(b => b.type === buildingType && (b.level < tavan || b.building)).length;
+      return `Yeni ${def.name} için mevcut ${eksik === 1 ? 'olanın' : eksik + ' tanesinin'}`
+        + ` Lvl ${tavan} olması gerekiyor.`;
+    }
     return `${def.name} bu köyde zaten var.`;
   }
   if (def.oncePerPlayer && otherVillages) {

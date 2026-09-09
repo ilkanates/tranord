@@ -141,6 +141,13 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Depo kapasitesi ve çoklu depo (Eylül 2026)
+- **Ölçüt:** Lvl 20 tek depo ≈ **1 günlük tam üretim** tutsun.
+- Yeni tavanlar (Lvl 20, tek depo): hammadde **31.500** (eski 10.500), işlenmiş **25.200** (8.400), tahıl ambarı **126.000** (21.000), granary/un+ekmek **26.250** (5.250). Dayanak: 4 odun tarlası Lvl 20 günde 26.880; işleme binası günde 8.640; 16 tahıl tarlası günde 122.880; fırın günde 25.920.
+- **`repeatableWhenMaxed`:** dört depo türü de, mevcut olanların **hepsi Lvl 20 ve inşaatı bitmişse**, bir tane daha kurulabiliyor. Yarım depo yığmayı engelliyor. Kural sunucuda `canRepeat()`, istemcide inşa menüsünde aynı; red mesajı sebebi yazıyor.
+- Test: 4/4 geçti — Lvl 1 depo varken ikincisi reddedildi ve sebebi bildirildi; Lvl 20'ye çıkınca kuruldu; odun tavanı 31.800 → 34.800 (ikinci depo kapasiteye ekleniyor).
+- **Sırada:** İlkan'ın istediği "başka köyden asker gönderip burada besleme" (destek/takviye) ve "kısıt tahıl olsun, un/ekmek değil" — ikisi birlikte kararlaştırılacak.
+
 ### Ekmek zinciri ×3 (Eylül 2026)
 - **Ölçüm:** değirmen ve fırın ikisi de `unique`; Lvl 20 tam kadroyla (60'ar işçi) zincirin üst sınırı **360 ekmek/sa** — yalnız 2.880 köylü besliyordu. Hedef durumda (her binada işçi + 1.000 asker = 2.780 nüfus) 598/sa, nüfus tavanında (5.550 + 1.000 asker) 944/sa gerekiyordu. Yani tavana çıkan köy **kesin** açlığa düşüyordu; İlkan'ın ekranındaki "ekmek 0, −996/sa" tam buydu.
 - **Karar (İlkan):** bina sayısı değil, işçi başına çıktı ×3. Değirmen `10 tahıl → 8 un` yerine **30 → 24**; fırın `8 un → 6 ekmek` yerine **24 → 18**.
