@@ -32,6 +32,12 @@ const ITEMS = [
     emit: ['dev_max_buildings', { level: 20, tiles: true }],
   },
   {
+    key: 'nufus',
+    label: 'Nüfusu doldur',
+    note: 'evlerin izin verdiği tavana kadar',
+    emit: ['dev_fill_population', {}],
+  },
+  {
     key: 'ordu',
     label: 'Ordu ver',
     note: '200 piyade · 60 süvari · 5 kuşatma',

@@ -2072,6 +2072,37 @@ io.on('connection', async socket => {
     });
 
     /**
+     * TEST — NÜFUSU TAVANA ÇIKAR.
+     *
+     * Tavan evlerden geliyor (BASE_POPULATION + Σ ev seviyesi × 100), yani
+     * "ev yettiği kadar". Ev yoksa 50'de kalır — kasten: kapasiteyi uydurmak
+     * ev kurmanın anlamını yok ederdi.
+     *
+     * Gelen kişiler BOŞ İŞÇİ havuzuna ekleniyor. Nüfusu artırıp havuzu
+     * artırmamak muhasebeyi bozardı (nüfus = boş + çalışan + inşaat + ordu
+     * + kuyruk + sefer); bu tam da 83 köylünün kaybolduğu hatanın şekliydi.
+     */
+    socket.on('dev_fill_population', () => {
+      const village = v();
+      const tavan = maxPopulationOf(village);
+      const eksik = tavan - (village.population || 0);
+      if (eksik <= 0) {
+        socket.emit('dev_result', { ok: true,
+          message: `Nüfus zaten tavanda (${village.population}/${tavan})` });
+        return;
+      }
+      village.population += eksik;
+      village.freeWorkers = (village.freeWorkers || 0) + eksik;
+      village.maxPopulation = tavan;
+      village.popAccum = 0;
+
+      dirty(); emit();
+      socket.emit('dev_result', { ok: true,
+        message: `+${eksik} köylü — nüfus ${village.population}/${tavan}` });
+      console.log(`[DEV] ${userEmail} nüfus tavana: +${eksik} (${village.population}/${tavan})`);
+    });
+
+    /**
      * TEST — BÜTÜN BİNALARI SON SEVİYEYE ÇIKAR.
      *
      * Üst seviye içeriği (Lvl 10 birimler, 20. seviye savunma, köşk/saray
