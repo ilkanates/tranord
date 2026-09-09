@@ -399,7 +399,9 @@ export default function HelpScreen({
     for (const [id, d] of Object.entries(VILLAGE_DEFS)) {
       const cat = id === 'anaBina' ? 'merkez' : d.category;
       if (!byCat.has(cat)) byCat.set(cat, []);
-      byCat.get(cat).push({ id: `bina:${id}`, name: d.name, icon: buildingIcon(id), edge: CAT_EDGE[cat] });
+      // `img`: köy ekranındaki gerçek görsel; yoksa vektör simgeye düşer
+      byCat.get(cat).push({ id: `bina:${id}`, name: d.name, icon: buildingIcon(id),
+        img: BUILDING_TEXTURE[id] || null, edge: CAT_EDGE[cat] });
     }
     const out = CAT_ORDER.filter(c => byCat.has(c))
       .map(c => ({ title: CAT_LABEL[c], items: byCat.get(c).sort((a, b) => a.name.localeCompare(b.name, 'tr')) }));
@@ -489,7 +491,22 @@ export default function HelpScreen({
                       color: on ? C.frost : C.textDim, cursor: 'pointer',
                       fontFamily: FONT.ui, fontSize: 11, textAlign: 'left',
                     }}>
-                    <Icon name={it.icon} size={13} color={on ? it.edge : C.textFaint} />
+                    {it.img ? (
+                      <span style={{
+                        width: 18, height: 18, flexShrink: 0, borderRadius: 3,
+                        overflow: 'hidden', display: 'block', background: '#0b1420',
+                        border: `1px solid ${(on ? it.edge : C.lineSoft)}66`,
+                      }}>
+                        <img src={it.img} alt="" draggable={false}
+                          style={{
+                            width: '100%', height: '100%', objectFit: 'cover',
+                            objectPosition: '50% 32%', display: 'block',
+                            filter: on ? 'none' : 'grayscale(0.45) brightness(0.85)',
+                          }} />
+                      </span>
+                    ) : (
+                      <Icon name={it.icon} size={13} color={on ? it.edge : C.textFaint} />
+                    )}
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {it.name}
                     </span>

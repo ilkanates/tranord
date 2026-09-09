@@ -3,6 +3,7 @@ import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm } from '../flows';
 import Icon, { buildingIcon } from './Icons';
+import { BUILDING_TEXTURE } from './buildingArt';
 import WorkerAssign from './WorkerAssign';
 import { popHeader, popCols, popCol } from './popoverStyle';
 
@@ -58,6 +59,36 @@ function Row({ k, v, c = C.frost, strong }) {
       <span style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textDim }}>{k}</span>
       <span style={num({ fontSize: 10.5, color: c, fontWeight: strong ? 500 : 400, textAlign: 'right' })}>{v}</span>
     </div>
+  );
+}
+
+/**
+ * BuildingThumb — inşa listesinde binanın GERÇEK görseli.
+ *
+ * Eskiden burada vektör simge vardı; köy ekranında hex'e basılan resimle
+ * hiç ilgisi yoktu, oyuncu "ev" simgesine bakıp ekranda başka bir şey
+ * görüyordu. Aynı kaynak (BUILDING_TEXTURE) kullanılıyor artık; görseli
+ * olmayan bina için vektör simgeye düşülür.
+ */
+function BuildingThumb({ type, size = 22, color, dim = false }) {
+  const img = BUILDING_TEXTURE[type];
+  if (!img) {
+    return <Icon name={buildingIcon(type)} size={Math.round(size * 0.68)} color={color} />;
+  }
+  return (
+    <span style={{
+      width: size, height: size, flexShrink: 0, borderRadius: 4, overflow: 'hidden',
+      display: 'block', border: `1px solid ${color}55`, background: '#0b1420',
+    }}>
+      <img src={img} alt="" draggable={false}
+        style={{
+          width: '100%', height: '100%', objectFit: 'cover',
+          // Kare kaynağın üst kısmı binanın kendisi; alt kısım zemin.
+          objectPosition: '50% 32%',
+          filter: dim ? 'grayscale(0.7) brightness(0.7)' : 'none',
+          display: 'block',
+        }} />
+    </span>
   );
 }
 
@@ -538,8 +569,8 @@ export default function BuildMenu({
                         border: `1px solid ${on ? CAT_EDGE[activeCat] : C.lineSoft}`,
                         opacity: ok ? 1 : 0.6,
                       }}>
-                      <Icon name={buildingIcon(key)} size={15}
-                        color={ok ? CAT_EDGE[activeCat] : C.textMute} />
+                      <BuildingThumb type={key} size={24}
+                        color={ok ? CAT_EDGE[activeCat] : C.textMute} dim={!ok} />
                       <span style={{
                         flex: 1, fontFamily: FONT.ui, fontSize: 10,
                         color: on ? C.frost : ok ? C.text : C.textFaint,
@@ -560,9 +591,11 @@ export default function BuildMenu({
             <div style={popCol}>
               {selDef ? (
                 <>
-                  <ColLabel icon={buildingIcon(selectedType)} color={CAT_EDGE[selDef.category]}>
-                    {selDef.name}
-                  </ColLabel>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <BuildingThumb type={selectedType} size={34}
+                      color={CAT_EDGE[selDef.category]} />
+                    <span style={lbl({ fontSize: 8.5, letterSpacing: 1.4 })}>{selDef.name}</span>
+                  </div>
                   <div style={{
                     fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.45,
                     maxHeight: 42, overflow: 'hidden',
