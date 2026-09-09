@@ -13,7 +13,7 @@
  * o yüzden isimli slotlar mevcut mekanikle olduğu gibi çalışıyor.
  */
 const PRODUCTION_DEFS = require('../data/productionDefs');
-const VILLAGE_DEFS_ALL = require('../data/villageDefs').VILLAGE_DEFS;
+const { VILLAGE_DEFS: VILLAGE_DEFS_ALL, maxLevelOf } = require('../data/villageDefs');
 
 const TOWER_SLOTS_ARR    = ['kule1', 'kule2', 'kule3', 'kule4', 'kule5', 'kule6'];
 const WALL_SLOTS_ARR     = ['sur', 'hendek'];
@@ -161,11 +161,44 @@ function hydrateVillage(raw) {
     raw.nextMarchId = raw.marches.reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
   }
 
+  clampBuildingLevels(raw);
   clampWorkersToCapacity(raw);
   repairWorkerAccounting(raw);
 
   // endTime alanları sayıya dön (JSON'da number olarak saklanır, sorun yok)
   return raw;
+}
+
+/**
+ * SEVİYE TAVANINI AŞMIŞ BİNALARI GERİ ÇEK.
+ *
+ * 18 binanın `maxLevel`i tanımsızdı ve yükseltme kontrolü
+ * `def.maxLevel && ...` biçiminde olduğu için hiç çalışmıyordu: fırın Lvl 21
+ * olmuştu. Tavanlar artık tanımlı; bu onarım o dönemde tavanı aşmış binaları
+ * tavana indiriyor, yoksa oyuncu asla ulaşamayacağı bir seviyeyi elinde
+ * tutmaya devam ederdi.
+ *
+ * Süren inşaat da iptal ediliyor ve işçileri havuza dönüyor (aksi hâlde
+ * bina tavana inip inşaat bitince yine 21 olurdu).
+ */
+function clampBuildingLevels(v) {
+  const kayit = [];
+  let iade = 0;
+  for (const [key, b] of Object.entries(v.villageBuildings || {})) {
+    if (!b || !b.type) continue;
+    const tavan = maxLevelOf(b.type);
+    const asiyor = b.level > tavan;
+    const insaatAsacak = b.building && b.level >= tavan;
+    if (!asiyor && !insaatAsacak) continue;
+    if (b.building && b.buildWorkers) { iade += b.buildWorkers; v.freeWorkers = (v.freeWorkers || 0) + b.buildWorkers; }
+    if (b.building) { delete b.building; delete b.buildEndTime; delete b.buildWorkers; }
+    if (asiyor) { kayit.push(`${b.type}@${key} ${b.level}→${tavan}`); b.level = tavan; }
+    else kayit.push(`${b.type}@${key} inşaat iptal (Lvl ${tavan} tavan)`);
+  }
+  if (!kayit.length) return null;
+  console.log(`[SEVİYE TAVANI] ${kayit.join(', ')}`
+    + (iade ? ` · ${iade} inşaat işçisi havuza döndü` : ''));
+  return { kayit, iade };
 }
 
 /**
@@ -254,4 +287,5 @@ function repairWorkerAccounting(v) {
 }
 
 module.exports = { createVillage, hydrateVillage, repairWorkerAccounting,
-  clampWorkersToCapacity, TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };
+  clampWorkersToCapacity, clampBuildingLevels,
+  TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };

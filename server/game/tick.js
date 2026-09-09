@@ -306,12 +306,22 @@ function processFoodConsumption(village, hours = GT.HOURS_PER_TICK) {
     if (village.starveCounter >= STARVE_HOURS_PER_LOSS) {
       village.starveCounter = 0;
 
-      // 1) Önce asker öl
+      /**
+       * 1) Önce asker öl.
+       *
+       * DÜZELTME: asker ölünce yalnız `army` azalıyordu, `population`
+       * DEĞİŞMİYORDU. Oysa asker nüfusun parçası (işçiden dönüşüyor, bkz.
+       * eğitim); ölen askeri nüfustan düşmemek "kovaların toplamı < nüfus"
+       * durumunu yaratıyor ve köy her açlık turunda bir hayalet köylü
+       * kazanıyordu. Sivil ölümünde nüfus zaten düşüyordu.
+       */
       const armyEntries = Object.entries(village.army || {}).filter(([, cnt]) => cnt > 0);
       if (armyEntries.length > 0) {
         const [deadType] = armyEntries[0];
         village.army[deadType] -= 1;
-        if (!village.quiet) console.log(`[STARVE] Asker kaybı! ${deadType} (kalan: ${village.army[deadType]})`);
+        if (village.army[deadType] <= 0) delete village.army[deadType];
+        village.population = Math.max(0, (village.population || 0) - 1);
+        if (!village.quiet) console.log(`[STARVE] Asker kaybı! ${deadType} (kalan: ${village.army[deadType] || 0})`);
 
       // 2) Asker kalmadıysa ve nüfus minimumun üzerindeyse sivil öl
       } else if (village.population > MIN_POPULATION) {

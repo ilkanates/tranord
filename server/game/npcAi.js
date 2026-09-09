@@ -12,7 +12,7 @@ const GT = require('./gameTime');
 const { getUpgradeSeconds, getEquipmentPool, getStorageCaps, getConsumptionRates, processTick } = require('./tick');
 const {
   PRODUCTION_DEFS, VILLAGE_DEFS, UNIT_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING,
-  maxPopulationOf,
+  maxPopulationOf, maxLevelOf,
 } = require('../data');
 const { rand01 } = require('./world');
 
@@ -455,7 +455,7 @@ function tryBuildVillage(v, type, buildWorkers) {
 function tryUpgradeVillage(v, b, buildWorkers) {
   const def = VILLAGE_DEFS[b.type];
   if (!def || b.building) return false;
-  if (def.maxLevel && b.level >= def.maxLevel) return false;
+  if (b.level >= maxLevelOf(b.type)) return false;
   const cost = scaledUpgradeCost(b.type, b.level);
   if (cost && !canAfford(v, cost)) return false;
   if (v.freeWorkers < buildWorkers) return false;

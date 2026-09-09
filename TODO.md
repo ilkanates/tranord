@@ -141,6 +141,12 @@ Bu zincir sırayla ilerlemek zorunda:
 - **Arayüz:** üst barda `VillageSwitcher` — merkez tacı, inşaat/açlık işareti, nüfus; tek köyde kendini gizliyor. Köy değiştirince harita anlık görüntüsü de yenileniyor.
 - Doğrulama: gerçek kaydın kopyasında iki köylü oturum açıldı, `switch_village` ile geçiş, kaydetme ve yeniden açılışta 2 köyün yüklenmesi ölçüldü.
 
+### Seviye tavanı, açlık ve ordu kısayolu hataları (Eylül 2026)
+- **Bina seviyesi sınırsızdı.** 18 binanın `maxLevel`i tanımsızdı ve yükseltme kontrolü `def.maxLevel && b.level >= def.maxLevel` biçimindeydi: tanımsızsa koşul hiç çalışmıyor, bina Lvl 21, 30… diye gidiyordu (İlkan'ın fırını Lvl 21 olmuştu). Hepsine **maxLevel 20** verildi; ayrıca `DEFAULT_MAX_LEVEL` + `maxLevelOf()` ikinci emniyet — yeni bir tanıma `maxLevel` yazmayı unutmak sınırsız yapmasın. `clampBuildingLevels` yüklemede tavanı aşmış binayı geri çekiyor (fırın 21 → 20 doğrulandı).
+- **Açlıkta ölen ASKER nüfustan düşmüyordu** (`tick.js`): `army[x] -= 1` yapılıyor ama `population` sabit kalıyordu. Asker nüfusun parçası olduğu için bu, her açlık turunda bir "hayalet köylü" üretiyordu — kaybolan köylü hatasının ters yönü. Düzeltildi.
+- **`dev_grant` nüfus tavanını aşıyordu:** `population += added` yapıp tavanı da yukarı çekiyordu; 6 kez basınca nüfus 7.140 / tavan 5.550 oluyordu. Artık bütçe önceden hesaplanıyor (boş işçi + tavana kalan yer), asker önce havuzdan alınıyor, bütçeden fazlası verilmiyor ve sebebi yazılıyor.
+- Test: 5/5 geçti — Lvl 20 bina yükseltilemiyor, tavanı aşan bina kalmadı, 2.500 asker verilirken nüfus artmadı ve tamamı havuzdan alındı (3.705 → 1.205), muhasebe bozulmadı.
+
 ### Nüfus tavanı: ev başına 50 → 100 (Eylül 2026)
 - **Soru:** ana bina max olunca kaç üretim alanı alınabiliyor, ve her şey fullenince her binaya işçi yetiyor mu?
 - **Ölçüm:** ana bina Lvl 11 (max) → **16 üretim tarlası** (`min(16, 5+seviye)`). Tam max bir köyün işçi talebi **1.780**: 16 tarla Lvl 20 = 640, 6 kule Lvl 20 okçu = 480, 11 işleme/askeri bina Lvl 20 = 660.

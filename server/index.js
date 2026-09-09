@@ -20,7 +20,7 @@ const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/np
 // Kule de personel alır (arayüzde "okçu" adıyla); sur ve hendek almaz.
 const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule']);
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS,
-        maxPopulationOf } = require('./data');
+        maxPopulationOf, maxLevelOf } = require('./data');
 
 const TRAINABLE_UNITS = Object.fromEntries(
   Object.entries(UNIT_DEFS).filter(([_, def]) => {
@@ -1705,7 +1705,9 @@ io.on('connection', async socket => {
     const b = v().villageBuildings[slotKey];
     if (!b || b.building) return;
     const def = VILLAGE_DEFS[b.type];
-    if (!def || (def.maxLevel && b.level >= def.maxLevel) || !workers || workers < 1 || workers > v().freeWorkers) return;
+    // Tavan: tanımda yoksa DEFAULT_MAX_LEVEL. Eski koşul `def.maxLevel &&`
+    // ile başlıyordu, tanımsız olan 18 bina sınırsız yükseliyordu.
+    if (!def || b.level >= maxLevelOf(b.type) || !workers || workers < 1 || workers > v().freeWorkers) return;
     const upgradeCost = getScaledUpgradeCost(b.type, b.level);
     if (upgradeCost) {
       for (const [res, amt] of Object.entries(upgradeCost)) { if ((v().resources[res] || 0) < amt) return; }
@@ -1977,25 +1979,45 @@ io.on('connection', async socket => {
   if (process.env.TRANORD_DEV_CHEATS === '1') {
     socket.on('dev_grant', ({ army: a, resources: r } = {}) => {
       const village = v();
-      let added = 0;
+      /**
+       * ASKER BÜTÇESİ — kaç asker verilebileceği ÖNCEDEN hesaplanır.
+       *
+       * Asker nüfusun parçası: eğitimde boş işçi askere dönüşür, nüfus
+       * artmaz. Eskiden bu kısayol `population += added` yapıp tavanı da
+       * yukarı çekiyordu; altı kez basınca nüfus 7.140 / tavan 5.550 gibi
+       * imkânsız bir duruma düşüyordu (ekranda görüldü).
+       *
+       * Bütçe = boş işçi + tavana kalan yer. Bütçeden fazlası VERİLMEZ;
+       * "verip muhasebeyi sonra onarırız" demek 83 köylünün kaybolduğu
+       * hatanın aynısını üretirdi.
+       */
+      const tavan = maxPopulationOf(village);
+      let butce = (village.freeWorkers || 0) + Math.max(0, tavan - (village.population || 0));
+      let added = 0, atlanan = 0;
       for (const [k, n] of Object.entries(a || {})) {
-        const cnt = Math.max(0, Math.floor(Number(n) || 0));
-        if (!UNIT_DEFS[k] || !cnt) continue;
+        const istenen = Math.max(0, Math.floor(Number(n) || 0));
+        if (!UNIT_DEFS[k] || !istenen) continue;
+        const cnt = Math.min(istenen, butce);
+        atlanan += istenen - cnt;
+        if (cnt <= 0) continue;
         village.army[k] = (village.army[k] || 0) + cnt;
-        added += cnt;
+        added += cnt; butce -= cnt;
       }
-      // Asker nüfusun parçası (eğitimde işçiden dönüşüyor) — bedava asker
-      // verirken nüfusu da artır, yoksa yiyecek hesabı bozulur.
       if (added > 0) {
-        village.population += added;
-        village.maxPopulation = Math.max(village.maxPopulation, village.population);
+        const havuzdan = Math.min(added, village.freeWorkers || 0);
+        village.freeWorkers -= havuzdan;
+        village.population += added - havuzdan;      // tavanı aşamaz, bütçe garanti
       }
       for (const [k, n] of Object.entries(r || {})) {
         if (village.resources[k] != null) village.resources[k] += Math.floor(Number(n) || 0);
       }
       dirty(); emit();
-      socket.emit('dev_result', { ok: true, message: `Ordu +${added} asker` });
-      console.log(`[DEV] ${userEmail} ordu +${added}`);
+      socket.emit('dev_result', { ok: atlanan === 0,
+        message: atlanan
+          ? `Ordu +${added} asker — ${atlanan} asker verilemedi (nüfus tavanı ${tavan} dolu)`
+          : `Ordu +${added} asker` });
+      console.log(`[DEV] ${userEmail} ordu +${added}`
+        + (atlanan ? ` (${atlanan} atlandı, nüfus tavanı)` : ''));
     });
 
     /**

@@ -64,42 +64,42 @@ const VILLAGE_DEFS = {
   keresteci: { cpPerLevel:1,
     name:'Keresteci', category:'isleme', icon:'🪚',
     description:'Odunu keresteye dönüştürür. 1 işçi: 8 odun → 6 kereste/sa.',
-    unique:true, maxLevel:null, workersPerLevel:3,
+    unique:true, maxLevel:20, workersPerLevel:3,
     processes:{ input:'odun', inputPerHour:8, output:'kereste', outputPerHour:6 },
     buildBaseWork:20, buildMultiplier:1.8, cost:{ odun:100, tas:40 }
   },
   tuglaci: { cpPerLevel:1,
     name:'Tuğlacı', category:'isleme', icon:'🧱',
     description:'Kili pişirerek tuğla üretir. 1 işçi: 8 kil → 6 tuğla/sa.',
-    unique:true, maxLevel:null, workersPerLevel:3,
+    unique:true, maxLevel:20, workersPerLevel:3,
     processes:{ input:'kil', inputPerHour:8, output:'tugla', outputPerHour:6 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:60, kil:50 }
   },
   tasci: { cpPerLevel:1,
     name:'Taşçı', category:'isleme', icon:'🪨',
     description:'Ham taşı yontar. 1 işçi: 8 taş → 6 yontma taş/sa.',
-    unique:true, maxLevel:null, workersPerLevel:3,
+    unique:true, maxLevel:20, workersPerLevel:3,
     processes:{ input:'tas', inputPerHour:8, output:'yontmaTas', outputPerHour:6 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:70, tas:40 }
   },
   demirci: { cpPerLevel:1,
     name:'Demirci', category:'isleme', icon:'🔨',
     description:'Demir cevherini külçe demire dönüştürür. 1 işçi: 5 demir → 4 külçe/sa.',
-    unique:true, maxLevel:null, workersPerLevel:3,
+    unique:true, maxLevel:20, workersPerLevel:3,
     processes:{ input:'demir', inputPerHour:5, output:'demirKulce', outputPerHour:4 },
     buildBaseWork:20, buildMultiplier:1.8, cost:{ odun:80, tas:40 }
   },
   degirmen: { cpPerLevel:1,
     name:'Değirmen', category:'isleme', icon:'⚙️',
     description:'Tahılı una öğütür. 1 işçi: 10 tahıl → 8 un/sa.',
-    unique:true, maxLevel:null, workersPerLevel:3,
+    unique:true, maxLevel:20, workersPerLevel:3,
     processes:{ input:'tahil', inputPerHour:10, output:'un', outputPerHour:8 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:90, tas:30 }
   },
   firin: { cpPerLevel:1,
     name:'Fırın', category:'isleme', icon:'🔥',
     description:'Unu ekmek hâline getirir. 1 işçi: 8 un → 6 ekmek/sa.',
-    unique:true, maxLevel:null, workersPerLevel:3,
+    unique:true, maxLevel:20, workersPerLevel:3,
     processes:{ input:'un', inputPerHour:8, output:'ekmek', outputPerHour:6 },
     buildBaseWork:20, buildMultiplier:1.7, cost:{ odun:60, kil:40 }
   },
@@ -108,37 +108,37 @@ const VILLAGE_DEFS = {
   // workersPerLevel: her seviye +N işçi slotu (max = level × workersPerLevel)
   // İşçi sayısı hem üretim hem eğitim süresini doğrudan hızlandırır: süre = base / workers
   zirh:         { cpPerLevel:1, name:'Zırhçı',           category:'askeri',   icon:'🛡️', description:'Külçe demirden zırh ve kalkan üretir. İşçi sayısı üretim hızını belirler.',
-                   unique:true,  maxLevel:null, workersPerLevel:3,
+                   unique:true,  maxLevel:20, workersPerLevel:3,
                    buildBaseWork:25, buildMultiplier:1.8, cost:{ kereste:70, yontmaTas:30, demirKulce:20 },
                    upgradeCostBase:{ kereste:70, yontmaTas:30, demirKulce:20 }, upgradeCostMultiplier:1.6 },
   silahci:      { cpPerLevel:1, name:'Silahçı',          category:'askeri',   icon:'⚔️', description:'Külçe demirden kılıç ve mızrak üretir. İşçi sayısı üretim hızını belirler.',
-                   unique:true,  maxLevel:null, workersPerLevel:3,
+                   unique:true,  maxLevel:20, workersPerLevel:3,
                    buildBaseWork:25, buildMultiplier:1.8, cost:{ kereste:70, yontmaTas:30, demirKulce:20 },
                    upgradeCostBase:{ kereste:70, yontmaTas:30, demirKulce:20 }, upgradeCostMultiplier:1.6 },
   ahir:         { cpPerLevel:1, name:'Ahır',             category:'askeri',   icon:'🐎', description:'At yetiştirir ve süvari birliklerini eğitir. Seviye × 5 kadar at depolayabilir.',
-                   unique:true,  maxLevel:null, workersPerLevel:3, horseCapPerLevel:5,
+                   unique:true,  maxLevel:20, workersPerLevel:3, horseCapPerLevel:5,
                    buildBaseWork:35, buildMultiplier:1.9, cost:{ kereste:100, tahil:60 },
                    upgradeCostBase:{ kereste:100, tahil:60 }, upgradeCostMultiplier:1.7 },
   kisla:        { cpPerLevel:1, name:'Kışla',            category:'askeri',   icon:'🛡️', description:'Piyade askerlerini eğitir. İşçi sayısı eğitim süresini kısaltır.',
-                   unique:true,  maxLevel:null, workersPerLevel:3,
+                   unique:true,  maxLevel:20, workersPerLevel:3,
                    buildBaseWork:35, buildMultiplier:1.9, cost:{ kereste:100, yontmaTas:60 },
                    upgradeCostBase:{ kereste:100, yontmaTas:60 }, upgradeCostMultiplier:1.7 },
   atolye:       { cpPerLevel:1, name:'Atölye',           category:'askeri',   icon:'🏗️', description:'Mancınık ve koç başı üreten bina.',
-                   unique:true,  maxLevel:null, workersPerLevel:3,
+                   unique:true,  maxLevel:20, workersPerLevel:3,
                    buildBaseWork:30, buildMultiplier:1.9, cost:{ kereste:120, demirKulce:40 },
                    upgradeCostBase:{ kereste:120, demirKulce:40 }, upgradeCostMultiplier:1.7 },
   cephane:      { cpPerLevel:1, name:'Cephanelik',       category:'askeri',   icon:'🏹', description:'Kılıç, mızrak, kalkan ve zırh ORTAK bir depoyu paylaşır. Her seviye havuza +200 yer katar.',
-                   unique:true,  maxLevel:null, equipmentCapPerLevel:50, poolCapPerLevel:200,
+                   unique:true,  maxLevel:20, equipmentCapPerLevel:50, poolCapPerLevel:200,
                    buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:60, demirKulce:20 },
                    upgradeCostBase:{ kereste:100, yontmaTas:60, demirKulce:20 }, upgradeCostMultiplier:1.6 },
   saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Savaşta yaralanan askerleri iyileştiren bina.',
-                   unique:true,  maxLevel:null, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:60, tahil:30 } },
+                   unique:true,  maxLevel:20, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:60, tahil:30 } },
 
   // ── Depo ────────────────────────────────────────────────────────
   hammaddeDepo: { cpPerLevel:1,
     name:'Hammadde Deposu', category:'depo', icon:'📦',
     description:'Ham odun, kil, taş, demir ve tahıl depolar.',
-    unique:true, maxLevel:null,
+    unique:true, maxLevel:20,
     stores:['odun','kil','tas','demir'],
     baseCapacity:1000, capacityPerLevel:500,
     buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:50, tugla:30 }
@@ -146,7 +146,7 @@ const VILLAGE_DEFS = {
   islenmisMalDepo: { cpPerLevel:1,
     name:'İşlenmiş Mal Deposu', category:'depo', icon:'🏭',
     description:'Kereste, tuğla, yontma taş ve külçe demir depolar.',
-    unique:true, maxLevel:null,
+    unique:true, maxLevel:20,
     stores:['kereste','tugla','yontmaTas','demirKulce'],
     baseCapacity:800, capacityPerLevel:400,
     buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:80, yontmaTas:50, tugla:40 }
@@ -154,7 +154,7 @@ const VILLAGE_DEFS = {
   tahilAmbar: { cpPerLevel:1,
     name:'Tahıl Ambarı', category:'depo', icon:'🌾',
     description:'Ham tahıl depolar.',
-    unique:true, maxLevel:null,
+    unique:true, maxLevel:20,
     stores:['tahil'],
     baseCapacity:2000, capacityPerLevel:1000,
     buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:80, yontmaTas:40 }
@@ -162,14 +162,14 @@ const VILLAGE_DEFS = {
   granary: { cpPerLevel:1,
     name:'Granary', category:'depo', icon:'🍞',
     description:'Un ve ekmek depolar.',
-    unique:true, maxLevel:null,
+    unique:true, maxLevel:20,
     stores:['un','ekmek'],
     baseCapacity:500, capacityPerLevel:250,
     buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:80, tugla:50 }
   },
 
   // ── Ekonomik ────────────────────────────────────────────────────
-  pazar:      { cpPerLevel:2, name:'Pazar',               category:'ekonomik', icon:'🏪', description:'Hammadde al-sat ve başka köylere gönderi yap.',  unique:true, maxLevel:null, buildBaseWork:40, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:80 } },
+  pazar:      { cpPerLevel:2, name:'Pazar',               category:'ekonomik', icon:'🏪', description:'Hammadde al-sat ve başka köylere gönderi yap.',  unique:true, maxLevel:20, buildBaseWork:40, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:80 } },
   loncaDemir: { cpPerLevel:2, name:'Demirciler Loncası',  category:'ekonomik', icon:'🔩', description:'Demir üretimini artırır. Her seviye +%5. Maks 5.',unique:true, maxLevel:5, bonusPerLevel:5, affects:'demir',  buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, demirKulce:50 } },
   loncaOdun:  { cpPerLevel:2, name:'Oduncular Loncası',   category:'ekonomik', icon:'🪓', description:'Odun üretimini artırır. Her seviye +%5. Maks 5.', unique:true, maxLevel:5, bonusPerLevel:5, affects:'odun',   buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:100, yontmaTas:40 } },
   loncaTas:   { cpPerLevel:2, name:'Taşçılar Loncası',    category:'ekonomik', icon:'⛏️', description:'Taş üretimini artırır. Her seviye +%5. Maks 5.',  unique:true, maxLevel:5, bonusPerLevel:5, affects:'tas',    buildBaseWork:30, buildMultiplier:2.0, cost:{ kereste:80, yontmaTas:60 } },
@@ -234,6 +234,20 @@ const VILLAGE_DEFS = {
  */
 const BASE_POPULATION = 50;
 
+/**
+ * VARSAYILAN SEVİYE TAVANI.
+ *
+ * 18 binanın `maxLevel`i tanımsızdı ve yükseltme kontrolü
+ * `def.maxLevel && b.level >= def.maxLevel` biçimindeydi: tanımsızsa koşul
+ * hiç çalışmıyor, bina Lvl 21, 30, 50 diye sonsuza gidiyordu. Artık hepsinde
+ * açık tavan var; bu sabit ise İKİNCİ emniyet — yeni bir bina tanımına
+ * `maxLevel` yazmayı unutmak yine sınırsız yapmasın.
+ */
+const DEFAULT_MAX_LEVEL = 20;
+
+/** Bir binanın seviye tavanı — tanımda yoksa varsayılan uygulanır */
+const maxLevelOf = (type) => VILLAGE_DEFS[type]?.maxLevel || DEFAULT_MAX_LEVEL;
+
 /** Köyün nüfus tavanı — inşaatı süren (seviye 0) ev saymaz. */
 function maxPopulationOf(village) {
   const perLevel = VILLAGE_DEFS.ev?.populationPerLevel || 50;
@@ -248,4 +262,4 @@ function maxPopulationOf(village) {
 
 module.exports = {
   DEF_BONUS_CAP, VILLAGE_DEFS, SUR_BONUS, HENDEK_BONUS, KULE_BONUS,
-  BASE_POPULATION, maxPopulationOf };
+  BASE_POPULATION, maxPopulationOf, DEFAULT_MAX_LEVEL, maxLevelOf };
