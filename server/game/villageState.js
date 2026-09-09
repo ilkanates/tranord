@@ -12,6 +12,9 @@
  * İnşa/yükseltme/yıkma/işçi akışları anahtarı koordinat olarak ayrıştırmıyor,
  * o yüzden isimli slotlar mevcut mekanikle olduğu gibi çalışıyor.
  */
+const PRODUCTION_DEFS = require('../data/productionDefs');
+const VILLAGE_DEFS_ALL = require('../data/villageDefs').VILLAGE_DEFS;
+
 const TOWER_SLOTS_ARR    = ['kule1', 'kule2', 'kule3', 'kule4', 'kule5', 'kule6'];
 const WALL_SLOTS_ARR     = ['sur', 'hendek'];
 const DEFENCE_TYPES      = new Set(['sur', 'hendek', 'kule']);
@@ -158,10 +161,50 @@ function hydrateVillage(raw) {
     raw.nextMarchId = raw.marches.reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
   }
 
+  clampWorkersToCapacity(raw);
   repairWorkerAccounting(raw);
 
   // endTime alanları sayıya dön (JSON'da number olarak saklanır, sorun yok)
   return raw;
+}
+
+/**
+ * KADROYU AŞAN İŞÇİLERİ HAVUZA DÖNDÜR.
+ *
+ * Tarla işçi kapasitesi eğrisi yumuşatıldı (Lvl 20: 490 → 40). Eski
+ * kayıtlarda bir tarlaya kapasitesinden fazla işçi atanmış olabilir; o işçiler
+ * silinmiyor, BOŞ İŞÇİ havuzuna dönüyor — nüfus muhasebesi bozulmaz, oyuncu
+ * da kimseyi kaybetmez. Aynı kontrol köy binaları için de yapılıyor (bina
+ * yıkılıp yeniden düşük seviyede kurulmuş olabilir).
+ *
+ * Yükleme başına bir kez çalışır ve yalnız gerçekten fazlalık varsa iz bırakır.
+ */
+function clampWorkersToCapacity(v) {
+  let iade = 0;
+  const kayit = [];
+
+  for (const [key, t] of Object.entries(v.productionTiles || {})) {
+    if (!t || t.level < 1) continue;
+    const maks = PRODUCTION_DEFS[t.type]?.levels?.[t.level - 1]?.workers;
+    if (!maks) continue;
+    const w = t.workers || 0;
+    if (w > maks) { iade += w - maks; kayit.push(`${t.type}@${key} ${w}→${maks}`); t.workers = maks; }
+  }
+
+  for (const [key, b] of Object.entries(v.villageBuildings || {})) {
+    if (!b || b.level < 1) continue;
+    const def = VILLAGE_DEFS_ALL[b.type];
+    if (!def) continue;
+    const maks = b.level * (def.workersPerLevel || 3);
+    const w = b.workers || 0;
+    if (w > maks) { iade += w - maks; kayit.push(`${b.type}@${key} ${w}→${maks}`); b.workers = maks; }
+  }
+
+  if (!iade) return null;
+  v.freeWorkers = (v.freeWorkers || 0) + iade;
+  console.log(`[KADRO KIRPMA] ${iade} işçi havuza döndü — ${kayit.slice(0, 6).join(', ')}`
+    + (kayit.length > 6 ? ` (+${kayit.length - 6})` : ''));
+  return { iade, kayit };
 }
 
 /**
@@ -211,4 +254,4 @@ function repairWorkerAccounting(v) {
 }
 
 module.exports = { createVillage, hydrateVillage, repairWorkerAccounting,
-  TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };
+  clampWorkersToCapacity, TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };

@@ -149,6 +149,8 @@ export default function WorkerScreen({
   population = 0, freeWorkers = 0,
   villageBuildings = {}, productionTiles = {}, army = {},
   unitQueues = {}, marches = [], unitDefs = {},
+  // Ekmek tüketimi — dağıtıcı önce açlığı kapatıyor
+  consumption = null,
   villageName = null,
   onAssignVillageWorkers, onAssignProductionWorkers,
 }) {
@@ -166,6 +168,10 @@ export default function WorkerScreen({
           maks: t.maxWorkers || def?.levels?.[t.level - 1]?.workers || 1,
           yuks: t.upgradeWorkersAssigned || 0,
           verim: t.efficiency,
+          // Üretim işçi sayısıyla DOĞRU ORANTILI; seviye yalnız kadro tavanını
+          // açıyor. Bu yüzden işçi başına değer (base × verim) dağıtımın
+          // tek ölçütü.
+          birim: (def?.baseProductionPerWorker || 0) * (t.efficiency ?? 1),
         };
       })
       .sort((a, b) => a.tip.localeCompare(b.tip, 'tr') || a.key.localeCompare(b.key));
@@ -184,6 +190,7 @@ export default function WorkerScreen({
         terim: workerTerm(b.type),
         kategori: def.category,
         isliyor: !!def.processes,
+        proc: def.processes || null,
         yapim: !!b.building,
       });
     }
@@ -216,26 +223,144 @@ export default function WorkerScreen({
   }, [villageBuildings, productionTiles, army, unitQueues, marches, freeWorkers, population]);
 
   /**
-   * BOŞLARI DAĞIT — havuzdaki işçileri kapasitesi eksik işlere yayar.
-   * Sıra: önce üretim tarlaları (ham kaynak her şeyin girdisi), sonra işleme
-   * binaları, en son askeri binalar. Her adım tek tek gönderiliyor; sunucu
-   * havuzu kendi düşüyor, bu yüzden burada da düşülüyor.
+   * BOŞLARI DAĞIT — sırayla değil, ÜRETİMİ DENGELEYEREK.
+   *
+   * Üretim işçi sayısıyla doğru orantılı (seviye yalnız kadro tavanını açar),
+   * dolayısıyla "en verimli tarlaya hepsini yığmak" matematiksel olarak en
+   * çok kaynağı verir ama oyunu tek kaynağa mahkûm eder. Bunun yerine sıra:
+   *
+   *   1) EKMEK ZİNCİRİ — açlık en pahalı hata. Tüketimi %15 payla karşılayacak
+   *      kadar tahıl → değirmen → fırın işçisi ayrılır. Zincir oranları
+   *      tanımlardan çıkarılıyor: 1 ekmek/sa için 1/6 fırın + 1/6 değirmen +
+   *      (10/6)/(8×verim) tahıl işçisi.
+   *   2) HAM KAYNAKLAR — odun/kil/taş/demir üretimleri EŞİTLENİR. Her adımda
+   *      üretimi en düşük kaynağa, o kaynağın en verimli boş tarlasına 1 işçi.
+   *   3) İŞLEME BİNALARI — ham üretiminin taşıyabileceği kadar. Fazlası boşa
+   *      bekler: bina girdisi yoksa işçi hiçbir şey üretmez.
+   *   4) ASKERİ BİNALAR — kalan varsa.
+   *
+   * Sonuçta her iş için TEK hedef sayı hesaplanıp tek olay gönderiliyor;
+   * işçi başına ayrı istek atılmıyor.
    */
   const dagit = () => {
     let kalan = freeWorkers;
-    const sirali = [
-      ...d.tarlalar.map(t => ({ tur: 'tarla', ...t })),
-      ...d.binalar.filter(b => b.isliyor).map(b => ({ tur: 'bina', ...b })),
-      ...d.binalar.filter(b => !b.isliyor).map(b => ({ tur: 'bina', ...b })),
-    ];
-    for (const j of sirali) {
+    if (kalan <= 0) return;
+
+    // Hedefler mevcut atamadan başlar; kimseyi işten almıyoruz
+    const hedefT = new Map(d.tarlalar.map(t => [t.key, t.isci]));
+    const hedefB = new Map(d.binalar.map(b => [b.key, b.isci]));
+    const yer = (t) => t.maks - (hedefT.get(t.key) || 0);
+    const yerB = (b) => b.maks - (hedefB.get(b.key) || 0);
+
+    /** Bir tarlaya en fazla n işçi ekle, gerçekte eklenen kadarını döndür */
+    const ekleT = (t, n) => {
+      const ver = Math.max(0, Math.min(n, yer(t), kalan));
+      if (ver > 0) { hedefT.set(t.key, (hedefT.get(t.key) || 0) + ver); kalan -= ver; }
+      return ver;
+    };
+    const ekleB = (b, n) => {
+      const ver = Math.max(0, Math.min(n, yerB(b), kalan));
+      if (ver > 0) { hedefB.set(b.key, (hedefB.get(b.key) || 0) + ver); kalan -= ver; }
+      return ver;
+    };
+
+    const turden = (tip) => d.tarlalar.filter(t => t.tip === tip)
+      .sort((a, b) => b.birim - a.birim);       // en verimli önce
+    const binaTip = (tip) => d.binalar.filter(b => b.tip === tip);
+    /** Bir gruba n işçiyi en verimli slottan başlayarak yay */
+    const yayT = (liste, n) => { let k = n; for (const t of liste) { if (k <= 0) break; k -= ekleT(t, k); } return n - k; };
+    const yayB = (liste, n) => { let k = n; for (const b of liste) { if (k <= 0) break; k -= ekleB(b, k); } return n - k; };
+
+    // ── 1) EKMEK ZİNCİRİ ────────────────────────────────────────────
+    const ekmekIhtiyac = (consumption?.foodPerHour || 0) * 1.15;
+    if (ekmekIhtiyac > 0) {
+      const firin = binaTip('firin');
+      const degirmen = binaTip('degirmen');
+      const firinProc = firin[0]?.proc;         // { input:'un', inputPerHour:8, outputPerHour:6 }
+      const degProc = degirmen[0]?.proc;        // { input:'tahil', inputPerHour:10, outputPerHour:8 }
+      if (firinProc && degProc) {
+        // Fırın: her işçi outputPerHour kadar ekmek
+        const firinIsci = Math.ceil(ekmekIhtiyac / firinProc.outputPerHour);
+        const verilenFirin = yayB(firin, Math.max(0, firinIsci - firin.reduce((s, b) => s + b.isci, 0)));
+        const firinToplam = firin.reduce((s, b) => s + (hedefB.get(b.key) || 0), 0);
+        // Değirmen: fırının tükettiği un kadar un üretmeli
+        const unGerek = firinToplam * firinProc.inputPerHour;
+        const degIsci = Math.ceil(unGerek / degProc.outputPerHour);
+        yayB(degirmen, Math.max(0, degIsci - degirmen.reduce((s, b) => s + b.isci, 0)));
+        const degToplam = degirmen.reduce((s, b) => s + (hedefB.get(b.key) || 0), 0);
+        // Tahıl: değirmenin tükettiği tahılı üretecek kadar
+        const tahilGerek = degToplam * degProc.inputPerHour;
+        const tahillar = turden('tahil');
+        let uretilen = tahillar.reduce((s, t) => s + t.isci * t.birim, 0);
+        for (const t of tahillar) {
+          if (uretilen >= tahilGerek || kalan <= 0) break;
+          const eksik = tahilGerek - uretilen;
+          const gerekli = t.birim > 0 ? Math.ceil(eksik / t.birim) : 0;
+          uretilen += ekleT(t, gerekli) * t.birim;
+        }
+        void verilenFirin;
+      }
+    }
+
+    // ── 2) HAM KAYNAKLAR: üretimleri eşitle ─────────────────────────
+    const HAM = ['odun', 'kil', 'tas', 'demir'];
+    const gruplar = HAM.map(tip => ({ tip, liste: turden(tip) })).filter(g => g.liste.length);
+    if (gruplar.length) {
+      const uretim = new Map(gruplar.map(g => [g.tip,
+        g.liste.reduce((s, t) => s + (hedefT.get(t.key) || 0) * t.birim, 0)]));
+      // Her turda en düşük üretimli kaynağa bir grup işçi ver. Adım büyüklüğü
+      // 1 değil: 500 işçide 500 tur dönmek yerine kabaca %2'lik dilimler.
+      const adim = Math.max(1, Math.floor(kalan / 60));
+      let guvenlik = 5000;
+      while (kalan > 0 && guvenlik-- > 0) {
+        const uygun = gruplar.filter(g => g.liste.some(t => yer(t) > 0));
+        if (!uygun.length) break;
+        uygun.sort((a, b) => (uretim.get(a.tip) || 0) - (uretim.get(b.tip) || 0));
+        const g = uygun[0];
+        const onceKalan = kalan;
+        for (const t of g.liste) {
+          if (kalan <= 0) break;
+          const ver = ekleT(t, Math.min(adim, yer(t)));
+          uretim.set(g.tip, (uretim.get(g.tip) || 0) + ver * t.birim);
+          if (ver > 0) break;                   // tek adımda tek slot
+        }
+        if (kalan === onceKalan) break;         // hiç yer kalmadı
+      }
+    }
+
+    // ── 3) İŞLEME BİNALARI: ham üretiminin taşıdığı kadar ───────────
+    const hamUretim = (tip) => turden(tip)
+      .reduce((s, t) => s + (hedefT.get(t.key) || 0) * t.birim, 0);
+    const islemeler = d.binalar.filter(b => b.proc && b.tip !== 'firin' && b.tip !== 'degirmen');
+    for (const b of islemeler) {
       if (kalan <= 0) break;
-      const eksik = j.maks - j.isci;
-      if (eksik <= 0) continue;
-      const ver = Math.min(eksik, kalan);
-      kalan -= ver;
-      if (j.tur === 'tarla') onAssignProductionWorkers?.(j.key, j.isci + ver);
-      else onAssignVillageWorkers?.(j.key, j.isci + ver);
+      const girdi = b.proc.input;
+      const uretilen = ['odun', 'kil', 'tas', 'demir', 'tahil'].includes(girdi)
+        ? hamUretim(girdi) : Infinity;
+      // Aynı girdiyi kullanan diğer binaların tükettiğini düş
+      const rakipTuketim = d.binalar
+        .filter(x => x.proc?.input === girdi && x.key !== b.key)
+        .reduce((s, x) => s + (hedefB.get(x.key) || 0) * x.proc.inputPerHour, 0);
+      const tasiyabilir = Math.max(0, uretilen - rakipTuketim);
+      const isciSiniri = isFinite(tasiyabilir)
+        ? Math.floor(tasiyabilir / b.proc.inputPerHour) : b.maks;
+      ekleB(b, Math.max(0, isciSiniri - (hedefB.get(b.key) || 0)));
+    }
+
+    // ── 4) ASKERİ BİNALAR ───────────────────────────────────────────
+    for (const b of d.binalar.filter(x => !x.proc)) {
+      if (kalan <= 0) break;
+      ekleB(b, yerB(b));
+    }
+
+    // ── Uygula: değişen her iş için tek olay ────────────────────────
+    for (const t of d.tarlalar) {
+      const h = hedefT.get(t.key) || 0;
+      if (h !== t.isci) onAssignProductionWorkers?.(t.key, h);
+    }
+    for (const b of d.binalar) {
+      const h = hedefB.get(b.key) || 0;
+      if (h !== b.isci) onAssignVillageWorkers?.(b.key, h);
     }
   };
 
@@ -304,7 +429,7 @@ export default function WorkerScreen({
       <div style={{ display: 'flex', gap: 6, marginTop: 9, flexWrap: 'wrap' }}>
         <button type="button" onClick={dagit}
           disabled={freeWorkers <= 0 || d.bosSlot <= 0}
-          title="Boştaki köylüleri eksik kadrolara yay: önce tarlalar, sonra işleme, en son askeri binalar"
+          title="Sıra: 1) ekmek zinciri (tüketim + %15), 2) odun/kil/taş/demir üretimlerini eşitle, 3) işleme binaları ham üretimin taşıdığı kadar, 4) askeri binalar"
           style={btn(freeWorkers > 0 && d.bosSlot > 0 ? 'primary' : 'disabled',
             { padding: '5px 11px', fontSize: 9.5 })}>
           BOŞLARI DAĞIT
@@ -329,6 +454,7 @@ export default function WorkerScreen({
             ad={RES_LABEL[t.tip] || t.tip}
             altYazi={`slot ${t.key}`
               + (t.verim != null ? ` · verim ×${Number(t.verim).toFixed(2)}` : '')
+              + (t.birim ? ` · ${Math.round(t.isci * t.birim)}/sa` : '')
               + (t.yuks ? ` · yükseltmede ${t.yuks} işçi` : '')}
             seviye={t.seviye} isci={t.isci} maks={t.maks}
             renk="#7ae07a" bos={freeWorkers}
@@ -348,7 +474,10 @@ export default function WorkerScreen({
           <Satir key={b.key}
             ikon={b.isliyor ? 'lonca' : 'kalkan'}
             ad={b.ad}
-            altYazi={(b.isliyor ? 'işleme' : 'askeri')
+            altYazi={(b.proc
+              ? `${b.isci * b.proc.inputPerHour}/sa ${RES_LABEL[b.proc.input] || b.proc.input}`
+                + ` → ${b.isci * b.proc.outputPerHour}/sa ${RES_LABEL[b.proc.output] || b.proc.output}`
+              : 'askeri')
               + (b.terim !== 'İşçi' ? ` · ${b.terim.toLowerCase()}` : '')
               + (b.yapim ? ' · yükseltiliyor' : '')}
             seviye={b.seviye} isci={b.isci} maks={b.maks}

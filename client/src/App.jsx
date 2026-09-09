@@ -13,6 +13,7 @@ import BattleSimulator from './components/BattleSimulator';
 import { MarchPanel, IncomingAlert } from './components/WarPanel';
 import ReportScreen, { unseenCount } from './components/ReportScreen';
 import LoginScreen from './components/LoginScreen';
+import LoginBackdrop from './components/LoginBackdrop';
 import StatsScreen from './components/StatsScreen';
 import ResourceRail    from './components/ResourceRail';
 import StatusRail      from './components/StatusRail';
@@ -380,7 +381,8 @@ function Game({ token, onLogout }) {
   if (!village) {
     return (
       <div style={{ position: 'relative', height: '100dvh', background: C.abyss }}>
-        <NordicBackdrop dim={0.2} />
+        {/* Giris ekraniyla ayni arka plan - gecis sirasinda goruntu atlamasin */}
+        <LoginBackdrop />
         <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', placeItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{
@@ -592,6 +594,7 @@ function Game({ token, onLogout }) {
                 unitQueues={village.unitQueues || {}}
                 marches={village.marches || []}
                 unitDefs={village.unitDefs || {}}
+                consumption={village.consumption || null}
                 villageName={(village.villages || [])
                   .find(v => v.slotKey === village.activeSlot)?.name || null}
                 onAssignVillageWorkers={assignVillageWorkers}
