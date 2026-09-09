@@ -724,6 +724,7 @@ export default function VillageCenter({
   unitQueues = {}, unitsByBuilding = {}, unitDefs = {},
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild,
   onQueueEquipment, onCancelEquipment, onTrainUnit, onCancelUnitOrder,
+  onOpenHelp,
   world = null,
   // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
   hourSeconds = 3600, worldSpeed = 1,
@@ -1128,6 +1129,17 @@ export default function VillageCenter({
                       <Icon name="yik" size={15} color="#f0b8bd" strokeWidth={2.3} />
                     </button>
                   )}
+                  {/* Yardım — bu binanın ansiklopedi sayfasına git */}
+                  {selectedBuilding && onOpenHelp && (
+                    <button onClick={() => onOpenHelp(`bina:${selectedBuilding.type}`)}
+                      title={`${panelTitle} — yardım sayfası`} style={{
+                        display: 'grid', placeItems: 'center', width: 30, height: 30, padding: 0,
+                        borderRadius: 15, cursor: 'pointer',
+                        background: 'rgba(8,14,24,0.66)', border: `1px solid ${panelEdge}66`,
+                      }}>
+                      <Icon name="bilgi" size={15} color={panelEdge} strokeWidth={1.7} />
+                    </button>
+                  )}
                   <button onClick={() => { setShowMenu(false); setSelected(null); }}
                     title="Kapat" style={{
                       display: 'grid', placeItems: 'center', width: 30, height: 30, padding: 0,
@@ -1186,6 +1198,7 @@ export default function VillageCenter({
             <div style={{ minWidth: 0 }}>
             <BuildMenu
               posterHeader={!!panelTex}
+              onOpenHelp={onOpenHelp}
               hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               slotKey={selected}
               building={selectedBuilding}

@@ -25,6 +25,24 @@ export const SUR_BONUS    = curveTo(SUR_MAX);
 export const HENDEK_BONUS = curveTo(HENDEK_MAX);
 export const KULE_BONUS   = curveTo(KULE_MAX);
 
+/**
+ * YÜKSELTME MALİYETİ — sunucudaki getScaledUpgradeCost ile BİREBİR aynı.
+ * Taban yoksa binanın inşa maliyeti taban kabul edilir; her seviye artışının
+ * bir bedeli var. Çarpanı değiştirirken server/index.js'i de güncelle.
+ */
+export const UPGRADE_MULT_DEFAULT = 1.25;
+
+export function upgradeCostAt(type, currentLevel) {
+  const def = VILLAGE_DEFS[type];
+  const base = def?.upgradeCostBase || def?.cost;
+  if (!base) return null;
+  const mult = Math.pow(def.upgradeCostMultiplier || UPGRADE_MULT_DEFAULT,
+    Math.max(0, currentLevel - 1));
+  return Object.fromEntries(
+    Object.entries(base).map(([k, v]) => [k, Math.round(v * mult)])
+  );
+}
+
 /** Kule slot sayısı — bonus altı slotun ortalaması olarak hesaplanır */
 export const TOWER_SLOTS = 6;
 
@@ -100,17 +118,17 @@ const VILLAGE_DEFS = {
 
   // ── Askeri ──────────────────────────────────────────────────────
   zirh:         { name:'Zırhçı',          category:'askeri', icon:'🛡️', description:'Zırh ve kalkan üretir. İşçi sayısı üretim hızını belirler (süre = temel / işçi).',
-                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:25, buildMultiplier:1.8, cost:{ kereste:70, yontmaTas:30, demirKulce:20 } },
+                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:25, buildMultiplier:1.8, upgradeCostBase:{ kereste:70, yontmaTas:30, demirKulce:20 }, upgradeCostMultiplier:1.6, cost:{ kereste:70, yontmaTas:30, demirKulce:20 } },
   silahci:      { name:'Silahçı',         category:'askeri', icon:'⚔️', description:'Kılıç ve mızrak üretir. İşçi sayısı üretim hızını belirler (süre = temel / işçi).',
-                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:25, buildMultiplier:1.8, cost:{ kereste:70, yontmaTas:30, demirKulce:20 } },
+                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:25, buildMultiplier:1.8, upgradeCostBase:{ kereste:70, yontmaTas:30, demirKulce:20 }, upgradeCostMultiplier:1.6, cost:{ kereste:70, yontmaTas:30, demirKulce:20 } },
   ahir:         { name:'Ahır',            category:'askeri', icon:'🐎', description:'At yetiştirir ve süvari birliklerini eğitir. Seviye × 5 at kapasitesi.',
-                   unique:true, maxLevel:null, workersPerLevel:3, horseCapPerLevel:5, buildBaseWork:35, buildMultiplier:1.9, cost:{ kereste:100, tahil:60 } },
+                   unique:true, maxLevel:null, workersPerLevel:3, horseCapPerLevel:5, buildBaseWork:35, buildMultiplier:1.9, upgradeCostBase:{ kereste:100, tahil:60 }, upgradeCostMultiplier:1.7, cost:{ kereste:100, tahil:60 } },
   kisla:        { name:'Kışla',           category:'askeri', icon:'🛡️', description:'Piyade askerlerini eğitir. İşçi sayısı eğitim süresini kısaltır.',
-                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:35, buildMultiplier:1.9, cost:{ kereste:100, yontmaTas:60 } },
+                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:35, buildMultiplier:1.9, upgradeCostBase:{ kereste:100, yontmaTas:60 }, upgradeCostMultiplier:1.7, cost:{ kereste:100, yontmaTas:60 } },
   atolye:       { name:'Atölye',          category:'askeri', icon:'🏗️', description:'Kuşatma silahları üreten bina.',
-                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:30, buildMultiplier:1.9, cost:{ kereste:120, demirKulce:40 } },
+                   unique:true, maxLevel:null, workersPerLevel:3, buildBaseWork:30, buildMultiplier:1.9, upgradeCostBase:{ kereste:120, demirKulce:40 }, upgradeCostMultiplier:1.7, cost:{ kereste:120, demirKulce:40 } },
   cephane:      { name:'Cephanelik',      category:'askeri', icon:'🏹', description:'Kılıç/mızrak/kalkan/zırh depolar. Her seviye +50 kapasite.',
-                   unique:true, maxLevel:null, equipmentCapPerLevel:50, poolCapPerLevel:200, buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:100, yontmaTas:60, demirKulce:20 } },
+                   unique:true, maxLevel:null, equipmentCapPerLevel:50, poolCapPerLevel:200, buildBaseWork:30, buildMultiplier:1.8, upgradeCostBase:{ kereste:100, yontmaTas:60, demirKulce:20 }, upgradeCostMultiplier:1.6, cost:{ kereste:100, yontmaTas:60, demirKulce:20 } },
   saglikCadiri: { name:'Sağlık Çadırı',   category:'askeri', icon:'⛺', description:'Yaralı askerleri iyileştiren bina.',             unique:true, maxLevel:null, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:60, tahil:30 } },
 
   // ── Depo ────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import VILLAGE_DEFS, { towerSlotBonus } from '../data/villageDefs';
+import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm } from '../flows';
 import Icon, { buildingIcon } from './Icons';
@@ -154,6 +154,7 @@ export default function BuildMenu({
   placedBuildings, freeWorkers, resources = {}, processingRates = {}, flows = {},
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onClose,
   hourSeconds = 3600, worldSpeed = 1,
+  onOpenHelp,
   // Poster biçiminde başlık bina görselinin üstünde çiziliyor; burada tekrar etmesin
   posterHeader = false,
 }) {
@@ -211,11 +212,16 @@ export default function BuildMenu({
   const affordable = selDef ? canAfford(selDef.cost) : false;
   const buildReady = affordable && freeWorkers >= 1;
 
-  const upgradeCost = useMemo(() => {
-    if (!building || !def?.upgradeCostBase) return null;
-    const m = Math.pow(def.upgradeCostMultiplier || 1.5, building.level - 1);
-    return Object.fromEntries(Object.entries(def.upgradeCostBase).map(([k, v]) => [k, Math.ceil(v * m)]));
-  }, [building, def]);
+  /**
+   * Maliyet tek yerden: villageDefs.upgradeCostAt — sunucudaki
+   * getScaledUpgradeCost ile birebir. Burada ayrı formül vardı ve `Math.ceil`
+   * kullanıyordu; sunucu `Math.round` kullandığı için ekranda 1 fazla
+   * gösterebiliyordu.
+   */
+  const upgradeCost = useMemo(
+    () => (building ? upgradeCostAt(building.type, building.level) : null),
+    [building]
+  );
   const upgradeReady = (!upgradeCost || canAfford(upgradeCost)) && freeWorkers >= 1;
 
   const title = building
@@ -247,6 +253,19 @@ export default function BuildMenu({
               : `slot ${slotKey}`}
           </div>
         </div>
+
+        {/* Yardım — bu binanın ansiklopedi sayfasına git */}
+        {building && onOpenHelp && (
+          <button type="button" title={`${title} — yardım sayfası`}
+            onClick={() => onOpenHelp(`bina:${building.type}`)}
+            style={{
+              flexShrink: 0, width: 24, height: 24, display: 'grid', placeItems: 'center',
+              borderRadius: 12, cursor: 'pointer',
+              background: 'rgba(20,34,50,0.6)', border: `1px solid ${edge}55`,
+            }}>
+            <Icon name="bilgi" size={13} color={edge} strokeWidth={1.6} />
+          </button>
+        )}
 
         {building && building.type !== 'anaBina' && !building.building && (
           <button onClick={onDemolish} title="Yık"

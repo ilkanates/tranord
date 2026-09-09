@@ -398,6 +398,14 @@ const P = {
       <path d="M6 6l12 12M18 6 6 18" />
     </>
   ),
+  // Bilgi / yardım — daire içinde soru işareti
+  bilgi: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.4 9.2a2.7 2.7 0 1 1 3.6 2.5c-.7.3-1 .9-1 1.6v.4" />
+      <path d="M12 17.2h.01" />
+    </>
+  ),
   // Yık — yarı yıkılmış kule (sol yarısı mazgallı ayakta, sağ yarısı kırık).
   // Kapat (X) ile karışmasın diye ayrı sembol; küçük boyutta okunacak kadar sade.
   yik: (
