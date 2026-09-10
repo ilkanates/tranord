@@ -165,7 +165,7 @@ export default function BuildingControls({
                 title="İnşaatçı" onChange={setUpgradeWorkers}
                 effect={(w) => sure(w)} />
             </div>
-            <button onClick={() => onUpgrade?.(upgradeWorkers)} disabled={!upgradeReady}
+            <button data-tut="yukselt" onClick={() => onUpgrade?.(upgradeWorkers)} disabled={!upgradeReady}
               style={btn(upgradeReady ? 'good' : 'disabled', {
                 width: '100%', marginTop: 4, padding: '4px 0', letterSpacing: 1, fontSize: 9.5,
               })}>

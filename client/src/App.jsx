@@ -905,10 +905,16 @@ function Game({ token, onLogout }) {
       <Spotlight
         on={!!village.quests && !village.quests.hidden && tab !== 'gorevler'}
         anchor={(() => {
-          const q = village.quests?.liste?.find(x => x.id === village.quests.aktif);
+          const liste = village.quests?.liste || [];
+          const q = liste.find(x => x.id === (questFocus || village.quests?.aktif));
           if (!q || q.tamam) return null;
-          // Hedef sekmedeysem çapayı kaldır: artık yönlendirmeye gerek yok
-          return q.tab && q.tab !== tab ? q.anchor : null;
+          /*
+            İKİ KADEMELİ: yanlış sekmedeysem SEKME düğmesi, doğru
+            sekmedeysem sayfadaki asıl hedef (tarla, boş arazi, işçi
+            kaydıracı, YÜKSELT düğmesi) işaretlenir.
+          */
+          if (q.tab && q.tab !== tab) return `tab-${q.tab}`;
+          return q.anchor || null;
         })()} />
     </>
   );

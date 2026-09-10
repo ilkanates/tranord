@@ -514,7 +514,9 @@ function FieldHex({
 
   return (
     /* data-tile: yerleşim penceresi bu hex'lere karışmasın (bkz. onUp) */
-    <g data-tile="1" onClick={onClick} onMouseEnter={onEnter} onMouseLeave={onLeave}
+    /* data-tut: rehber spotlight'ının hedefi (tarla cinsi ya da boş hex) */
+    <g data-tile="1" data-tut={isCenter ? 'bina-anaBina' : tile ? `tarla-${tile.type}` : 'tarla-bos'}
+      onClick={onClick} onMouseEnter={onEnter} onMouseLeave={onLeave}
       transform={isHovered || isSelected
         ? `translate(${x} ${y}) scale(${isSelected ? 1.11 : 1.08}) translate(${-x} ${-y})`
         : undefined}

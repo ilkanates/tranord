@@ -115,7 +115,8 @@ export default function WorkerAssign({
   const idle = mode === 'assign' && local === 0 && max > 0;
 
   return (
-    <div style={{
+    /* data-tut: rehberin "işçi ata" adımlarında burası işaretlenir */
+    <div data-tut="isci-kaydirac" style={{
       background: 'rgba(8,17,28,0.5)',
       border: `1px solid ${flash ? C.iceDeep : idle ? 'rgba(224,179,87,0.35)' : C.lineSoft}`,
       borderRadius: 6, padding: compact ? '5px 7px' : '7px 8px',

@@ -1008,6 +1008,8 @@ export default function VillageCenter({
 
             return (
               <g key={key}
+                /* data-tut: rehber spotlight hedefi — bina cinsi ya da boş arazi */
+                data-tut={building ? `bina-${building.type}` : 'bina-bos'}
                 onClick={() => handleSlotClick(key)}
                 onMouseEnter={() => hoverable && setHovered(key)}
                 onMouseLeave={() => setHovered(prev => (prev === key ? null : prev))}

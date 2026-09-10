@@ -1,36 +1,22 @@
-feat(rehber): gorev zinciri, odul sistemi ve bos baslayan koy merkezi
+feat(rehber): spotlight sayfa ici hedefleri isaretliyor, yiyecek zinciri one alindi
 
-GOREV MOTORU (sunucu)
-- server/data/questDefs.js: 26 gorevlik acilis zinciri. Sira ogretici:
-  once ISCI ATAMA (iscisiz tarla uretmez), sonra seviye yukseltme ve
-  yukseltmenin de insaatci istedigi, sonra isleme binalari, buyume,
-  yiyecek zinciri ve askeri hat.
-- Kosullar SUNUCUDA olculur (tarla/bina seviyesi, tarladaki ve binadaki
-  isci, ekipman, ordu, sefer, nufus, arastirma); istemciye guvenilmez.
-  Kosullar oyuncunun butun koylerine bakar.
-- Durum HESAP basina: merkez koyun state'inde `quests`. Merkez tasininca
-  kayit da tasiniyor (set_capital).
-- Oduller: kaynak (depo tavanini asmaz), bos isci (nufus tavanini
-  asmaz), kultur puani. Odul claim aninda kosul yeniden olculuyor.
-- Yeni olaylar: claim_quest, toggle_quests. Gorev ilerlemesi parmak
-  izine girdi, yoksa kart 30 sn'lik kalp atisini bekliyordu.
+SPOTLIGHT
+- Iki kademeli: yanlis sekmedeysen SEKME dugmesi, dogru sekmedeysen
+  sayfadaki asil hedef (ormanin kendi hex'i, bos arazi, isci kaydiraci,
+  YUKSELT dugmesi) sari halkayla yanip soner.
+- Capalar `data-tut` ile isaretlendi: harita tarlalari cinsine gore
+  (tarla-odun, tarla-kil, tarla-tas, tarla-tahil, tarla-bos), koy
+  merkezi hex'leri binasina gore (bina-<tip>, bina-bos), isci kaydiraci
+  (isci-kaydirac) ve yukseltme dugmeleri (yukselt).
+- Hedef bulunamazsa hicbir sey cizilmiyor; arayuz degisse de patlamaz.
 
-ARAYUZ
-- Yeni "Gorevler" sekmesi: butun zincir, ilerleme, odul rozetleri.
-  Satira tiklayinca o gorev karta odaklanir.
-- Sag altta yuzen rehber karti: aktif gorev, ipucu, ilerleme cubugu,
-  ODULU AL. Kapatilinca kucuk rozete iner; gorevler arka planda
-  islemeye devam eder, odul hazir olunca rozet haber verir.
-- Spotlight: gidilecek sekmenin etrafi sari halkayla yanip soner
-  (hedef `data-tut` ile isaretlenir; hedef yoksa hicbir sey cizilmez).
-- Zincir kati degil: kosulu tamamlanan her gorevin odulu sira
-  beklemeden alinabilir.
-
-KOY MERKEZI BOS BASLIYOR
-- Isleme binalari (keresteci, tuglaci, tasci, demirci, degirmen, firin)
-  artik hazir gelmiyor; yalniz Ana Bina var. Hepsinin bedeli HAM kaynak
-  oldugu icin islenmis mal olmadan kurulabiliyorlar ve zincir bunlari
-  tek tek kurduruyor.
+GOREV ZINCIRI
+- Degirmen ve firin 8-9. goreve cekildi (tahil yukseltmesinin hemen
+  arkasi): oyuncu aclikla tanismadan yiyecek zincirini kuruyor.
+  Arkasina "degirmen + firina toplam 4 isci" adimi eklendi.
+- Hammadde deposu ve ev artik "kur" gorevi (koy merkezi bos basladigi
+  icin Lvl 2 istemek anlamsizdi).
+- Zincir 27 gorev.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RsJSGuBFCvuburd4jGQ2X8

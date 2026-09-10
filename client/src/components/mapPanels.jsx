@@ -7,7 +7,7 @@ import BUILDING_DEFS from '../data/buildingDefs';
 import VILLAGE_DEFS from '../data/villageDefs';
 import { popoverStyle, popHeader, popBody, popCols, popCol } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed, short } from '../theme';
-import { RES_LABEL, gameMinutesToRealSeconds, gameHoursToRealSeconds } from '../flows';
+import { RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import { worldTileBonus, localEfficiency, fieldMultiplier, hexDistance } from '../data/worldConfig';
 import Icon from './Icons';
 import WorkerAssign from './WorkerAssign';
@@ -39,105 +39,31 @@ export function ColLabel({ children, icon, color }) {
   );
 }
 
-/**
- * MALIYET YETER Mİ, YETMEZSE NE ZAMAN?
- *
- * Panelde yalnız "şu kadar gerekiyor" yazıyordu; eksikse oyuncu beklemesi
- * gereken süreyi hiçbir yerde göremiyordu. Burada her eksik kaynak için
- * `eksik / net akış` hesaplanıp EN GEÇ tamamlanan kaynak belirleniyor —
- * bina o an kurulabilir hâle geliyor.
- *
- * Üç ayrı "olmaz" durumu var ve üçü farklı şey söylüyor:
- *   net <= 0    → o kaynak hiç artmıyor (işçi yok / tüketim üretimi yiyor)
- *   amt > tavan → depo o kadarını hiç tutamıyor, önce depo gerekiyor
- *   yeter       → beklemeye gerek yok
- */
-export function costEta(cost, resources = {}, flows = {}) {
-  let enGecSaat = 0, gecKaynak = null, eksikToplam = 0;
-  let akmiyor = null, tavanYetmez = null;
-  for (const [res, amt] of Object.entries(cost || {})) {
-    const have = resources[res] || 0;
-    const eksik = amt - have;
-    if (eksik <= 0) continue;
-    eksikToplam++;
-    const f = flows[res] || {};
-    const tavan = f.capacity || 0;
-    if (tavan > 0 && amt > tavan) { tavanYetmez = tavanYetmez || { res, tavan, amt }; continue; }
-    const net = f.net || 0;
-    if (net <= 0) { akmiyor = akmiyor || { res, eksik }; continue; }
-    const saat = eksik / net;
-    if (saat > enGecSaat) { enGecSaat = saat; gecKaynak = { res, eksik, net }; }
-  }
-  if (!eksikToplam) return { durum: 'yeter' };
-  if (tavanYetmez) return { durum: 'tavan', ...tavanYetmez };
-  if (akmiyor) return { durum: 'akmiyor', ...akmiyor };
-  return { durum: 'bekle', saat: enGecSaat, ...gecKaynak };
-}
-
-/**
- * CostRow — maliyetler TEK SATIRDA, altında tek satır "ne zaman yeter".
- *
- * Eskiden 2 sütunlu bir ızgaraydı: dört kaynak iki satır kaplıyor, panel
- * aşağı doğru uzuyordu. Artık yan yana diziliyor ve yalnız sığmazsa sarıyor.
- */
-export function CostRow({ cost, resources = {}, flows = {}, hourSeconds = 3600, worldSpeed = 1 }) {
+export function CostGrid({ cost, resources }) {
   if (!cost || !Object.keys(cost).length) return null;
-  const eta = costEta(cost, resources, flows);
-
-  let not = null;
-  if (eta.durum === 'bekle') {
-    not = {
-      renk: C.warn, ikon: 'bilgi',
-      metin: `${RES_LABEL[eta.res] || eta.res} ${Math.ceil(eta.eksik)} eksik — `
-        + `${fmtTime(gameHoursToRealSeconds(eta.saat, hourSeconds, worldSpeed))} sonra yeter`,
-    };
-  } else if (eta.durum === 'akmiyor') {
-    not = {
-      renk: C.danger, ikon: 'uyari',
-      metin: `${RES_LABEL[eta.res] || eta.res} artmıyor (${Math.ceil(eta.eksik)} eksik) — üretime işçi ata`,
-    };
-  } else if (eta.durum === 'tavan') {
-    not = {
-      renk: C.danger, ikon: 'uyari',
-      metin: `${RES_LABEL[eta.res] || eta.res} deposu yetmiyor (tavan ${eta.tavan}, gereken ${eta.amt})`,
-    };
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {Object.entries(cost).map(([res, amt]) => {
-          const have = Math.floor(resources[res] || 0);
-          const ok = have >= amt;
-          return (
-            <div key={res} title={`${RES_LABEL[res] || res}: ${amt} gerekli, ${have} var`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 3,
-                padding: '2.5px 6px', borderRadius: 3, flex: '1 1 auto', minWidth: 0,
-                justifyContent: 'center',
-                background: ok ? 'rgba(108,221,163,0.09)' : 'rgba(255,111,120,0.1)',
-                border: `1px solid ${ok ? 'rgba(108,221,163,0.3)' : 'rgba(255,111,120,0.32)'}`,
-              }}>
-              <Icon name={res} size={11} color={RES_COLOR[res] || C.textDim} />
-              <span style={num({ fontSize: 9.5, color: ok ? C.good : C.danger })}>{amt}</span>
-            </div>
-          );
-        })}
-      </div>
-      {not && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Icon name={not.ikon} size={10} color={not.renk} />
-          <span style={{ fontFamily: FONT.ui, fontSize: 9, color: not.renk, lineHeight: 1.3 }}>
-            {not.metin}
-          </span>
-        </div>
-      )}
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+      {Object.entries(cost).map(([res, amt]) => {
+        const have = Math.floor(resources[res] || 0);
+        const ok = have >= amt;
+        return (
+          <div key={res} title={`${RES_LABEL[res] || res}: ${amt} gerekli, ${have} var`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '2.5px 5px', borderRadius: 3,
+              background: ok ? 'rgba(108,221,163,0.09)' : 'rgba(255,111,120,0.1)',
+              border: `1px solid ${ok ? 'rgba(108,221,163,0.3)' : 'rgba(255,111,120,0.32)'}`,
+            }}>
+            <Icon name={res} size={11} color={RES_COLOR[res] || C.textDim} />
+            <span style={num({ fontSize: 9.5, color: ok ? C.good : C.danger, flex: 1, textAlign: 'right' })}>
+              {amt}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
-
-/** Eski ad — çağrı yerleri tek tek güncellendi, geriye dönük kalsın */
-export const CostGrid = CostRow;
 
 export function PopHead({ icon, iconColor, title, sub, onClose, extra }) {
   return (
@@ -201,7 +127,7 @@ export function YieldStrip({ wq, wr, lq, lr, type }) {
 
 // ── Ana Bina ────────────────────────────────────────────────────────
 export function AnaBinaPanel({
-  anaBina, resources, freeWorkers, popoverPos, worldName, flows = {},
+  anaBina, resources, freeWorkers, popoverPos, worldName,
   onUpgrade, onEnterVillage, onCancelBuild, onClose,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
@@ -275,14 +201,13 @@ export function AnaBinaPanel({
           ) : (
             <>
               <ColLabel icon="insaat">Lvl {level + 1}’e yükselt</ColLabel>
-              <CostRow cost={cost} resources={resources} flows={flows}
-                hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
+              <CostGrid cost={cost} resources={resources} />
               <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={workers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setWorkers}
                 effect={(w) => `süre ${fmtTime(w > 0
                   ? gameMinutesToRealSeconds(baseWork / w, hourSeconds, worldSpeed)
                   : Infinity)}`} />
-              <button onClick={() => onUpgrade(workers)} disabled={!ready}
+              <button data-tut="yukselt" onClick={() => onUpgrade(workers)} disabled={!ready}
                 style={btn(ready ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
                 YÜKSELT · {fmtTime(secs)}
               </button>
@@ -416,14 +341,13 @@ export function FieldPanel({
           ) : (
             <>
               <ColLabel icon="insaat">Lvl {tile.level + 1} · {next.workers} işçi kap.</ColLabel>
-              <CostRow cost={next.cost} resources={resources} flows={flows}
-                hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
+              <CostGrid cost={next.cost} resources={resources} />
               <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
                 effect={(w) => `süre ${fmtTime(w > 0
                   ? gameMinutesToRealSeconds(next.sureSaat / w, hourSeconds, worldSpeed)
                   : Infinity)}`} />
-              <button onClick={() => onUpgrade(buildWorkers)} disabled={!ready}
+              <button data-tut="yukselt" onClick={() => onUpgrade(buildWorkers)} disabled={!ready}
                 style={btn(ready ? 'good' : 'disabled', { width: '100%', padding: 8, letterSpacing: 1.2 })}>
                 YÜKSELT · {fmtTime(secs)}
               </button>
@@ -438,7 +362,6 @@ export function FieldPanel({
 // ── Boş tarla (kendi toprağında) ────────────────────────────────────
 export function BuildFieldPanel({
   localKey, wq, wr, freeWorkers, resources, slotsFull, connected, popoverPos, onBuild, onClose,
-  flows = {},
   hourSeconds = 3600, worldSpeed = 1,
 }) {
   const [lq, lr] = localKey.split(',').map(Number);
@@ -505,8 +428,7 @@ export function BuildFieldPanel({
           ) : (
             <>
               <ColLabel icon="insaat">Lvl 1 · {lvl1?.workers || 1} işçi kap.</ColLabel>
-              <CostRow cost={lvl1?.cost} resources={resources} flows={flows}
-                hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
+              <CostGrid cost={lvl1?.cost} resources={resources} />
               <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={workers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setWorkers}
                 effect={(w) => `süre ${fmtTime(w > 0
