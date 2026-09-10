@@ -1543,7 +1543,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
       {/* Paneller */}
       {selField === '0,0' && popoverPos && (
         <AnaBinaPanel anaBina={anaBina} resources={resources} freeWorkers={freeWorkers}
-          popoverPos={popoverPos} worldName={world?.name}
+          popoverPos={popoverPos} worldName={world?.name} flows={flows}
           hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           onUpgrade={(w) => { onUpgradeAnaBina(w); setSelField(null); }}
           onEnterVillage={() => { setSelField(null); onEnterVillageCenter?.(); }}
@@ -1564,7 +1564,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
 
       {selField && selField !== '0,0' && !selectedTile && popoverPos && (
         <BuildFieldPanel localKey={selField} wq={wq} wr={wr}
-          freeWorkers={freeWorkers} resources={resources}
+          freeWorkers={freeWorkers} resources={resources} flows={flows}
           hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           slotsFull={slotsFull} connected={isConnected(selField)} popoverPos={popoverPos}
           onBuild={(type, w) => { onBuild(selField, type, w); setSelField(null); }}

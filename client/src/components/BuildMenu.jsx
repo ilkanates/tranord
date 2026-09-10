@@ -3,6 +3,7 @@ import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm } from '../flows';
 import Icon, { buildingIcon } from './Icons';
+import { CostRow } from './mapPanels';
 import { TEXTURE_EMBLEM } from './buildingArt';
 import WorkerAssign from './WorkerAssign';
 import { popHeader, popCols, popCol } from './popoverStyle';
@@ -85,31 +86,7 @@ function ColLabel({ children, icon, color }) {
   );
 }
 
-function CostGrid({ cost, resources }) {
-  if (!cost || !Object.keys(cost).length) return null;
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-      {Object.entries(cost).map(([res, amt]) => {
-        const have = Math.floor(resources[res] || 0);
-        const ok = have >= amt;
-        return (
-          <div key={res} title={`${RES_LABEL[res] || res}: ${amt} gerekli, ${have} var`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              padding: '2.5px 5px', borderRadius: 3,
-              background: ok ? 'rgba(78,207,168,0.09)' : 'rgba(232,99,111,0.1)',
-              border: `1px solid ${ok ? 'rgba(78,207,168,0.3)' : 'rgba(232,99,111,0.32)'}`,
-            }}>
-            <Icon name={res} size={11} color={RES_COLOR[res] || C.textDim} />
-            <span style={num({ fontSize: 9.5, color: ok ? C.good : C.danger, flex: 1, textAlign: 'right' })}>
-              {amt}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+// Maliyet satırı + "ne zaman yeter" ortak bileşenden gelir (mapPanels.jsx)
 
 // Binanın tek satırlık etkisi
 function EffectStrip({ type, level, def, processingRates, flows }) {
@@ -499,7 +476,8 @@ export default function BuildMenu({
             {(!def?.maxLevel || building.level < def.maxLevel) ? (
               <>
                 <ColLabel icon="insaat">Lvl {building.level + 1}’e yükselt</ColLabel>
-                <CostGrid cost={upgradeCost} resources={resources} />
+                <CostRow cost={upgradeCost} resources={resources} flows={flows}
+                  hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
                 <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={upgradeWorkers}
                   freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setUpgradeWorkers}
                   effect={(w) => `süre ${fmtTime(realSecs(buildMinutes(building.type, building.level + 1, w)))}`} />
@@ -594,7 +572,8 @@ export default function BuildMenu({
                     fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.45,
                     maxHeight: 42, overflow: 'hidden',
                   }}>{selDef.description}</div>
-                  <CostGrid cost={selDef.cost} resources={resources} />
+                  <CostRow cost={selDef.cost} resources={resources} flows={flows}
+                  hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
                   {selDef.processes && (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 5,
