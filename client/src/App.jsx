@@ -18,6 +18,7 @@ import StatsScreen from './components/StatsScreen';
 import ResourceRail    from './components/ResourceRail';
 import StatusRail      from './components/StatusRail';
 import NordicBackdrop  from './components/NordicBackdrop';
+import VideoBackdrop   from './components/VideoBackdrop';
 import Icon            from './components/Icons';
 import { computeFlows, extrapolate } from './flows';
 import { useViewport, TAP } from './responsive';
@@ -602,11 +603,15 @@ function Game({ token, onLogout }) {
       }}>
         {/* MANZARA — en arkada, tüm genişlik */}
         {/* Harita sekmesinde manzara YOK — arazi hex'leri zemin */}
+        {/*
+          Köy Merkezi'nin arkasında ANA BİNA videosu dönüyor; diğer
+          sekmelerde çizilmiş fiyort manzarası kalıyor. Video yoksa
+          (varlık eksikse) sessizce eski manzaraya düşüyor.
+        */}
         {tab !== 'harita' && (
-          <NordicBackdrop
-            variant={tab === 'koy' ? 'courtyard' : 'fjord'}
-            dim={tab === 'koy' ? 0.28 : 0.38}
-          />
+          tab === 'koy'
+            ? <VideoBackdrop dim={0.45} blur={1} />
+            : <NordicBackdrop variant="fjord" dim={0.38} />
         )}
 
         {/* SAHNE — tam genişlik: harita rayların ALTINA kadar uzanır */}
