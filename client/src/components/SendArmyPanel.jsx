@@ -60,12 +60,12 @@ function marchSeconds(units, unitDefs, distance, hourSeconds, minMinutes = 1) {
   return Math.round(gameHours * hourSeconds);
 }
 
-function carryCapacity(units, unitDefs) {
+function carryCapacity(units, unitDefs, statsNow = {}) {
   return Object.entries(units).reduce(
-    (s, [k, n]) => s + (unitDefs[k]?.stats?.kapasite || 0) * n, 0);
+    (s, [k, n]) => s + ((statsNow[k]?.kapasite ?? unitDefs[k]?.stats?.kapasite) || 0) * n, 0);
 }
 
-function UnitRow({ u, def, have, value, onChange, disabled, reason }) {
+function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
   const img = unitImage(u);
   return (
     <div style={{
@@ -90,14 +90,15 @@ function UnitRow({ u, def, have, value, onChange, disabled, reason }) {
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{def?.name || u}</div>
         <div style={{ display: 'flex', gap: 7, marginTop: 1 }}>
+          {/* Yükseltmelerle güncel saldırı (unitStatsNow) — temel değer değil */}
           <span style={num({ fontSize: 8.5, color: C.textMute })}>
-            sal {def?.stats?.saldiri ?? '—'}
+            sal {st?.saldiri != null ? Math.round(st.saldiri) : '—'}
           </span>
           <span style={num({ fontSize: 8.5, color: C.textMute })}>
             hız {def?.stats?.hiz ?? '—'}
           </span>
           <span style={num({ fontSize: 8.5, color: C.textMute })}>
-            yük {def?.stats?.kapasite ?? '—'}
+            yük {st?.kapasite != null ? Math.round(st.kapasite) : '—'}
           </span>
         </div>
       </div>
@@ -124,7 +125,7 @@ function UnitRow({ u, def, have, value, onChange, disabled, reason }) {
 }
 
 export default function SendArmyPanel({
-  socket, target, army = {}, unitDefs = {}, marchInfo = {}, intel = null, onClose,
+  socket, target, army = {}, unitDefs = {}, unitStatsNow = {}, marchInfo = {}, intel = null, onClose,
 }) {
   const [mode, setMode] = useState('raid');
   const [sel, setSel] = useState({});
@@ -173,7 +174,7 @@ export default function SendArmyPanel({
     [sel]);
   const chosenTotal = Object.values(chosen).reduce((a, b) => a + b, 0);
   const secs = marchSeconds(chosen, unitDefs, distance, hourSeconds, minMarchMin);
-  const cap  = carryCapacity(chosen, unitDefs);
+  const cap  = carryCapacity(chosen, unitDefs, unitStatsNow);
 
   // ── Sonuç/hata dinleyicileri ──
   useEffect(() => {
@@ -334,7 +335,8 @@ export default function SendArmyPanel({
                   {available.map(([u, have]) => {
                     const scoutOnly = mode === 'scout' && !scoutSet.has(u);
                     return (
-                      <UnitRow key={u} u={u} def={unitDefs[u]} have={have}
+                      <UnitRow key={u} u={u} def={unitDefs[u]}
+                        st={unitStatsNow[u] || unitDefs[u]?.stats} have={have}
                         value={sel[u] || 0} disabled={scoutOnly}
                         reason="Keşfe yalnızca izci gidebilir"
                         onChange={(n) => setSel(s => ({ ...s, [u]: n }))} />

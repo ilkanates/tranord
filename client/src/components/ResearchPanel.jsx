@@ -19,6 +19,11 @@ import { WAIT_LABEL } from './queueUI';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
+const BINA_AD = { kisla: 'Kışla', ahir: 'Ahır', atolye: 'Atölye' };
+
+/** Düğmeye sığan kısa bina adı */
+const binaKisa = (t) => (t === 'ahir' ? 'AHIR' : t === 'atolye' ? 'ATÖLYE' : 'KIŞLA');
+
 const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069' };
 
 const pill = {
@@ -35,12 +40,20 @@ const pill = {
  */
 function Kart({
   tip, def, durum, salonLv, arastirmaci, resources,
+  binaLv = 0, binaAd = 'Eğitim binası',
   hourSeconds, worldSpeed, onResearch,
 }) {
   const ar = def.research;
   const renk = CAT_COLOR[def.category] || C.iceSoft;
   const img = unitImage(tip);
-  const seviyeTamam = salonLv >= ar.level;
+  /*
+    İKİ KAPI: salon seviyesi VE birimin eğitildiği binanın seviyesi.
+    Basamadığın askeri araştırmak anlamsız — kışla Lvl 10 istiyorsa
+    araştırma da Lvl 10 kışla ister.
+  */
+  const salonTamam = salonLv >= ar.level;
+  const binaTamam  = binaLv >= (def.minLevel || 1);
+  const seviyeTamam = salonTamam && binaTamam;
   const acik = durum === 'acik';
   const sirada = durum === 'sirada';
   const kaynakTamam = Object.entries(ar.cost).every(([r, a]) => (resources[r] || 0) >= a);
@@ -73,15 +86,24 @@ function Kart({
         position: 'absolute', top: 4, left: 4, right: 4,
         display: 'flex', alignItems: 'flex-start', gap: 3,
       }}>
-        <span title={seviyeTamam ? `Rún Salonu Lvl ${ar.level}`
+        <span title={salonTamam ? `Rún Salonu Lvl ${ar.level}`
           : `Rún Salonu Lvl ${ar.level} gerekiyor (şu an ${salonLv})`}
-          style={{ ...pill, borderColor: seviyeTamam ? 'rgba(255,255,255,0.14)' : 'rgba(224,179,87,0.55)' }}>
-          <Icon name={seviyeTamam ? 'bilgi' : 'kilit'} size={9}
-            color={seviyeTamam ? C.textMute : '#e0b357'} />
-          <span style={num({ fontSize: 8, color: seviyeTamam ? C.textDim : '#e8cf9a' })}>
+          style={{ ...pill, borderColor: salonTamam ? 'rgba(255,255,255,0.14)' : 'rgba(224,179,87,0.55)' }}>
+          <Icon name={salonTamam ? 'bilgi' : 'kilit'} size={9}
+            color={salonTamam ? C.textMute : '#e0b357'} />
+          <span style={num({ fontSize: 8, color: salonTamam ? C.textDim : '#e8cf9a' })}>
             {ar.level}
           </span>
         </span>
+        {/* Eğitim binası kapısı — yalnız yetmiyorken göster, kart dar */}
+        {!binaTamam && (
+          <span title={`${binaAd} Lvl ${def.minLevel} gerekiyor (şu an ${binaLv})`}
+            style={{ ...pill, borderColor: 'rgba(224,179,87,0.55)' }}>
+            <Icon name={def.trainedAt === 'ahir' ? 'at' : def.trainedAt === 'atolye' ? 'atolye' : 'kisla'}
+              size={9} color="#e0b357" />
+            <span style={num({ fontSize: 8, color: '#e8cf9a' })}>{def.minLevel}</span>
+          </span>
+        )}
         {!acik && (
           <span style={{ ...pill, marginLeft: 'auto', borderColor: `${renk}55` }}>
             <span style={num({ fontSize: 8, color: renk })}>{fmtTime(sure)}</span>
@@ -131,14 +153,18 @@ function Kart({
             </div>
             <button type="button" disabled={!basilabilir}
               onClick={() => onResearch?.(tip)}
-              title={!seviyeTamam ? `Rún Salonu Lvl ${ar.level} gerekiyor (şu an ${salonLv})`
+              title={!salonTamam ? `Rún Salonu Lvl ${ar.level} gerekiyor (şu an ${salonLv})`
+                : !binaTamam ? `${binaAd} Lvl ${def.minLevel} gerekiyor (şu an ${binaLv})`
                 : sirada ? 'Zaten kuyrukta'
                   : kaynakTamam ? 'Araştırmayı sıraya al'
                     : 'Kaynak yetmiyor — yine de sıraya alınır, sırası gelince ödenir'}
               style={btn(basilabilir ? (kaynakTamam ? 'primary' : 'ghost') : 'disabled', {
                 width: '100%', padding: '3px 4px', fontSize: 8.5, letterSpacing: 0.8,
               })}>
-              {sirada ? 'KUYRUKTA' : !seviyeTamam ? `LVL ${ar.level}` : 'ARAŞTIR'}
+              {sirada ? 'KUYRUKTA'
+                : !salonTamam ? `SALON ${ar.level}`
+                : !binaTamam ? `${binaKisa(def.trainedAt)} ${def.minLevel}`
+                : 'ARAŞTIR'}
             </button>
           </>
         )}
@@ -148,7 +174,7 @@ function Kart({
 }
 
 export default function ResearchPanel({
-  level = 0, workers = 0,
+  level = 0, workers = 0, binaSeviyeleri = {},
   unitDefs = {}, research = {}, queue = [],
   resources = {}, flows = {},
   hourSeconds = 3600, worldSpeed = 1,
@@ -269,6 +295,8 @@ export default function ResearchPanel({
           <Kart key={tip} tip={tip} def={def}
             durum={research[tip] ? 'acik' : siradaki.has(tip) ? 'sirada' : 'kapali'}
             salonLv={level} arastirmaci={workers}
+            binaLv={binaSeviyeleri[[].concat(def.trainedAt || [])[0]] || 0}
+            binaAd={BINA_AD[[].concat(def.trainedAt || [])[0]] || 'Eğitim binası'}
             resources={resources}
             hourSeconds={hourSeconds} worldSpeed={worldSpeed}
             onResearch={onResearch} />

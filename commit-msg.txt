@@ -1,41 +1,63 @@
-feat(yerlesim+arayuz): gocmen ile yeni koy kurma, bina panel duzeni, amblemler
+feat(yerlesim): serbest koy kurma, koy basina yerlesim hakki, harita duzeltmeleri
 
-GOCMEN VE YENI KOY
-- Yeni birim "gocmen": kosk/saray Lvl 10'da egitilir, savasmaz
-  (category 'gocmen' savas hesabinin disinda), bedeli dogrudan kaynak
-  + 1 bos isci. Run Salonu arastirmasi istemez.
-- Birim tanimlari ekipmansiz birimi de destekliyor: def.cost (kaynak
-  bedeli, is baslarken dusulur) ve def.trainMinutes. trainedAt dizi
-  olabiliyor (gocmen hem koskte hem sarayda egitilir).
-- Yeni sefer modu 'yerlesim': yalniz 3 gocmen, hedef BOS dunya slotu,
-  gidis tek yon. Varista koy kurulur, slot dolmussa gocmenler kaybolur;
-  her iki durumda kurucu koye rapor duser.
-- Koy hakki (kosk/saray seviyesi + kultur puani) sefer BASLARKEN
-  denetleniyor, yoldaki yerlesim seferleri de sayiliyor.
-- Haritada bos araziler gocmen varken tiklanabilir; acilan panelde
-  mesafe, sure, gocmen sayisi ve KOY KUR dugmesi var.
-- Kosk ve saray artik personel aliyor (egitmen sayisi sureyi kisaltir).
+SERBEST YERLESIM
+- Gocmen seferi artik izgara slotlariyla sinirli degil: dunyadaki her
+  hex hedef olabilir. Slot kaydi yoksa sunucu uretir (ad, halka, tier
+  ayni kuralla). Mesafe siniri yok; topraklar cakisabilir.
+- Tek engel: uzerinde koy olan hex ve bonuslu arazi (orasi tarla
+  olarak degerli, koy merkezi bonusu heba eder).
+- Haritada bos araziye tiklayinca imlecin yaninda kucuk pencere acilir:
+  mesafe, sure, gocmen sayisi ve KOY KUR. Ret sebebi (koy hakki,
+  kultur puani, dolu arazi) pencerede yaziyor.
+- KRITIK DUZELTME: serbest yerlesimle kurulan koyler sunucu yeniden
+  baslayinca kayboluyordu (izgarada olmayan slot "haritada yok" diye
+  atlaniyor, koy adsiz kaliyordu). Kayitli her oyuncu slotu acilista
+  ve giriste geri uretiliyor.
 
-BINA PANELI
-- Kuyruk kutusu sabit yukseklikte: siraya is eklenince panelde hicbir
-  sey buyumuyor/kuculmuyor, yalniz kuyruk kendi icinde kayiyor.
-- Govdedeki zorlamali %62 tavani kaldirildi; poster yoksa (bos arazi)
-  pencere icerik kadar uzuyor ve insa listesi tam genislikte kaliyor.
-- Insaat/yukseltme sirasinda denetimler de gorselin sag alt kosesinde:
-  panelin oruntusu yukseltme baslayinca degismiyor.
-- Ahirda uretim kutusu gorselin ustunde, kadronun solunda (dar mod).
-- Birim kartlarina 120 px genislik tavani: tek kart kalinca paneli
-  kaplamiyor.
-- Ekipman yukseltmede ayri kuyruk listesi yok; durum ekipmanin kendi
-  satirinda (yukseltiliyor / sirada + iptal).
-- Arastirma listesi kisla/ahir tarzi kart izgarasina cevrildi;
-  arastirilan birim listeden cikiyor.
+KOY BASINA YERLESIM HAKKI
+- Hak koy basina ve "yuksek su seviyesi" gibi: kosk/sarayin ULASTIGI
+  esikler hak kazandirir (kosk 10/20, saray 10/15/20), bina yikilsa da
+  dusmez, yeni hak icin bir sonraki esige cikmak gerekir.
+- Gocmen egitimi bu hakla sinirli: her hak 3 gocmen. Eldeki, yoldaki
+  ve kuyruktaki gocmenler birlikte sayiliyor.
+- Kosk/saray panelinde yeni kutu: kalan/toplam hak, gocmen kapasitesi
+  ve bu koyden kurulan koylerin listesi.
 
-GORSELLER
+ARASTIRMA IKINCI KAPI
+- Bir birimi arastirmak icin Run Salonu seviyesi YETMIYOR; birimin
+  egitildigi binanin (kisla/ahir/atolye) seviyesi de gerekiyor.
+  Kartta hangi kapinin eksik oldugu rozetle gorunuyor.
+- Arastirilan birim listeden cikiyor; liste kisla/ahir tarzi kart
+  izgarasina cevrildi.
+
+HARITA
+- Koy isaretleri her zumda ciziliyor; kendi ikinci koyum yakin zumda
+  normal koy gibi (merkez + tarlalari) gorunuyor.
+- Bir hex yalniz TEK koy tarafindan alinabilir; ayni oyuncunun iki
+  koyu ayni araziyi isleyemiyor (sunucu denetimi + haritada gizleme).
+- Yayilma sinirinda olcut "baska koy" degil "yabanci koy": kendi
+  koylerimin alanlari ic ice girebilir.
+- Panel dugmeleri artik haritaya tiklama sayilmiyor (INSA ET arkadaki
+  hex'i seciyordu); tarlalar data-tile ile isaretli.
+- DUZELTME: ikinci koye ait tarlalar yerine AKTIF koyun tarlalari
+  gonderiliyordu (session.village her zaman aktif koy).
+
+ORDU / SEFERLER
+- Yeni "Seferler" sekmesi: giden ve gelen butun hareketler (saldiri,
+  yagma, kesif, yerlesim) tek ekranda, sekmede sayac rozeti.
+- Ordu ve sefer ekranlari ekipman yukseltmeleriyle GUNCEL degerleri
+  gosteriyor (toplam saldiri dahil); savas hesabi zaten oyleydi.
+- Gocmen orduda kendi basligiyla gorunuyor.
+
+DENGE / GORSEL
+- Ana Bina Lvl 11 -> Lvl 20; tarla slotu 5 + seviye, tavan 25.
 - Kosk, saray, taverna ve Run Salonu amblemleri (verilen siluetlerden
   vektorlendi) - amblemsiz bina kalmadi.
-- Run Salonu poster gorseli ve videosu.
-- Gocmen birim gorseli.
+- Run Salonu poster gorseli ve videosu, gocmen birim gorseli.
+- Insaat/yukseltme sirasinda denetimler gorselin sag alt kosesinde:
+  panel duzeni yukseltme baslayinca degismiyor.
+- Bos arazi panelinde insa listesi tam genislikte (iki sutuna bolunup
+  sola sikismiyordu).
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RsJSGuBFCvuburd4jGQ2X8

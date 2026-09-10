@@ -10,9 +10,9 @@
 import { C, FONT, panel, label as lbl, num, short, fmtTime } from '../theme';
 import Icon from './Icons';
 
-const MODE_LABEL = { raid: 'Yağma', attack: 'Saldırı', scout: 'Keşif' };
-const MODE_COLOR = { raid: C.warn, attack: C.danger, scout: C.ice };
-const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita' };
+const MODE_LABEL = { raid: 'Yağma', attack: 'Saldırı', scout: 'Keşif', yerlesim: 'Yerleşim' };
+const MODE_COLOR = { raid: C.warn, attack: C.danger, scout: C.ice, yerlesim: C.good };
+const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita', yerlesim: 'koy' };
 
 const sum = (o) => Object.values(o || {}).reduce((a, b) => a + (b || 0), 0);
 

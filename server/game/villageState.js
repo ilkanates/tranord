@@ -113,6 +113,23 @@ function createVillage(worldQ = 0, worldR = 0) {
     upgradeQueues: { silahci: [], zirh: [] },
     nextUpgradeId: 1,
 
+    /**
+     * YERLEŞİM HAKKI — KÖY BAŞINA.
+     *
+     * expansionEarned: bu köyün köşk/sarayının ULAŞTIĞI eşik sayısı
+     *   (köşk Lvl 10 → 1, Lvl 20 → 2; saray 10/15/20 → 3). Bir kez
+     *   kazanılır ve BİNA YIKILSA DA düşmez — yeniden kurup daha yükseğe
+     *   çıkmadan yeni hak doğmaz.
+     * expansionUsed: bu köyden kurulan köy sayısı.
+     * foundedVillages: hangi köy nereye kuruldu (köşk/saray panelinde
+     *   listelenir).
+     *
+     * Göçmen eğitimi bu farkla sınırlanıyor: her hak 3 göçmen demek.
+     */
+    expansionEarned: 0,
+    expansionUsed: 0,
+    foundedVillages: [],
+
     productionTiles: {
       '1,0':  { type: 'odun',  level: 1, workers: 0, upgrading: false, upgradeEndTime: null, upgradeWorkersAssigned: 0 },
       '1,-1': { type: 'kil',   level: 1, workers: 0, upgrading: false, upgradeEndTime: null, upgradeWorkersAssigned: 0 },
@@ -209,6 +226,11 @@ function hydrateVillage(raw) {
     raw.nextUpgradeId = Object.values(raw.upgradeQueues)
       .flat().reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
   }
+
+  // Yerleşim hakkı öncesi kayıtlar
+  if (typeof raw.expansionEarned !== 'number') raw.expansionEarned = 0;
+  if (typeof raw.expansionUsed !== 'number') raw.expansionUsed = 0;
+  if (!Array.isArray(raw.foundedVillages)) raw.foundedVillages = [];
 
   // Sefer sistemi öncesi kayıtlar
   if (!raw.stats || typeof raw.stats !== 'object') raw.stats = {};

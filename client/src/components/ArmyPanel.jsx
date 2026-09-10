@@ -5,9 +5,9 @@ import { unitImage } from '../data/unitImages';
 import UnitDetail from './UnitDetail';
 import Icon from './Icons';
 
-const CAT_LABEL = { piyade: 'Piyade', suvari: 'Süvari', kusatma: 'Kuşatma', diger: 'Diğer' };
-const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069', diger: C.textDim };
-const CAT_ICON  = { piyade: 'kalkan', suvari: 'at', kusatma: 'atolye', diger: 'ordu' };
+const CAT_LABEL = { piyade: 'Piyade', suvari: 'Süvari', kusatma: 'Kuşatma', gocmen: 'Göçmen', diger: 'Diğer' };
+const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069', gocmen: '#8fdcb0', diger: C.textDim };
+const CAT_ICON  = { piyade: 'kalkan', suvari: 'at', kusatma: 'atolye', gocmen: 'koy', diger: 'ordu' };
 
 function Summary({ label, value, color, icon }) {
   return (
@@ -35,7 +35,13 @@ function StatChip({ icon, label, value, color }) {
   );
 }
 
-export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {} }) {
+/**
+ * unitStatsNow: sunucunun köyün EKİPMAN YÜKSELTMELERİYLE hesapladığı
+ * güncel değerler. Kılıç Lvl 5'e çıkınca kılıçlı birimlerin saldırısı
+ * burada da artmalı; tanımdaki temel değer yükseltmeleri bilmiyor.
+ */
+export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}, unitStatsNow = {} }) {
+  const stOf = (type) => unitStatsNow[type] || unitDefs[type]?.stats || {};
   const [detail, setDetail] = useState(null);
   const entries = Object.entries(army).filter(([, c]) => c > 0);
   const total = entries.reduce((s, [, c]) => s + c, 0);
@@ -43,10 +49,11 @@ export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}
   const t = entries.reduce((acc, [type, count]) => {
     const d = unitDefs[type];
     if (!d) return acc;
-    acc.saldiri  += (d.stats.saldiri  || 0) * count;
-    acc.yayaSav  += (d.stats.yayaSav  || 0) * count;
-    acc.atliSav  += (d.stats.atliSav  || 0) * count;
-    acc.kapasite += (d.stats.kapasite || 0) * count;
+    const st = stOf(type);
+    acc.saldiri  += Math.round((st.saldiri  || 0) * count);
+    acc.yayaSav  += Math.round((st.yayaSav  || 0) * count);
+    acc.atliSav  += Math.round((st.atliSav  || 0) * count);
+    acc.kapasite += Math.round((st.kapasite || 0) * count);
     return acc;
   }, { saldiri: 0, yayaSav: 0, atliSav: 0, kapasite: 0 });
 
@@ -182,9 +189,9 @@ export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}
                         display: 'flex', gap: 10, flexWrap: 'wrap',
                         paddingTop: 8, borderTop: `1px solid ${C.lineSoft}`,
                       }}>
-                        <StatChip icon="kilic"  label="Saldırı"       value={def.stats.saldiri}  color={C.danger} />
-                        <StatChip icon="kalkan" label="Yaya savunma"  value={def.stats.yayaSav}  color={C.good} />
-                        <StatChip icon="mizrak" label="Atlı savunma"  value={def.stats.atliSav}  color={C.good} />
+                        <StatChip icon="kilic"  label="Saldırı (yükseltmelerle)" value={Math.round(stOf(type).saldiri ?? 0)}  color={C.danger} />
+                        <StatChip icon="kalkan" label="Yaya savunma"  value={Math.round(stOf(type).yayaSav ?? 0)}  color={C.good} />
+                        <StatChip icon="mizrak" label="Atlı savunma"  value={Math.round(stOf(type).atliSav ?? 0)}  color={C.good} />
                         <StatChip icon="hiz"    label="Hız"           value={def.stats.hiz}      color={C.iceDeep} />
                         <StatChip icon="depo"   label="Taşıma"        value={def.stats.kapasite} color={C.textDim} />
                       </div>
@@ -193,9 +200,9 @@ export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}
                         marginTop: 7, fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute,
                       }}>
                         Birlik toplamı: saldırı{' '}
-                        <span style={num({ color: C.textDim })}>{(def.stats.saldiri * count).toLocaleString('tr-TR')}</span>
+                        <span style={num({ color: C.textDim })}>{Math.round((stOf(type).saldiri ?? 0) * count).toLocaleString('tr-TR')}</span>
                         {' '}· savunma{' '}
-                        <span style={num({ color: C.textDim })}>{(def.stats.yayaSav * count).toLocaleString('tr-TR')}</span>
+                        <span style={num({ color: C.textDim })}>{Math.round((stOf(type).yayaSav ?? 0) * count).toLocaleString('tr-TR')}</span>
                       </div>
                       </div>
                     </div>

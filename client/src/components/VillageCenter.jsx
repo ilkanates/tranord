@@ -722,6 +722,65 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, kind = 'hex', flo
 }
 
 // ── Ana bileşen ──────────────────────────────────────────────────────
+/**
+ * YERLEŞİM HAKKI — köşk/saray panelinde.
+ *
+ * Hak köy başına: köşk Lvl 10 ve 20'de birer, saray 10/15/20'de birer.
+ * Kazanılan hak bina yıkılsa da düşmez; yeni hak için bir sonraki eşiğe
+ * çıkmak gerekir. Her hak 3 göçmen demek.
+ */
+function ExpansionInfo({ exp }) {
+  const { earned = 0, used = 0, free = 0, settlers = {}, founded = [] } = exp || {};
+  return (
+    <div style={{
+      background: 'rgba(8,17,28,0.55)', border: `1px solid ${C.lineSoft}`,
+      borderRadius: 7, padding: 9,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+        <Icon name="koy" size={13} color={C.iceDeep} />
+        <span style={lbl({ fontSize: 8.5, letterSpacing: 1.5, flex: 1 })}>Yerleşim hakkı</span>
+        <span style={num({ fontSize: 10.5, color: free > 0 ? C.good : C.textMute })}>
+          {free}<span style={{ color: C.textMute }}> / {earned}</span>
+        </span>
+      </div>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        padding: '5px 8px', borderRadius: 5, marginBottom: 7,
+        background: free > 0 ? 'rgba(78,207,168,0.06)' : 'rgba(224,179,87,0.08)',
+        border: `1px solid ${free > 0 ? 'rgba(78,207,168,0.22)' : 'rgba(224,179,87,0.3)'}`,
+      }}>
+        <Icon name={free > 0 ? 'isci' : 'uyari'} size={11} color={free > 0 ? C.good : C.warn} />
+        <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: free > 0 ? C.textDim : '#e8cf9a', flex: 1 }}>
+          {free > 0
+            ? `Göçmen ${settlers.mevcut || 0}/${settlers.izin || 0} — ${settlers.bos || 0} tane daha eğitebilirsin`
+            : 'Hak dolu — yeni göçmen için köşk/sarayı bir üst eşiğe çıkar'}
+        </span>
+      </div>
+
+      {founded.length > 0 && (
+        <>
+          <div style={lbl({ fontSize: 8, marginBottom: 4 })}>Bu köyden kurulanlar</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {founded.map(f => (
+              <div key={f.key} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '3px 6px', borderRadius: 4, background: 'rgba(8,17,28,0.6)',
+              }}>
+                <Icon name="koy" size={10} color={C.good} />
+                <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.text, flex: 1 }}>
+                  {f.name}
+                </span>
+                <span style={num({ fontSize: 8.5, color: C.textMute })}>{f.key}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function VillageCenter({
   villageBuildings = {}, towerSlots = [], freeWorkers = 0, resources = {},
   processingRates = {}, flows = {}, railInset = 0,
@@ -734,7 +793,7 @@ export default function VillageCenter({
   world = null,
   // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
   hourSeconds = 3600, worldSpeed = 1,
-  culture = null, festival = null, festivalDefs = {}, onStartFestival,
+  culture = null, expansion = null, festival = null, festivalDefs = {}, onStartFestival,
   /**
    * ÇOKLU KÖY: saray oyuncu çapında tek, merkez de saraydan taşınıyor.
    * `uniqueOwners` hangi köyde saray var, `capitalSlot` merkez hangi köy.
@@ -1143,6 +1202,9 @@ export default function VillageCenter({
           const hasFestival = selectedBuilding?.type === 'taverna';
           // Saray: merkez taşıma denetimi burada
           const hasCapital  = selectedBuilding?.type === 'saray';
+          // Köşk ve saray: bu köyün yerleşim hakkı ve kurduğu köyler
+          const hasExpansion = (selectedBuilding?.type === 'kosk'
+            || selectedBuilding?.type === 'saray') && (selectedBuilding.level || 0) >= 1;
           // Rún Salonu: birim araştırma listesi
           const hasResearch = selectedBuilding?.level >= 1
             && !!VILLAGE_DEFS[selectedBuilding?.type]?.researches;
@@ -1391,6 +1453,12 @@ export default function VillageCenter({
             }}>
 
             {/* SIRA: bina gorseli -> savascilar -> isci/yukseltme + ekipman */}
+            {hasExpansion && expansion && (
+              <div style={{ padding: '0 10px 8px', order: 1 }}>
+                <ExpansionInfo exp={expansion} />
+              </div>
+            )}
+
             {hasCapital && (
               <div style={{ padding: '0 12px 10px', order: 1 }}>
                 <CapitalPanel
@@ -1422,6 +1490,11 @@ export default function VillageCenter({
                 <ResearchPanel
                   level={selectedBuilding.level || 0}
                   workers={selectedBuilding.workers || 0}
+                  /* Araştırmanın ikinci kapısı: birimin eğitildiği binanın seviyesi */
+                  binaSeviyeleri={Object.values(villageBuildings || {}).reduce((acc, b) => {
+                    if (b?.type) acc[b.type] = Math.max(acc[b.type] || 0, b.level || 0);
+                    return acc;
+                  }, {})}
                   unitDefs={unitDefs}
                   research={research}
                   queue={researchQueue}

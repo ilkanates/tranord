@@ -136,6 +136,7 @@ const TABS = [
   { key: 'koy',       label: 'Köy Merkezi',      icon: 'koy' },
   { key: 'isciler',   label: 'Köylüler',         icon: 'isci' },
   { key: 'ordu',      label: 'Ordu',             icon: 'ordu' },
+  { key: 'sefer',     label: 'Seferler',         icon: 'harita' },
   { key: 'raporlar',  label: 'Raporlar',         icon: 'savas' },
   { key: 'istatistik', label: 'İstatistik',      icon: 'bonus' },
   { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilic' },
@@ -584,7 +585,8 @@ function Game({ token, onLogout }) {
 
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
-        badges={{ raporlar: unseenCount(village.reports || []) }}
+        badges={{ raporlar: unseenCount(village.reports || []),
+            sefer: (village.marches || []).length + (village.incoming || []).length }}
         hourSeconds={village.marchInfo?.hourSeconds || 3600}
         socket={socket}
         villages={village.villages || []}
@@ -597,13 +599,13 @@ function Game({ token, onLogout }) {
         <ResourceRail flows={flows} isStarving={village.isStarving} mobile />
       )}
 
-      {/* Gelen saldırı: hangi sekmede olursam olayım görünür. Ordu sekmesinde
-          uyarı listenin başında zaten var, orada tekrar etmesin. */}
-      {tab !== 'ordu' && (village.incoming || []).length > 0 && (
-        <div onClick={() => setTab('ordu')} style={{
+      {/* Gelen saldırı: hangi sekmede olursam olayım görünür. Seferler
+          sekmesinde uyarı listenin başında zaten var, orada tekrar etmesin. */}
+      {tab !== 'sefer' && (village.incoming || []).length > 0 && (
+        <div onClick={() => setTab('sefer')} style={{
           position: 'fixed', top: vp.mobile ? 96 : 62, left: '50%', transform: 'translateX(-50%)',
           zIndex: 900, width: 'min(420px, 92vw)', cursor: 'pointer',
-        }} title="Ordu sekmesine git">
+        }} title="Seferler sekmesine git">
           <IncomingAlert incoming={village.incoming} />
         </div>
       )}
@@ -643,6 +645,7 @@ function Game({ token, onLogout }) {
               myArmy={Object.values(village.army || {}).reduce((a, b) => a + b, 0)}
               army={village.army || {}}
               unitDefs={village.unitDefs || {}}
+              unitStatsNow={village.unitStatsNow || {}}
               intel={village.intel || {}}
               marchInfo={village.marchInfo || {}}
               onBuild={buildProduction}
@@ -663,6 +666,7 @@ function Game({ token, onLogout }) {
               hourSeconds={village.marchInfo?.hourSeconds || 3600}
               worldSpeed={village.worldSpeed || 1}
               culture={village.culture || null}
+              expansion={village.expansion || null}
               festival={village.festival || null}
               festivalDefs={village.festivalDefs || {}}
               onStartFestival={startFestival}
@@ -736,6 +740,25 @@ function Game({ token, onLogout }) {
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
             }}>
+              <ArmyPanel
+                army={village.army || {}}
+                unitDefs={village.unitDefs || {}}
+                equipmentDefs={village.equipmentDefs || {}}
+                unitStatsNow={village.unitStatsNow || {}}
+              />
+            </div>
+          )}
+
+          {/*
+            SEFERLER — giden ve gelen her hareket tek ekranda: saldırı,
+            yağma, keşif ve göçmen seferleri. Ordu sekmesi yalnız köydeki
+            birimleri gösteriyor.
+          */}
+          {tab === 'sefer' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: railInset, paddingRight: railInset,
+            }}>
               <div style={{ maxWidth: 1240, margin: '0 auto', paddingTop: 12 }}>
                 <IncomingAlert incoming={village.incoming || []} />
                 <MarchPanel
@@ -744,11 +767,6 @@ function Game({ token, onLogout }) {
                   unitDefs={village.unitDefs || {}}
                   maxMarches={village.marchInfo?.maxMarches || 8} />
               </div>
-              <ArmyPanel
-                army={village.army || {}}
-                unitDefs={village.unitDefs || {}}
-                equipmentDefs={village.equipmentDefs || {}}
-              />
             </div>
           )}
 
@@ -854,7 +872,8 @@ function Game({ token, onLogout }) {
       {/* Telefonda sekmeler altta */}
       {vp.mobile && (
         <BottomTabs tab={tab} setTab={setTab}
-          badges={{ raporlar: unseenCount(village.reports || []) }} />
+          badges={{ raporlar: unseenCount(village.reports || []),
+            sefer: (village.marches || []).length + (village.incoming || []).length }} />
       )}
     </>
   );

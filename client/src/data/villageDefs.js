@@ -64,8 +64,8 @@ const VILLAGE_DEFS = {
   // ── Merkez ──────────────────────────────────────────────────────
   anaBina: { cpPerLevel:2,
     name:'Ana Bina', category:'merkez', icon:'🏛️',
-    description:'Köyün kalbi. Her seviye +1 üretim alanı slotu açar. Lvl 1: 6 slot, Lvl 11: 16 slot (maks).',
-    unique:true, maxLevel:11,
+    description:'Köyün kalbi. Her seviye +1 üretim alanı slotu açar. Lvl 1: 6 slot, Lvl 20: 25 slot (maks).',
+    unique:true, maxLevel:20,
     buildBaseWork:50, buildMultiplier:1.8,
     upgradeCostBase:{ kereste:60, tugla:80, yontmaTas:50, demirKulce:30 },
     upgradeCostMultiplier:1.7,

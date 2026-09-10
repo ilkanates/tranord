@@ -513,7 +513,8 @@ function FieldHex({
   const maxW = tile ? (BUILDING_DEFS[tile.type]?.levels?.[tile.level - 1]?.workers || 1) : 0;
 
   return (
-    <g onClick={onClick} onMouseEnter={onEnter} onMouseLeave={onLeave}
+    /* data-tile: yerleşim penceresi bu hex'lere karışmasın (bkz. onUp) */
+    <g data-tile="1" onClick={onClick} onMouseEnter={onEnter} onMouseLeave={onLeave}
       transform={isHovered || isSelected
         ? `translate(${x} ${y}) scale(${isSelected ? 1.11 : 1.08}) translate(${-x} ${-y})`
         : undefined}
@@ -658,6 +659,21 @@ function HoverCard({ title, sub, icon, iconColor, rows, note, railInset = 0 }) {
 }
 
 // ── Ana bileşen ──────────────────────────────────────────────────────
+/** Sunucunun yerleşim ret sebepleri — okunur karşılıkları */
+const SETTLE_ERR = {
+  koy_hakki_yok:          'Köy hakkın yok — köşk ya da saray seviyesi yetmiyor',
+  kultur_puani_yetmez:    'Kültür puanı yetmiyor — taverna şöleni puanı hızlandırır',
+  bonus_arazi:            'Bonuslu arazi — köy merkezi bonusu heba eder',
+  arazi_bos_degil:        'Bu arazide zaten bir köy var',
+  dunya_disi:             'Dünyanın dışı',
+  gecersiz_hedef:         'Geçersiz hedef',
+  sefer_limiti:           'Sefer limiti dolu',
+  yerlesim_yalniz_gocmen: 'Yerleşim seferine yalnız göçmen katılır',
+  gocmen_sayisi_yanlis:   'Tam 3 göçmen gerekiyor',
+  yetersiz_asker:         'Yeterli göçmen yok',
+  konum_yok:              'Köyünün konumu bulunamadı',
+};
+
 /**
  * BOŞ ARAZİ PANELİ — göçmen gönderip yeni köy kurma.
  *
@@ -665,16 +681,29 @@ function HoverCard({ title, sub, icon, iconColor, rows, note, railInset = 0 }) {
  * mı geri çağrılamaz, varışta arazi dolmuşsa göçmenler kaybolur. Sunucu
  * ayrıca köy hakkını (köşk/saray seviyesi + kültür puanı) kontrol eder.
  */
-function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs,
+function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs, engel = null,
+  sunucuHatasi = null, box = { w: 900, h: 700 },
   hourSeconds, worldSpeed, onSend, onClose }) {
   const hiz = unitDefs?.gocmen?.stats?.hiz || 5;
   const secs = gameMinutesToRealSeconds(Math.max(10, (distance / hiz) * 60),
     hourSeconds, worldSpeed);
-  const yeter = gocmen >= gerekli;
+  const yeter = gocmen >= gerekli && !engel;
 
   return (
-    <div className="tn-rise" style={{
-      position: 'absolute', right: 18, bottom: 18, width: 268, zIndex: 30,
+    <div className="tn-rise"
+      /*
+        Panelin ÜSTÜNDEKİ tıklamalar haritaya sızmasın: sızarsa harita
+        onPointerUp'ı yeni bir hex seçip paneli yeniden kuruyor ve
+        düğmeye basılamıyordu.
+      */
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+      position: 'absolute',
+      left: Math.max(8, Math.min((slot.sx ?? box.w - 290) + 14, box.w - 276)),
+      top: Math.max(8, Math.min((slot.sy ?? box.h - 240) + 14, box.h - 250)),
+      width: 268, zIndex: 30,
       background: 'rgba(8,15,24,0.94)', border: `1px solid ${C.lineBright}`,
       borderRadius: 9, padding: 12,
       boxShadow: '0 18px 40px rgba(0,0,0,0.6)',
@@ -709,13 +738,27 @@ function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs,
         <span style={num({ fontSize: 10, color: C.iceDeep })}>{fmtTime(secs)}</span>
       </div>
 
-      <div style={{ fontFamily: FONT.ui, fontSize: 9, lineHeight: 1.5, color: C.textMute, marginBottom: 9 }}>
-        Üç göçmen buraya yerleşip yeni bir köy kurar. Gidiş tek yön —
-        sefer geri çağrılamaz.
-      </div>
+      {(engel || sunucuHatasi) ? (
+        <div style={{
+          display: 'flex', gap: 7, alignItems: 'flex-start', marginBottom: 9,
+          padding: '6px 8px', borderRadius: 5,
+          background: 'rgba(232,99,111,0.08)', border: '1px solid rgba(232,99,111,0.3)',
+        }}>
+          <Icon name="uyari" size={11} color={C.danger} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontFamily: FONT.ui, fontSize: 9, lineHeight: 1.5, color: '#f0b8bd' }}>
+            {sunucuHatasi || engel}
+          </span>
+        </div>
+      ) : (
+        <div style={{ fontFamily: FONT.ui, fontSize: 9, lineHeight: 1.5, color: C.textMute, marginBottom: 9 }}>
+          Üç göçmen buraya yerleşip yeni bir köy kurar. Gidiş tek yön —
+          sefer geri çağrılamaz.
+        </div>
+      )}
 
       <button onClick={onSend} disabled={!yeter}
-        title={yeter ? 'Göçmenleri gönder' : `${gerekli} göçmen gerekiyor (köşk ya da sarayda eğitilir)`}
+        title={engel || (yeter ? 'Göçmenleri gönder'
+          : `${gerekli} göçmen gerekiyor (köşk ya da sarayda eğitilir)`)}
         style={btn(yeter ? 'good' : 'disabled', {
           width: '100%', padding: '7px 0', letterSpacing: 1, fontSize: 10.5,
         })}>
@@ -728,7 +771,7 @@ function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs,
 export default function MapView({
   socket, world, productionTiles = {}, maxProductionSlots = 6, anaBina,
   freeWorkers = 0, resources = {}, flows = {}, railInset = 0, myArmy = 0,
-  army = {}, unitDefs = {}, intel = {}, marchInfo = {},
+  army = {}, unitDefs = {}, unitStatsNow = {}, intel = {}, marchInfo = {},
   onBuild, onUpgrade, onDemolish, onAssignWorkers, onCancelBuild,
   onUpgradeAnaBina, onEnterVillageCenter,
   hourSeconds = 3600, worldSpeed = 1,
@@ -738,7 +781,6 @@ export default function MapView({
   /** Yeni köy için gereken göçmen — sunucudaki SETTLERS_REQUIRED ile aynı */
   const GOCMEN_GEREKLI = 3;
   const gocmenSayisi = army?.gocmen || 0;
-  const gocmenVar = gocmenSayisi > 0;
 
   const [snap, setSnap] = useState(null);
   const [scale, setScale] = useState(1.6);
@@ -757,6 +799,8 @@ export default function MapView({
   const [selField, setSelField] = useState(null);       // yerel anahtar
   // Göçmen gönderilecek boş dünya slotu (yeni köy)
   const [selEmpty, setSelEmpty] = useState(null);
+  // Yerleşim seferinde sunucudan dönen ret sebebi
+  const [settleErr, setSettleErr] = useState(null);
   const [selVillage, setSelVillage] = useState(null);
   const [filterTier, setFilterTier] = useState(null);
   const [sendTarget, setSendTarget] = useState(null);   // ordu gönderme ekranı
@@ -965,7 +1009,36 @@ export default function MapView({
   const onUp = (e) => {
     ptrsRef.current.delete(e.pointerId);
     if (ptrsRef.current.size < 2) pinchRef.current = null;
+    const surukledi = !!dragRef.current?.moved;
     endDrag(e);
+    /*
+      BOŞ ARAZİYE TIKLAMA — küçük yerleşim penceresini açar.
+      Ayrı bir "köy kur" modu yok: haritada boş bir hex'e basmak yeter,
+      açılan pencerede KÖY KUR düğmesi var (göçmen yetmiyorsa kapalı).
+      Köy işaretleri ve kendi topraklarım kendi tıklamalarını yönetiyor,
+      onlara dokunmuyoruz. Kuralları sunucu denetliyor.
+    */
+    /*
+      Kendi tarlalarımın ve "+" hex'lerimin üstüne tıklandıysa karışma:
+      onların kendi tıklamaları var (data-tile). Hex'i piksel→hex
+      hesabıyla bulmak birkaç piksellik sapma yapabildiği için DOM
+      hedefine bakmak daha güvenilir.
+    */
+    const tarlayaBasti = !!e.target?.closest?.('[data-tile]');
+    const haritayaBasti = !!e.target?.closest?.('[data-map]');
+    if (!surukledi && haritayaBasti && !tarlayaBasti) {
+      const h = hexFromEvent(e);
+      if (h && !koyluHexler.has(h.key) && !myClaim.has(h.key)) {
+        // Pencere tıklanan yerin YANINDA açılsın: kap içi piksel konumu
+        const rc = ref.current?.getBoundingClientRect();
+        const sx = rc ? e.clientX - rc.left : 0;
+        const sy = rc ? e.clientY - rc.top : 0;
+        setSelField(null); setSelVillage(null);
+        setSelEmpty(prev => (prev?.key === h.key
+          ? null
+          : { key: h.key, q: h.q, r: h.r, name: 'Boş Arazi', sx, sy }));
+      }
+    }
   };
   // Fare pencere dışında bırakılsa da sürükleme kapanır
   const endDragRef = useRef(endDrag);
@@ -1005,6 +1078,8 @@ export default function MapView({
 
   // ── Köyler ve toprak sahipliği ──
   const villages = useMemo(() => snap?.villages || [], [snap]);
+  /** Üzerinde köy olan hex'ler — bunlara tıklamak yerleşim penceresi açmaz */
+  const koyluHexler = useMemo(() => new Set(villages.map(v => v.key)), [villages]);
 
   const shownVillages = useMemo(() => {
     if (!filterTier) return villages;
@@ -1027,20 +1102,40 @@ export default function MapView({
       : hueColor(villageHues.get(v.key) ?? PALETTE_H[0])
   ), [villageHues]);
 
+  /*
+    YAYILMA YALNIZ YABANCI TOPRAKTA DURUR.
+    Kendi köylerimin alanları birbirine girebilir — bu bilinçli bir
+    karar (ileride ticaret rotaları). Yani sınır ölçütü "başka köy"
+    değil, "başka OYUNCUNUN/NPC'nin köyü".
+  */
   const claimBlocked = useMemo(() => {
     const s2 = new Set();
     for (const v of villages) {
-      if (v.kind === 'self') continue;
+      if (v.key === kk(wq, wr)) continue;            // aktif köy
+      if (v.kind === 'self') {
+        /*
+          Kendi öbür köyüm: yalnız GERÇEKTEN aldığı hex'ler kapalı.
+          Bir hex'i tek köy işleyebilir; ama aradaki boş hex'lere
+          bu köyden de yayılabilirim (alanlar iç içe girebilir).
+        */
+        s2.add(kk(v.q, v.r));
+        for (const lk of Object.keys(v.tiles || {})) {
+          const [lq, lr] = lk.split(',').map(Number);
+          s2.add(kk(v.q + lq, v.r + lr));
+        }
+        continue;
+      }
+      // Yabancı köy: bütün toprağı kapalı
       s2.add(kk(v.q, v.r));
       for (const [dq, dr] of CLAIM_OFFSETS) s2.add(kk(v.q + dq, v.r + dr));
     }
     return s2;
-  }, [villages]);
+  }, [villages, wq, wr]);
 
   const tileOwners = useMemo(() => {
     const m = new Map();
     for (const v of villages) {
-      if (v.kind === 'self') continue;
+      if (v.key === kk(wq, wr)) continue;            // aktif köy kendi çizimini yapıyor
       const col = colOf(v);
       const info = { v, col, fill: col.soft, edge: col.line };
       m.set(kk(v.q, v.r), { ...info, center: true });
@@ -1052,7 +1147,7 @@ export default function MapView({
       }
     }
     return m;
-  }, [villages]);
+  }, [villages, wq, wr, colOf]);
 
   const myCenterPx = useMemo(() => hexToPixel(wq, wr, S), [wq, wr]);
 
@@ -1267,6 +1362,32 @@ export default function MapView({
     setHoverWild(prev => (prev === key ? prev : key));
   }, [scale, pan.x, pan.y, size.w, size.h, myClaim, snap?.radius, dbg]);
 
+  /**
+   * Fare olayından dünya hex'i. Hareket işleyicisindeki hesabın aynısı;
+   * oradaki blok hata ayıklama çıktısıyla iç içe olduğu için ayrı yazıldı.
+   */
+  const hexFromEvent = (e) => {
+    const el = ref.current;
+    if (!el || !Number.isFinite(e?.clientX)) return null;
+    const rc = el.getBoundingClientRect();
+    const ox = layerOff.current.x, oy = layerOff.current.y;
+    const wx = (e.clientX - rc.left - ox - size.w / 2) / scale - pan.x;
+    const wy = (e.clientY - rc.top - oy - size.h / 2) / scale - pan.y;
+    const { q, r } = pixelToHex(wx, wy, S);
+    if (hexDistance(q, r) > (snap?.radius || 134)) return null;
+    return { q, r, key: kk(q, r) };
+  };
+
+  /* Yerleşim seferi reddedilirse sebebini panelde göster */
+  useEffect(() => {
+    if (!socket) return;
+    const onErr = ({ reason } = {}) => setSettleErr(SETTLE_ERR[reason] || reason || 'Gönderilemedi');
+    const onSent = ({ mode } = {}) => { if (mode === 'yerlesim') { setSettleErr(null); setSelEmpty(null); } };
+    socket.on('army_error', onErr);
+    socket.on('army_sent', onSent);
+    return () => { socket.off('army_error', onErr); socket.off('army_sent', onSent); };
+  }, [socket]);
+
   const clickField = (localKey) => {
     if (suppressClick.current) return;
     setSelVillage(null);
@@ -1314,7 +1435,7 @@ export default function MapView({
         ],
         note: owner
           ? `${owner.kind === 'player' ? 'Oyuncu' : owner.tierLabel} köyünün toprağı.`
-          : 'Boş arazi — buraya köy kurulamaz, köy merkezleri en az 6 hex arayla.',
+          : 'Boş arazi — 3 göçmenle buraya köy kurulabilir.',
       };
     }
     if (hoverField) {
@@ -1392,7 +1513,10 @@ export default function MapView({
       <div ref={layerRef} style={{ position: 'absolute', inset: 0, willChange: 'transform' }}>
       <canvas ref={canvasRef}
         style={{ display: 'block', position: 'absolute', left: -PAD, top: -PAD, pointerEvents: 'none' }} />
-      <svg ref={svgRef} width={svgW} height={svgH}
+      {/* data-map: yerleşim penceresi YALNIZ haritanın kendisine yapılan
+          tıklamalarda açılsın; panellerin üstündeki tıklamalar haritaya
+          sayılmasın (İNŞA ET düğmesi bu yüzden arkadaki hex'i seçiyordu) */}
+      <svg data-map="1" ref={svgRef} width={svgW} height={svgH}
         style={{ display: 'block', position: 'absolute', left: -PAD, top: -PAD }}>
         <g ref={gRef} transform={panTransform(pan.x, pan.y)}>
 
@@ -1484,15 +1608,6 @@ export default function MapView({
               <g key={s.key}>
                 <circle cx={p.x} cy={p.y} r={(secili ? 3.6 : 2.2) / scale}
                   fill={secili ? CLAIM_GREEN : C.textMute} opacity={secili ? 0.95 : 0.5} />
-                {gocmenVar && (
-                  <circle cx={p.x} cy={p.y} r={9 / scale} fill="transparent"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      if (suppressClick.current) return;
-                      setSelField(null); setSelVillage(null);
-                      setSelEmpty(prev => (prev?.key === s.key ? null : s));
-                    }} />
-                )}
               </g>
             );
           })}
@@ -1535,6 +1650,11 @@ export default function MapView({
           )}
 
           {/* Köy işaretleri — yalnızca uzak/orta zoom */}
+          {/*
+            İşaretler uzak/orta zumda. Yakın zumda her köy — kendi ikinci
+            köyüm dahil — merkez hex'i ve tarlalarıyla normal köy gibi
+            çiziliyor (bkz. tileOwners), ayrıca işaret gerekmiyor.
+          */}
           {scale < Z_TERRAIN && shownVillages.map(v => (
             <VillageMark key={v.key} v={v} scale={scale}
               color={v.kind === 'self' ? CLAIM_GREEN : colorOf(v)}
@@ -1674,21 +1794,41 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
         <SettlePanel slot={selEmpty}
           distance={hexDistance(selEmpty.q - wq, selEmpty.r - wr)}
           gocmen={gocmenSayisi} gerekli={GOCMEN_GEREKLI}
+          box={size}
+          /*
+            Sunucu zaten denetliyor; buradaki ön-denetim yalnız düğmeyi
+            kapatıp sebebini yazsın diye. Kendi köylerime mesafe sınırı yok.
+          */
+          sunucuHatasi={settleErr}
+          engel={(() => {
+            const bns = worldTileBonus(selEmpty.q, selEmpty.r);
+            if (bns) {
+              return `Buraya köy merkezi kurulamaz: bu hex +%${bns.amount} `
+                + `${RES_LABEL[bns.resource] || bns.resource} bonuslu bir TARLA. `
+                + 'Bonusu kullanmak için yanına kur, sonra bu hex\'e o üretimi dik.';
+            }
+            // Mesafe sınırı yok; tek engel dolu hex ve bonuslu arazi
+            const dolu = villages.find(v => v.key === selEmpty.key);
+            if (dolu) return `Burada zaten bir köy var: ${dolu.name}`;
+            return null;
+          })()}
           hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           unitDefs={unitDefs}
           onSend={() => {
+            setSettleErr(null);
             socket?.emit('send_army', {
               targetKey: selEmpty.key, mode: 'yerlesim',
               units: { gocmen: GOCMEN_GEREKLI },
             });
-            setSelEmpty(null);
+            // Pencere açık kalır: sunucu onaylarsa kapanır, reddederse
+            // sebebini burada gösteririz (bkz. army_error dinleyicisi).
           }}
-          onClose={() => setSelEmpty(null)} />
+          onClose={() => { setSelEmpty(null); setSettleErr(null); }} />
       )}
 
       {sendTarget && (
         <SendArmyPanel socket={socket} target={sendTarget}
-          army={army} unitDefs={unitDefs} marchInfo={marchInfo}
+          army={army} unitDefs={unitDefs} unitStatsNow={unitStatsNow} marchInfo={marchInfo}
           intel={intel[sendTarget.key] || null}
           onClose={() => setSendTarget(null)} />
       )}

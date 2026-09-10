@@ -248,9 +248,48 @@ function getScaledUpgradeCost(type, currentLevel) {
   );
 }
 
+/**
+ * BU KÖYÜN YERLEŞİM HAKKI.
+ *
+ * Köşk/sarayın ULAŞTIĞI eşikler hak kazandırır (köşk 10/20, saray
+ * 10/15/20). Kazanılan hak yüksek su seviyesi gibi tutulur: bina
+ * yıkılsa da düşmez, ama yeni hak için bir sonraki eşiğe çıkmak
+ * gerekir. Harcanan hak = bu köyden kurulan köy sayısı.
+ */
+function refreshExpansionCredits(village) {
+  let reached = 0;
+  for (const b of Object.values(village.villageBuildings || {})) {
+    const at = VILLAGE_DEFS[b.type]?.expansionAt;
+    if (!Array.isArray(at) || !(b.level >= 1)) continue;
+    for (const lv of at) if (b.level >= lv) reached++;
+  }
+  village.expansionEarned = Math.max(village.expansionEarned || 0, reached);
+  return village.expansionEarned;
+}
+
+/** Kalan hak (kurulabilecek köy sayısı) */
+function expansionFree(village) {
+  return Math.max(0, refreshExpansionCredits(village) - (village.expansionUsed || 0));
+}
+
+/**
+ * Göçmen tavanı: her hak 3 göçmen. Mevcut göçmenler, yoldakiler ve
+ * kuyruktakiler birlikte sayılır — hak bitince yeni göçmen basılamaz.
+ */
+function settlerCapacity(village) {
+  const izin = expansionFree(village) * ARMY.SETTLERS_REQUIRED;
+  let mevcut = village.army?.[ARMY.SETTLER_UNIT] || 0;
+  for (const m of village.marches || []) mevcut += m.units?.[ARMY.SETTLER_UNIT] || 0;
+  for (const q of Object.values(village.unitQueues || {})) {
+    for (const o of q) if (o.type === ARMY.SETTLER_UNIT) mevcut += o.remaining || 0;
+  }
+  return { izin, mevcut, bos: Math.max(0, izin - mevcut) };
+}
+
 function getMaxProductionSlots(village) {
+  // Ana Bina her seviyede +1 tarla slotu; Lvl 20'de 25 (tavan)
   const anaBina = village.villageBuildings['0,0'];
-  return Math.min(16, 5 + (anaBina?.level || 1));
+  return Math.min(25, 5 + (anaBina?.level || 1));
 }
 
 const HEX_NEIGHBORS = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
@@ -422,6 +461,28 @@ function hexOwnedByOther(wq, wr, selfUserId) {
  * Sınırlar: tarla slotu limiti, dünya kenarı, başkasının toprağı ve komşuluk.
  * Uzaklaştıkça mesafe verimi düştüğü için yayılma kendiliğinden dengelenir.
  */
+/**
+ * AYNI HEX İKİ KEZ ALINAMAZ.
+ *
+ * Köylerimin toprakları çakışabiliyor (bilinçli), ama bir hex'i yalnız
+ * BİR köy işleyebilir; yoksa aynı araziden çift üretim çıkıyordu.
+ * Yabancı köyler hexOwnedByOther'da zaten denetleniyor.
+ */
+function hexOwnedByMyOtherVillage(wq, wr, userId, village) {
+  const sess = userSessions.get(userId);
+  if (!sess) return false;
+  for (const v of sess.villages.values()) {
+    if (v === village) continue;                       // inşa eden köy
+    const bq = v.worldQ || 0, br = v.worldR || 0;
+    if (bq === wq && br === wr) return true;           // öbür köyün merkezi
+    for (const k of Object.keys(v.productionTiles || {})) {
+      const [lq, lr] = k.split(',').map(Number);
+      if (bq + lq === wq && br + lr === wr) return true;
+    }
+  }
+  return false;
+}
+
 function canBuildProductionAt(village, slotKey, type, userId) {
   if (slotKey === '0,0') return false;
   if (village.productionTiles[slotKey]) return false;
@@ -435,6 +496,7 @@ function canBuildProductionAt(village, slotKey, type, userId) {
   const wq = (village.worldQ || 0) + lq, wr = (village.worldR || 0) + lr;
   if (W.hexDistance(wq, wr) > W.WORLD_RADIUS) return false;             // dünya kenarı
   if (hexOwnedByOther(wq, wr, userId)) return false;                    // başkasının toprağı
+  if (hexOwnedByMyOtherVillage(wq, wr, userId, village)) return false;  // kendi öbür köyüm almış
   if (Object.keys(village.productionTiles).length >= getMaxProductionSlots(village)) return false;
   return getNeighbors(slotKey).some(n => n === '0,0' || village.productionTiles[n]);
 }
@@ -625,6 +687,14 @@ function buildPayload(village, tickMs, opts = {}) {
     research: { ...(village.research || {}) }, researchQueue,
     // Ekipman yükseltmeleri — ordunun tamamına anında işler
     equipmentLevels: { ...(village.equipmentLevels || {}) }, upgradeQueues, equipmentUpgrade,
+    // Yerleşim hakkı — köşk/saray panelinde gösteriliyor
+    expansion: {
+      earned: refreshExpansionCredits(village),
+      used: village.expansionUsed || 0,
+      free: expansionFree(village),
+      settlers: settlerCapacity(village),
+      founded: (village.foundedVillages || []).slice(-10),
+    },
     unitStatsNow,
     // SEFERLER — timeLeft gerçek zamana göre (köy saatine değil)
     marches: (village.marches || []).map(m => ({
@@ -993,9 +1063,14 @@ async function bootWorld() {
   try {
     const players = await loadPlayerSlots();
     players.forEach(p => {
-      // Harita yeniden üretildiyse eski slot anahtarı geçersiz olabilir → yeniden ata
-      if (!WORLD.slotByKey.has(p.slotKey)) {
-        console.warn(`[WORLD] ${p.email}: eski slot ${p.slotKey} artık yok, yeniden atanacak`);
+      /*
+        SERBEST YERLEŞİM: göçmenle kurulan köyler ızgara slotu değil,
+        dünya yeniden üretilince kayıtta olup haritada olmuyorlar. Kaydı
+        olan her oyuncu slotu burada geri üretiliyor; yoksa köy adsız
+        kalıyor ve haritadan siliniyordu.
+      */
+      if (!WORLD.slotByKey.has(p.slotKey) && !ensureSlotByKey(p.slotKey)) {
+        console.warn(`[WORLD] ${p.email}: slot anahtarı bozuk (${p.slotKey}), atlandı`);
         return;
       }
       WORLD.playerBySlot.set(p.slotKey, { userId: p.userId, email: p.email, name: p.name });
@@ -1258,6 +1333,68 @@ function lootRoom(village) {
 }
 
 /**
+ * SERBEST YERLEŞİM — dünyadaki HER hex'e köy kurulabilir.
+ *
+ * Dünya üretilirken MIN_DISTANCE aralıklı bir slot ızgarası çıkıyor
+ * (NPC'ler ve ilk doğuş için). Oyuncu göçmenle ızgara DIŞINA da
+ * yerleşebilsin diye hedef hex'in slot kaydı gerekiyorsa burada
+ * üretiliyor; ad, halka ve tier ızgaradakiyle aynı kuralla türetilir.
+ */
+/** "q,r" anahtarından slot üretir/bulur; bozuk anahtarda null */
+function ensureSlotByKey(key) {
+  const m = /^(-?\d+),(-?\d+)$/.exec(String(key || ''));
+  return m ? ensureSlot(Number(m[1]), Number(m[2])) : null;
+}
+
+function ensureSlot(q, r) {
+  const key = `${q},${r}`;
+  const varOlan = WORLD.slotByKey.get(key);
+  if (varOlan) return varOlan;
+  const ring = W.hexDistance(q, r);
+  const t = W.tierForRing(ring);
+  const slot = {
+    key, q, r, ring,
+    tier: t.tier, tierLabel: t.label, power: t.power,
+    name: W.villageName(q, r),
+  };
+  WORLD.slots.push(slot);
+  WORLD.slotByKey.set(key, slot);
+  return slot;
+}
+
+/**
+ * Bu hex'e köy kurulabilir mi?
+ *
+ * KURALLAR:
+ *  - Mesafe sınırı YOK: dünyanın içindeki, üstünde köy olmayan her
+ *    hex'e kurulabilir. Topraklar çakışabilir.
+ *  - Bonuslu hex'e köy kurulmaz — orası tarla olarak değerli, köy
+ *    merkezi o bonusu heba eder.
+ *
+ * @returns {{ok:true,q:number,r:number}|{ok:false,reason:string}}
+ */
+function yerlesimUygun(targetKey, userId) {
+  const m = /^(-?\d+),(-?\d+)$/.exec(String(targetKey || ''));
+  if (!m) return { ok: false, reason: 'gecersiz_hedef' };
+  const q = Number(m[1]), r = Number(m[2]);
+
+  if (W.hexDistance(q, r) > W.WORLD_RADIUS - W.CLAIM_RADIUS) {
+    return { ok: false, reason: 'dunya_disi' };
+  }
+  if (WORLD.npcs.has(targetKey) || WORLD.playerBySlot.has(targetKey)) {
+    return { ok: false, reason: 'arazi_bos_degil' };
+  }
+  if (W.worldTileBonus(q, r)) return { ok: false, reason: 'bonus_arazi' };
+
+  /*
+    MESAFE SINIRI YOK (İlkan'ın kararı): köy, üstünde köy olmayan her
+    hex'e kurulabilir — yabancı köyün bitişiği de dahil. Topraklar
+    çakışabilir; aynı hex iki köyün tarlası olabilir.
+  */
+  return { ok: true, q, r };
+}
+
+/**
  * GÖÇMEN SEFERİ VARDI — hedef slotta yeni köy kur.
  *
  * Gidiş tek yön: slot bu arada dolduysa göçmenler kaybolur (kullanıcı
@@ -1267,8 +1404,9 @@ function lootRoom(village) {
  */
 function foundVillageAt(userId, slotKey, origin) {
   const session = userSessions.get(userId);
-  const slot = WORLD.slotByKey.get(slotKey);
-  const dolu = !slot || WORLD.npcs.has(slotKey) || WORLD.playerBySlot.has(slotKey);
+  const uygun = yerlesimUygun(slotKey, userId);
+  const slot = uygun.ok ? ensureSlot(uygun.q, uygun.r) : WORLD.slotByKey.get(slotKey);
+  const dolu = !uygun.ok;
 
   if (!session || dolu) {
     ARMY.pushReport(origin, {
@@ -1295,6 +1433,9 @@ function foundVillageAt(userId, slotKey, origin) {
   setPlayerSlot(userId, slotKey, name, false)
     .then(() => saveVillage(userId, slotKey, nv))
     .catch(err => console.error('[YERLEŞİM] kayıt:', err.message));
+
+  origin.expansionUsed = (origin.expansionUsed || 0) + 1;
+  (origin.foundedVillages ||= []).push({ key: slotKey, name: slot.name, at: Date.now() });
 
   ARMY.pushReport(origin, {
     id: `y${slotKey}-${Date.now()}`, at: Date.now(), dir: 'out', mode: 'yerlesim',
@@ -1619,7 +1760,12 @@ function worldSnapshot(forUserId, activeSlot = null) {
     const slot = WORLD.slotByKey.get(key);
     if (!slot) continue;
     const session = userSessions.get(p.userId);
-    const v = session?.village;
+    /*
+      DÜZELTME: `session.village` AKTİF köyü verir. Oyuncunun ikinci köyü
+      için de aktif köyün tarlaları gönderiliyordu; harita o tarlaları
+      yanlış konuma çiziyordu. Slotun kendi köyü alınmalı.
+    */
+    const v = session?.villages?.get(key) || null;
     villages.push({
       key, q: slot.q, r: slot.r,
       name: p.name || slot.name, tier: slot.tier, tierLabel: 'Oyuncu',
@@ -1722,9 +1868,10 @@ io.on('connection', async socket => {
       const rows = await loadVillages(userId);
       for (const row of rows) {
         if (!row.state || !row.slotKey) continue;
-        const sl = WORLD.slotByKey.get(row.slotKey);
+        // Izgara dışı (göçmenle kurulmuş) köyler için slot kaydını üret
+        const sl = WORLD.slotByKey.get(row.slotKey) || ensureSlotByKey(row.slotKey);
         if (!sl) {
-          console.warn(`[DB LOAD] userId=${userId} slot ${row.slotKey} dünyada yok, atlandı`);
+          console.warn(`[DB LOAD] userId=${userId} slot ${row.slotKey} çözülemedi, atlandı`);
           continue;
         }
         const v = hydrateVillage(row.state);
@@ -2016,6 +2163,21 @@ io.on('connection', async socket => {
       });
       return;
     }
+    /*
+      GÖÇMEN TAVANI: köyün kalan yerleşim hakkı × 3. Hak bitince yeni
+      göçmen basılamaz; köşk/sarayı bir sonraki eşiğe çıkarmak gerekir.
+    */
+    if (unitType === ARMY.SETTLER_UNIT) {
+      const kap = settlerCapacity(v());
+      if (kap.bos <= 0) {
+        socket.emit('build_refused', {
+          reason: kap.izin === 0
+            ? 'Bu köyün yerleşim hakkı yok — köşkü Lvl 10\'a çıkar'
+            : 'Yerleşim hakkın dolu — yeni göçmen için köşk/sarayı bir üst eşiğe çıkar',
+        });
+        return;
+      }
+    }
     const q = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
     (v().unitQueues[buildingType] ||= []).push({ id: v().nextUnitOrderId++, type: unitType, total: q, remaining: q, waiting: true, startTime: null, endTime: null, workerReserved: false });
     dirty(); emit();
@@ -2046,6 +2208,26 @@ io.on('connection', async socket => {
       socket.emit('build_refused', {
         reason: `${def.name} için Rún Salonu Lvl ${def.research.level} gerekiyor`
           + ` (şu an Lvl ${salon.level})`,
+      });
+      return;
+    }
+    /**
+     * ÜÇÜNCÜ KAPI — EĞİTİM BİNASININ SEVİYESİ.
+     *
+     * Basamadığın askeri araştırmak anlamsız: kışla Lvl 10 istiyorsa
+     * araştırma da Lvl 10 kışla ister. Böylece Rún Salonu'nu tek başına
+     * yükseltip bütün birimleri açmak mümkün olmuyor; iki hat da
+     * ilerlemek zorunda.
+     */
+    const egitimTipleri = [].concat(def.trainedAt || []);
+    let egitimLv = 0;
+    for (const b of Object.values(v().villageBuildings)) {
+      if (egitimTipleri.includes(b.type)) egitimLv = Math.max(egitimLv, b.level || 0);
+    }
+    if (egitimLv < (def.minLevel || 1)) {
+      const ad = VILLAGE_DEFS[egitimTipleri[0]]?.name || egitimTipleri[0] || 'eğitim binası';
+      socket.emit('build_refused', {
+        reason: `${def.name} için ${ad} Lvl ${def.minLevel} gerekiyor (şu an Lvl ${egitimLv})`,
       });
       return;
     }
@@ -2243,11 +2425,9 @@ io.on('connection', async socket => {
      */
     let tgtSlot, tgtKind, tgtName;
     if (mode === 'yerlesim') {
-      const slot = WORLD.slotByKey.get(targetKey);
-      if (!slot) return fail('gecersiz_hedef');
-      if (WORLD.npcs.has(targetKey) || WORLD.playerBySlot.has(targetKey)) {
-        return fail('arazi_bos_degil');
-      }
+      const uygun = yerlesimUygun(targetKey, userId);
+      if (!uygun.ok) return fail(uygun.reason);
+      if (expansionFree(village) <= 0) return fail('koy_hakki_yok');
       const cpTotal = [...session.villages.values()]
         .reduce((t, vv) => t + (vv.culturePoints || 0), 0);
       const durum = CULTURE.expansionStatus(
@@ -2259,7 +2439,7 @@ io.on('connection', async socket => {
       if (durum.owned + yoldaki >= durum.allowed) {
         return fail(durum.blockedBy === 'kultur' ? 'kultur_puani_yetmez' : 'koy_hakki_yok');
       }
-      tgtSlot = slot; tgtKind = 'bos'; tgtName = slot.name;
+      tgtSlot = ensureSlot(uygun.q, uygun.r); tgtKind = 'bos'; tgtName = tgtSlot.name;
     } else {
       // FAZ 1: yalnız NPC köyleri hedef olabilir
       const tgt = WORLD.npcs.get(targetKey);
