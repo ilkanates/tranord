@@ -355,9 +355,16 @@ function resolveArrival(march, origin, target, opts = {}) {
 
   // ── SAVAŞ ────────────────────────────────────────────────────────
   const defenderUnits = { ...(target.army || {}) };
+  /**
+   * Ekipman yükseltmeleri KÖYE ait: saldıranınki `origin`den, savunanınki
+   * `target`tan okunuyor. İkisi ayrı olmalı — saldıranın kılıç seviyesi
+   * savunanın kalkanını güçlendirmemeli.
+   */
   const res = simulateBattle(march.units, defenderUnits, {
     surLevel, hendekLevel, kulePct,
     mode: march.mode === 'raid' ? 'raid' : 'normal',
+    attackerLevels: origin?.equipmentLevels || null,
+    defenderLevels: target?.equipmentLevels || null,
   });
 
   // Savunanın kaybı hedefin ordusundan düşer (+ nüfus)

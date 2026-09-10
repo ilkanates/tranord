@@ -21,6 +21,8 @@ const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/np
 const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu']);
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS,
         maxPopulationOf, maxLevelOf } = require('./data');
+const { equipmentUpgradeCost, equipmentUpgradeMinutes, EQUIPMENT_MAX_LEVEL,
+        EQUIPMENT_UPGRADE_STEP, UPGRADABLE_EQUIPMENT, unitStats } = require('./data/militaryDefs');
 
 const TRAINABLE_UNITS = Object.fromEntries(
   Object.entries(UNIT_DEFS).filter(([_, def]) => {
@@ -515,6 +517,43 @@ function buildPayload(village, tickMs, opts = {}) {
     timeLeft: o.endTime ? GT.clockToRealSeconds(o.endTime - now, speed) : null,
   }));
 
+  /**
+   * BİR SONRAKİ SEVİYENİN bedeli ve süresi sunucuda hesaplanıp gönderiliyor.
+   * İstemcide formülün ikizini tutmak iki doğruluk kaynağı demek olurdu:
+   * denge değişince panel yanlış rakam gösterirdi.
+   */
+  const equipmentUpgrade = Object.fromEntries(
+    UPGRADABLE_EQUIPMENT.map(eq => {
+      const lv = village.equipmentLevels?.[eq] || 0;
+      const tavanda = lv >= EQUIPMENT_MAX_LEVEL;
+      return [eq, {
+        level: lv, maxLevel: EQUIPMENT_MAX_LEVEL,
+        cost: tavanda ? null : equipmentUpgradeCost(lv),
+        minutes: tavanda ? null : equipmentUpgradeMinutes(lv),
+        bonusPct: Math.round(EQUIPMENT_UPGRADE_STEP * lv * 1000) / 10,
+      }];
+    })
+  );
+
+  /**
+   * Birimlerin YÜKSELTMELERLE güncel değerleri. Ekranlar `unitDefs.stats`
+   * yerine bunu okursa oyuncu kartta gerçek gücünü görür; yükseltme
+   * yoksa değerler tanımın aynısı olur.
+   */
+  const unitStatsNow = Object.fromEntries(
+    Object.keys(TRAINABLE_UNITS).map(k => [k, unitStats(k, village.equipmentLevels || {})])
+  );
+
+  /** Ekipman yükseltme kuyrukları — bina başına tek sıra */
+  const upgradeQueues = Object.fromEntries(
+    Object.entries(village.upgradeQueues || {}).map(([bt, q]) => [bt, (q || []).map(o => ({
+      id: o.id, type: o.type, toLevel: o.toLevel || null,
+      waiting: !!o.waiting, waitingReason: o.waitingReason || null,
+      workersAtStart: o.workersAtStart || null,
+      timeLeft: o.endTime ? GT.clockToRealSeconds(o.endTime - now, speed) : null,
+    }))])
+  );
+
   const equipmentCaps = {
     kilic: getEquipmentCap(village,'kilic'), mizrak: getEquipmentCap(village,'mizrak'),
     kalkan: getEquipmentCap(village,'kalkan'), zirh: getEquipmentCap(village,'zirh'), at: getEquipmentCap(village,'at')
@@ -581,6 +620,9 @@ function buildPayload(village, tickMs, opts = {}) {
     unitsByBuilding: UNITS_BY_BUILDING, baseStats: BASE_STATS,
     // Rún Salonu: hangi birimler açık, sırada ne var
     research: { ...(village.research || {}) }, researchQueue,
+    // Ekipman yükseltmeleri — ordunun tamamına anında işler
+    equipmentLevels: { ...(village.equipmentLevels || {}) }, upgradeQueues, equipmentUpgrade,
+    unitStatsNow,
     // SEFERLER — timeLeft gerçek zamana göre (köy saatine değil)
     marches: (village.marches || []).map(m => ({
       id: m.id, mode: m.mode, phase: m.phase,
@@ -693,14 +735,33 @@ function buildPayload(village, tickMs, opts = {}) {
  */
 const FULL_SYNC_MS = 30000;
 
+/**
+ * Kuyruğun ekranı ilgilendiren özeti: uzunluk + BAŞTAKİ işin durumu.
+ *
+ * Eskiden yalnız uzunluk vardı. Bir iş "bekliyor"dan "çalışıyor"a geçtiğinde
+ * uzunluk değişmediği için paket gitmiyordu ve oyuncu 30 saniyelik kalp
+ * atışına kadar ekranda "bekliyor" görüyordu — iş arka planda ilerlerken.
+ */
+function kuyrukOzeti(q) {
+  const n = q?.length || 0;
+  if (!n) return '0';
+  const b = q[0];
+  return `${n}${b.waiting ? 'W' : 'R'}${b.waitingReason || ''}${b.type || ''}`;
+}
+
 function structFingerprint(v) {
   const q = v.unitQueues || {}, eq = v.equipmentQueues || {};
+  const up = v.upgradeQueues || {};
   let s = `${v.population}|${v.maxPopulation}|${v.freeWorkers}|${v.isStarving ? 1 : 0}`
     + `|${v.festival ? v.festival.kind : '-'}`
     + `|${v.isCapital ? 'C' : '-'}`
     + `|${(v.marches || []).length}|${(v.reports || []).length}|${v.tickMs || 0}`
-    + `|${q.kisla?.length || 0},${q.ahir?.length || 0},${q.atolye?.length || 0}`
-    + `|${eq.silahci?.length || 0},${eq.zirh?.length || 0},${eq.ahir?.length || 0}`;
+    + `|${kuyrukOzeti(q.kisla)},${kuyrukOzeti(q.ahir)},${kuyrukOzeti(q.atolye)}`
+    + `|${kuyrukOzeti(eq.silahci)},${kuyrukOzeti(eq.zirh)},${kuyrukOzeti(eq.ahir)}`
+    // Rún Salonu ve ekipman yükseltmeleri
+    + `|${kuyrukOzeti(v.researchQueue)}|${Object.keys(v.research || {}).length}`
+    + `|${kuyrukOzeti(up.silahci)},${kuyrukOzeti(up.zirh)}`
+    + `|${Object.entries(v.equipmentLevels || {}).map(([k, n]) => k + n).join('')}`;
   for (const k in v.villageBuildings) {
     const b = v.villageBuildings[k];
     s += `|${k}:${b.level}:${b.workers || 0}:${b.building ? 1 : 0}`;
@@ -1951,6 +2012,55 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
+  /**
+   * EKİPMAN YÜKSELTMESİ — silahçı (kılıç, mızrak) ve zırhçı (kalkan, zırh).
+   *
+   * Kaynak burada değil, iş başlarken düşülüyor (tick.js): oyuncu iki
+   * seviyeyi arka arkaya sıraya alabilsin ve ikinci iş kendi seviyesinin
+   * bedelini ödesin.
+   */
+  socket.on('upgrade_equipment', ({ buildingType, equipment }) => {
+    if (!EQUIPMENT_BY_BUILDING[buildingType]?.includes(equipment)) return;
+    if (equipment === 'at') return;                       // at yükseltilmiyor
+    const b = Object.values(v().villageBuildings).find(vb => vb.type === buildingType);
+    if (!b || b.level < 1) return;
+
+    const kuyruk = (v().upgradeQueues[buildingType] ||= []);
+    const mevcut = v().equipmentLevels?.[equipment] || 0;
+    const sirada = kuyruk.filter(o => o.type === equipment).length;
+    if (mevcut + sirada >= EQUIPMENT_MAX_LEVEL) {
+      socket.emit('build_refused', { reason: `${equipment} zaten en üst seviyede` });
+      return;
+    }
+    if (kuyruk.length >= 3) {
+      socket.emit('build_refused', { reason: 'Yükseltme kuyruğu dolu (en çok 3)' });
+      return;
+    }
+    kuyruk.push({
+      id: v().nextUpgradeId++, type: equipment,
+      waiting: true, waitingReason: null,
+      paid: false, paidLevel: null, startTime: null, endTime: null,
+    });
+    dirty(); emit();
+  });
+
+  /** Yükseltmeyi iptal et — ödenmişse o seviyenin bedeli TAM iade */
+  socket.on('cancel_equipment_upgrade', ({ buildingType, orderId }) => {
+    const kuyruk = v().upgradeQueues?.[buildingType];
+    if (!kuyruk) return;
+    const i = kuyruk.findIndex(o => o.id === orderId);
+    if (i < 0) return;
+    const job = kuyruk[i];
+    if (job.paid) {
+      const cost = equipmentUpgradeCost(job.paidLevel || 0);
+      for (const [res, amt] of Object.entries(cost)) {
+        v().resources[res] = (v().resources[res] || 0) + amt;
+      }
+    }
+    kuyruk.splice(i, 1);
+    dirty(); emit();
+  });
+
   socket.on('cancel_unit_order', ({ buildingType, orderId }) => {
     const queue = v().unitQueues?.[buildingType];
     if (!queue) return;
@@ -2085,8 +2195,19 @@ io.on('connection', async socket => {
     try {
       // `tag` aynen geri döner: aynı anda birden fazla ekran tahmin isteyebilir
       // (savaş simülatörü + saldırı ekranı), yanıtı kim istediyse o eşleştirsin.
-      const { attacker = {}, defender = {}, surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal', tag = null } = payload;
-      socket.emit('battle_result', { ok: true, tag, result: simulateBattle(attacker, defender, { surLevel, hendekLevel, kulePct, mode }) });
+      const { attacker = {}, defender = {}, surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal', tag = null,
+        attackerLevels = null, defenderLevels = null } = payload;
+      /**
+       * Simülatörde saldıran taraf oyuncunun kendisi sayılıyor: yükseltme
+       * verilmediyse KENDİ ekipman seviyeleri kullanılıyor, yoksa tahmin
+       * gerçek savaştan düşük çıkardı. Savunan taraf varsayılan Lvl 0 —
+       * hedefin yükseltmeleri bilinmiyor (keşif onu söylemiyor).
+       */
+      socket.emit('battle_result', { ok: true, tag, result: simulateBattle(attacker, defender, {
+        surLevel, hendekLevel, kulePct, mode,
+        attackerLevels: attackerLevels || v().equipmentLevels || null,
+        defenderLevels,
+      }) });
     } catch (err) {
       socket.emit('battle_result', { ok: false, tag: payload?.tag ?? null, error: err.message });
     }

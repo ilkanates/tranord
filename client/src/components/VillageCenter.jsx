@@ -2,6 +2,8 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import BuildMenu from './BuildMenu';
 import CapitalPanel from './CapitalPanel';
 import EquipmentPanel from './EquipmentPanel';
+import EquipmentUpgradePanel from './EquipmentUpgradePanel';
+import BuildingControls from './BuildingControls';
 import UnitTrainingPanel from './UnitTrainingPanel';
 import ResearchPanel from './ResearchPanel';
 import FestivalPanel from './FestivalPanel';
@@ -743,6 +745,10 @@ export default function VillageCenter({
    * de bunu okuyor — araştırılmamış birim kilitli görünsün.
    */
   research = {}, researchQueue = [], onResearchUnit, onCancelResearch,
+  /** Ekipman yükseltmeleri — silahçı/zırhçıda, orduya anında işler */
+  equipmentUpgrade = {}, upgradeQueues = {}, onUpgradeEquipment, onCancelEquipmentUpgrade,
+  /** Birimlerin yükseltmelerle güncel değerleri (sunucudan) */
+  unitStatsNow = {},
 }) {
   const [selected, setSelected] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -828,6 +834,16 @@ export default function VillageCenter({
       center: true,      // panel hep ekranın ortasında açılsın
     });
   }, [selected, showMenu, viewSize.w, viewSize.h, cx, cy, panelW, prefH, railInset]);
+
+  /**
+   * PANEL YÜKSEKLİĞİ SABİT.
+   *
+   * Önce içeriğe göre uzuyordu, sonra sığmayınca ölçekleniyordu: kuyruğa bir
+   * sipariş eklenince pencere büyüyor, biri bitince küçülüyordu — okurken
+   * yerinde durmayan bir panel. Artık yükseklik hep kutunun tamamı; içerik
+   * azken altta boşluk kalıyor, çokken İÇERİDE kayıyor. Pencere oynamıyor.
+   */
+  const fitMaxH = popoverPos?.maxH || prefH;
 
   function handleSlotClick(slotKey) {
     if (selected === slotKey) { setSelected(null); setShowMenu(false); }
@@ -1129,6 +1145,38 @@ export default function VillageCenter({
           // Rún Salonu: birim araştırma listesi
           const hasResearch = selectedBuilding?.level >= 1
             && !!VILLAGE_DEFS[selectedBuilding?.type]?.researches;
+          /**
+           * Kadro ve yükseltme görselin üstüne taşınınca, MEVCUT bir binada
+           * BuildMenu'nün gövdesinde çizilecek bir şey kalmıyor. Boş sütun
+           * açmayalım: alt sıra doğrudan üretim | yükseltme olsun.
+           */
+          const buildMenuBos = !!panelTex && !!selectedBuilding && !selectedBuilding.building;
+
+          /**
+           * AHIR: üretim kutusu tek satır (yalnız At) — altta koca bir
+           * bölüm açmaya değmiyor. Görselin üstünde, çalışan işçi kutusunun
+           * SOLUNA alınıyor. Silahçı/zırhçı 2 kart + havuz şeridi olduğu
+           * için onlar altta kalıyor.
+           */
+          const ahirUstte = hasEquipment && selectedBuilding.type === 'ahir' && !!panelTex;
+
+          const ekipmanUretimi = hasEquipment ? (
+            <EquipmentPanel
+              buildingType={selectedBuilding.type}
+              equipmentByBuilding={equipmentByBuilding}
+              equipmentDefs={equipmentDefs}
+              equipment={equipment}
+              equipmentCaps={equipmentCaps}
+              equipmentPool={equipmentPool}
+              queue={equipmentQueues[selectedBuilding.type] || []}
+              resources={resources}
+              buildingWorkers={selectedBuilding.workers || 0}
+              hourSeconds={hourSeconds} worldSpeed={worldSpeed}
+              onQueue={(type, qty) => onQueueEquipment(selectedBuilding.type, type, qty)}
+              onCancel={(orderId) => onCancelEquipment(selectedBuilding.type, orderId)}
+              compact={ahirUstte}
+            />
+          ) : null;
 
           /**
            * ARKA PLAN: görsel panelin tamamına yayılır ama KOYU bir gradyanla
@@ -1157,8 +1205,11 @@ export default function VillageCenter({
           } : {};
 
           return (
-          <div style={popoverStyle(popoverPos, { overflowY: 'auto', ...bgStyle })}
-            className="tn-rise tn-scroll">
+          <div style={popoverStyle(popoverPos, {
+            height: fitMaxH, overflow: 'hidden',
+            display: 'flex', flexDirection: 'column',
+            ...bgStyle,
+          })} className="tn-rise">
             {/* Görsel penceresi — panelin tepesinde bina net görünür */}
             {panelTex && (
               /**
@@ -1169,15 +1220,28 @@ export default function VillageCenter({
                */
               <div style={{
                 position: 'relative', width: '100%',
-                // video varsa 16:9 pencere + contain => HIC kirpilmaz; jpg'de genis banner
-                aspectRatio: panelVid ? '16 / 9' : '18 / 5',
+                /*
+                  GÖRSEL ARTAN YERİ DOLDURUR.
+                  Pencere yüksekliği sabit; gövde ne kadar yer bırakırsa
+                  görsel onu alıyor. Kuyruk boşken altta boşluk kalmıyor,
+                  kuyruk uzayınca görsel kırpılıyor — arayüz hiç küçülmüyor.
+                  En az 150 px: bina tanınmaz hâle gelmesin.
+                */
+                flex: '1 1 auto', minHeight: 150,
                 backgroundColor: '#0b1420',
-                flexShrink: 0, overflow: 'hidden',
+                overflow: 'hidden',
               }}>
                 {panelVid ? (
+                  /*
+                    Videolar KARE (1:1) çekildi. 16:9 pencerede `contain` ile
+                    iki yanda geniş siyah bant kalıyordu — resim küçük duruyor.
+                    `cover` pencereyi tam dolduruyor; kırpma dikeyde oluyor ve
+                    binanın gövdesi kadrajda kalsın diye odak biraz yukarıda.
+                  */
                   <video src={panelVid} poster={panelTex} autoPlay muted loop playsInline
                     style={{
-                      width: '100%', height: '100%', objectFit: 'contain', display: 'block',
+                      width: '100%', height: '100%', objectFit: 'cover',
+                      objectPosition: '50% 42%', display: 'block',
                       backgroundColor: '#0b1420',
                     }} />
                 ) : (
@@ -1236,8 +1300,48 @@ export default function VillageCenter({
                   </button>
                 </div>
 
+                {/*
+                  SAĞ ALT: kadro + yükseltme denetimleri.
+                  Panelin gövdesindeydiler; en sık dokunulan iki denetim
+                  olmalarına rağmen kaydırmadan görünmüyorlardı.
+                */}
+                {selectedBuilding && !selectedBuilding.building && (
+                  <div style={{
+                    position: 'absolute', right: 12, bottom: 10, zIndex: 3,
+                    maxWidth: ahirUstte ? 'min(82%, 500px)' : 'min(64%, 400px)',
+                    display: 'flex', alignItems: 'flex-end',
+                    justifyContent: 'flex-end', gap: 9,
+                  }}>
+                    {/* Ahırda üretim kutusu kadronun SOLUNDA */}
+                    {ahirUstte && (
+                      <div style={{ minWidth: 0, flex: '0 0 auto', width: 296 }}>
+                        {ekipmanUretimi}
+                      </div>
+                    )}
+                    {/*
+                      Ahırda denetimler 168 px'lik tek sütuna sıkışıp alt alta
+                      diziliyor; sarmalayıcı da tam o genişlikte olsun ki
+                      üretim kutusuyla arasında boşluk kalmasın (kutu sağa
+                      yaslı dursun, ortada asılı kalmasın).
+                    */}
+                    <div style={{ flex: '0 0 auto', width: ahirUstte ? 168 : undefined }}>
+                    <BuildingControls
+                      building={selectedBuilding}
+                      freeWorkers={freeWorkers}
+                      resources={resources}
+                      flows={flows}
+                      hourSeconds={hourSeconds} worldSpeed={worldSpeed}
+                      onAssignVillageWorkers={(w) => onAssignVillageWorkers(selected, w)}
+                      onUpgrade={(w) => {
+                        onUpgrade(selected, w);
+                        setShowMenu(false); setSelected(null);
+                      }} />
+                    </div>
+                  </div>
+                )}
+
                 {/* Sol alt: bina adı + seviye, görselin üstünde */}
-                <div style={{ position: 'absolute', left: 13, right: 13, bottom: 9, zIndex: 2 }}>
+                <div style={{ position: 'absolute', left: 13, right: 200, bottom: 9, zIndex: 2 }}>
                   <div style={{
                     fontFamily: FONT.head, fontSize: 25, fontWeight: 600, letterSpacing: 1.1,
                     color: C.frost, lineHeight: 1.1, textShadow: '0 2px 8px rgba(0,0,0,0.95)',
@@ -1255,7 +1359,17 @@ export default function VillageCenter({
               </div>
             )}
 
-            <div style={{ ...glass, display: 'flex', flexDirection: 'column' }}>
+            <div className="tn-scroll" style={{
+              ...glass, display: 'flex', flexDirection: 'column',
+              /*
+                Gövde KENDİ boyunda durur (flex-shrink 0). Eskiden hem %62
+                sınırı hem de esneme vardı: gövde birkaç piksel sıkışıyor ve
+                sağda gereksiz kaydırma çubuğu çıkıyordu. Tavan "panel−150":
+                görsele her hâlde en az 150 px kalır, kaydırma yalnız
+                gerçekten sığmayan binalarda görünür.
+              */
+              flex: '0 0 auto', maxHeight: 'calc(100% - 150px)', overflowY: 'auto',
+            }}>
 
             {/* SIRA: bina gorseli -> savascilar -> isci/yukseltme + ekipman */}
             {hasCapital && (
@@ -1314,6 +1428,7 @@ export default function VillageCenter({
                   freeWorkers={freeWorkers}
                   trainerWorkers={selectedBuilding.workers || 0}
                   research={research}
+                  unitStatsNow={unitStatsNow}
                   hourSeconds={hourSeconds} worldSpeed={worldSpeed}
                   onTrain={(type, qty) => onTrainUnit(selectedBuilding.type, type, qty)}
                   onCancel={(orderId) => onCancelUnitOrder(selectedBuilding.type, orderId)}
@@ -1323,12 +1438,13 @@ export default function VillageCenter({
 
             <div style={{
               order: 2, display: 'grid',
-              gridTemplateColumns: hasEquipment ? '1fr 1fr' : '1fr',
+              gridTemplateColumns: (hasEquipment || !buildMenuBos) ? '1fr 1fr' : '1fr',
               alignItems: 'start',
             }}>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, display: buildMenuBos ? 'none' : 'block' }}>
             <BuildMenu
               posterHeader={!!panelTex}
+              controlsInHeader={!!panelTex}
               onOpenHelp={onOpenHelp}
               uniqueOwners={uniqueOwners}
               villages={villages}
@@ -1353,23 +1469,30 @@ export default function VillageCenter({
             />
             </div>
 
+            {/* Üretim ve yükseltme YAN YANA — ikisi alt alta olunca panel uzuyordu */}
+            <div style={{ minWidth: 0 }}>
+            {ekipmanUretimi && !ahirUstte && (
+              <div style={{ padding: '0 10px 8px' }}>{ekipmanUretimi}</div>
+            )}
+            </div>
+
             <div style={{ minWidth: 0 }}>
             {selectedBuilding && EQUIPMENT_BUILDINGS.has(selectedBuilding.type)
               && selectedBuilding.level >= 1 && (
-              <div style={{ padding: '0 12px 12px' }}>
-                <EquipmentPanel
+              <div style={{ padding: '0 10px 8px' }}>
+                {/* Ahırda yükseltme yok: at bir alet değil */}
+                <EquipmentUpgradePanel
                   buildingType={selectedBuilding.type}
                   equipmentByBuilding={equipmentByBuilding}
                   equipmentDefs={equipmentDefs}
-                  equipment={equipment}
-                  equipmentCaps={equipmentCaps}
-                  equipmentPool={equipmentPool}
-                  queue={equipmentQueues[selectedBuilding.type] || []}
+                  equipmentUpgrade={equipmentUpgrade}
+                  queue={upgradeQueues[selectedBuilding.type] || []}
                   resources={resources}
+                  flows={flows}
                   buildingWorkers={selectedBuilding.workers || 0}
                   hourSeconds={hourSeconds} worldSpeed={worldSpeed}
-                  onQueue={(type, qty) => onQueueEquipment(selectedBuilding.type, type, qty)}
-                  onCancel={(orderId) => onCancelEquipment(selectedBuilding.type, orderId)}
+                  onUpgrade={(eq) => onUpgradeEquipment?.(selectedBuilding.type, eq)}
+                  onCancel={(orderId) => onCancelEquipmentUpgrade?.(selectedBuilding.type, orderId)}
                 />
               </div>
             )}

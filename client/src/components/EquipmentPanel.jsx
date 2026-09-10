@@ -14,6 +14,7 @@ export default function EquipmentPanel({
   queue = [], resources = {}, buildingWorkers = 0,
   onQueue, onCancel,
   hourSeconds = 3600, worldSpeed = 1,
+  compact = false,
 }) {
   const allowed = equipmentByBuilding[buildingType] || [];
   const [qty, setQty] = useState(() => Object.fromEntries(allowed.map(k => [k, 1])));
@@ -33,14 +34,14 @@ export default function EquipmentPanel({
   }
 
   return (
-    <PanelShell icon="cephane" title="Ekipman üretimi"
+    <PanelShell icon="cephane" title="Ekipman üretimi" compact={compact}
       note={<WorkerNote workers={buildingWorkers}
         warn="Bu binada işçi yok — sipariş kuyruğa girer ama üretim başlamaz."
         ok={`${buildingWorkers} işçi · süre = temel ÷ ${buildingWorkers}`} />}
       status={allowed.some(k => k !== 'at') ? (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
-          padding: '4px 7px', borderRadius: 4, marginBottom: 8,
+          padding: '3px 7px', borderRadius: 4, marginBottom: 6,
           background: poolFull ? 'rgba(255,111,120,0.1)' : 'rgba(12,20,28,0.5)',
           border: `1px solid ${poolFull ? 'rgba(255,111,120,0.35)' : C.lineSoft}`,
         }}>
@@ -57,7 +58,7 @@ export default function EquipmentPanel({
         </div>
       ) : null}>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {allowed.map(eq => {
           const def = equipmentDefs[eq];
           if (!def) return null;
@@ -75,58 +76,67 @@ export default function EquipmentPanel({
           const ready = afford && !full;
 
           return (
+            /*
+              KOMPAKT KART: üç satır (başlık / maliyet / sipariş) iki satıra
+              indi. Kaynak adları ("Kereste", "Külçe Demir") ipucuna taşındı —
+              simge zaten hangi kaynak olduğunu söylüyor ve panel dar.
+            */
             <div key={eq} style={{
-              padding: '7px 8px', borderRadius: 5,
+              padding: '5px 7px', borderRadius: 5,
               background: 'rgba(8,17,28,0.6)',
               border: `1px solid ${full ? 'rgba(232,99,111,0.35)' : C.lineSoft}`,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                <Icon name={eq} size={17} color={full ? C.dangerDim : C.iceSoft} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: FONT.ui, fontSize: 10.5, fontWeight: 500, color: C.text }}>
-                    {EQ_LABEL[eq] || def.name}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
-                    <span style={num({ fontSize: 9.5, color: full ? C.danger : C.textFaint })}>
-                      {isHorse ? `stok ${stock}/${cap}` : `stok ${stock}`}
-                    </span>
-                    {full && (
-                      <span style={{ fontFamily: FONT.ui, fontSize: 9, color: C.danger }}>DOLU</span>
-                    )}
-                    <span style={num({ fontSize: 9.5, color: C.iceDeep, marginLeft: 'auto' })}>
-                      {fmtTime(secs)}{buildingWorkers > 1 ? ` (${buildingWorkers}×)` : ''}
-                    </span>
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Icon name={eq} size={14} color={full ? C.dangerDim : C.iceSoft} />
+                <span style={{ fontFamily: FONT.ui, fontSize: 10.5, fontWeight: 500, color: C.text }}>
+                  {EQ_LABEL[eq] || def.name}
+                </span>
+                <span style={num({ fontSize: 9, color: full ? C.danger : C.textFaint })}>
+                  {isHorse ? `${stock}/${cap}` : stock}
+                </span>
+                {full && (
+                  <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.danger }}>DOLU</span>
+                )}
+                <span style={num({ fontSize: 9, color: C.iceDeep, marginLeft: 'auto' })}
+                  title={buildingWorkers > 1 ? `${buildingWorkers} işçiyle` : undefined}>
+                  {fmtTime(secs)}
+                </span>
+              </div>
+
+              {/*
+                compact: sütun dar — maliyet çipleri ile adet/sipariş aynı
+                satıra sığmıyor, üst üste biniyorlardı. Dar modda çipler
+                kendi satırında duruyor.
+              */}
+              <div style={{
+                display: 'flex', gap: 6,
+                flexDirection: compact ? 'column' : 'row',
+                alignItems: compact ? 'stretch' : 'center',
+              }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+                  {Object.entries(def.cost).map(([r, a]) => {
+                    const need = a * q;
+                    const ok = (resources[r] || 0) >= need;
+                    return (
+                      <span key={r} title={`${RES_LABEL[r] || r}: ${need}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        <Icon name={r} size={10} color={ok ? RES_COLOR[r] : C.dangerDim} />
+                        <span style={num({ fontSize: 9.5, color: ok ? C.textDim : C.danger })}>
+                          {need}
+                        </span>
+                      </span>
+                    );
+                  })}
                 </div>
-              </div>
-
-              {/* Maliyet */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                {Object.entries(def.cost).map(([r, a]) => {
-                  const need = a * q;
-                  const ok = (resources[r] || 0) >= need;
-                  return (
-                    <span key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                      <Icon name={r} size={11} color={ok ? RES_COLOR[r] : C.dangerDim} />
-                      <span style={num({ fontSize: 9.5, color: ok ? C.textDim : C.danger })}>
-                        {need}
-                      </span>
-                      <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute }}>
-                        {RES_LABEL[r] || r}
-                      </span>
-                    </span>
-                  );
-                })}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Qty value={q} onChange={(n) => setQty(s => ({ ...s, [eq]: n }))} />
-                <OrderButton disabled={!ready} onClick={() => onQueue(eq, q)}
-                  title={full
-                    ? (isHorse ? 'Ahır dolu — yükselt' : 'Ekipman havuzu dolu — cephaneliği yükselt ya da asker eğit')
-                    : !afford ? 'Yetersiz kaynak' : 'Kuyruğa ekle'}>
-                  SİPARİŞ
-                </OrderButton>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                  <Qty value={q} onChange={(n) => setQty(s => ({ ...s, [eq]: n }))} />
+                  <OrderButton disabled={!ready} onClick={() => onQueue(eq, q)}
+                    title={full
+                      ? (isHorse ? 'Ahır dolu — yükselt' : 'Ekipman havuzu dolu — cephaneliği yükselt ya da asker eğit')
+                      : !afford ? 'Yetersiz kaynak' : 'Kuyruğa ekle'}>
+                    SİPARİŞ
+                  </OrderButton>
+                </div>
               </div>
             </div>
           );
@@ -137,6 +147,8 @@ export default function EquipmentPanel({
         <QueueList queue={queue}
           nameOf={(o) => EQ_LABEL[o.type] || equipmentDefs[o.type]?.name || o.type}
           iconOf={(o) => o.type}
+          boxHeight={compact ? 68 : undefined}
+          compact={compact}
           onCancel={onCancel} />
       </div>
     </PanelShell>

@@ -42,7 +42,7 @@ function Satir({
 
   return (
     <div style={{
-      display: 'flex', gap: 8, padding: 7, borderRadius: 6,
+      display: 'flex', gap: 7, padding: 6, borderRadius: 6,
       background: acik ? 'rgba(108,221,163,0.07)' : 'rgba(8,17,28,0.55)',
       border: `1px solid ${acik ? 'rgba(108,221,163,0.32)'
         : seviyeTamam ? C.lineSoft : 'rgba(224,179,87,0.28)'}`,
@@ -50,7 +50,7 @@ function Satir({
     }}>
       {/* Görsel */}
       <div style={{
-        flexShrink: 0, width: 40, height: 56, borderRadius: 4, overflow: 'hidden',
+        flexShrink: 0, width: 32, height: 44, borderRadius: 4, overflow: 'hidden',
         background: '#0b1420', display: 'grid', placeItems: 'center',
       }}>
         {img ? (
@@ -86,18 +86,15 @@ function Satir({
           </div>
         ) : (
           <>
-            <div style={{ marginTop: 4 }}>
-              <CostRow cost={ar.cost} resources={resources} flows={flows}
-                hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
-            </div>
-            <div style={{
-              marginTop: 5, display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <span style={num({ fontSize: 9.5, color: C.textFaint })}>
+            {/* Maliyet · süre · düğme tek satırda — panel aşağı uzamasın */}
+            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <CostRow cost={ar.cost} resources={resources} flows={flows}
+                  hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
+              </div>
+              <span style={num({ fontSize: 9.5, color: C.textFaint, flexShrink: 0 })}
+                title={arastirmaci > 1 ? `${arastirmaci} araştırmacıyla` : undefined}>
                 {fmtTime(sure)}
-                {arastirmaci > 1 && (
-                  <span style={{ color: C.textMute }}> · {arastirmaci} araştırmacı</span>
-                )}
               </span>
               <button type="button"
                 disabled={!basilabilir}
@@ -108,7 +105,7 @@ function Satir({
                       : 'Kaynak yetmiyor — yine de sıraya alınır, sırası gelince ödenir'}
                 onClick={() => onResearch?.(tip)}
                 style={btn(basilabilir ? (kaynakTamam ? 'primary' : 'ghost') : 'disabled', {
-                  marginLeft: 'auto', padding: '4px 12px', fontSize: 9.5, letterSpacing: 0.8,
+                  flexShrink: 0, padding: '4px 11px', fontSize: 9.5, letterSpacing: 0.8,
                 })}>
                 {sirada ? 'KUYRUKTA' : 'ARAŞTIR'}
               </button>
@@ -169,7 +166,10 @@ export default function ResearchPanel({
 
       {/* Kuyruk — yalnız doluyken yer kaplasın */}
       {queue.length > 0 && (
-        <div style={{ marginBottom: 9, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="tn-scroll" style={{
+          marginBottom: 9, display: 'flex', flexDirection: 'column', gap: 4,
+          maxHeight: 120, overflowY: 'auto', paddingRight: 2,
+        }}>
           {queue.map((o, i) => {
             const aktif = i === 0 && !o.waiting;
             return (

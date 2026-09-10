@@ -35,6 +35,8 @@ function UnitCard({
   u, def, color, img, qty, setQty, equipment, equipmentDefs,
   freeWorkers, trainerWorkers, onTrain, onOpen,
   buildingLevel = 0, buildingName = 'Bina', arastirildi = true,
+  /** Ekipman yükseltmeleriyle GÜNCEL değerler; yoksa tanımdakiler */
+  guncelStats = null,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
   const eqList = def.equipment || [];
@@ -57,6 +59,13 @@ function UnitCard({
   const kilitli = seviyeKilidi || arastirmaKilidi;
   const ready = !kilitli && eqOk && workerOk && trainerOk;
   const secs = gameMinutesToRealSeconds(effMinutes(def, trainerWorkers), hourSeconds, worldSpeed);
+  /**
+   * Kartta YÜKSELTİLMİŞ değer gösteriliyor: oyuncu silahçıya yatırım yapınca
+   * kışlada karşılığını görmeli. Sunucu bunu köyün seviyeleriyle hesaplayıp
+   * gönderiyor (`unitStatsNow`); gelmezse tanımdaki değere düşülüyor.
+   */
+  const st = guncelStats || def.stats;
+  const yukseltilmis = !!guncelStats && Math.round(st.saldiri) !== Math.round(def.stats?.saldiri ?? 0);
   const cav = def.category === 'suvari';
 
   const [hov, setHov] = useState(false);
@@ -156,8 +165,9 @@ function UnitCard({
         }}>{def.name || u}</div>
 
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          <Stat icon="kilic" value={def.stats?.saldiri ?? '—'} color={C.danger} title="Saldırı" />
-          <Stat icon="kalkan" value={`${def.stats?.yayaSav ?? '—'}/${def.stats?.atliSav ?? '—'}`}
+          <Stat icon="kilic" value={Math.round(st?.saldiri ?? 0) || '—'} color={C.danger}
+            title={yukseltilmis ? `Saldırı (yükseltmelerle; temel ${def.stats?.saldiri})` : 'Saldırı'} />
+          <Stat icon="kalkan" value={`${Math.round(st?.yayaSav ?? 0)}/${Math.round(st?.atliSav ?? 0)}`}
             color={C.good} title="Yaya / atlı savunma" />
           <Stat icon="hiz" value={def.stats?.hiz ?? '—'} color={C.iceDeep} title="Hız" />
         </div>
@@ -187,7 +197,7 @@ export default function UnitTrainingPanel({
   buildingType, buildingLevel = 0, buildingName = 'Bina',
   unitsByBuilding = {}, unitDefs = {}, equipmentDefs = {},
   equipment = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
-  research = {},
+  research = {}, unitStatsNow = {},
   onTrain, onCancel,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
@@ -262,6 +272,7 @@ export default function UnitTrainingPanel({
               freeWorkers={freeWorkers} trainerWorkers={trainerWorkers}
               buildingLevel={buildingLevel} buildingName={buildingName}
               arastirildi={!unitDefs[u]?.research || !!research[u]}
+              guncelStats={unitStatsNow[u] || null}
               hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               onTrain={onTrain} onOpen={() => setDetail(u)} />
           );

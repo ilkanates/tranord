@@ -1,0 +1,327 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>TraNord — köy: haritaya oturan altıgen</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#050a12; color:#cfe0ee; font-family: Jost, system-ui, sans-serif; }
+  .wrap { display:flex; height:100vh; }
+  .stage { flex:1; display:grid; place-items:center; overflow:hidden;
+           perspective:1700px; perspective-origin:50% 34%; }
+  svg { width:min(100%, 97vh); height:auto; aspect-ratio:1/1; transform-style:preserve-3d; }
+  .panel { width:258px; padding:16px 15px; background:rgba(10,20,32,.82);
+           border-left:1px solid rgba(140,180,220,.18); overflow-y:auto; }
+  h1 { font-family:'Cormorant Garamond',Georgia,serif; font-size:18px; letter-spacing:1px;
+       margin:0 0 4px; color:#dfeaf5; font-weight:600; }
+  .sub { font-size:10px; color:#6f8497; margin-bottom:8px; line-height:1.5; }
+  label { display:block; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase;
+          color:#7f95a8; margin:12px 0 3px; }
+  input[type=range] { width:100%; }
+  .val { font-family:ui-monospace,monospace; font-size:11.5px; color:#8fbcff; }
+  .row { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+  button { background:rgba(31,77,112,.45); color:#cfe0ee; border:1px solid rgba(140,180,220,.28);
+           border-radius:5px; padding:6px 9px; font-size:10.5px; cursor:pointer; font-family:inherit; }
+  button.on { background:rgba(143,188,255,.32); border-color:#8fbcff; color:#eaf4ff; }
+  .desc { margin-top:10px; padding:9px 10px; border-radius:6px; background:rgba(8,16,26,.7);
+          border:1px solid rgba(140,180,220,.14); font-size:10.5px; line-height:1.6; color:#9fb4c8; }
+</style>
+<div class="wrap">
+  <div class="stage"><svg id="svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div class="panel">
+    <h1>Köy · haritaya oturan altıgen</h1>
+    <div class="sub">Köy TEK dünya hex'i; tarlalar onun komşuları, aynı ölçekte ve kenarına değiyor. Çerçeve onları kırpıyor — haritanın yakınlaştırılmış hâli.</div>
+
+    <label>Çerçeve genişliği <span class="val" id="vZoom">1.62</span></label>
+    <input type="range" id="zoom" min="120" max="240" value="162">
+    <label>Yol genişliği <span class="val" id="vRoad">11</span></label>
+    <input type="range" id="road" min="0" max="24" value="11">
+    <label>Bina karo boyu <span class="val" id="vTile">0.86</span></label>
+    <input type="range" id="tile" min="60" max="100" value="86">
+    <label>Sur seviyesi <span class="val" id="vSur">6</span></label>
+    <input type="range" id="sur" min="0" max="20" value="6">
+    <label>Hendek seviyesi <span class="val" id="vHen">3</span></label>
+    <input type="range" id="hen" min="0" max="20" value="3">
+
+    <label>Görünüm</label>
+    <div class="row">
+      <button id="tTilt" class="on">Eğim</button>
+      <button id="tFields" class="on">Tarlalar</button>
+      <button id="tDeco" class="on">Dekor</button>
+      <button id="tImg" class="on">Bina görselleri</button>
+      <button id="tGrid">Izgara</button>
+    </div>
+    <div class="desc" id="info"></div>
+  </div>
+</div>
+<script>
+// ── GERÇEK VERİ ─────────────────────────────────────────────────────
+const VB = {"0,0":{"t":"anaBina","l":10},"1,0":{"t":"keresteci","l":2},"0,1":{"t":"tuglaci","l":2},"-1,1":{"t":"tasci","l":2},"-1,0":{"t":"demirci","l":2},"0,-1":{"t":"degirmen","l":8},"1,-1":{"t":"firin","l":8},"-2,0":{"t":"zirh","l":1},"-1,-1":{"t":"silahci","l":3},"-2,2":{"t":"ev","l":5},"-1,2":{"t":"ev","l":5},"1,1":{"t":"islenmisMalDepo","l":14},"2,-2":{"t":"ahir","l":8},"2,0":{"t":"tahilAmbar","l":12},"3,-1":{"t":"granary","l":13},"3,-2":{"t":"hammaddeDepo","l":13},"-3,1":{"t":"cephane","l":2},"-3,0":{"t":"atolye","l":1},"-2,-1":{"t":"saglikCadiri","l":2},"1,-3":{"t":"loncaDemir","l":1},"1,-2":{"t":"kisla","l":4},"3,0":{"t":"loncaOdun","l":4},"2,1":{"t":"loncaTas","l":4},"1,2":{"t":"loncaKil","l":3},"0,3":{"t":"loncaTahil","l":2},"-3,2":{"t":"ev","l":3},"-1,3":{"t":"pazar","l":1}};
+const KULE = { 1:1, 2:1, 3:1, 4:1, 6:1 };
+/** Köyün komşu dünya hex'leri = ring-1 üretim tarlaları.
+ *  dir = kenar normali yönü (60·dir derece), haritadaki yerleşimle aynı. */
+const FIELDS = [
+  { dir:0, t:'odun',  l:4, w:4 },
+  { dir:5, t:'kil',   l:4, w:4 },
+  { dir:4, t:'tas',   l:4, w:4 },
+  { dir:3, t:'demir', l:4, w:4 },
+  { dir:2, t:'tahil', l:5, w:6 },
+  { dir:1, t:'tahil', l:5, w:6 },
+];
+const RES_COLOR = { odun:'#6f9c4a', kil:'#c07a44', tas:'#9aa4ad', demir:'#7d95b8', tahil:'#d9b64c' };
+const RES_AD = { odun:'Odun', kil:'Kil', tas:'Taş', demir:'Demir', tahil:'Tahıl' };
+const IMG = t => `/src/assets/buildings/${t}.jpg`;
+
+const SQRT3 = Math.sqrt(3), CX = 500, CY = 500;
+const RING1 = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const RING2 = [[2,0],[2,-1],[2,-2],[1,-2],[0,-2],[-1,-1],[-2,0],[-2,1],[-2,2],[-1,2],[0,2],[1,1]];
+const RING3 = [[3,0],[3,-1],[3,-2],[3,-3],[2,-3],[1,-3],[0,-3],[-1,-2],[-2,-1],[-3,0],[-3,1],
+               [-3,2],[-3,3],[-2,3],[-1,3],[0,3],[1,2],[2,1]];
+const ALL = [[0,0], ...RING1, ...RING2, ...RING3];
+
+/**
+ * ÖLÇÜ ZİNCİRİ (hepsi köy altıgeninin yarıçapı RV'den türer):
+ *   • iç ızgaranın en dış hex köşesi, kenar normali yönünde 5.50·S'e dayanır
+ *   • altıgenin kenar mesafesi RV·cos30
+ *   → ızgara sığsın diye  S = RV·cos30 / 5.90  (0.40·S pay bırakır)
+ *   • komşu tarlalar aynı ölçekte: merkezleri √3·RV uzakta, kenarlar birbirine DEĞER
+ */
+const st = { zoom:1.62, roadW:11, tile:0.86, sur:6, hen:3,
+             tilt:true, fields:true, deco:true, img:true, grid:false };
+
+const hexPts = (x,y,r,rot=0) => Array.from({length:6},(_,i)=>{
+  const a=(Math.PI/3)*i + rot; return [x+r*Math.cos(a), y+r*Math.sin(a)];
+});
+const pts = a => a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+const lerp = (a,b,t)=>[a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
+// Köşeleri 30+60k olan altıgen (düz-tepe hex kümesini saran yön)
+const bigHex = (R,cx=CX,cy=CY) => hexPts(cx,cy,R,Math.PI/6);
+// Deterministik ufak rastgelelik (dekor yerleşimi sabit kalsın)
+const rnd = (i,s=1) => { const x=Math.sin(i*127.1+s*311.7)*43758.5453; return x-Math.floor(x); };
+
+function draw() {
+  const RV = 500 / st.zoom;                       // köy altıgeni yarıçapı
+  const S  = RV * Math.cos(Math.PI/6) / 5.90;     // iç hex ölçeği (ızgara sığar)
+  const P  = (q,r) => ({ x: CX + S*1.5*q, y: CY + S*((SQRT3/2)*q + SQRT3*r) });
+  const thick = (0.16 + Math.min(20,st.sur)*0.010) * S * 1.15;
+  const band  = (0.26 + Math.min(20,st.hen)*0.010) * S;
+  const BERM  = 0.10 * S;
+  const VH    = bigHex(RV);                        // köyün dünya hex sınırı
+  const mOut  = bigHex(RV - 2);                    // hendek dış (sınırın hemen içi)
+  const mIn   = bigHex(RV - 2 - band);
+  const WALL  = bigHex(RV - 2 - band - BERM - thick/2);
+  const gateEdge = 1;
+  const TR = st.tile * S;
+  let g = '';
+
+  g += `<defs>
+    <radialGradient id="grd" cx="50%" cy="50%" r="66%">
+      <stop offset="0%" stop-color="#3e5733" stop-opacity=".97"/>
+      <stop offset="100%" stop-color="#1e2d19" stop-opacity=".85"/>
+    </radialGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#12384d"/><stop offset="100%" stop-color="#071a26"/>
+    </linearGradient>
+    <pattern id="tex" patternUnits="userSpaceOnUse" width="${(1.4*S).toFixed(0)}" height="${(1.4*S).toFixed(0)}">
+      <image href="/src/assets/buildings/sur-doku.jpg" x="0" y="0"
+        width="${(1.4*S).toFixed(0)}" height="${(1.4*S).toFixed(0)}" preserveAspectRatio="none"/>
+    </pattern>
+  </defs>`;
+
+  // ── KOMŞU DÜNYA HEX'LERİ: aynı ölçek, kenara DEĞİYOR, çerçeve kırpıyor ──
+  if (st.fields) {
+    FIELDS.forEach((f,fi) => {
+      const a = (Math.PI/180)*(60*f.dir);
+      const d = SQRT3 * RV;                       // komşu hex merkezi
+      const fx = CX + d*Math.cos(a), fy = CY + d*Math.sin(a);
+      const hp = bigHex(RV, fx, fy);
+      const col = RES_COLOR[f.t];
+      g += `<polygon points="${pts(hp)}" fill="${col}" fill-opacity=".17"/>`;
+      g += `<polygon points="${pts(hp)}" fill="none" stroke="${col}" stroke-width="2" stroke-opacity=".55"/>`;
+      // Tarla dokusu: sıra sıra ekim çizgileri (yalnız köye bakan yarıda görünür)
+      for (let k=-6;k<=6;k++) {
+        const t=k/13;
+        const p1=[fx + RV*0.86*Math.cos(a+Math.PI/2)*1 + RV*t*Math.cos(a),
+                  fy + RV*0.86*Math.sin(a+Math.PI/2)*1 + RV*t*Math.sin(a)];
+        const p2=[fx - RV*0.86*Math.cos(a+Math.PI/2)*1 + RV*t*Math.cos(a),
+                  fy - RV*0.86*Math.sin(a+Math.PI/2)*1 + RV*t*Math.sin(a)];
+        g += `<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}" x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}"
+                 stroke="${col}" stroke-opacity=".13" stroke-width="${(RV*0.035).toFixed(1)}"/>`;
+      }
+      // Etiket: köye bakan kenarın hemen dışında
+      const lx = CX + (d - RV*0.62)*Math.cos(a), ly = CY + (d - RV*0.62)*Math.sin(a);
+      g += `<g>
+        <rect x="${(lx-44).toFixed(1)}" y="${(ly-13).toFixed(1)}" width="88" height="26" rx="6"
+          fill="rgba(6,12,20,.72)" stroke="${col}" stroke-opacity=".5" stroke-width="1"/>
+        <circle cx="${(lx-30).toFixed(1)}" cy="${ly.toFixed(1)}" r="6" fill="${col}" fill-opacity=".85"/>
+        <text x="${(lx+6).toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="middle"
+          font-family="Jost,system-ui" font-size="12" fill="#e8f2fb">${RES_AD[f.t]} ${f.l}</text>
+      </g>`;
+    });
+  }
+
+  // ── KÖY ZEMİNİ ──
+  g += `<polygon points="${pts(VH)}" fill="url(#grd)"/>`;
+  g += `<polygon points="${pts(VH)}" fill="none" stroke="rgba(215,232,248,.22)" stroke-width="2"/>`;
+
+  // ── HENDEK (sınırın hemen içinde, surun dışında) ──
+  if (st.hen > 0) {
+    g += `<path d="M${pts(mOut).replace(/ /g,'L')}Z M${pts(mIn).replace(/ /g,'L')}Z"
+             fill="url(#water)" fill-rule="evenodd" opacity=".95"/>`;
+    g += `<polygon points="${pts(mIn)}" fill="none" stroke="rgba(150,210,240,.3)" stroke-width="1.4"/>`;
+  }
+
+  // ── DEKOR: ızgara ile sur arasındaki ceplere ağaç/kaya ──
+  if (st.deco) {
+    const inner = RV - 2 - band - BERM - thick;      // surun iç yüzü
+    const tree = (x,y,s,i) => {
+      const c1 = i%3===0 ? '#4d6b46' : '#3f5c3c';
+      return `<g opacity=".95">
+        <ellipse cx="${x}" cy="${(y+s*0.9).toFixed(1)}" rx="${(s*0.7).toFixed(1)}" ry="${(s*0.22).toFixed(1)}" fill="rgba(6,12,20,.35)"/>
+        <rect x="${(x-s*0.09).toFixed(1)}" y="${(y+s*0.35).toFixed(1)}" width="${(s*0.18).toFixed(1)}" height="${(s*0.5).toFixed(1)}" fill="#3a2b1e"/>
+        <polygon points="${x},${(y-s).toFixed(1)} ${(x+s*0.62).toFixed(1)},${(y+s*0.45).toFixed(1)} ${(x-s*0.62).toFixed(1)},${(y+s*0.45).toFixed(1)}" fill="${c1}"/>
+        <polygon points="${x},${(y-s*0.55).toFixed(1)} ${(x+s*0.4).toFixed(1)},${(y+s*0.05).toFixed(1)} ${(x-s*0.4).toFixed(1)},${(y+s*0.05).toFixed(1)}" fill="#e8f2fb" fill-opacity=".28"/>
+      </g>`;
+    };
+    const rock = (x,y,s) => `<g>
+      <ellipse cx="${x}" cy="${(y+s*0.5).toFixed(1)}" rx="${(s*0.8).toFixed(1)}" ry="${(s*0.25).toFixed(1)}" fill="rgba(6,12,20,.3)"/>
+      <polygon points="${(x-s*0.8).toFixed(1)},${(y+s*0.4).toFixed(1)} ${(x-s*0.35).toFixed(1)},${(y-s*0.5).toFixed(1)} ${(x+s*0.3).toFixed(1)},${(y-s*0.6).toFixed(1)} ${(x+s*0.8).toFixed(1)},${(y+s*0.4).toFixed(1)}"
+        fill="#5d6570"/>
+      <polygon points="${(x-s*0.35).toFixed(1)},${(y-s*0.5).toFixed(1)} ${(x+s*0.3).toFixed(1)},${(y-s*0.6).toFixed(1)} ${(x+s*0.1).toFixed(1)},${(y-s*0.2).toFixed(1)}"
+        fill="#e8f2fb" fill-opacity=".3"/>
+    </g>`;
+    // Altı köşe cebi + kenar ortaları
+    for (let k=0;k<6;k++) {
+      const ang = (Math.PI/180)*(30+60*k);          // köşe yönü — en geniş cep
+      for (let j=0;j<3;j++) {
+        const rr = inner * (0.80 + 0.13*rnd(k*7+j));
+        const sp = ang + (rnd(k*13+j,2)-0.5)*0.30;
+        const x = CX + rr*Math.cos(sp), y = CY + rr*Math.sin(sp);
+        g += (k+j)%4===0 ? rock(x,y,S*0.20) : tree(x,y,S*0.26,k+j);
+      }
+    }
+  }
+
+  // ── YOLLAR: hex kenarları boyunca (binaların arası) ──
+  if (st.roadW > 0) {
+    const seen = new Set(), segs = [];
+    for (const [q,r] of ALL) {
+      const c = P(q,r);
+      for (let i=0;i<6;i++) {
+        const a1=(Math.PI/3)*i, a2=(Math.PI/3)*((i+1)%6);
+        const p1=[c.x+S*Math.cos(a1), c.y+S*Math.sin(a1)];
+        const p2=[c.x+S*Math.cos(a2), c.y+S*Math.sin(a2)];
+        const k=`${((p1[0]+p2[0])/2).toFixed(0)}_${((p1[1]+p2[1])/2).toFixed(0)}`;
+        if (seen.has(k)) continue;
+        seen.add(k); segs.push([p1,p2]);
+      }
+    }
+    const line=(p1,p2,c,w)=>`<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}"
+       x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
+    for (const [p1,p2] of segs) g += line(p1,p2,'#241d13', st.roadW+4);
+    for (const [p1,p2] of segs) g += line(p1,p2,'#6b5c42', st.roadW);
+    for (const [p1,p2] of segs) g += line(p1,p2,'#83734f', Math.max(1,st.roadW*0.42));
+  }
+
+  // ── BİNA KAROLARI ──
+  for (const [q,r] of ALL) {
+    const key=q+','+r, p=P(q,r), b=VB[key];
+    const hp=hexPts(p.x,p.y,TR);
+    const cid=`c${q}_${r}`.replace(/-/g,'m');
+    if (b) {
+      g += `<clipPath id="${cid}"><polygon points="${pts(hp)}"/></clipPath>`;
+      g += `<polygon points="${pts(hp)}" fill="#25301e"/>`;
+      if (st.img) g += `<image href="${IMG(b.t)}" x="${(p.x-TR).toFixed(1)}" y="${(p.y-TR).toFixed(1)}"
+                  width="${(TR*2).toFixed(1)}" height="${(TR*2).toFixed(1)}"
+                  clip-path="url(#${cid})" preserveAspectRatio="xMidYMid slice"/>`;
+      g += `<polygon points="${pts(hp)}" fill="none" stroke="rgba(196,220,244,.42)" stroke-width="1.5"/>`;
+      g += `<text x="${p.x}" y="${(p.y+TR*0.7).toFixed(1)}" text-anchor="middle"
+               font-family="'Cormorant Garamond',Georgia,serif" font-size="${(S*0.27).toFixed(1)}" font-weight="600"
+               fill="#eaf4fb" paint-order="stroke" stroke="rgba(6,10,18,.85)" stroke-width="3">LVL ${b.l}</text>`;
+    } else {
+      g += `<polygon points="${pts(hp)}" fill="#2f4a28" fill-opacity=".62"
+               stroke="rgba(150,190,120,.28)" stroke-width="1.1"/>`;
+      g += `<path d="M${p.x-8} ${p.y} h16 M${p.x} ${p.y-8} v16" stroke="rgba(196,220,244,.3)" stroke-width="2"/>`;
+    }
+  }
+  if (st.grid) for (const [q,r] of ALL) {
+    const p=P(q,r);
+    g += `<polygon points="${pts(hexPts(p.x,p.y,S))}" fill="none" stroke="rgba(143,188,255,.25)" stroke-width="1"/>`;
+  }
+
+  // ── SUR ──
+  if (st.sur > 0) {
+    g += `<polygon points="${pts(WALL)}" fill="none" stroke="#221e19" stroke-width="${thick+7}" stroke-linejoin="round"/>`;
+    g += `<polygon points="${pts(WALL)}" fill="none" stroke="url(#tex)" stroke-width="${thick}" stroke-linejoin="round"/>`;
+    g += `<polygon points="${pts(WALL)}" fill="none" stroke="rgba(74,104,136,.18)" stroke-width="${thick}" stroke-linejoin="round"/>`;
+    for (let i=0;i<6;i++) {
+      const a=WALL[i], b=WALL[(i+1)%6];
+      const n=Math.max(5, Math.round(Math.hypot(b[0]-a[0],b[1]-a[1])/(0.26*S)));
+      for (let k=0;k<=n;k+=2) {
+        const t=k/n;
+        if (i===gateEdge && t>0.43 && t<0.57) continue;
+        const p=lerp(a,b,t);
+        const dx=p[0]-CX, dy=p[1]-CY, L=Math.hypot(dx,dy)||1;
+        g += `<circle cx="${(p[0]+dx/L*thick/2).toFixed(1)}" cy="${(p[1]+dy/L*thick/2).toFixed(1)}"
+                 r="${(thick*0.18).toFixed(1)}" fill="#8f8578" opacity=".88"/>`;
+      }
+    }
+    // kapı + kapıdan içeri yol
+    const gp=lerp(WALL[gateEdge], WALL[(gateEdge+1)%6], 0.5);
+    const dx=gp[0]-CX, dy=gp[1]-CY, L=Math.hypot(dx,dy)||1;
+    const g1=[gp[0]-dx/L*thick*0.95, gp[1]-dy/L*thick*0.95];
+    const g2=[gp[0]+dx/L*thick*0.95, gp[1]+dy/L*thick*0.95];
+    g += `<line x1="${g1[0]}" y1="${g1[1]}" x2="${g2[0]}" y2="${g2[1]}" stroke="#2a1c10" stroke-width="${thick*1.6}"/>`;
+    g += `<line x1="${g1[0]}" y1="${g1[1]}" x2="${g2[0]}" y2="${g2[1]}" stroke="#6b4a28" stroke-width="${thick*1.15}"/>`;
+    const gOut=[gp[0]+dx/L*(band+BERM+6), gp[1]+dy/L*(band+BERM+6)];
+    g += `<line x1="${gp[0]}" y1="${gp[1]}" x2="${gOut[0]}" y2="${gOut[1]}" stroke="#6b5c42" stroke-width="${st.roadW+3}"/>`;
+  } else {
+    g += `<polygon points="${pts(WALL)}" fill="none" stroke="#4a4032" stroke-width="6"
+             stroke-dasharray="14 9" opacity=".7" stroke-linejoin="round"/>`;
+  }
+
+  // ── KULELER: altıgenin altı köşesi ──
+  WALL.forEach((p,i) => {
+    const lv = KULE[i+1] || 0;
+    const rr = Math.max(thick*1.45, 0.32*S);
+    const hp = hexPts(p[0],p[1],rr,Math.PI/6);
+    if (lv > 0) {
+      g += `<polygon points="${pts(hexPts(p[0],p[1],rr+3,Math.PI/6))}" fill="#221e19"/>`;
+      g += `<polygon points="${pts(hp)}" fill="url(#tex)"/>`;
+      g += `<polygon points="${pts(hp)}" fill="rgba(74,104,136,.18)"/>`;
+      for (let k=0;k<6;k++) {
+        const a=(Math.PI/3)*k+Math.PI/6;
+        g += `<circle cx="${(p[0]+rr*0.85*Math.cos(a)).toFixed(1)}" cy="${(p[1]+rr*0.85*Math.sin(a)).toFixed(1)}"
+                 r="${(rr*0.17).toFixed(1)}" fill="#8f8578" opacity=".9"/>`;
+      }
+      g += `<polygon points="${pts(hp)}" fill="none" stroke="rgba(228,240,250,.3)" stroke-width="1.2"/>`;
+      g += `<text x="${p[0]}" y="${(p[1]+4).toFixed(1)}" text-anchor="middle"
+               font-family="ui-monospace,monospace" font-size="${(rr*0.62).toFixed(1)}" fill="#ffd0d0"
+               paint-order="stroke" stroke="rgba(6,10,18,.9)" stroke-width="3">${lv}</text>`;
+    } else {
+      g += `<polygon points="${pts(hp)}" fill="#141d26" fill-opacity=".85"
+               stroke="rgba(255,150,150,.5)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+      g += `<path d="M${p[0]-rr*0.4} ${p[1]} h${(rr*0.8).toFixed(1)} M${p[0]} ${p[1]-rr*0.4} v${(rr*0.8).toFixed(1)}"
+               stroke="rgba(255,150,150,.6)" stroke-width="1.8"/>`;
+    }
+  });
+
+  const svg=document.getElementById('svg');
+  svg.innerHTML=g;
+  svg.style.transform = st.tilt ? 'rotateX(16deg)' : 'none';
+  document.getElementById('info').innerHTML =
+    `Köy hex yarıçapı <b>${RV.toFixed(0)}</b> · iç hex ölçeği <b>${S.toFixed(1)}</b>`
+    + ` · inşa alanı <b>${ALL.length}</b><br>Tarlalar köyün kenarına DEĞİYOR; çerçeve onları kırpıyor.`;
+}
+
+const bind=(id,key,out,f=v=>v)=>{
+  const el=document.getElementById(id);
+  el.oninput=()=>{ st[key]=f(+el.value); document.getElementById(out).textContent=st[key]; draw(); };
+};
+bind('zoom','zoom','vZoom', v=>+(v/100).toFixed(2));
+bind('road','roadW','vRoad');
+bind('tile','tile','vTile', v=>+(v/100).toFixed(2));
+bind('sur','sur','vSur');
+bind('hen','hen','vHen');
+const tog=(id,key)=>document.getElementById(id).onclick=e=>{ st[key]=!st[key]; e.target.className=st[key]?'on':''; draw(); };
+tog('tTilt','tilt'); tog('tFields','fields'); tog('tDeco','deco'); tog('tImg','img'); tog('tGrid','grid');
+draw();
+</script>

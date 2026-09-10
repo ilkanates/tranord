@@ -1,0 +1,19 @@
+feat(askeri+arayuz): silah/zirh yukseltmeleri (Faz 3) + bina paneli yerlesimi
+
+Faz 3 - ekipman yukseltme
+- Silahci ve zirhcida kilic/mizrak/kalkan/zirh 20 seviye yukseltilebilir
+- Lvl 20'de o ekipmanin katkisi ~%35 daha fazla; etki ordunun TAMAMINA
+  aninda isler (unitStats tanimin USTUNE ekler, elle ayarlanmis statlar korunur)
+- Savas hesabi saldiran ve savunanin kendi seviyelerini ayri kullanir
+- Kaynak is BASLARKEN dusulur; sure isci sayisina bolunur
+
+Arayuz
+- Kadro ve yukseltme denetimleri poster gorselinin sag altina tasindi
+- Uretim ve yukseltme yan yana; kuyruk kutusu SABIT yukseklikte, siraya is
+  eklenince panelde hicbir sey buyumez/kuculmez
+- Ekipman yukseltmede ayri kuyruk listesi yok; durum ekipmanin kendi satirinda
+- Ahirda uretim kutusu gorselin ustunde, kadronun solunda (dar mod)
+- Kosk, saray ve tavernaya amblem eklendi
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RsJSGuBFCvuburd4jGQ2X8

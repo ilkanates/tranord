@@ -230,6 +230,65 @@ for (const def of Object.values(UNIT_DEFS)) {
 /** Bu birim eğitilmeden önce araştırılmalı mı? */
 const needsResearch = (unitType) => !!UNIT_DEFS[unitType]?.research;
 
+/**
+ * EKİPMAN YÜKSELTMESİ — silahçı ve zırhçıda, 20 seviye.
+ *
+ * Her seviye o ekipmanın KENDİ KATKISINI %1,75 artırıyor; Lvl 20'de katkı
+ * %35 daha fazla. Kılıç saldırı ağırlıklı olduğu için kılıç yükseltmesi
+ * saldırıyı, kalkan savunmayı büyütüyor — ayrı tablo tutmaya gerek yok,
+ * mevcut ekipman katkı tablosu zaten bunu söylüyor.
+ *
+ * NEDEN "katkının üstüne" değil de "tanımlı stat'ın üstüne" ekleniyor:
+ * birimlerin `stats` değerleri elle ayarlanmış ve biri (Stormridder) taban+
+ * ekipman toplamından bilerek sapıyor. Stat'ı formülden yeniden üretsek o
+ * elle ayar sessizce kaybolurdu. Bu yüzden Lvl 0'da sonuç TANIMIN AYNISI,
+ * seviye yalnız üstüne ekliyor.
+ *
+ * Hız ve kapasite yükselmiyor: kılıcı bilemek askeri hızlandırmaz.
+ */
+const EQUIPMENT_MAX_LEVEL   = 20;
+const EQUIPMENT_UPGRADE_STEP = 0.0175;          // seviye başına katkı artışı
+const EQUIPMENT_UPGRADE_COST_BASE = { kereste: 150, tugla: 110, yontmaTas: 110, demirKulce: 150 };
+const EQUIPMENT_UPGRADE_COST_STEP = 1.25;
+const EQUIPMENT_UPGRADE_MINUTES_BASE = 20;
+const EQUIPMENT_UPGRADE_MINUTES_STEP = 1.25;
+
+/** `level` (0-19) seviyesinden bir üstüne çıkmanın bedeli */
+function equipmentUpgradeCost(level) {
+  const cost = {};
+  for (const [res, amt] of Object.entries(EQUIPMENT_UPGRADE_COST_BASE)) {
+    cost[res] = Math.round(amt * Math.pow(EQUIPMENT_UPGRADE_COST_STEP, level));
+  }
+  return cost;
+}
+function equipmentUpgradeMinutes(level) {
+  return Math.round(EQUIPMENT_UPGRADE_MINUTES_BASE
+    * Math.pow(EQUIPMENT_UPGRADE_MINUTES_STEP, level));
+}
+
+/** Yükseltilebilir ekipmanlar — at hariç (at bir alet değil) */
+const UPGRADABLE_EQUIPMENT = Object.keys(EQUIPMENT_DEFS).filter(k => k !== 'at');
+
+/**
+ * Birimin YÜKSELTMELERLE birlikte savaş değerleri.
+ * Lvl 0'da tanımdaki `stats` ile birebir aynı döner.
+ */
+function unitStats(unitKey, levels = {}) {
+  const def = UNIT_DEFS[unitKey];
+  if (!def) return null;
+  const out = { ...def.stats };
+  for (const eq of def.equipment || []) {
+    const katki = EQUIPMENT_DEFS[eq];
+    const lv = Math.max(0, Math.min(EQUIPMENT_MAX_LEVEL, Math.floor(levels?.[eq] || 0)));
+    if (!katki || lv <= 0) continue;
+    const k = EQUIPMENT_UPGRADE_STEP * lv;
+    out.saldiri = Math.round((out.saldiri + (katki.saldiri || 0) * k) * 100) / 100;
+    out.yayaSav = Math.round((out.yayaSav + (katki.yayaSav || 0) * k) * 100) / 100;
+    out.atliSav = Math.round((out.atliSav + (katki.atliSav || 0) * k) * 100) / 100;
+  }
+  return out;
+}
+
 /** Rún Salonu'nda araştırılabilir birimler — seviyeye göre sıralı */
 const RESEARCHABLE = Object.entries(UNIT_DEFS)
   .filter(([, d]) => d.research)
@@ -248,4 +307,6 @@ const EQUIPMENT_RULES = [
 module.exports = {
   EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS, EQUIPMENT_RULES,
   needsResearch, RESEARCHABLE, researchFor,
+  unitStats, equipmentUpgradeCost, equipmentUpgradeMinutes,
+  UPGRADABLE_EQUIPMENT, EQUIPMENT_MAX_LEVEL, EQUIPMENT_UPGRADE_STEP,
 };

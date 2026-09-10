@@ -17,15 +17,15 @@ export const WAIT_LABEL = {
   salon_seviyesi_dusuk: 'salon seviyesi düşük',
 };
 
-export function PanelShell({ icon, title, children, note, status }) {
+export function PanelShell({ icon, title, children, note, status, compact = false }) {
   return (
     <div style={{
       background: 'rgba(8,17,28,0.55)',
       border: `1px solid ${C.lineSoft}`,
       borderRadius: 7,
-      padding: 10,
+      padding: compact ? 7 : 8,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Icon name={icon} size={13} color={C.iceDeep} />
         <span style={lbl({ fontSize: 8.5, letterSpacing: 1.5 })}>{title}</span>
       </div>
@@ -33,7 +33,10 @@ export function PanelShell({ icon, title, children, note, status }) {
       {status}
       {/* Ürün listesi | kuyruk — yan yana, dikey scroll'a gerek kalmasın */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: 10, alignItems: 'start',
+        /* compact: kuyruk sütunu dar — kutu içeriği kadar yer kaplasın */
+        display: 'grid',
+        gridTemplateColumns: compact ? 'minmax(0,1fr) 118px' : '1.15fr 1fr',
+        gap: compact ? 8 : 10, alignItems: 'start',
       }}>
         {children}
       </div>
@@ -45,7 +48,7 @@ export function WorkerNote({ workers, ok, warn }) {
   return (
     <div style={{
       display: 'flex', gap: 7, alignItems: 'flex-start',
-      padding: '6px 8px', borderRadius: 5, marginBottom: 9,
+      padding: '4px 7px', borderRadius: 5, marginBottom: 6,
       background: workers === 0 ? 'rgba(224,179,87,0.08)' : 'rgba(78,207,168,0.06)',
       border: `1px solid ${workers === 0 ? 'rgba(224,179,87,0.3)' : 'rgba(78,207,168,0.22)'}`,
     }}>
@@ -98,10 +101,21 @@ export function OrderButton({ children, disabled, title, onClick }) {
   );
 }
 
-export function QueueList({ queue, nameOf, iconOf, onCancel, emptyText = 'kuyruk boş' }) {
+/**
+ * KUYRUK KUTUSU SABİT YÜKSEKLİKTE.
+ * 1 sipariş de olsa 20 sipariş de olsa aynı yeri kaplar; taşınca yalnız
+ * kendi içinde kayar. Böylece sıraya iş eklenince panelde hiçbir şey
+ * büyümez, küçülmez, yeniden ölçeklenmez.
+ */
+const QUEUE_BOX_H = 116;
+
+export function QueueList({
+  queue, nameOf, iconOf, onCancel,
+  emptyText = 'kuyruk boş', boxHeight = QUEUE_BOX_H, compact = false,
+}) {
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 5 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: 4 }}>
         <span style={lbl({ fontSize: 8.5 })}>Kuyruk</span>
         <span style={num({ fontSize: 10, color: queue.length ? C.iceSoft : C.textMute })}>
           {queue.length}
@@ -109,49 +123,61 @@ export function QueueList({ queue, nameOf, iconOf, onCancel, emptyText = 'kuyruk
       </div>
 
       {queue.length === 0 ? (
-        <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute, padding: '3px 2px' }}>
+        <div style={{
+          height: boxHeight, flexShrink: 0,
+          fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute, padding: '3px 2px',
+        }}>
           {emptyText}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="tn-scroll" style={{
+          display: 'flex', flexDirection: 'column', gap: 4,
+          height: boxHeight, flexShrink: 0,
+          overflowY: 'auto', overflowX: 'hidden', paddingRight: 2,
+        }}>
           {queue.map((o, i) => {
             const active = i === 0 && !o.waiting;
             return (
               <div key={o.id} style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                padding: '5px 7px', borderRadius: 5,
+                display: 'flex', alignItems: 'center', gap: compact ? 4 : 7, flexShrink: 0,
+                padding: compact ? '4px 5px' : '5px 7px', borderRadius: 5, minWidth: 0,
                 background: active ? 'rgba(61,159,214,0.14)' : 'rgba(8,17,28,0.6)',
                 border: `1px solid ${active ? 'rgba(61,159,214,0.45)' : C.lineSoft}`,
               }}>
-                <span style={num({ fontSize: 9, color: C.textMute, width: 14 })}>{i + 1}</span>
-                {iconOf && <Icon name={iconOf(o)} size={13} color={active ? C.iceSoft : C.textFaint} />}
+                {/* Dar sütunda sıra numarası ve ürün adı yok: simge + adet yeter */}
+                {!compact && (
+                  <span style={num({ fontSize: 9, color: C.textMute, width: 14 })}>{i + 1}</span>
+                )}
+                {iconOf && <Icon name={iconOf(o)} size={compact ? 11 : 13}
+                  color={active ? C.iceSoft : C.textFaint} />}
                 <span style={{
                   flex: 1, minWidth: 0, fontFamily: FONT.ui, fontSize: 10,
                   color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                }}>
-                  {nameOf(o)}
-                  <span style={num({ color: C.textFaint, marginLeft: 4 })}>
+                }} title={compact ? nameOf(o) : undefined}>
+                  {!compact && nameOf(o)}
+                  <span style={num({ color: C.textFaint, marginLeft: compact ? 0 : 4 })}>
                     ×{o.remaining}{o.total > 1 && o.remaining !== o.total ? `/${o.total}` : ''}
                   </span>
                 </span>
 
                 {o.waiting ? (
-                  <span style={{
+                  <span title={WAIT_LABEL[o.waitingReason] || 'bekliyor'} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
                     fontFamily: FONT.ui, fontSize: 9, color: C.warn,
                   }}>
                     <Icon name="uyari" size={10} color={C.warn} />
-                    {WAIT_LABEL[o.waitingReason] || 'bekliyor'}
+                    {!compact && (WAIT_LABEL[o.waitingReason] || 'bekliyor')}
                   </span>
                 ) : (
-                  <span style={num({ fontSize: 11, color: C.good, flexShrink: 0 })}>
+                  <span style={num({ fontSize: compact ? 9.5 : 11, color: C.good, flexShrink: 0 })}>
                     {fmtTime(o.timeLeft)}
                   </span>
                 )}
 
                 <button onClick={() => onCancel(o.id)} title="İptal"
                   style={{
-                    width: 19, height: 19, flexShrink: 0, padding: 0, display: 'grid',
+                    width: compact ? 15 : 19, height: compact ? 15 : 19,
+                    flexShrink: 0, padding: 0, display: 'grid',
                     placeItems: 'center', borderRadius: 3, cursor: 'pointer',
                     background: 'rgba(74,29,36,0.6)', border: `1px solid ${C.dangerDim}`,
                   }}>

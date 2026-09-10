@@ -1,0 +1,311 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>TraNord — sur / hendek / kule önizleme</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#050a12; color:#cfe0ee; font-family: Jost, system-ui, sans-serif; }
+  .wrap { display:flex; height:100vh; }
+  .stage { flex:1; display:grid; place-items:center; overflow:hidden;
+           perspective:1400px; perspective-origin:50% 30%; }
+  svg { width:min(100%, 96vh); height:auto; aspect-ratio:1/1;
+        transform: rotateX(20deg) scale(1.0); transform-style:preserve-3d; }
+  .panel { width:252px; padding:18px 16px; background:rgba(10,20,32,.75);
+           border-left:1px solid rgba(140,180,220,.18); overflow:auto; }
+  h1 { font-family:'Cormorant Garamond',Georgia,serif; font-size:19px; letter-spacing:1px;
+       margin:0 0 14px; color:#dfeaf5; font-weight:600; }
+  label { display:block; font-size:10px; letter-spacing:1.4px; text-transform:uppercase;
+          color:#7f95a8; margin:14px 0 4px; }
+  input[type=range] { width:100%; }
+  .val { font-family:ui-monospace,monospace; font-size:12px; color:#8fbcff; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  button { background:rgba(31,77,112,.5); color:#cfe0ee; border:1px solid rgba(140,180,220,.3);
+           border-radius:5px; padding:5px 9px; font-size:11px; cursor:pointer; font-family:inherit; }
+  button.on { background:rgba(143,188,255,.28); border-color:#8fbcff; }
+  .note { font-size:10.5px; line-height:1.6; color:#6f8497; margin-top:16px; }
+</style>
+<div class="wrap">
+  <div class="stage"><svg id="svg" viewBox="0 0 860 860" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div class="panel">
+    <h1>Sur · Hendek · Kule</h1>
+    <label>Sur seviyesi <span class="val" id="vSur">10</span></label>
+    <input type="range" id="sur" min="0" max="20" value="10">
+    <label>Hendek seviyesi <span class="val" id="vHen">6</span></label>
+    <input type="range" id="hen" min="0" max="20" value="6">
+    <label>Kuleler (köşeler)</label>
+    <div class="row" id="towers"></div>
+    <label>Doku ölçeği <span class="val" id="vTex">72</span></label>
+    <input type="range" id="tex" min="32" max="180" value="72">
+    <label>Görünüm</label>
+    <div class="row">
+      <button id="tGate" class="on">Kapı</button>
+      <button id="tHex" class="on">Hex ızgara</button>
+      <button id="tFlat" class="on">Eğimli</button>
+      <button id="tTex" class="on">Taş dokusu</button>
+    </div>
+    <div class="note">
+      Duvar artık kümenin GERÇEK dış hattını izliyor: komşusu olmayan her hex
+      kenarı bir duvar parçası. Girintili çıkıntılı ve hex'lerle arasında
+      boşluk yok. Taş dokusu şimdilik çizimle; ürettiğin görsel gelince
+      duvar bandına doku olarak basılacak.
+    </div>
+  </div>
+</div>
+<script>
+const SQRT3 = Math.sqrt(3), S = 48, CX = 430, CY = 430;
+const hexToScreen = (q, r) => ({ x: CX + S*1.5*q, y: CY + S*((SQRT3/2)*q + SQRT3*r) });
+
+const RING = [[],
+  [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]],
+  [[2,0],[2,-1],[2,-2],[1,-2],[0,-2],[-1,-1],[-2,0],[-2,1],[-2,2],[-1,2],[0,2],[1,1]],
+  [[3,0],[3,-1],[3,-2],[3,-3],[2,-3],[1,-3],[0,-3],[-1,-2],[-2,-1],[-3,0],[-3,1],
+   [-3,2],[-3,3],[-2,3],[-1,3],[0,3],[1,2],[2,1]]];
+const CELLS = [[0,0], ...RING[1], ...RING[2], ...RING[3]];
+
+// ── Kümenin dış hattı ───────────────────────────────────────────────
+const AX_DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const kk = (q,r) => q + ',' + r;
+
+/** i. kenarın (köşe i → i+1, orta yönü 30+60i) karşısındaki komşu yönü */
+const EDGE_NB = Array.from({length:6}, (_, i) => {
+  const target = 30 + 60*i;
+  let best = null, bd = 1e9;
+  for (const [dq,dr] of AX_DIRS) {
+    const p = hexToScreen(dq,dr);
+    let ang = (Math.atan2(p.y-CY, p.x-CX) * 180/Math.PI + 360) % 360;
+    let d = Math.abs(ang-target); d = Math.min(d, 360-d);
+    if (d < bd) { bd = d; best = [dq,dr]; }
+  }
+  return best;
+});
+
+/** Kapalı dış hat — sıralı köşe listesi (girintili çıkıntılı) */
+function clusterOutline() {
+  const inC = new Set(CELLS.map(c => kk(c[0],c[1])));
+  const segs = [];
+  for (const [q,r] of CELLS) {
+    const c = hexToScreen(q,r);
+    for (let i=0;i<6;i++) {
+      const [dq,dr] = EDGE_NB[i];
+      if (inC.has(kk(q+dq, r+dr))) continue;
+      const a1 = (Math.PI/3)*i, a2 = (Math.PI/3)*((i+1)%6);
+      segs.push([[c.x+S*Math.cos(a1), c.y+S*Math.sin(a1)],
+                 [c.x+S*Math.cos(a2), c.y+S*Math.sin(a2)]]);
+    }
+  }
+  // Eşleştirme METİN değil GEOMETRİ — kayan nokta yuvarlaması zinciri koparıyordu
+  const near = (a,b) => Math.abs(a[0]-b[0])<0.01 && Math.abs(a[1]-b[1])<0.01;
+  const used = new Array(segs.length).fill(false);
+  const out = []; let cur = 0; used[0] = true;
+  for (let n=0;n<segs.length;n++) {
+    out.push(segs[cur][0]);
+    const end = segs[cur][1];
+    let nxt = -1;
+    for (let j=0;j<segs.length;j++) if (!used[j] && near(segs[j][0], end)) { nxt = j; break; }
+    if (nxt < 0) break;
+    used[nxt] = true; cur = nxt;
+  }
+  return out;
+}
+const OUTLINE = clusterOutline();
+
+/** Hattı kendi yarıçapı boyunca d kadar dışa kaydır */
+const offsetOut = (pts, d) => pts.map(([x,y]) => {
+  const dx = x-CX, dy = y-CY, L = Math.hypot(dx,dy) || 1;
+  return [x + dx/L*d, y + dy/L*d];
+});
+const poly = (pts) => pts.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+const lerp = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
+
+// Kuleler = surun DIŞINA taşan burç: köşe kenar ortası + burcun yarısı kadar dışa
+const TOWER_R    = 0.62 * S;
+const TOWER_DIST = (3*SQRT3 + SQRT3/2) * S + 0.30 * S;
+const TOWER_POS = Array.from({length:6}, (_,k) => {
+  const a = (Math.PI/180)*(30+60*k);
+  return [CX + TOWER_DIST*Math.cos(a), CY + TOWER_DIST*Math.sin(a)];
+});
+const bastion = (x,y,r) => Array.from({length:6},(_,i)=>{
+  const a=(Math.PI/3)*i; return [x+r*Math.cos(a), y+r*Math.sin(a)];
+});
+
+const wallThick = (lv) => (0.16 + Math.min(20,lv) * 0.010) * S;
+const moatBand  = (lv) => (0.26 + Math.min(20,lv) * 0.010) * S;
+const BERM = 0.10 * S;
+
+const state = { sur:10, hen:6, towers:[1,1,1,1,0,0], gate:true, grid:true, useTex:true, tex:72 };
+
+function draw() {
+  const surLv = state.sur, henLv = state.hen;
+  const thick = wallThick(surLv);
+  const wall  = offsetOut(OUTLINE, thick/2);          // iç yüzü hex kenarına değsin
+  const band  = moatBand(henLv);
+  const mIn   = offsetOut(OUTLINE, thick + BERM);
+  const mOut  = offsetOut(OUTLINE, thick + BERM + band);
+  let g = '';
+
+  g += `<defs>
+    <radialGradient id="ground" cx="50%" cy="50%" r="62%">
+      <stop offset="0%" stop-color="#3a5230" stop-opacity=".9"/>
+      <stop offset="100%" stop-color="#1b2a17" stop-opacity=".55"/>
+    </radialGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#12384d"/><stop offset="100%" stop-color="#071a26"/>
+    </linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9a9084"/><stop offset="55%" stop-color="#6f675b"/>
+      <stop offset="100%" stop-color="#4a443a"/>
+    </linearGradient>
+    <pattern id="surTex" patternUnits="userSpaceOnUse" width="${state.tex}" height="${state.tex}">
+      <image href="/src/assets/buildings/sur-doku.jpg" x="0" y="0"
+             width="${state.tex}" height="${state.tex}" preserveAspectRatio="none"/>
+    </pattern>
+  </defs>`;
+
+  g += `<polygon points="${poly(OUTLINE)}" fill="url(#ground)"/>`;
+
+  // ── HENDEK ──
+  if (henLv > 0) {
+    g += `<path d="M${poly(mOut).replace(/ /g,'L')}Z M${poly(mIn).replace(/ /g,'L')}Z"
+             fill="url(#water)" fill-rule="evenodd" opacity=".95"/>`;
+    g += `<polygon points="${poly(mOut)}" fill="none" stroke="#0a1c26" stroke-width="3"/>`;
+    g += `<polygon points="${poly(mIn)}" fill="none" stroke="rgba(150,210,240,.32)" stroke-width="1.5"/>`;
+    [0.35, 0.7].forEach((t,k) => {
+      g += `<polygon points="${poly(offsetOut(OUTLINE, thick + BERM + band*t))}" fill="none"
+               stroke="rgba(170,220,245,${k?.09:.14})" stroke-width="1.1"
+               stroke-dasharray="${k?'9 15':'17 21'}"/>`;
+    });
+  } else {
+    g += `<polygon points="${poly(offsetOut(OUTLINE, thick + BERM + moatBand(0)/2))}" fill="none"
+             stroke="rgba(140,170,190,.16)" stroke-width="2" stroke-dasharray="7 9"/>`;
+  }
+
+  // ── SUR ──
+  if (surLv > 0) {
+    g += `<polygon points="${poly(wall)}" fill="none" stroke="#221e19"
+             stroke-width="${thick+7}" stroke-linejoin="round"/>`;
+    g += `<polygon points="${poly(wall)}" fill="none"
+             stroke="${state.useTex ? 'url(#surTex)' : 'url(#stone)'}"
+             stroke-width="${thick}" stroke-linejoin="round"/>`;
+    // Soğuk ton: doku oyunun paletine otursun
+    if (state.useTex) {
+      g += `<polygon points="${poly(wall)}" fill="none" stroke="rgba(96,132,168,.14)"
+               stroke-width="${thick}" stroke-linejoin="round"/>`;
+    }
+    // Taş blok dokusu: her parça boyunca dik derz + mazgal
+    for (let i = 0; i < wall.length; i++) {
+      const a = wall[i], b = wall[(i+1)%wall.length];
+      const len = Math.hypot(b[0]-a[0], b[1]-a[1]);
+      const n = Math.max(3, Math.round(len / (0.20*S)));
+      for (let k = 0; k <= n; k++) {
+        const t = k/n;
+        const p = lerp(a,b,t);
+        const dx = p[0]-CX, dy = p[1]-CY, L = Math.hypot(dx,dy)||1;
+        const inn = [p[0]-dx/L*thick/2, p[1]-dy/L*thick/2];
+        const out = [p[0]+dx/L*thick/2, p[1]+dy/L*thick/2];
+        // derz — dokuda kendi derzi olduğu için doku açıkken çizilmiyor
+        if (!state.useTex) {
+          g += `<line x1="${inn[0].toFixed(1)}" y1="${inn[1].toFixed(1)}"
+                      x2="${out[0].toFixed(1)}" y2="${out[1].toFixed(1)}"
+                      stroke="#2a251f" stroke-width="1.6" opacity=".55"/>`;
+        }
+        // mazgal (her ikincisinde dış kenarda diş)
+        if (k % 2 === 0 && !(state.gate && i === GATE_SEG && t > 0.3 && t < 0.7)) {
+          g += `<circle cx="${out[0].toFixed(1)}" cy="${out[1].toFixed(1)}" r="${(thick*0.17).toFixed(1)}"
+                   fill="#8f8578" opacity=".9"/>`;
+        }
+      }
+      if (!state.useTex) {
+        g += `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}"
+                 stroke="rgba(30,26,21,.45)" stroke-width="1.2"/>`;
+      }
+    }
+    g += `<polygon points="${poly(wall)}" fill="none" stroke="rgba(228,240,250,.16)" stroke-width="1.1"/>`;
+    // Kapı
+    if (state.gate) {
+      const a = wall[GATE_SEG], b = wall[(GATE_SEG+1)%wall.length], p = lerp(a,b,0.5);
+      const dx=p[0]-CX, dy=p[1]-CY, L=Math.hypot(dx,dy)||1;
+      const g1=[p[0]-dx/L*thick*0.75, p[1]-dy/L*thick*0.75];
+      const g2=[p[0]+dx/L*thick*0.75, p[1]+dy/L*thick*0.75];
+      g += `<line x1="${g1[0]}" y1="${g1[1]}" x2="${g2[0]}" y2="${g2[1]}" stroke="#2a1c10" stroke-width="${thick*1.25}"/>`;
+      g += `<line x1="${g1[0]}" y1="${g1[1]}" x2="${g2[0]}" y2="${g2[1]}" stroke="#6b4a28" stroke-width="${thick*0.9}"/>`;
+    }
+  } else {
+    g += `<polygon points="${poly(wall)}" fill="none" stroke="#4a4032" stroke-width="6"
+             stroke-dasharray="14 9" opacity=".75" stroke-linejoin="round"/>`;
+  }
+
+  // ── HEX ızgara ──
+  if (state.grid) {
+    for (const [q,r] of CELLS) {
+      const {x,y} = hexToScreen(q,r);
+      const pts = Array.from({length:6},(_,i)=>{
+        const a=(Math.PI/3)*i; return [x+(S-2)*Math.cos(a), y+(S-2)*Math.sin(a)];
+      });
+      g += `<polygon points="${poly(pts)}" fill="${q===0&&r===0?'#4a3f22':'#2f4a28'}"
+               fill-opacity=".6" stroke="rgba(150,190,120,.3)" stroke-width="1.1"/>`;
+    }
+  }
+
+  // ── KULELER: surun dışına taşan burçlar ──
+  TOWER_POS.forEach((p, i) => {
+    const lv = state.towers[i];
+    const outer = bastion(p[0], p[1], TOWER_R);
+    const inner = bastion(p[0], p[1], TOWER_R*0.62);
+    if (lv > 0) {
+      g += `<polygon points="${poly(outer)}" fill="#221e19" stroke="#221e19" stroke-width="7" stroke-linejoin="round"/>`;
+      g += `<polygon points="${poly(outer)}" fill="${state.useTex ? 'url(#surTex)' : 'url(#stone)'}"/>`;
+      if (state.useTex) g += `<polygon points="${poly(outer)}" fill="rgba(74,104,136,.20)"/>`;
+      for (let k=0;k<6;k++) {
+        const a0=outer[k], b0=outer[(k+1)%6];
+        [0.28,0.72].forEach(t=>{
+          const m=lerp(a0,b0,t);
+          g += `<circle cx="${m[0].toFixed(1)}" cy="${m[1].toFixed(1)}" r="${(TOWER_R*0.15).toFixed(1)}"
+                   fill="#8f8578" opacity=".9"/>`;
+        });
+      }
+      g += `<polygon points="${poly(inner)}" fill="#10161d" opacity=".9"/>`;
+      g += `<polygon points="${poly(outer)}" fill="none" stroke="rgba(228,240,250,.26)" stroke-width="1.3"/>`;
+      g += `<text x="${p[0]}" y="${p[1]+4.5}" text-anchor="middle"
+               font-family="ui-monospace,monospace" font-size="13" fill="#8fbcff">${lv}</text>`;
+    } else {
+      g += `<polygon points="${poly(outer)}" fill="#141d26" fill-opacity=".85"
+               stroke="rgba(143,188,255,.45)" stroke-width="1.6" stroke-dasharray="6 5"/>`;
+      g += `<path d="M${p[0]-9} ${p[1]} h18 M${p[0]} ${p[1]-9} v18"
+               stroke="rgba(143,188,255,.6)" stroke-width="2.2"/>`;
+    }
+  });
+
+  document.getElementById('svg').innerHTML = g;
+}
+// kapı hangi duvar parçasında (alt taraf)
+const GATE_SEG = (() => {
+  let best = 0, by = -1e9;
+  for (let i=0;i<OUTLINE.length;i++) if (OUTLINE[i][1] > by) { by = OUTLINE[i][1]; best = i; }
+  return best;
+})();
+
+const tw = document.getElementById('towers');
+state.towers.forEach((lv, i) => {
+  const b = document.createElement('button');
+  b.textContent = 'K' + (i+1);
+  if (lv > 0) b.className = 'on';
+  b.onclick = () => { state.towers[i] = state.towers[i] > 0 ? 0 : 5;
+    b.className = state.towers[i] > 0 ? 'on' : ''; draw(); };
+  tw.appendChild(b);
+});
+const bind = (id, key, out) => {
+  const el = document.getElementById(id);
+  el.oninput = () => { state[key] = +el.value; document.getElementById(out).textContent = el.value; draw(); };
+};
+bind('sur','sur','vSur'); bind('hen','hen','vHen'); bind('tex','tex','vTex');
+document.getElementById('tGate').onclick = e => { state.gate=!state.gate; e.target.className=state.gate?'on':''; draw(); };
+document.getElementById('tHex').onclick  = e => { state.grid=!state.grid; e.target.className=state.grid?'on':''; draw(); };
+document.getElementById('tTex').onclick = e => { state.useTex=!state.useTex; e.target.className=state.useTex?'on':''; draw(); };
+document.getElementById('tFlat').onclick = e => {
+  const s = document.getElementById('svg');
+  const on = s.style.transform !== 'none';
+  s.style.transform = on ? 'none' : 'rotateX(20deg) scale(1.0)';
+  e.target.className = on ? '' : 'on';
+};
+draw();
+console.log('dış hat köşe sayısı:', OUTLINE.length, '· kapı parçası:', GATE_SEG);
+</script>

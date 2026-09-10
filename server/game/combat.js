@@ -16,6 +16,7 @@
  */
 
 const { UNIT_DEFS, SUR_BONUS, HENDEK_BONUS, KULE_BONUS, VILLAGE_DEFS, DEF_BONUS_CAP } = require('../data');
+const { unitStats } = require('../data/militaryDefs');
 
 /** Kule slot sayısı ve kule başına okçu kapasitesi — tanımdan türer */
 const TOWER_SLOTS            = VILLAGE_DEFS.kule?.maxInstances    || 6;
@@ -75,9 +76,19 @@ function wallBonusPct(surLevel, hendekLevel, kulePct = 0) {
  * @param {number} [options.hendekLevel=0]
  * @param {number} [options.kulePct=0]   kulelerin okçu dolulukla ölçeklenmiş bonusu
  * @param {'normal'|'raid'} [options.mode='normal']
+ * @param {Object} [options.attackerLevels]  saldıranın ekipman yükseltmeleri
+ * @param {Object} [options.defenderLevels]  savunanın ekipman yükseltmeleri
  */
 function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
-  const { surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal' } = options;
+  const {
+    surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal',
+    /**
+     * EKİPMAN YÜKSELTMELERİ iki tarafta AYRI: saldıranın kılıç seviyesi
+     * onun saldırısını, savunanın kalkan seviyesi onun savunmasını büyütür.
+     * Verilmezse Lvl 0 sayılır ve sonuç eski hesapla birebir aynı çıkar.
+     */
+    attackerLevels = null, defenderLevels = null,
+  } = options;
 
   // ── 1. Saldırgan tarafını topla ──────────────────────────────────
   let attackTotal = 0;
@@ -90,7 +101,7 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
     const count = Math.max(0, Math.floor(Number(rawCount) || 0));
     if (count <= 0) continue;
     const def = UNIT_DEFS[key];
-    const atk = count * def.stats.saldiri;
+    const atk = count * (attackerLevels ? unitStats(key, attackerLevels).saldiri : def.stats.saldiri);
     attackTotal += atk;
     if (def.category === 'piyade') infAttack += atk;
     else if (def.category === 'suvari') cavAttack += atk;
@@ -131,7 +142,7 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
 
   let defenseRaw = 0;
   for (const [key, count] of Object.entries(defenderClean)) {
-    const s = UNIT_DEFS[key].stats;
+    const s = defenderLevels ? unitStats(key, defenderLevels) : UNIT_DEFS[key].stats;
     defenseRaw += count * (infRatio * s.yayaSav + cavRatio * s.atliSav);
   }
 

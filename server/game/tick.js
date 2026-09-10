@@ -9,6 +9,8 @@
  * ile çağırır — 400 oyun saatini 400 adımda alır, 1,44 milyon adımda değil.
  */
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, UNIT_DEFS } = require('../data');
+const { equipmentUpgradeCost, equipmentUpgradeMinutes, EQUIPMENT_MAX_LEVEL }
+  = require('../data/militaryDefs');
 const { fieldMultiplier, worldTileBonus, localEfficiency } = require('./world');
 const GT = require('./gameTime');
 
@@ -259,6 +261,9 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
   // Rún Salonu araştırma kuyruğu
   processResearchQueue(village, now);
 
+  // Silahçı/zırhçı ekipman yükseltmeleri
+  processUpgradeQueues(village, now);
+
   // Ekipman üretim kuyrukları
   processEquipmentQueues(village, now);
 
@@ -463,6 +468,66 @@ function processEquipmentQueues(village, now) {
  * burada): oyuncu üç araştırmayı arka arkaya sıraya alabilsin, kaynağı da
  * o sıra geldiğinde ödesin. İptal edilirse ödenmiş kaynak iade edilir.
  */
+/**
+ * EKİPMAN YÜKSELTME KUYRUKLARI — silahçı ve zırhçı.
+ *
+ * Araştırma kuyruğuyla aynı iskelet: bina başına tek sıra, kaynak iş
+ * BAŞLARKEN düşülüyor, süre o binanın işçi sayısına bölünüyor. Bitince
+ * `equipmentLevels[ekipman]` bir artıyor ve ordunun TAMAMI anında
+ * güçleniyor (bkz. militaryDefs.unitStats).
+ *
+ * Seviye iş sıraya girerken değil BİTERKEN okunuyor: aynı ekipmanı iki kez
+ * sıraya alan oyuncu ikinci işte bir sonraki seviyenin bedelini ödüyor,
+ * yoksa iki kez aynı ucuz seviyeyi alırdı.
+ */
+function processUpgradeQueues(village, now) {
+  const kuyruklar = village.upgradeQueues;
+  if (!kuyruklar) return;
+  if (!village.equipmentLevels) village.equipmentLevels = {};
+
+  for (const [binaTipi, queue] of Object.entries(kuyruklar)) {
+    if (!queue || !queue.length) continue;
+    const b = Object.values(village.villageBuildings).find(vb => vb.type === binaTipi);
+    if (!b || b.level < 1) continue;
+
+    const job = queue[0];
+    const eq = job.type;
+    const mevcut = village.equipmentLevels[eq] || 0;
+    if (mevcut >= EQUIPMENT_MAX_LEVEL) { queue.shift(); continue; }
+
+    if (job.waiting || !job.startTime) {
+      const isci = b.workers || 0;
+      if (isci <= 0) { job.waiting = true; job.waitingReason = 'isci_yok'; continue; }
+      if (!job.paid) {
+        const cost = equipmentUpgradeCost(mevcut);
+        const yeter = Object.entries(cost)
+          .every(([res, amt]) => (village.resources[res] || 0) >= amt);
+        if (!yeter) { job.waiting = true; job.waitingReason = 'kaynak_yok'; continue; }
+        for (const [res, amt] of Object.entries(cost)) {
+          village.resources[res] = (village.resources[res] || 0) - amt;
+        }
+        job.paid = true;
+        job.paidLevel = mevcut;          // iptalde bu seviyenin bedeli iade edilir
+      }
+      const mins = Math.max(MIN_PRODUCTION_MINUTES, equipmentUpgradeMinutes(mevcut) / isci);
+      job.waiting = false;
+      job.waitingReason = null;
+      job.startTime = now;
+      job.endTime = now + GT.minutesToClock(mins);
+      job.workersAtStart = isci;
+      job.toLevel = mevcut + 1;
+    }
+
+    if (now >= job.endTime) {
+      village.equipmentLevels[eq] = (village.equipmentLevels[eq] || 0) + 1;
+      if (!village.quiet) {
+        console.log(`[EKİPMAN] ${eq} Lvl ${village.equipmentLevels[eq]}`);
+      }
+      queue.shift();
+    }
+  }
+}
+
 function processResearchQueue(village, now) {
   const queue = village.researchQueue;
   if (!queue || !queue.length) return;
@@ -648,6 +713,7 @@ module.exports = {
   processTick,
   processUnitQueues,
   processResearchQueue,
+  processUpgradeQueues,
   getUpgradeCost,
   getUpgradeSeconds,
   getUpgradeMinutes,

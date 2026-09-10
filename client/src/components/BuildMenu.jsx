@@ -160,6 +160,11 @@ export default function BuildMenu({
   uniqueOwners = {}, villages = [], activeSlot = null,
   // Poster biçiminde başlık bina görselinin üstünde çiziliyor; burada tekrar etmesin
   posterHeader = false,
+  /**
+   * Kadro ve yükseltme denetimleri poster görselinin sağ altına taşındıysa
+   * gövdede TEKRAR çizilmesin (bkz. BuildingControls, VillageCenter).
+   */
+  controlsInHeader = false,
 }) {
   // Oyun dakikası → gerçek saniye (sunucudaki geri sayımla aynı ölçek)
   const realSecs = (mins) => gameMinutesToRealSeconds(mins, hourSeconds, worldSpeed);
@@ -441,8 +446,8 @@ export default function BuildMenu({
         </div>
       )}
 
-      {/* ── Mevcut bina: SOL işçi · SAĞ yükseltme ── */}
-      {building && !building.building && (
+      {/* ── Mevcut bina: SOL işçi · SAĞ yükseltme (poster modunda görselin üstünde) ── */}
+      {building && !building.building && !controlsInHeader && (
         <div style={popCols('1fr', '1.05fr')}>
           <div style={popCol}>
             {hasWorkerSlot ? (

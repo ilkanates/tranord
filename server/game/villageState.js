@@ -103,6 +103,16 @@ function createVillage(worldQ = 0, worldR = 0) {
      */
     researchMigrated: true,
 
+    /**
+     * EKİPMAN YÜKSELTMELERİ — silahçı/zırhçıda araştırılan seviyeler.
+     * Seviye ordunun TAMAMINA anında işliyor (Travian kuralı); asker asker
+     * seviye tutulsaydı ordu verisi ve savaş hesabı belirgin şekilde
+     * karmaşıklaşırdı.
+     */
+    equipmentLevels: { kilic: 0, mizrak: 0, kalkan: 0, zirh: 0 },
+    upgradeQueues: { silahci: [], zirh: [] },
+    nextUpgradeId: 1,
+
     productionTiles: {
       '1,0':  { type: 'odun',  level: 1, workers: 0, upgrading: false, upgradeEndTime: null, upgradeWorkersAssigned: 0 },
       '1,-1': { type: 'kil',   level: 1, workers: 0, upgrading: false, upgradeEndTime: null, upgradeWorkersAssigned: 0 },
@@ -185,6 +195,20 @@ function hydrateVillage(raw) {
     raw.nextResearchId = raw.researchQueue.reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
   }
   migrateResearch(raw);
+
+  // Ekipman yükseltmesi öncesi kayıtlar
+  if (!raw.equipmentLevels || typeof raw.equipmentLevels !== 'object') raw.equipmentLevels = {};
+  for (const eq of ['kilic', 'mizrak', 'kalkan', 'zirh']) {
+    if (typeof raw.equipmentLevels[eq] !== 'number') raw.equipmentLevels[eq] = 0;
+  }
+  if (!raw.upgradeQueues || typeof raw.upgradeQueues !== 'object') raw.upgradeQueues = {};
+  for (const b of ['silahci', 'zirh']) {
+    if (!Array.isArray(raw.upgradeQueues[b])) raw.upgradeQueues[b] = [];
+  }
+  if (typeof raw.nextUpgradeId !== 'number') {
+    raw.nextUpgradeId = Object.values(raw.upgradeQueues)
+      .flat().reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
+  }
 
   // Sefer sistemi öncesi kayıtlar
   if (!raw.stats || typeof raw.stats !== 'object') raw.stats = {};

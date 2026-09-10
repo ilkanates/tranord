@@ -521,6 +521,10 @@ function Game({ token, onLogout }) {
    */
   const researchUnit   = (unitType) => socket.emit('research_unit', { unitType });
   const cancelResearch = (orderId)  => socket.emit('cancel_research', { orderId });
+  const upgradeEquipment = (buildingType, equipment) =>
+    socket.emit('upgrade_equipment', { buildingType, equipment });
+  const cancelEquipmentUpgrade = (buildingType, orderId) =>
+    socket.emit('cancel_equipment_upgrade', { buildingType, orderId });
   const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
   const startFestival = (kind) => socket.emit('start_festival', { kind });
   /**
@@ -671,6 +675,11 @@ function Game({ token, onLogout }) {
               researchQueue={village.researchQueue || []}
               onResearchUnit={researchUnit}
               onCancelResearch={cancelResearch}
+              equipmentUpgrade={village.equipmentUpgrade || {}}
+              upgradeQueues={village.upgradeQueues || {}}
+              unitStatsNow={village.unitStatsNow || {}}
+              onUpgradeEquipment={upgradeEquipment}
+              onCancelEquipmentUpgrade={cancelEquipmentUpgrade}
               villageBuildings={village.villageBuildings || {}}
               towerSlots={village.towerSlots || []}
               freeWorkers={village.freeWorkers}

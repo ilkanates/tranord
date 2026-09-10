@@ -1,0 +1,403 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>TraNord — köy tasarımı</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#050a12; color:#cfe0ee; font-family: Jost, system-ui, sans-serif; }
+  .wrap { display:flex; height:100vh; }
+  .stage { flex:1; display:grid; place-items:center; overflow:hidden;
+           perspective:1500px; perspective-origin:50% 32%; }
+  svg { width:min(100%, 97vh); height:auto; aspect-ratio:1/1; transform-style:preserve-3d; }
+  .panel { width:266px; padding:16px 15px; background:rgba(10,20,32,.8);
+           border-left:1px solid rgba(140,180,220,.18); overflow-y:auto; font-size:12px; }
+  h1 { font-family:'Cormorant Garamond',Georgia,serif; font-size:18px; letter-spacing:1px;
+       margin:0 0 12px; color:#dfeaf5; font-weight:600; }
+  label { display:block; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase;
+          color:#7f95a8; margin:13px 0 3px; }
+  input[type=range] { width:100%; }
+  .val { font-family:ui-monospace,monospace; font-size:11.5px; color:#8fbcff; }
+  .row { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+  button { background:rgba(31,77,112,.45); color:#cfe0ee; border:1px solid rgba(140,180,220,.28);
+           border-radius:5px; padding:5px 8px; font-size:10.5px; cursor:pointer; font-family:inherit; }
+  button.on { background:rgba(143,188,255,.3); border-color:#8fbcff; color:#eaf4ff; }
+  .fit { margin-top:12px; font-family:ui-monospace,monospace; font-size:10.5px; }
+  .ok { color:#8ce08c; } .bad { color:#ff8f8f; }
+  .note { font-size:10px; line-height:1.55; color:#6f8497; margin-top:14px;
+          border-top:1px solid rgba(140,180,220,.14); padding-top:10px; }
+</style>
+<div class="wrap">
+  <div class="stage"><svg id="svg" viewBox="0 0 900 900" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div class="panel">
+    <h1>Köy tasarımı</h1>
+
+    <label>Kule biçimi</label>
+    <div class="row" id="towerVar"></div>
+
+    <label>Yol ağı</label>
+    <div class="row" id="roadVar"></div>
+
+    <label>Yol genişliği <span class="val" id="vRoad">10</span></label>
+    <input type="range" id="road" min="0" max="22" value="10">
+
+    <label>Bina karo boyu <span class="val" id="vTile">0.86</span></label>
+    <input type="range" id="tile" min="60" max="100" value="86">
+
+    <label>Hex ölçeği <span class="val" id="vS">44</span></label>
+    <input type="range" id="hexS" min="34" max="56" value="44">
+
+    <label>Sur seviyesi <span class="val" id="vSur">2</span></label>
+    <input type="range" id="sur" min="0" max="20" value="2">
+
+    <label>Hendek seviyesi <span class="val" id="vHen">1</span></label>
+    <input type="range" id="hen" min="0" max="20" value="1">
+
+    <label>Görünüm</label>
+    <div class="row">
+      <button id="tTilt" class="on">Eğim</button>
+      <button id="tImg" class="on">Bina görselleri</button>
+      <button id="tGate" class="on">Kapı</button>
+    </div>
+
+    <div class="fit" id="fit"></div>
+    <div class="note">
+      Bu sayfa gerçek köy verini ve gerçek bina görsellerini kullanıyor.
+      Yollar bina karolarının ARASINDAKİ boşlukta akıyor — karo boyu küçüldükçe
+      sokaklar genişler. Beğendiğin kombinasyonu söyle, oyuna aynı sayılarla
+      geçireceğim.
+    </div>
+  </div>
+</div>
+<script>
+// ── Gerçek köy verisi ────────────────────────────────────────────────
+const VILLAGE = {"0,0":{"t":"anaBina","l":10},"1,0":{"t":"keresteci","l":2},"0,1":{"t":"tuglaci","l":2},"-1,1":{"t":"tasci","l":2},"-1,0":{"t":"demirci","l":2},"0,-1":{"t":"degirmen","l":8},"1,-1":{"t":"firin","l":8},"-2,0":{"t":"zirh","l":1},"-1,-1":{"t":"silahci","l":3},"-2,2":{"t":"ev","l":5},"-1,2":{"t":"ev","l":5},"1,1":{"t":"islenmisMalDepo","l":14},"2,-2":{"t":"ahir","l":8},"2,0":{"t":"tahilAmbar","l":12},"3,-1":{"t":"granary","l":13},"3,-2":{"t":"hammaddeDepo","l":13},"-3,1":{"t":"cephane","l":2},"-3,0":{"t":"atolye","l":1},"-2,-1":{"t":"saglikCadiri","l":2},"1,-3":{"t":"loncaDemir","l":1},"1,-2":{"t":"kisla","l":4},"3,0":{"t":"loncaOdun","l":4},"2,1":{"t":"loncaTas","l":4},"1,2":{"t":"loncaKil","l":3},"0,3":{"t":"loncaTahil","l":2},"-3,2":{"t":"ev","l":3},"-1,3":{"t":"pazar","l":1},"sur":{"t":"sur","l":2},"kule1":{"t":"kule","l":1},"kule2":{"t":"kule","l":1},"kule3":{"t":"kule","l":1},"kule4":{"t":"kule","l":1},"hendek":{"t":"hendek","l":1},"kule6":{"t":"kule","l":1}};
+const IMG = (t) => `/src/assets/buildings/${t}.jpg`;
+
+const SQRT3 = Math.sqrt(3), CX = 450, CY = 450;
+const RING1 = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const RING2 = [[2,0],[2,-1],[2,-2],[1,-2],[0,-2],[-1,-1],[-2,0],[-2,1],[-2,2],[-1,2],[0,2],[1,1]];
+const RING3 = [[3,0],[3,-1],[3,-2],[3,-3],[2,-3],[1,-3],[0,-3],[-1,-2],[-2,-1],[-3,0],[-3,1],
+               [-3,2],[-3,3],[-2,3],[-1,3],[0,3],[1,2],[2,1]];
+const CELLS = [[0,0], ...RING1, ...RING2, ...RING3];
+const CELLSET = new Set(CELLS.map(c => c[0]+','+c[1]));
+const AX = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+// Köşe kuleleri hangi hex yönünde (30+60k)
+const CORNER_CELLS = [[3,0],[0,3],[-3,3],[-3,0],[0,-3],[3,-3]];
+
+const st = { tower:'A', road:'R1', roadW:10, tile:0.86, S:44, sur:2, hen:1,
+             tilt:true, img:true, gate:true };
+
+const P = (q,r) => ({ x: CX + st.S*1.5*q, y: CY + st.S*((SQRT3/2)*q + SQRT3*r) });
+const hexPts = (x,y,r) => Array.from({length:6},(_,i)=>{
+  const a=(Math.PI/3)*i; return [x+r*Math.cos(a), y+r*Math.sin(a)];
+});
+const pts = (a) => a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+const lerp = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
+const dist = (q,r) => (Math.abs(q) + Math.abs(r) + Math.abs(-q-r)) / 2;
+
+// ── Sur dış hattı (girintili çıkıntılı) ─────────────────────────────
+function edgeNb() {
+  return Array.from({length:6},(_,i)=>{
+    const t=30+60*i; let best=null,bd=1e9;
+    for (const [dq,dr] of AX) {
+      const p=P(dq,dr);
+      let a=(Math.atan2(p.y-CY,p.x-CX)*180/Math.PI+360)%360;
+      let d=Math.abs(a-t); d=Math.min(d,360-d);
+      if(d<bd){bd=d;best=[dq,dr];}
+    }
+    return best;
+  });
+}
+function outline() {
+  const EN = edgeNb(), segs = [];
+  for (const [q,r] of CELLS) {
+    const c = P(q,r);
+    for (let i=0;i<6;i++) {
+      const [dq,dr]=EN[i];
+      if (CELLSET.has((q+dq)+','+(r+dr))) continue;
+      const a1=(Math.PI/3)*i, a2=(Math.PI/3)*((i+1)%6);
+      segs.push([[c.x+st.S*Math.cos(a1), c.y+st.S*Math.sin(a1)],
+                 [c.x+st.S*Math.cos(a2), c.y+st.S*Math.sin(a2)]]);
+    }
+  }
+  const near=(a,b)=>Math.abs(a[0]-b[0])<0.01&&Math.abs(a[1]-b[1])<0.01;
+  const used=new Array(segs.length).fill(false), out=[];
+  let cur=0; used[0]=true;
+  for (let n=0;n<segs.length;n++) {
+    out.push(segs[cur][0]);
+    const end=segs[cur][1];
+    let nx=-1;
+    for (let j=0;j<segs.length;j++) if(!used[j]&&near(segs[j][0],end)){nx=j;break;}
+    if(nx<0) break;
+    used[nx]=true; cur=nx;
+  }
+  return out;
+}
+const off = (ps,d) => ps.map(([x,y])=>{
+  const dx=x-CX, dy=y-CY, L=Math.hypot(dx,dy)||1;
+  return [x+dx/L*d, y+dy/L*d];
+});
+
+// ── Yol ağı: hex KENARLARI boyunca (binaların arası) ──────────────
+/**
+ * Yol, hex'lerin ortak KENARLARINDA akar; bina karoları küçültüldüğü için
+ * aradaki boşluk sokak olur. Merkez-merkez bağlantısı denendi ve bırakıldı:
+ * o çizgiler karoların ALTINDAN geçtiği için yalnız kesişmelerde görünüyordu.
+ *
+ * Sokak genişliği boşluğa oturmalı: komşu merkezler √3·S uzakta, karo yarı
+ * genişliği kenara doğru tile·S·(√3/2) → boşluk = √3·S·(1−tile).
+ */
+function edgeRoads(onlyBuilt) {
+  const seen = new Set(), out = [];
+  for (const [q,r] of CELLS) {
+    const key = q+','+r;
+    if (onlyBuilt && !VILLAGE[key]) continue;
+    const c = P(q,r);
+    for (let i=0;i<6;i++) {
+      const a1=(Math.PI/3)*i, a2=(Math.PI/3)*((i+1)%6);
+      const p1=[c.x+st.S*Math.cos(a1), c.y+st.S*Math.sin(a1)];
+      const p2=[c.x+st.S*Math.cos(a2), c.y+st.S*Math.sin(a2)];
+      const mk=`${((p1[0]+p2[0])/2).toFixed(0)}_${((p1[1]+p2[1])/2).toFixed(0)}`;
+      if (seen.has(mk)) continue;
+      seen.add(mk);
+      out.push([p1,p2]);
+    }
+  }
+  return out;
+}
+/** Sur içi çevre yolu: dış hattın hemen içinde kapalı halka */
+function perimeterRoad(OUT, inset) { return off(OUT, -inset); }
+
+function draw() {
+  const S = st.S;
+  const OUT = outline();
+  const surLv = st.sur, henLv = st.hen;
+  const thick = (0.16 + Math.min(20,surLv)*0.010) * S;
+  const band  = (0.26 + Math.min(20,henLv)*0.010) * S;
+  const BERM  = 0.10 * S;
+  const wall  = off(OUT, thick/2);
+  const mIn   = off(OUT, thick + BERM);
+  const mOut  = off(OUT, thick + BERM + band);
+  const gateSeg = OUT.reduce((bi,p,i)=> p[1] > OUT[bi][1] ? i : bi, 0);
+  let g = '';
+
+  g += `<defs>
+    <radialGradient id="grd" cx="50%" cy="50%" r="62%">
+      <stop offset="0%" stop-color="#3c5531" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#1a2716" stop-opacity=".7"/>
+    </radialGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#12384d"/><stop offset="100%" stop-color="#071a26"/>
+    </linearGradient>
+    <pattern id="tex" patternUnits="userSpaceOnUse" width="${(1.5*S).toFixed(0)}" height="${(1.5*S).toFixed(0)}">
+      <image href="/src/assets/buildings/sur-doku.jpg" x="0" y="0"
+             width="${(1.5*S).toFixed(0)}" height="${(1.5*S).toFixed(0)}" preserveAspectRatio="none"/>
+    </pattern>
+  </defs>`;
+
+  // Zemin
+  g += `<polygon points="${pts(OUT)}" fill="url(#grd)"/>`;
+
+  // ── HENDEK ──
+  if (henLv > 0) {
+    g += `<path d="M${pts(mOut).replace(/ /g,'L')}Z M${pts(mIn).replace(/ /g,'L')}Z"
+             fill="url(#water)" fill-rule="evenodd" opacity=".95"/>`;
+    g += `<polygon points="${pts(mOut)}" fill="none" stroke="#0a1c26" stroke-width="3"/>`;
+    g += `<polygon points="${pts(mIn)}" fill="none" stroke="rgba(150,210,240,.3)" stroke-width="1.4"/>`;
+  }
+
+  // ── YOLLAR — hex kenarları boyunca, binaların arasında ──
+  if (st.road !== 'R0' && st.roadW > 0) {
+    const w = st.roadW;
+    let segs = [];
+    if (st.road === 'R1') segs = edgeRoads(false);
+    if (st.road === 'R2') segs = edgeRoads(true);
+    if (st.road === 'R3') segs = [];
+    const line = (p1,p2,col,wd,cap='round') =>
+      `<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}"
+             x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}"
+             stroke="${col}" stroke-width="${wd}" stroke-linecap="${cap}"/>`;
+    // koyu kenar + toprak yüzey + açık orta şerit
+    for (const [p1,p2] of segs) g += line(p1,p2,'#241d13', w+4);
+    for (const [p1,p2] of segs) g += line(p1,p2,'#6b5c42', w);
+    for (const [p1,p2] of segs) g += line(p1,p2,'#83734f', Math.max(1, w*0.45));
+    // çevre yolu: surun hemen içi
+    const per = perimeterRoad(OUT, w*0.75);
+    g += `<polygon points="${pts(per)}" fill="none" stroke="#241d13" stroke-width="${w+4}" stroke-linejoin="round"/>`;
+    g += `<polygon points="${pts(per)}" fill="none" stroke="#6b5c42" stroke-width="${w}" stroke-linejoin="round"/>`;
+    g += `<polygon points="${pts(per)}" fill="none" stroke="#83734f" stroke-width="${Math.max(1,w*0.45)}" stroke-linejoin="round"/>`;
+    // kapıdan içeri
+    if (st.gate) {
+      const gp = lerp(wall[gateSeg], wall[(gateSeg+1)%wall.length], 0.5);
+      const dx = gp[0]-CX, dy = gp[1]-CY, L = Math.hypot(dx,dy)||1;
+      const inn = [gp[0]-dx/L*(thick+w), gp[1]-dy/L*(thick+w)];
+      g += line(gp,inn,'#241d13', w+6, 'butt');
+      g += line(gp,inn,'#6b5c42', w+2, 'butt');
+    }
+  }
+
+  // ── SUR ──
+  if (surLv > 0) {
+    g += `<polygon points="${pts(wall)}" fill="none" stroke="#221e19" stroke-width="${thick+7}" stroke-linejoin="round"/>`;
+    g += `<polygon points="${pts(wall)}" fill="none" stroke="url(#tex)" stroke-width="${thick}" stroke-linejoin="round"/>`;
+    g += `<polygon points="${pts(wall)}" fill="none" stroke="rgba(74,104,136,.18)" stroke-width="${thick}" stroke-linejoin="round"/>`;
+    // mazgal
+    for (let i=0;i<wall.length;i++) {
+      const a=wall[i], b=wall[(i+1)%wall.length];
+      const n=Math.max(3, Math.round(Math.hypot(b[0]-a[0],b[1]-a[1])/(0.22*S)));
+      for (let k=0;k<=n;k+=2) {
+        const t=k/n;
+        if (st.gate && i===gateSeg && t>0.3 && t<0.7) continue;
+        const p=lerp(a,b,t);
+        const dx=p[0]-CX, dy=p[1]-CY, L=Math.hypot(dx,dy)||1;
+        g += `<circle cx="${(p[0]+dx/L*thick/2).toFixed(1)}" cy="${(p[1]+dy/L*thick/2).toFixed(1)}"
+                 r="${(thick*0.17).toFixed(1)}" fill="#8f8578" opacity=".85"/>`;
+      }
+    }
+    if (st.gate) {
+      const p=lerp(wall[gateSeg], wall[(gateSeg+1)%wall.length], 0.5);
+      const dx=p[0]-CX, dy=p[1]-CY, L=Math.hypot(dx,dy)||1;
+      const g1=[p[0]-dx/L*thick*0.8, p[1]-dy/L*thick*0.8], g2=[p[0]+dx/L*thick*0.8, p[1]+dy/L*thick*0.8];
+      g += `<line x1="${g1[0]}" y1="${g1[1]}" x2="${g2[0]}" y2="${g2[1]}" stroke="#2a1c10" stroke-width="${thick*1.3}"/>`;
+      g += `<line x1="${g1[0]}" y1="${g1[1]}" x2="${g2[0]}" y2="${g2[1]}" stroke="#6b4a28" stroke-width="${thick*0.95}"/>`;
+    }
+  } else {
+    g += `<polygon points="${pts(wall)}" fill="none" stroke="#4a4032" stroke-width="6"
+             stroke-dasharray="14 9" opacity=".7" stroke-linejoin="round"/>`;
+  }
+
+  // ── BİNA KAROLARI ──
+  const TR = st.tile * S;
+  const cornerSet = new Set(st.tower === 'C' ? CORNER_CELLS.map(c=>c.join(',')) : []);
+  for (const [q,r] of CELLS) {
+    const key = q+','+r;
+    const p = P(q,r);
+    const b = VILLAGE[key];
+    const isCorner = cornerSet.has(key);
+    const tileB = isCorner ? { t:'kule', l:(VILLAGE['kule1']?.l||0) } : b;
+    const hp = hexPts(p.x, p.y, TR);
+    const cid = `c${q}_${r}`.replace(/-/g,'m');
+    if (tileB) {
+      g += `<clipPath id="${cid}"><polygon points="${pts(hp)}"/></clipPath>`;
+      g += `<polygon points="${pts(hp)}" fill="#26301f"/>`;
+      if (st.img) {
+        g += `<image href="${IMG(tileB.t)}" x="${(p.x-TR).toFixed(1)}" y="${(p.y-TR).toFixed(1)}"
+                 width="${(TR*2).toFixed(1)}" height="${(TR*2).toFixed(1)}"
+                 clip-path="url(#${cid})" preserveAspectRatio="xMidYMid slice"/>`;
+      }
+      g += `<polygon points="${pts(hp)}" fill="none" stroke="${isCorner?'#ff8080':'rgba(190,215,240,.45)'}" stroke-width="1.6"/>`;
+      g += `<text x="${p.x}" y="${(p.y+TR*0.72).toFixed(1)}" text-anchor="middle"
+               font-family="'Cormorant Garamond',Georgia,serif" font-size="12" font-weight="600"
+               fill="#eaf4fb" paint-order="stroke" stroke="rgba(6,10,18,.85)" stroke-width="3">LVL ${tileB.l}</text>`;
+    } else {
+      g += `<polygon points="${pts(hp)}" fill="#2f4a28" fill-opacity=".72"
+               stroke="rgba(150,190,120,.34)" stroke-width="1.2"/>`;
+      g += `<path d="M${p.x-8} ${p.y} h16 M${p.x} ${p.y-8} v16" stroke="rgba(190,215,240,.35)" stroke-width="2"/>`;
+    }
+  }
+
+  // ── KULELER ──
+  const cornerPos = CORNER_CELLS.map(([q,r]) => {
+    const c = P(q,r);
+    const L = Math.hypot(c.x-CX, c.y-CY) || 1;
+    const d = (SQRT3/2) * S;              // hex merkezinden dış kenar ortasına
+    return [c.x + (c.x-CX)/L*d, c.y + (c.y-CY)/L*d];
+  });
+  if (st.tower === 'A') {
+    // Duvarın köşede kalınlaşması — vektör burç
+    cornerPos.forEach((p,i) => {
+      const lv = VILLAGE['kule'+(i+1)]?.l || 0;
+      const R = thick * 1.5;
+      if (lv > 0) {
+        g += `<circle cx="${p[0]}" cy="${p[1]}" r="${R+3}" fill="#221e19"/>`;
+        g += `<circle cx="${p[0]}" cy="${p[1]}" r="${R}" fill="url(#tex)"/>`;
+        g += `<circle cx="${p[0]}" cy="${p[1]}" r="${R}" fill="rgba(74,104,136,.18)"/>`;
+        for (let k=0;k<8;k++) {
+          const a=(Math.PI*2*k)/8;
+          g += `<circle cx="${(p[0]+R*0.82*Math.cos(a)).toFixed(1)}" cy="${(p[1]+R*0.82*Math.sin(a)).toFixed(1)}"
+                   r="${(R*0.16).toFixed(1)}" fill="#8f8578" opacity=".9"/>`;
+        }
+        g += `<circle cx="${p[0]}" cy="${p[1]}" r="${R}" fill="none" stroke="rgba(228,240,250,.3)" stroke-width="1.2"/>`;
+        g += `<text x="${p[0]}" y="${(p[1]-R-6).toFixed(1)}" text-anchor="middle"
+                 font-family="ui-monospace,monospace" font-size="10" fill="#ff8080"
+                 paint-order="stroke" stroke="rgba(6,10,18,.9)" stroke-width="3">${lv}</text>`;
+      } else {
+        g += `<circle cx="${p[0]}" cy="${p[1]}" r="${thick*1.2}" fill="#141d26" fill-opacity=".85"
+                 stroke="rgba(255,128,128,.5)" stroke-width="1.4" stroke-dasharray="4 4"/>`;
+      }
+    });
+  } else if (st.tower === 'B') {
+    // Duvara oturan kare kule + koyu çatı
+    cornerPos.forEach((p,i) => {
+      const lv = VILLAGE['kule'+(i+1)]?.l || 0;
+      const R = 0.42 * S;
+      const sq = [[p[0]-R,p[1]-R],[p[0]+R,p[1]-R],[p[0]+R,p[1]+R],[p[0]-R,p[1]+R]];
+      if (lv > 0) {
+        g += `<polygon points="${pts(sq)}" fill="#221e19" stroke="#221e19" stroke-width="6" stroke-linejoin="round"/>`;
+        g += `<polygon points="${pts(sq)}" fill="url(#tex)"/>`;
+        g += `<polygon points="${pts(sq)}" fill="rgba(74,104,136,.18)"/>`;
+        g += `<polygon points="${pts([[p[0],p[1]-R*0.9],[p[0]+R*0.9,p[1]],[p[0],p[1]+R*0.9],[p[0]-R*0.9,p[1]]])}"
+                 fill="#161b22" opacity=".8"/>`;
+        g += `<polygon points="${pts(sq)}" fill="none" stroke="rgba(228,240,250,.3)" stroke-width="1.3"/>`;
+        g += `<text x="${p[0]}" y="${(p[1]+4).toFixed(1)}" text-anchor="middle"
+                 font-family="ui-monospace,monospace" font-size="12" fill="#ffb0b0">${lv}</text>`;
+      } else {
+        g += `<polygon points="${pts(sq)}" fill="#141d26" fill-opacity=".85"
+                 stroke="rgba(255,128,128,.5)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+        g += `<path d="M${p[0]-7} ${p[1]} h14 M${p[0]} ${p[1]-7} v14" stroke="rgba(255,128,128,.6)" stroke-width="2"/>`;
+      }
+    });
+  }
+  // 'C' varyantında kule köşe hex'inin karosu olarak yukarıda çizildi
+
+  const svg = document.getElementById('svg');
+  svg.innerHTML = g;
+  svg.style.transform = st.tilt ? 'rotateX(18deg)' : 'none';
+
+  // Çerçeveyi içeriğe göre daralt — oyunda görünecek doluluk oranı
+  const bb = svg.getBBox();
+  const pad = 14;
+  const side = Math.max(bb.width, bb.height) + pad*2;
+  const vx = bb.x + bb.width/2 - side/2, vy = bb.y + bb.height/2 - side/2;
+  svg.setAttribute('viewBox', `${vx.toFixed(0)} ${vy.toFixed(0)} ${side.toFixed(0)} ${side.toFixed(0)}`);
+  document.getElementById('fit').innerHTML =
+    `içerik ${Math.round(bb.width)}×${Math.round(bb.height)} · çerçeve ${side.toFixed(0)}`;
+}
+
+// ── Kontroller ──
+const mk = (host, items, key) => {
+  const h = document.getElementById(host);
+  items.forEach(([v,t]) => {
+    const b = document.createElement('button');
+    b.textContent = t;
+    if (st[key] === v) b.className = 'on';
+    b.onclick = () => {
+      st[key] = v;
+      [...h.children].forEach(c => c.className = '');
+      b.className = 'on';
+      draw();
+    };
+    h.appendChild(b);
+  });
+};
+mk('towerVar', [['A','A · duvar burcu'],['B','B · kare kule'],['C','C · köşe hex\'i']], 'tower');
+mk('roadVar',  [['R0','yok'],['R1','tüm kenarlar'],['R2','yalnız binalar'],['R3','yalnız çevre']], 'road');
+
+const bind = (id, key, out, f = (v)=>v) => {
+  const el = document.getElementById(id);
+  el.oninput = () => {
+    st[key] = f(+el.value);
+    document.getElementById(out).textContent = st[key];
+    draw();
+  };
+};
+bind('road','roadW','vRoad');
+bind('tile','tile','vTile', v => +(v/100).toFixed(2));
+bind('hexS','S','vS');
+bind('sur','sur','vSur');
+bind('hen','hen','vHen');
+const tog = (id,key) => document.getElementById(id).onclick = e => {
+  st[key] = !st[key]; e.target.className = st[key] ? 'on' : ''; draw();
+};
+tog('tTilt','tilt'); tog('tImg','img'); tog('tGate','gate');
+draw();
+</script>

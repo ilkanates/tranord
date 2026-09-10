@@ -37,6 +37,9 @@ const LOOTABLE = [
   'kereste', 'tugla', 'yontmaTas', 'demirKulce', 'un', 'ekmek',
 ];
 const MIN_MARCH_MINUTES = 1;
+// server/data/militaryDefs.js
+const EQUIPMENT_MAX_LEVEL = 20;
+const EQUIPMENT_UPGRADE_STEP = 0.0175;
 
 const say = (n) => Math.round(n).toLocaleString('tr-TR');
 
@@ -448,6 +451,26 @@ function Ordu({ unitDefs = {} }) {
           Araştırma istemeyen başlangıç birimleri: <b>{serbest.map(([, d]) => d.name).join(', ')}</b>.
         </P>
       )}
+
+      <Baslik icon="yukari" renk="#f2c86e">Silah ve zırh yükseltmesi</Baslik>
+      <P>
+        Silahçıda <b>kılıç ve mızrak</b>, zırhçıda <b>kalkan ve zırh</b>
+        ayrı ayrı {EQUIPMENT_MAX_LEVEL} seviye yükseltilebilir. Her seviye o
+        ekipmanın kendi katkısını <b>%{(EQUIPMENT_UPGRADE_STEP * 100).toFixed(2)}</b>
+        {' '}artırır; Lvl {EQUIPMENT_MAX_LEVEL}'de katkı
+        {' '}<b>%{Math.round(EQUIPMENT_UPGRADE_STEP * EQUIPMENT_MAX_LEVEL * 100)}</b> fazladır.
+      </P>
+      <Kutu baslik="Etki ordunun tamamına, anında" renk="#f2c86e">
+        Yükseltme bitince <b>mevcut askerler de</b> güçlenir — yeni eğitilenleri
+        beklemek gerekmez. Kılıç saldırı ağırlıklı olduğu için kılıç yükseltmesi
+        saldırıyı, kalkan savunmayı büyütür: hangi ekipmana yatırım yaptığın
+        ordunun karakterini belirler. Hız ve taşıma kapasitesi değişmez.
+      </Kutu>
+      <P>
+        Savaşta iki taraf kendi seviyesini kullanır: saldıranın kılıcı onun
+        saldırısını, savunanın kalkanı onun savunmasını büyütür. Maliyet ve
+        süre seviyeyle katlanır, süre binadaki işçi sayısına bölünür.
+      </P>
 
       <Baslik icon="kilit" renk="#e0b357">Birim seviye kilitleri</Baslik>
       <P>

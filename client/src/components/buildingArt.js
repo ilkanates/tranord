@@ -142,6 +142,14 @@ export const TEXTURE_EMBLEM = {
   loncaDemir: { icon: 'loncaDemirAmblem', rot: 0, size: 17 },
   zirh:       { icon: 'zirhAmblem', rot: 0, size: 18 },
   anaBina:    { icon: 'anaBinaAmblem', rot: 0, size: 19 },
+  /*
+    Köşk, saray ve taverna amblemsiz kalmıştı. Bu üçünün dolgu (silüet)
+    amblemi yok; kendi çizgi ikonları kullanılıyor — rozette de hex'te de
+    boş durmasınlar. Silüet çizilirse yalnız buradaki adlar değişir.
+  */
+  kosk:       { icon: 'kosk', rot: 0, size: 17 },
+  saray:      { icon: 'saray', rot: 0, size: 17 },
+  taverna:    { icon: 'taverna', rot: 0, size: 16 },
 };
 
 export const BUILDING_TEXTURE = {
