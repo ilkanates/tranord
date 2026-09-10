@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm,
-  takesWorkers, maxWorkersOf } from '../flows';
+  takesWorkers, maxWorkersOf, maxBuilders } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import { CostRow } from './mapPanels';
 import { TEXTURE_EMBLEM } from './buildingArt';
@@ -496,7 +496,8 @@ export default function BuildMenu({
                 <ColLabel icon="insaat">Lvl {building.level + 1}’e yükselt</ColLabel>
                 <CostRow cost={upgradeCost} resources={resources} flows={flows}
                   hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
-                <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={upgradeWorkers}
+                <WorkerAssign mode="pick" min={1}
+                  max={Math.max(1, Math.min(freeWorkers, maxBuilders(building?.level)))} value={upgradeWorkers}
                   freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setUpgradeWorkers}
                   effect={(w) => `süre ${fmtTime(realSecs(buildMinutes(building.type, building.level + 1, w)))}`} />
                 <button onClick={() => onUpgrade(upgradeWorkers)} disabled={!upgradeReady}
@@ -621,7 +622,8 @@ export default function BuildMenu({
                     </div>
                   )}
                   {!blocked && (
-                    <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
+                    <WorkerAssign mode="pick" min={1}
+                      max={Math.max(1, Math.min(freeWorkers, maxBuilders(0)))} value={buildWorkers}
                       freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
                       effect={(w) => `süre ${fmtTime(realSecs(buildMinutes(selectedType, 1, w)))}`} />
                   )}

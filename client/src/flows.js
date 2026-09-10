@@ -268,9 +268,7 @@ export const NO_WORKER_TYPES = new Set(['sur', 'hendek']);
  * kopyada `kule` eksikti; tek kaynak burası olsun.
  */
 export const WORKER_ASSIGNABLE_MILITARY = new Set([
-  'silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu',
-  // Göçmen köşk/sarayda eğitilir — eğitmen alırlar
-  'kosk', 'saray',
+  'silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule',
 ]);
 
 /** Bu bina personel alır mı? (üretim yapan her bina + askeri liste) */
@@ -280,10 +278,17 @@ export function takesWorkers(type, def) {
 }
 
 /** Binanın personel kapasitesi — seviye × workersPerLevel */
+/**
+ * BİR İNŞAATA KONABİLECEK EN FAZLA İŞÇİ — sunucudaki MAX_BUILDERS ikizi.
+ * Tavan = inşa edilecek seviyenin bir altı + 2 (yeni bina için 3).
+ * Boş işçi havuzuyla birlikte küçüğü geçerli.
+ */
+export const maxBuilders = (mevcutSeviye) => Math.max(1, (mevcutSeviye || 0) + 2);
+
 export function maxWorkersOf(type, def, level) {
   if (!takesWorkers(type, def) || !level || level < 1) return 0;
   return level * (def.workersPerLevel || 3);
 }
-const WORKER_TERM = { kule: 'Okçu', runSalonu: 'Araştırmacı', kosk: 'Eğitmen', saray: 'Eğitmen' };
+const WORKER_TERM = { kule: 'Okçu' };
 export const workerTerm  = (type) => WORKER_TERM[type] || 'İşçi';
 export const workerTermLc = (type) => (WORKER_TERM[type] || 'İşçi').toLowerCase();

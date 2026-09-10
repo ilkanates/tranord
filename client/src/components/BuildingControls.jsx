@@ -14,7 +14,7 @@ import { useState } from 'react';
 import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs';
 import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
 import { RES_LABEL, NO_WORKER_TYPES, workerTerm, takesWorkers, maxWorkersOf,
-  gameMinutesToRealSeconds } from '../flows';
+  maxBuilders, gameMinutesToRealSeconds } from '../flows';
 import { CostRow } from './mapPanels';
 import WorkerAssign from './WorkerAssign';
 import Icon from './Icons';
@@ -160,7 +160,8 @@ export default function BuildingControls({
             <CostRow cost={upgradeCost} resources={resources} flows={flows}
               hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
             <div style={{ marginTop: 4 }}>
-              <WorkerAssign compact={serit} mode="pick" min={1} max={Math.max(1, freeWorkers)}
+              <WorkerAssign compact={serit} mode="pick" min={1}
+                max={Math.max(1, Math.min(freeWorkers, maxBuilders(building.level)))}
                 value={upgradeWorkers} freeWorkers={freeWorkers}
                 title="İnşaatçı" onChange={setUpgradeWorkers}
                 effect={(w) => sure(w)} />

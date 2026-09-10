@@ -65,9 +65,15 @@ export function Spotlight({ anchor, on }) {
       */
       const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       const ust = document.elementFromPoint(cx, cy);
-      if (!ust || !(el === ust || el.contains(ust) || ust.contains(el))) {
-        setBox(null); return;
-      }
+      /*
+        Dolgusuz SVG şekilleri (sur çemberi gibi) merkez noktada isabet
+        vermez; aynı SVG'nin içinden bir şey dönüyorsa görünür sayılır.
+        Panel HTML olduğu için "üstünü kapatan pencere" ayrımı bozulmaz.
+      */
+      const svg = el.ownerSVGElement || (el.tagName === 'svg' ? el : null);
+      const gorunur = ust && (el === ust || el.contains(ust) || ust.contains(el)
+        || (svg && svg.contains(ust)));
+      if (!gorunur) { setBox(null); return; }
       setBox({ x: r.left, y: r.top, w: r.width, h: r.height });
     };
     olc();

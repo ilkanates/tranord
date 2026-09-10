@@ -382,6 +382,25 @@ function processFoodConsumption(village, hours = GT.HOURS_PER_TICK) {
   });
 }
 
+/**
+ * ÇALIŞAN İŞİ YENİ İŞÇİ SAYISINA GÖRE ÖLÇEKLE.
+ *
+ * Süre iş BAŞLARKEN işçiye bölünüyordu ve sonradan işçi eklemek hiçbir
+ * şey değiştirmiyordu — oyuncu "işçi ekledim, hızlanmadı" diyor, haklı.
+ * Artık KALAN süre oranla kısalıyor (ya da işçi çekilirse uzuyor):
+ *   yeniKalan = kalan × eskiİşçi / yeniİşçi
+ * Yapılan iş korunuyor; tamamlanan kısım geri gitmiyor.
+ */
+function isciyeGoreOlcekle(job, now, isci) {
+  if (!job || job.waiting || !job.endTime) return;
+  const eski = job.workersAtStart || 0;
+  if (!(isci > 0) || !(eski > 0) || isci === eski) return;
+  const kalan = job.endTime - now;
+  if (!(kalan > 0)) return;
+  job.endTime = now + Math.max(1, Math.round(kalan * (eski / isci)));
+  job.workersAtStart = isci;
+}
+
 function processEquipmentQueues(village, now) {
   if (!village.equipmentQueues) return;
 
@@ -430,6 +449,8 @@ function processEquipmentQueues(village, now) {
       order.startTime     = now;
       order.endTime       = now + GT.minutesToClock(mins);
       order.workersAtStart = workers;
+    } else {
+      isciyeGoreOlcekle(order, now, b.workers || 0);
     }
 
     if (now >= order.endTime) {
@@ -524,6 +545,8 @@ function processUpgradeQueues(village, now) {
       job.endTime = now + GT.minutesToClock(mins);
       job.workersAtStart = isci;
       job.toLevel = mevcut + 1;
+    } else {
+      isciyeGoreOlcekle(job, now, isci);
     }
 
     if (now >= job.endTime) {
@@ -583,6 +606,8 @@ function processResearchQueue(village, now) {
     job.startTime = now;
     job.endTime = now + GT.minutesToClock(mins);
     job.workersAtStart = arastirmaci;
+  } else {
+    isciyeGoreOlcekle(job, now, arastirmaci);
   }
 
   if (now >= job.endTime) {
@@ -677,6 +702,8 @@ function processUnitQueues(village, now) {
       order.startTime     = now;
       order.endTime       = now + GT.minutesToClock(mins);
       order.workersAtStart = trainerWorkers;
+    } else {
+      isciyeGoreOlcekle(order, now, b.workers || 0);
     }
 
     // Süresi doldu mu?

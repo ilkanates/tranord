@@ -180,6 +180,16 @@ const QUESTS = [
     reward: { res: { kereste: 250, tugla: 200 }, isci: 3 },
   },
   {
+    id: 'bonusTarla', title: 'Bereketli Toprak',
+    text: 'Bonuslu bir araziye o kaynağın ocağını dik. Haritada +%20 · +%50 yazan hex\'ler '
+      + 'sabit bonus taşır; üstüne AYNI cinsten üretim kurarsan o kadar fazla üretir.',
+    hint: 'Örnek: "+%40 odun" yazan hex\'e keresteci değil, ORMAN (odun ocağı) kur. '
+      + 'Bonus ancak tarlanın cinsi bonusla aynıysa işler. Köy merkezi kurulamaz oraya.',
+    tab: 'harita', anchor: 'tarla-bos',
+    cond: { tur: 'bonusTarla', adet: 1 },
+    reward: { res: { kereste: 300, tugla: 250 }, kp: 25 },
+  },
+  {
     id: 'depo2', title: 'Ambar Lazım',
     text: 'Hammadde Deposu kur; depon dolunca üretim çöpe gider.',
     hint: 'Köy Merkezi > boş arazi > Depo > Hammadde Deposu.',
@@ -225,8 +235,9 @@ const QUESTS = [
   {
     id: 'sur', title: 'Duvarları Yükselt',
     text: 'Sur kur. Savunma bonusu savunan bütün ordunu güçlendirir.',
-    hint: 'Köy Merkezi > Savunma > Sur (kendi slotuna kurulur).',
-    tab: 'koy', anchor: 'bina-bos',
+    hint: 'Sur boş araziye kurulmaz — KÖYÜN ÇEVRESİNDEKİ kendi slotu var. '
+      + 'Köy Merkezi ekranında köyü saran çembere tıkla.',
+    tab: 'koy', anchor: 'slot-sur',
     cond: { tur: 'bina', tip: 'sur', seviye: 1 },
     reward: { res: { yontmaTas: 300, kereste: 200 } },
   },

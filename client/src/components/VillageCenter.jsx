@@ -424,8 +424,10 @@ function VillageWall({
         stroke={mark('hendek') || 'transparent'} strokeOpacity={mark('hendek') ? 0.9 : 0}
         strokeWidth={Math.max(band, 10)} style={{ cursor: 'pointer' }}
         onClick={() => onSlot('hendek')}
+        data-tut="slot-hendek"
         onMouseEnter={() => onHover('hendek')} onMouseLeave={() => onHover(null)} />
-      <polygon points={ptsOf(WALL)} fill="none"
+      {/* data-tut: surun KENDİ slotu — rehber bunu işaretler */}
+      <polygon data-tut="slot-sur" points={ptsOf(WALL)} fill="none"
         stroke={mark('sur') || 'transparent'} strokeOpacity={mark('sur') ? 0.9 : 0}
         strokeWidth={thick + 2} style={{ cursor: 'pointer' }}
         onClick={() => onSlot('sur')}
