@@ -3,6 +3,7 @@ import BuildMenu from './BuildMenu';
 import CapitalPanel from './CapitalPanel';
 import EquipmentPanel from './EquipmentPanel';
 import UnitTrainingPanel from './UnitTrainingPanel';
+import ResearchPanel from './ResearchPanel';
 import FestivalPanel from './FestivalPanel';
 import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/villageDefs';
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
@@ -737,6 +738,11 @@ export default function VillageCenter({
    */
   villages = [], activeSlot = null, capitalSlot = null, uniqueOwners = {},
   onSetCapital,
+  /**
+   * RÚN SALONU: hangi birimler araştırıldı ve sırada ne var. Eğitim paneli
+   * de bunu okuyor — araştırılmamış birim kilitli görünsün.
+   */
+  research = {}, researchQueue = [], onResearchUnit, onCancelResearch,
 }) {
   const [selected, setSelected] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -1120,6 +1126,9 @@ export default function VillageCenter({
           const hasFestival = selectedBuilding?.type === 'taverna';
           // Saray: merkez taşıma denetimi burada
           const hasCapital  = selectedBuilding?.type === 'saray';
+          // Rún Salonu: birim araştırma listesi
+          const hasResearch = selectedBuilding?.level >= 1
+            && !!VILLAGE_DEFS[selectedBuilding?.type]?.researches;
 
           /**
            * ARKA PLAN: görsel panelin tamamına yayılır ama KOYU bir gradyanla
@@ -1275,6 +1284,22 @@ export default function VillageCenter({
               </div>
             )}
 
+            {hasResearch && (
+              <div style={{ padding: '0 12px 10px', order: 1 }}>
+                <ResearchPanel
+                  level={selectedBuilding.level || 0}
+                  workers={selectedBuilding.workers || 0}
+                  unitDefs={unitDefs}
+                  research={research}
+                  queue={researchQueue}
+                  resources={resources}
+                  flows={flows}
+                  hourSeconds={hourSeconds} worldSpeed={worldSpeed}
+                  onResearch={(tip) => onResearchUnit?.(tip)}
+                  onCancel={(id) => onCancelResearch?.(id)} />
+              </div>
+            )}
+
             {hasTraining && (
               <div style={{ padding: '0 12px 10px', order: 1 }}>
                 <UnitTrainingPanel
@@ -1288,6 +1313,7 @@ export default function VillageCenter({
                   queue={unitQueues[selectedBuilding.type] || []}
                   freeWorkers={freeWorkers}
                   trainerWorkers={selectedBuilding.workers || 0}
+                  research={research}
                   hourSeconds={hourSeconds} worldSpeed={worldSpeed}
                   onTrain={(type, qty) => onTrainUnit(selectedBuilding.type, type, qty)}
                   onCancel={(orderId) => onCancelUnitOrder(selectedBuilding.type, orderId)}

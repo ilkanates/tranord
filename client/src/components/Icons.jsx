@@ -462,6 +462,21 @@ const P = {
       <path d="M12 8l2.6 4-2.2 2 2.6 3.5-2 3" />
     </>
   ),
+  /**
+   * Rún Salonu — dikili rün taşı.
+   * Bina bir "salon" ama küçük boyutta çatı/duvar çizimi diğer binalardan
+   * ayrılmıyordu; işlevi (rün = araştırma) taşın üstündeki işaretten okunuyor.
+   * İşaret algiz rünü (ᛉ) sadeleştirilmiş hâli.
+   */
+  runSalonu: (
+    <>
+      <path d="M5.5 21h13" />
+      <path d="M8 21V6.5L12 3l4 3.5V21" />
+      <path d="M12 8.5v9" />
+      <path d="M12 12.5 9.6 9.8" />
+      <path d="M12 12.5l2.4-2.7" />
+    </>
+  ),
 };
 
 // Bina tipi → ikon adı. 'zirh' hem ekipman (zırh) hem bina (zırhçı) olduğu için

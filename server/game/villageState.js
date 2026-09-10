@@ -13,6 +13,7 @@
  * o yüzden isimli slotlar mevcut mekanikle olduğu gibi çalışıyor.
  */
 const PRODUCTION_DEFS = require('../data/productionDefs');
+const { UNIT_DEFS } = require('../data/militaryDefs');
 const { VILLAGE_DEFS: VILLAGE_DEFS_ALL, maxLevelOf } = require('../data/villageDefs');
 
 const TOWER_SLOTS_ARR    = ['kule1', 'kule2', 'kule3', 'kule4', 'kule5', 'kule6'];
@@ -86,6 +87,21 @@ function createVillage(worldQ = 0, worldR = 0) {
       atolye: []
     },
     nextUnitOrderId: 1,
+
+    /**
+     * ARAŞTIRMA — Rún Salonu'nda açılan birimler.
+     * `research[unitType] = true` demek "artık eğitilebilir" demek; kışla/ahır
+     * seviye kilidi ayrıca geçerli (bkz. militaryDefs.researchFor).
+     */
+    research: {},
+    researchQueue: [],
+    nextResearchId: 1,
+    /**
+     * Yeni köyler göçe girmez: araştırma sistemi onlar için baştan geçerli.
+     * Bayrak burada true; eski kayıtlarda hiç yok, hydrate onları bir kez
+     * göçürüp bayrağı basıyor.
+     */
+    researchMigrated: true,
 
     productionTiles: {
       '1,0':  { type: 'odun',  level: 1, workers: 0, upgrading: false, upgradeEndTime: null, upgradeWorkersAssigned: 0 },
@@ -161,6 +177,14 @@ function hydrateVillage(raw) {
    * iptal ediyordu.
    */
   raw.TOWER_SLOTS = new Set(TOWER_SLOTS_ARR);
+
+  // Araştırma sistemi öncesi kayıtlar
+  if (!raw.research || typeof raw.research !== 'object') raw.research = {};
+  if (!Array.isArray(raw.researchQueue)) raw.researchQueue = [];
+  if (typeof raw.nextResearchId !== 'number') {
+    raw.nextResearchId = raw.researchQueue.reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);
+  }
+  migrateResearch(raw);
 
   // Sefer sistemi öncesi kayıtlar
   if (!raw.stats || typeof raw.stats !== 'object') raw.stats = {};
@@ -317,6 +341,43 @@ function repairWorkerAccounting(v) {
   return { fark, mesgul, bos };
 }
 
-module.exports = { createVillage, hydrateVillage, repairWorkerAccounting,
+/**
+ * ARAŞTIRMA GÖÇÜ — bir kez, eski kayıtlar için.
+ *
+ * Rún Salonu gelmeden önce oyuncu birimleri yalnız kışla/ahır seviyesiyle
+ * açıyordu. Sistem eklendiğinde `research` boş olduğu için ZATEN EĞİTEBİLDİĞİ
+ * birimler bir anda kilitlenirdi — oyuncunun hiçbir hatası olmadan ordusu
+ * durur. Bu yüzden göçte iki şey araştırılmış sayılıyor:
+ *   1) ordusunda hâlihazırda BULUNAN birimler,
+ *   2) eğitim binasının MEVCUT seviyesinin zaten açtığı birimler.
+ * Bundan sonrası normal kurala tabi: yeni seviye açılınca araştırma gerekir.
+ *
+ * `researchMigrated` bayrağı olmadan bu her yüklemede çalışırdı ve kışlasını
+ * yükselten herkes araştırmayı BEDAVA geçerdi — göçün bir kez koşması şart.
+ */
+function migrateResearch(v) {
+  if (v.researchMigrated) return;
+  v.researchMigrated = true;
+  if (!v.research) v.research = {};
+
+  const binaSeviyesi = {};
+  for (const b of Object.values(v.villageBuildings || {})) {
+    if (!b?.type) continue;
+    binaSeviyesi[b.type] = Math.max(binaSeviyesi[b.type] || 0, b.level || 0);
+  }
+
+  let acilan = 0;
+  for (const [tip, def] of Object.entries(UNIT_DEFS)) {
+    if (!def.research || v.research[tip]) continue;
+    const orduda = (v.army?.[tip] || 0) > 0;
+    const seviyeYetiyor = (binaSeviyesi[def.trainedAt] || 0) >= (def.minLevel || 1);
+    if (orduda || seviyeYetiyor) { v.research[tip] = true; acilan++; }
+  }
+  if (acilan && !v.quiet) {
+    console.log(`[ARAŞTIRMA GÖÇÜ] ${acilan} birim zaten erişilebilirdi, açık sayıldı`);
+  }
+}
+
+module.exports = { createVillage, hydrateVillage, repairWorkerAccounting, migrateResearch,
   clampWorkersToCapacity, clampBuildingLevels, civilianCount,
   TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };

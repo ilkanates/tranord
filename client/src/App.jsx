@@ -514,6 +514,13 @@ function Game({ token, onLogout }) {
   const cancelEquipment = (buildingType, orderId) => socket.emit('cancel_equipment_order', { buildingType, orderId });
   const trainUnit       = (buildingType, unitType, quantity) => socket.emit('train_unit', { buildingType, unitType, quantity });
   const cancelUnitOrder = (buildingType, orderId) => socket.emit('cancel_unit_order', { buildingType, orderId });
+  /**
+   * ARAŞTIRMA — Rún Salonu. Kaynak sıraya alırken değil, iş başlarken
+   * düşülüyor (sunucu tarafı), o yüzden burada kontrol yok: reddedilirse
+   * sunucu `build_refused` ile sebebini yolluyor.
+   */
+  const researchUnit   = (unitType) => socket.emit('research_unit', { unitType });
+  const cancelResearch = (orderId)  => socket.emit('cancel_research', { orderId });
   const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
   const startFestival = (kind) => socket.emit('start_festival', { kind });
   /**
@@ -660,6 +667,10 @@ function Game({ token, onLogout }) {
               capitalSlot={village.capitalSlot || null}
               uniqueOwners={village.uniqueOwners || {}}
               onSetCapital={setCapital}
+              research={village.research || {}}
+              researchQueue={village.researchQueue || []}
+              onResearchUnit={researchUnit}
+              onCancelResearch={cancelResearch}
               villageBuildings={village.villageBuildings || {}}
               towerSlots={village.towerSlots || []}
               freeWorkers={village.freeWorkers}

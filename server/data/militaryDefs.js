@@ -187,6 +187,55 @@ const UNIT_DEFS = {
   }
 };
 
+/**
+ * ARAŞTIRMA — Rún Salonu.
+ *
+ * Bir birimi eğitebilmek için İKİ kapı birden açılmalı: eğitildiği binanın
+ * (kışla/ahır/atölye) seviyesi VE Rún Salonu'nda o birimin araştırılmış
+ * olması. İki ayrı yatırım hattı: kışla kadro ve hız verir, Rún Salonu
+ * neyin eğitilebileceğini belirler.
+ *
+ * Başlangıç birimleri (minLevel 1) araştırma İSTEMEZ — yeni oyuncu Rún
+ * Salonu'nu kuramadan da asker basabilmeli, yoksa oyun ilk saatlerde durur.
+ *
+ * Gereken Rún Salonu seviyesi birimin minLevel'ıyla AYNI: Lvl 10 birim hem
+ * Lvl 10 kışla hem Lvl 10 salon ister. Maliyet ve süre seviyeyle katlanarak
+ * artıyor (1.45× ve 1.4×); tek yerden ayarlanabilsin diye tabloyla değil
+ * formülle üretiliyor.
+ */
+const RESEARCH_COST_BASE = { kereste: 120, tugla: 90, yontmaTas: 90, demirKulce: 120 };
+const RESEARCH_COST_STEP = 1.45;
+const RESEARCH_MINUTES_BASE = 30;
+const RESEARCH_MINUTES_STEP = 1.4;
+
+function researchFor(minLevel) {
+  const lv = Math.max(1, minLevel || 1);
+  if (lv <= 1) return null;                       // başlangıç birimi: serbest
+  const k = lv - 2;
+  const cost = {};
+  for (const [res, amt] of Object.entries(RESEARCH_COST_BASE)) {
+    cost[res] = Math.round(amt * Math.pow(RESEARCH_COST_STEP, k));
+  }
+  return {
+    level: lv,
+    cost,
+    minutes: Math.round(RESEARCH_MINUTES_BASE * Math.pow(RESEARCH_MINUTES_STEP, k)),
+  };
+}
+
+for (const def of Object.values(UNIT_DEFS)) {
+  def.research = researchFor(def.minLevel);
+}
+
+/** Bu birim eğitilmeden önce araştırılmalı mı? */
+const needsResearch = (unitType) => !!UNIT_DEFS[unitType]?.research;
+
+/** Rún Salonu'nda araştırılabilir birimler — seviyeye göre sıralı */
+const RESEARCHABLE = Object.entries(UNIT_DEFS)
+  .filter(([, d]) => d.research)
+  .sort((a, b) => a[1].research.level - b[1].research.level)
+  .map(([k]) => k);
+
 // ── Ekipman kuralları ──────────────────────────────────────────────
 const EQUIPMENT_RULES = [
   'Her asker Kılıç veya Mızrak\'tan birini taşır; ikisini birden taşıyamaz.',
@@ -196,4 +245,7 @@ const EQUIPMENT_RULES = [
   'Süvariler ekipmanlarını atla birlikte alır.'
 ];
 
-module.exports = { EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS, EQUIPMENT_RULES };
+module.exports = {
+  EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS, EQUIPMENT_RULES,
+  needsResearch, RESEARCHABLE, researchFor,
+};

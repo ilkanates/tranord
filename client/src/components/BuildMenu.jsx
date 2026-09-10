@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
-import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm } from '../flows';
+import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm,
+  takesWorkers, maxWorkersOf } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import { CostRow } from './mapPanels';
 import { TEXTURE_EMBLEM } from './buildingArt';
@@ -32,7 +33,6 @@ const CAT_EDGE = {
 
 // Personel atanabilen binalar. Kule de personel alır — ama adı OKÇU.
 // Sur ve hendek hiç personel almaz (bkz. NO_WORKER_TYPES).
-const WORKER_BUILDINGS = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule']);
 const TRAINERS = new Set(['kisla', 'ahir', 'atolye']);
 const PRODUCERS = new Set(['silahci', 'zirh', 'ahir']);
 
@@ -267,10 +267,17 @@ export default function BuildMenu({
     ? (building.type === 'anaBina' ? 'Ana Bina' : (def?.name || building.type))
     : SLOT_LABEL[slotKind] || SLOT_LABEL.hex;
 
-  const maxW = building && def ? building.level * (def.workersPerLevel || 3) : 0;
-  const hasWorkerSlot = building && building.level >= 1
-    && !NO_WORKER_TYPES.has(building.type)
-    && (def?.processes || WORKER_BUILDINGS.has(building.type)) && maxW > 0;
+  /**
+   * PERSONEL ALAN BİNALAR — tek kaynak flows.js.
+   *
+   * Burada ÜÇÜNCÜ bir kopya liste duruyordu ('silahci','zirh','ahir',
+   * 'kisla','atolye','kule'); Rún Salonu sunucuya ve flows.js'e eklenince
+   * panelde yine işçi alanı çıkmadı, çünkü bu kopya güncellenmemişti.
+   * Artık `takesWorkers`/`maxWorkersOf` çağrılıyor — liste tek yerde.
+   */
+  const maxW = building ? maxWorkersOf(building.type, def, building.level) : 0;
+  const hasWorkerSlot = !!building && building.level >= 1
+    && takesWorkers(building.type, def) && maxW > 0;
   // "İşçi" mi "Okçu" mu — yapıya göre
   const wTerm = building ? workerTerm(building.type) : 'İşçi';
 

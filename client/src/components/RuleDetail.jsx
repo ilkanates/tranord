@@ -402,6 +402,9 @@ function Seviye() {
 }
 
 function Ordu({ unitDefs = {} }) {
+  const arastirmali = Object.entries(unitDefs).filter(([, d]) => d.research)
+    .sort((a, b) => a[1].research.level - b[1].research.level);
+  const serbest = Object.entries(unitDefs).filter(([, d]) => !d.research);
   const kisla = Object.entries(unitDefs).filter(([, d]) => d.trainedAt === 'kisla')
     .sort((a, b) => (a[1].minLevel || 1) - (b[1].minLevel || 1));
   const ahir = Object.entries(unitDefs).filter(([, d]) => d.trainedAt === 'ahir')
@@ -417,6 +420,34 @@ function Ordu({ unitDefs = {} }) {
         sivil tavanına sayılmadığı için yeri boşalır ve nüfus yerini doldurur —
         yiyecek yettiği sürece asker basmaya devam edebilirsin.
       </Kutu>
+
+      <Baslik icon="runSalonu" renk="#a99cf0">Rún Salonu — araştırma</Baslik>
+      <P>
+        İyi birimlerin <b>iki kapısı</b> var: eğitildiği binanın seviyesi ve
+        Rún Salonu'nda araştırılmış olması. İkisi de açık değilse EĞİT düğmesi
+        çalışmaz. Başlangıç birimleri araştırma istemez.
+      </P>
+      <Kutu baslik="Araştırmacı süreyi böler" renk="#a99cf0">
+        Salona atanan işçi sayısı araştırma süresini bölüyor — kışladaki
+        eğitmen mantığının aynısı. İşçi yoksa kuyruk hiç ilerlemez. Kaynak
+        sıraya alırken değil, <b>sıra gelip iş başlarken</b> düşülüyor;
+        iptal edilirse tam iade.
+      </Kutu>
+      {arastirmali.length > 0 && (
+        <>
+          <div style={lbl({ fontSize: 8, margin: '8px 0 3px' })}>Araştırma gerektiren birimler</div>
+          {arastirmali.map(([k, d]) => (
+            <Sat key={k} k={d.name} v={`salon Lvl ${d.research.level}`}
+              not={`${say(Object.values(d.research.cost).reduce((a, b) => a + b, 0))} işlenmiş mal`
+                + ` · ${d.research.minutes} dk (1 araştırmacıyla)`} />
+          ))}
+        </>
+      )}
+      {serbest.length > 0 && (
+        <P>
+          Araştırma istemeyen başlangıç birimleri: <b>{serbest.map(([, d]) => d.name).join(', ')}</b>.
+        </P>
+      )}
 
       <Baslik icon="kilit" renk="#e0b357">Birim seviye kilitleri</Baslik>
       <P>

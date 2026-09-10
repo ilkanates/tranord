@@ -256,6 +256,9 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
     village.resources.ekmek = (village.resources.ekmek || 0) * ratio;
   }
 
+  // Rún Salonu araştırma kuyruğu
+  processResearchQueue(village, now);
+
   // Ekipman üretim kuyrukları
   processEquipmentQueues(village, now);
 
@@ -448,6 +451,80 @@ function processEquipmentQueues(village, now) {
 // Sipariş başladığında ekipmanlar envanterden düşer + 1 serbest işçi rezerve edilir.
 // Süre bitince: army[type]++, rezerve edilen işçi asker olur (geri gelmez).
 // Kuşatma birimleri (EQUIPMENT_DEFS'te olmayan ekipman kullanan) şimdilik desteklenmiyor.
+/**
+ * ARAŞTIRMA KUYRUĞU — Rún Salonu.
+ *
+ * Eğitim kuyruğuyla aynı mantık: tek sıra, sıradaki iş kaynak ve araştırmacı
+ * bulana kadar `waiting` kalır, süre araştırmacı sayısına bölünür. Fark:
+ * araştırma bittiğinde bir şey ÜRETİLMEZ, `village.research[tip]` açılır ve
+ * bir daha kapanmaz.
+ *
+ * Kaynak, iş SIRAYA GİRERKEN değil BAŞLARKEN düşülüyor (index.js'te değil
+ * burada): oyuncu üç araştırmayı arka arkaya sıraya alabilsin, kaynağı da
+ * o sıra geldiğinde ödesin. İptal edilirse ödenmiş kaynak iade edilir.
+ */
+function processResearchQueue(village, now) {
+  const queue = village.researchQueue;
+  if (!queue || !queue.length) return;
+  if (!village.research) village.research = {};
+
+  const salon = Object.values(village.villageBuildings)
+    .find(b => VILLAGE_DEFS[b.type]?.researches);
+  if (!salon || salon.level < 1) return;
+
+  const job = queue[0];
+  const def = UNIT_DEFS[job.type];
+  const arastirma = def?.research;
+  // Tanım kalktıysa ya da birim zaten açıksa işi düşür (ödeme yapılmadıysa)
+  if (!arastirma || village.research[job.type]) {
+    if (job.paid) iadeEt(village, arastirma?.cost);
+    queue.shift();
+    return;
+  }
+
+  if (job.waiting || !job.startTime) {
+    if (salon.level < arastirma.level) {
+      job.waiting = true; job.waitingReason = 'salon_seviyesi_dusuk';
+      return;
+    }
+    const arastirmaci = salon.workers || 0;
+    if (arastirmaci <= 0) {
+      job.waiting = true; job.waitingReason = 'arastirmaci_yok';
+      return;
+    }
+    if (!job.paid) {
+      const yeter = Object.entries(arastirma.cost)
+        .every(([res, amt]) => (village.resources[res] || 0) >= amt);
+      if (!yeter) {
+        job.waiting = true; job.waitingReason = 'kaynak_yok';
+        return;
+      }
+      for (const [res, amt] of Object.entries(arastirma.cost)) {
+        village.resources[res] = (village.resources[res] || 0) - amt;
+      }
+      job.paid = true;
+    }
+    const mins = Math.max(MIN_PRODUCTION_MINUTES, arastirma.minutes / arastirmaci);
+    job.waiting = false;
+    job.waitingReason = null;
+    job.startTime = now;
+    job.endTime = now + GT.minutesToClock(mins);
+    job.workersAtStart = arastirmaci;
+  }
+
+  if (now >= job.endTime) {
+    village.research[job.type] = true;
+    if (!village.quiet) console.log(`[ARAŞTIRMA] ${job.type} açıldı`);
+    queue.shift();
+  }
+}
+
+function iadeEt(village, cost) {
+  for (const [res, amt] of Object.entries(cost || {})) {
+    village.resources[res] = (village.resources[res] || 0) + amt;
+  }
+}
+
 function processUnitQueues(village, now) {
   if (!village.unitQueues) return;
   if (!village.army) village.army = {};
@@ -570,6 +647,7 @@ function getConsumptionRates(village) {
 module.exports = {
   processTick,
   processUnitQueues,
+  processResearchQueue,
   getUpgradeCost,
   getUpgradeSeconds,
   getUpgradeMinutes,

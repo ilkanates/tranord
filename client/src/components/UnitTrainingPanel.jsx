@@ -34,7 +34,7 @@ function Stat({ icon, value, color, title }) {
 function UnitCard({
   u, def, color, img, qty, setQty, equipment, equipmentDefs,
   freeWorkers, trainerWorkers, onTrain, onOpen,
-  buildingLevel = 0, buildingName = 'Bina',
+  buildingLevel = 0, buildingName = 'Bina', arastirildi = true,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
   const eqList = def.equipment || [];
@@ -47,7 +47,14 @@ function UnitCard({
    * seviyede açılacağı yazıyor.
    */
   const gereken = def.minLevel || 1;
-  const kilitli = buildingLevel < gereken;
+  const seviyeKilidi = buildingLevel < gereken;
+  /**
+   * İKİNCİ KAPI — Rún Salonu araştırması. Seviye kilidi "kışlan yeterli mi"
+   * diye sorar, bu "bu birimi biliyor musun" diye. Başlangıç birimlerinde
+   * `def.research` yok, o yüzden hep açık sayılırlar.
+   */
+  const arastirmaKilidi = !!def.research && !arastirildi;
+  const kilitli = seviyeKilidi || arastirmaKilidi;
   const ready = !kilitli && eqOk && workerOk && trainerOk;
   const secs = gameMinutesToRealSeconds(effMinutes(def, trainerWorkers), hourSeconds, worldSpeed);
   const cav = def.category === 'suvari';
@@ -104,11 +111,18 @@ function UnitCard({
         display: 'flex', alignItems: 'flex-start', gap: 3,
       }}>
         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', flex: 1 }}>
-          {kilitli && (
+          {seviyeKilidi && (
             <span title={`${buildingName} Lvl ${gereken} gerekiyor (şu an ${buildingLevel})`}
               style={{ ...pill, borderColor: 'rgba(224,179,87,0.55)' }}>
               <Icon name="kilit" size={9} color="#e0b357" />
               <span style={num({ fontSize: 8, color: '#e8cf9a' })}>Lvl {gereken}</span>
+            </span>
+          )}
+          {arastirmaKilidi && (
+            <span title={`Rún Salonu'nda araştırılmadı (salon Lvl ${def.research.level} gerekiyor)`}
+              style={{ ...pill, borderColor: 'rgba(169,156,240,0.6)' }}>
+              <Icon name="bilgi" size={9} color="#a99cf0" />
+              <span style={num({ fontSize: 8, color: '#cfc6ff' })}>RÚN</span>
             </span>
           )}
           {!kilitli && eqList.map(e => {
@@ -152,7 +166,8 @@ function UnitCard({
           style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Qty value={qty} onChange={setQty} />
           <button onClick={() => onTrain(u, qty)} disabled={!ready}
-            title={kilitli ? `${buildingName} Lvl ${gereken} gerekiyor (şu an ${buildingLevel})`
+            title={seviyeKilidi ? `${buildingName} Lvl ${gereken} gerekiyor (şu an ${buildingLevel})`
+              : arastirmaKilidi ? `Önce Rún Salonu'nda araştırılmalı (salon Lvl ${def.research.level})`
               : !trainerOk ? 'Eğitmen işçi yok'
               : !eqOk ? 'Yetersiz ekipman'
               : !workerOk ? 'Askere dönüşecek boş işçi yok'
@@ -160,7 +175,7 @@ function UnitCard({
             style={btn(ready ? 'good' : 'disabled', {
               flex: 1, padding: '3px 4px', fontSize: 8.5, letterSpacing: 0.8,
             })}>
-            {kilitli ? `LVL ${gereken}` : 'EĞİT'}
+            {seviyeKilidi ? `LVL ${gereken}` : arastirmaKilidi ? 'RÚN' : 'EĞİT'}
           </button>
         </div>
       </div>
@@ -172,6 +187,7 @@ export default function UnitTrainingPanel({
   buildingType, buildingLevel = 0, buildingName = 'Bina',
   unitsByBuilding = {}, unitDefs = {}, equipmentDefs = {},
   equipment = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
+  research = {},
   onTrain, onCancel,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
@@ -202,7 +218,8 @@ export default function UnitTrainingPanel({
         <Icon name="kisla" size={13} color={C.iceDeep} />
         <span style={lbl({ fontSize: 8.5, letterSpacing: 1.5 })}>Birim eğitimi</span>
         <span style={num({ fontSize: 9, color: C.textMute, marginLeft: 'auto' })}>
-          {allowed.filter(u => buildingLevel >= (unitDefs[u]?.minLevel || 1)).length}
+          {allowed.filter(u => buildingLevel >= (unitDefs[u]?.minLevel || 1)
+            && (!unitDefs[u]?.research || research[u])).length}
           /{allowed.length} tür
         </span>
       </div>
@@ -244,6 +261,7 @@ export default function UnitTrainingPanel({
               equipment={equipment} equipmentDefs={equipmentDefs}
               freeWorkers={freeWorkers} trainerWorkers={trainerWorkers}
               buildingLevel={buildingLevel} buildingName={buildingName}
+              arastirildi={!unitDefs[u]?.research || !!research[u]}
               hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               onTrain={onTrain} onOpen={() => setDetail(u)} />
           );

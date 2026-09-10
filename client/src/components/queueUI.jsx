@@ -12,6 +12,9 @@ export const WAIT_LABEL = {
   egitmen_yok:         'eğitmen yok',
   ekipman_yok:         'ekipman yok',
   asker_icin_isci_yok: 'boş işçi yok',
+  // Rún Salonu araştırma kuyruğu (server/game/tick.js)
+  arastirmaci_yok:      'araştırmacı yok',
+  salon_seviyesi_dusuk: 'salon seviyesi düşük',
 };
 
 export function PanelShell({ icon, title, children, note, status }) {

@@ -18,7 +18,7 @@ const W = require('./game/world');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
 
 // Kule de personel alır (arayüzde "okçu" adıyla); sur ve hendek almaz.
-const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule']);
+const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu']);
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS,
         maxPopulationOf, maxLevelOf } = require('./data');
 
@@ -504,6 +504,17 @@ function buildPayload(village, tickMs, opts = {}) {
     }))])
   );
 
+  /**
+   * ARAŞTIRMA KUYRUĞU — eğitim kuyruğuyla aynı biçim, tek sıra.
+   * Süre gerçek saniyeye çevrilerek gidiyor; istemci geri sayımı kendi yapıyor.
+   */
+  const researchQueue = (village.researchQueue || []).map(o => ({
+    id: o.id, type: o.type,
+    waiting: !!o.waiting, waitingReason: o.waitingReason || null,
+    workersAtStart: o.workersAtStart || null,
+    timeLeft: o.endTime ? GT.clockToRealSeconds(o.endTime - now, speed) : null,
+  }));
+
   const equipmentCaps = {
     kilic: getEquipmentCap(village,'kilic'), mizrak: getEquipmentCap(village,'mizrak'),
     kalkan: getEquipmentCap(village,'kalkan'), zirh: getEquipmentCap(village,'zirh'), at: getEquipmentCap(village,'at')
@@ -568,6 +579,8 @@ function buildPayload(village, tickMs, opts = {}) {
     equipmentCaps, equipmentPool, buildQueue, equipmentQueues, equipmentByBuilding: EQUIPMENT_BY_BUILDING, equipmentDefs: EQUIPMENT_DEFS,
     army: { ...(village.army || {}) }, unitQueues, unitDefs: TRAINABLE_UNITS,
     unitsByBuilding: UNITS_BY_BUILDING, baseStats: BASE_STATS,
+    // Rún Salonu: hangi birimler açık, sırada ne var
+    research: { ...(village.research || {}) }, researchQueue,
     // SEFERLER — timeLeft gerçek zamana göre (köy saatine değil)
     marches: (village.marches || []).map(m => ({
       id: m.id, mode: m.mode, phase: m.phase,
@@ -1863,8 +1876,78 @@ io.on('connection', async socket => {
       }
       return;
     }
+    /**
+     * İKİNCİ KAPI — Rún Salonu araştırması.
+     *
+     * Seviye kilidi "kışlan yeterince iyi mi" diye soruyor; araştırma
+     * "bu birimi biliyor musun" diye. Başlangıç birimleri (minLevel 1)
+     * araştırma istemiyor, yoksa oyun ilk saatlerde asker basamadan durur.
+     */
+    if (UNIT_DEFS[unitType]?.research && !v().research?.[unitType]) {
+      socket.emit('build_refused', {
+        reason: `${UNIT_DEFS[unitType].name} önce Rún Salonu'nda araştırılmalı`,
+      });
+      return;
+    }
     const q = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
     (v().unitQueues[buildingType] ||= []).push({ id: v().nextUnitOrderId++, type: unitType, total: q, remaining: q, waiting: true, startTime: null, endTime: null, workerReserved: false });
+    dirty(); emit();
+  });
+
+  /**
+   * ARAŞTIRMA SIRAYA AL — Rún Salonu.
+   *
+   * Kaynak burada DÜŞÜLMÜYOR: iş sırası gelip gerçekten başlarken tick
+   * düşüyor (bkz. tick.js processResearchQueue). Böylece oyuncu birkaç
+   * araştırmayı arka arkaya sıraya alabiliyor, ödemeyi sırası gelince
+   * yapıyor. Burada yalnız "bu iş anlamlı mı" denetleniyor.
+   */
+  socket.on('research_unit', ({ unitType }) => {
+    const def = UNIT_DEFS[unitType];
+    if (!def?.research) return;                       // araştırma istemeyen birim
+    if (v().research?.[unitType]) return;             // zaten açık
+    const kuyruk = (v().researchQueue ||= []);
+    if (kuyruk.some(o => o.type === unitType)) return; // zaten sırada
+
+    const salon = Object.values(v().villageBuildings)
+      .find(b => VILLAGE_DEFS[b.type]?.researches);
+    if (!salon || salon.level < 1) {
+      socket.emit('build_refused', { reason: 'Önce Rún Salonu kurulmalı' });
+      return;
+    }
+    if (salon.level < def.research.level) {
+      socket.emit('build_refused', {
+        reason: `${def.name} için Rún Salonu Lvl ${def.research.level} gerekiyor`
+          + ` (şu an Lvl ${salon.level})`,
+      });
+      return;
+    }
+    if (kuyruk.length >= 5) {
+      socket.emit('build_refused', { reason: 'Araştırma kuyruğu dolu (en çok 5)' });
+      return;
+    }
+    kuyruk.push({
+      id: v().nextResearchId++, type: unitType,
+      waiting: true, waitingReason: null,
+      paid: false, startTime: null, endTime: null,
+    });
+    dirty(); emit();
+  });
+
+  /** Araştırmayı iptal et — ödeme yapıldıysa kaynak TAM iade */
+  socket.on('cancel_research', ({ orderId }) => {
+    const kuyruk = v().researchQueue;
+    if (!kuyruk) return;
+    const i = kuyruk.findIndex(o => o.id === orderId);
+    if (i < 0) return;
+    const job = kuyruk[i];
+    if (job.paid) {
+      const cost = UNIT_DEFS[job.type]?.research?.cost || {};
+      for (const [res, amt] of Object.entries(cost)) {
+        v().resources[res] = (v().resources[res] || 0) + amt;
+      }
+    }
+    kuyruk.splice(i, 1);
     dirty(); emit();
   });
 
