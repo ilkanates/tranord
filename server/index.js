@@ -18,7 +18,9 @@ const W = require('./game/world');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
 
 // Kule de personel alır (arayüzde "okçu" adıyla); sur ve hendek almaz.
-const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu']);
+const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu',
+  // Göçmen köşk/sarayda eğitiliyor; eğitmen yoksa kuyruk ilerlemez
+  'kosk', 'saray']);
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS, BASE_STATS,
         maxPopulationOf, maxLevelOf } = require('./data');
 const { equipmentUpgradeCost, equipmentUpgradeMinutes, EQUIPMENT_MAX_LEVEL,
@@ -31,9 +33,10 @@ const TRAINABLE_UNITS = Object.fromEntries(
   })
 );
 
+// trainedAt tek ad ya da dizi olabilir (göçmen hem köşkte hem sarayda)
 const UNITS_BY_BUILDING = Object.entries(TRAINABLE_UNITS).reduce((acc, [key, def]) => {
   if (!def.trainedAt) return acc;
-  (acc[def.trainedAt] ||= []).push(key);
+  for (const bt of [].concat(def.trainedAt)) (acc[bt] ||= []).push(key);
   return acc;
 }, {});
 
@@ -1255,6 +1258,59 @@ function lootRoom(village) {
 }
 
 /**
+ * GÖÇMEN SEFERİ VARDI — hedef slotta yeni köy kur.
+ *
+ * Gidiş tek yön: slot bu arada dolduysa göçmenler kaybolur (kullanıcı
+ * kararı). Her iki durumda da kurucu köye rapor düşülür.
+ *
+ * @returns {boolean} köy kuruldu mu
+ */
+function foundVillageAt(userId, slotKey, origin) {
+  const session = userSessions.get(userId);
+  const slot = WORLD.slotByKey.get(slotKey);
+  const dolu = !slot || WORLD.npcs.has(slotKey) || WORLD.playerBySlot.has(slotKey);
+
+  if (!session || dolu) {
+    ARMY.pushReport(origin, {
+      id: `y${slotKey}-${Date.now()}`, at: Date.now(), dir: 'out', mode: 'yerlesim',
+      toKey: slotKey, toName: slot?.name || slotKey,
+      outcome: 'arazi_dolu', winner: 'none',
+      sent: {}, myLosses: {}, theirLosses: {}, loot: {},
+      message: 'Arazi bu arada doldu — göçmenler kayboldu',
+    });
+    return false;
+  }
+
+  const nv = createVillage(slot.q, slot.r);
+  nv.isCapital = false;
+  session.villages.set(slotKey, nv);
+  session.dirtySlots.add(slotKey);
+
+  const kayit = WORLD.playerBySlot.get(session.capitalSlot);
+  const name = kayit?.name || 'oyuncu';
+  WORLD.playerBySlot.set(slotKey, { userId, email: kayit?.email || null, name });
+  if (!WORLD.slotsByUser.has(userId)) WORLD.slotsByUser.set(userId, new Set());
+  WORLD.slotsByUser.get(userId).add(slotKey);
+
+  setPlayerSlot(userId, slotKey, name, false)
+    .then(() => saveVillage(userId, slotKey, nv))
+    .catch(err => console.error('[YERLEŞİM] kayıt:', err.message));
+
+  ARMY.pushReport(origin, {
+    id: `y${slotKey}-${Date.now()}`, at: Date.now(), dir: 'out', mode: 'yerlesim',
+    toKey: slotKey, toName: slot.name,
+    outcome: 'koy_kuruldu', winner: 'none',
+    sent: {}, myLosses: {}, theirLosses: {}, loot: {},
+    message: `${slot.name} kuruldu`,
+  });
+  console.log(`[YERLEŞİM] userId=${userId} → ${slotKey} (${slot.name}),`
+    + ` toplam ${session.villages.size} köy`);
+
+  emitVillage(session, { force: true, statics: true });
+  return true;
+}
+
+/**
  * Seferleri `hours` oyun saati ilerlet ve varanları çöz.
  * NPC döngüsünden çağrılır — dünya hızıyla aynı adımı kullanır.
  */
@@ -1270,6 +1326,16 @@ function processMarches(hours) {
       if (!ARMY.advanceMarch(m, hours)) continue;
 
       if (m.phase === 'outbound') {
+        /*
+          YERLEŞİM — savaş yok, dönüş yok. Köy kurulur (ya da arazi
+          dolmuşsa göçmenler kaybolur) ve sefer listeden silinir.
+        */
+        if (m.mode === 'yerlesim') {
+          if (entry.kind === 'player') foundVillageAt(entry.userId, m.toKey, v);
+          list.splice(i, 1);
+          entry.dirty();
+          continue;
+        }
         const tgt = villageAtSlot(m.toKey);
         // Hedef oyuncu çevrimdışıysa köyü bellekte yok — sefer BEKLETİLİR,
         // oyuncu girdiğinde çözülür. Boş savunmaya vurmak haksız olurdu.
@@ -2166,29 +2232,59 @@ io.on('connection', async socket => {
     if (targetKey === mySlot) return fail('kendi_koyun');
     if ((village.marches || []).length >= MAX_MARCHES_PER_TOWN) return fail('sefer_limiti');
 
-    // FAZ 1: yalnız NPC köyleri hedef olabilir
-    const tgt = WORLD.npcs.get(targetKey);
-    if (!tgt) return fail(WORLD.playerBySlot.has(targetKey) ? 'oyuncu_hedefi_kapali' : 'gecersiz_hedef');
-
     const me = WORLD.slotByKey.get(mySlot);
-    const dist = W.distanceBetween(me, tgt.slot);
+
+    /**
+     * YERLEŞİM — hedef BOŞ bir dünya slotu olmalı; NPC ya da oyuncu köyüne
+     * göçmen gönderilmez. Köy hakkı (köşk/saray seviyesi ve kültür puanı)
+     * BURADA denetlenir: göçmen yola çıkmadan reddetmek, yolun sonunda
+     * kaybetmekten iyidir. Yolda ikinci bir sefer başlatılamasın diye
+     * halihazırda yoldaki yerleşim seferleri de sayılıyor.
+     */
+    let tgtSlot, tgtKind, tgtName;
+    if (mode === 'yerlesim') {
+      const slot = WORLD.slotByKey.get(targetKey);
+      if (!slot) return fail('gecersiz_hedef');
+      if (WORLD.npcs.has(targetKey) || WORLD.playerBySlot.has(targetKey)) {
+        return fail('arazi_bos_degil');
+      }
+      const cpTotal = [...session.villages.values()]
+        .reduce((t, vv) => t + (vv.culturePoints || 0), 0);
+      const durum = CULTURE.expansionStatus(
+        [...session.villages.values()], cpTotal, VILLAGE_DEFS);
+      let yoldaki = 0;
+      for (const vv of session.villages.values()) {
+        for (const mm of vv.marches || []) if (mm.mode === 'yerlesim') yoldaki++;
+      }
+      if (durum.owned + yoldaki >= durum.allowed) {
+        return fail(durum.blockedBy === 'kultur' ? 'kultur_puani_yetmez' : 'koy_hakki_yok');
+      }
+      tgtSlot = slot; tgtKind = 'bos'; tgtName = slot.name;
+    } else {
+      // FAZ 1: yalnız NPC köyleri hedef olabilir
+      const tgt = WORLD.npcs.get(targetKey);
+      if (!tgt) return fail(WORLD.playerBySlot.has(targetKey) ? 'oyuncu_hedefi_kapali' : 'gecersiz_hedef');
+      tgtSlot = tgt.slot; tgtKind = 'npc'; tgtName = tgt.slot.name;
+    }
+
+    const dist = W.distanceBetween(me, tgtSlot);
 
     const res = ARMY.createMarch(village, {
       mode, units, distance: dist,
       fromKey: mySlot, fromName: WORLD.playerBySlot.get(mySlot)?.name || 'Köyün',
-      toKey: targetKey, toName: tgt.slot.name, toKind: 'npc',
+      toKey: targetKey, toName: tgtName, toKind: tgtKind,
       ownerKind: 'player',
     });
     if (!res.ok) return fail(res.reason);
 
-    // İlk sefer başlangıç korumasını kaldırır — oyuncu artık savaşın içinde
-    village.hasAttacked = true;
+    // İlk SALDIRI başlangıç korumasını kaldırır — göçmen seferi savaş değil
+    if (mode !== 'yerlesim') village.hasAttacked = true;
     dirty(); emit();
     socket.emit('army_sent', {
-      id: res.march.id, toName: tgt.slot.name, mode,
+      id: res.march.id, toName: tgtName, mode,
       seconds: res.march.legSeconds, distance: dist,
     });
-    console.log(`[SEFER] ${userEmail} → ${tgt.slot.name} (${mode}, ${dist} hex, ${ARMY.totalUnits(res.march.units)} asker, ${res.march.legSeconds} sn)`);
+    console.log(`[SEFER] ${userEmail} → ${tgtName} (${mode}, ${dist} hex, ${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
   });
 
   socket.on('simulate_battle', (payload = {}) => {

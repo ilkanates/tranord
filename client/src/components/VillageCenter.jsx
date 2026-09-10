@@ -18,7 +18,8 @@ import { useHoverable, TAP } from '../responsive';
 // Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
 import surTexture from '../assets/buildings/sur-doku.jpg';
 const EQUIPMENT_BUILDINGS = new Set(['silahci', 'zirh', 'ahir']);
-const TRAINING_BUILDINGS  = new Set(['kisla', 'ahir', 'atolye']);
+// Göçmen köşk/sarayda eğitilir — o iki bina da eğitim paneli gösterir
+const TRAINING_BUILDINGS  = new Set(['kisla', 'ahir', 'atolye', 'kosk', 'saray']);
 
 const SQRT3 = Math.sqrt(3);
 /**
@@ -1150,7 +1151,12 @@ export default function VillageCenter({
            * BuildMenu'nün gövdesinde çizilecek bir şey kalmıyor. Boş sütun
            * açmayalım: alt sıra doğrudan üretim | yükseltme olsun.
            */
-          const buildMenuBos = !!panelTex && !!selectedBuilding && !selectedBuilding.building;
+          /*
+            Poster varsa denetimler görselin üstünde; BuildMenu'nün
+            gövdesinde çizecek bir şey kalmıyor — inşaat/yükseltme
+            sürerken de öyle (durum kutusu da posterde).
+          */
+          const buildMenuBos = !!panelTex && !!selectedBuilding;
 
           /**
            * AHIR: üretim kutusu tek satır (yalnız At) — altta koca bir
@@ -1206,7 +1212,13 @@ export default function VillageCenter({
 
           return (
           <div style={popoverStyle(popoverPos, {
-            height: fitMaxH, overflow: 'hidden',
+            /*
+              Poster varsa pencere SABİT boyda (görsel artan yeri doldurur).
+              Poster yoksa — boş arazi / inşa menüsü — içerik kadar uzasın:
+              sabit boy verilince altta kocaman boşluk kalıyordu.
+            */
+            ...(panelTex ? { height: fitMaxH } : { maxHeight: fitMaxH }),
+            overflow: 'hidden',
             display: 'flex', flexDirection: 'column',
             ...bgStyle,
           })} className="tn-rise">
@@ -1305,7 +1317,7 @@ export default function VillageCenter({
                   Panelin gövdesindeydiler; en sık dokunulan iki denetim
                   olmalarına rağmen kaydırmadan görünmüyorlardı.
                 */}
-                {selectedBuilding && !selectedBuilding.building && (
+                {selectedBuilding && (
                   <div style={{
                     position: 'absolute', right: 12, bottom: 10, zIndex: 3,
                     maxWidth: ahirUstte ? 'min(82%, 500px)' : 'min(64%, 400px)',
@@ -1334,6 +1346,10 @@ export default function VillageCenter({
                       onAssignVillageWorkers={(w) => onAssignVillageWorkers(selected, w)}
                       onUpgrade={(w) => {
                         onUpgrade(selected, w);
+                        setShowMenu(false); setSelected(null);
+                      }}
+                      onCancelBuild={() => {
+                        onCancelBuild?.(selected);
                         setShowMenu(false); setSelected(null);
                       }} />
                     </div>
@@ -1368,7 +1384,10 @@ export default function VillageCenter({
                 görsele her hâlde en az 150 px kalır, kaydırma yalnız
                 gerçekten sığmayan binalarda görünür.
               */
-              flex: '0 0 auto', maxHeight: 'calc(100% - 150px)', overflowY: 'auto',
+              ...(panelTex
+                ? { flex: '0 0 auto', maxHeight: 'calc(100% - 150px)' }
+                : { flex: '1 1 auto', minHeight: 0 }),
+              overflowY: 'auto',
             }}>
 
             {/* SIRA: bina gorseli -> savascilar -> isci/yukseltme + ekipman */}
@@ -1424,6 +1443,7 @@ export default function VillageCenter({
                   unitDefs={unitDefs}
                   equipmentDefs={equipmentDefs}
                   equipment={equipment}
+                  resources={resources}
                   queue={unitQueues[selectedBuilding.type] || []}
                   freeWorkers={freeWorkers}
                   trainerWorkers={selectedBuilding.workers || 0}
@@ -1438,7 +1458,12 @@ export default function VillageCenter({
 
             <div style={{
               order: 2, display: 'grid',
-              gridTemplateColumns: (hasEquipment || !buildMenuBos) ? '1fr 1fr' : '1fr',
+              /*
+                İki sütun YALNIZ ekipman binalarında anlamlı (üretim |
+                yükseltme). Boş arazide sağ sütun boş kalıyor, inşa listesi
+                pencerenin solunda dar bir şeride sıkışıyordu.
+              */
+              gridTemplateColumns: hasEquipment ? '1fr 1fr' : '1fr',
               alignItems: 'start',
             }}>
             <div style={{ minWidth: 0, display: buildMenuBos ? 'none' : 'block' }}>

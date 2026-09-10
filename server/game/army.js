@@ -23,6 +23,7 @@
  */
 
 const { UNIT_DEFS } = require('../data');
+const { SETTLER_UNIT, SETTLERS_REQUIRED } = require('../data/militaryDefs');
 const { simulateBattle, towerBonusPct } = require('./combat');
 const GT = require('./gameTime');
 
@@ -47,7 +48,12 @@ const LOOTABLE = [
   'kereste', 'tugla', 'yontmaTas', 'demirKulce', 'un', 'ekmek',
 ];
 
-const MODES = new Set(['raid', 'attack', 'scout']);
+/**
+ * 'yerlesim' = göçmen seferi: savaş yok, hedef BOŞ bir dünya slotu, varışta
+ * orada yeni köy kurulur (bkz. server/index.js foundVillageAt). Gidiş tek
+ * yön — dönüş ayağı hiç oluşmaz.
+ */
+const MODES = new Set(['raid', 'attack', 'scout', 'yerlesim']);
 
 /**
  * Keşif seferi yalnızca bu birimlerle yapılır: yük taşıyan ama savaşmayan
@@ -255,7 +261,14 @@ function createMarch(village, {
   }
   if (totalUnits(clean) <= 0) return { ok: false, reason: 'asker_secilmedi' };
 
-  if (mode === 'scout') {
+  if (mode === 'yerlesim') {
+    // Yalnız göçmen, tam sayıda: yanına asker takılamaz
+    const yabanci = Object.keys(clean).find(k => k !== SETTLER_UNIT);
+    if (yabanci) return { ok: false, reason: 'yerlesim_yalniz_gocmen' };
+    if ((clean[SETTLER_UNIT] || 0) !== SETTLERS_REQUIRED) {
+      return { ok: false, reason: 'gocmen_sayisi_yanlis' };
+    }
+  } else if (mode === 'scout') {
     const bad = Object.keys(clean).find(k => !SCOUT_UNITS.has(k));
     if (bad) return { ok: false, reason: 'kesif_icin_izci_gerek' };
   } else if (armyAttack(clean) <= 0) {
@@ -483,4 +496,5 @@ module.exports = {
   marchSeconds, marchGameHours, slowestSpeed, carryCapacity, armyAttack, armyDefense,
   totalUnits, buildingLevel, applyLossesToVillage, takeLoot, depositLoot,
   createMarch, resolveArrival, resolveReturn, pushReport,
+  SETTLER_UNIT, SETTLERS_REQUIRED,
 };

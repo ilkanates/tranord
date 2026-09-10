@@ -23,8 +23,8 @@ import {
   rand01, hexDistance, worldTileBonus, hexToPixel, pixelToHex, hexPoints,
 } from '../data/worldConfig';
 import { computePopoverPos } from './popoverStyle';
-import { C, FONT, btn, label as lbl, num, short } from '../theme';
-import { RES_LABEL } from '../flows';
+import { C, FONT, btn, label as lbl, num, short, fmtTime } from '../theme';
+import { RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon from './Icons';
 import SendArmyPanel from './SendArmyPanel';
 import {
@@ -658,6 +658,73 @@ function HoverCard({ title, sub, icon, iconColor, rows, note, railInset = 0 }) {
 }
 
 // ── Ana bileşen ──────────────────────────────────────────────────────
+/**
+ * BOŞ ARAZİ PANELİ — göçmen gönderip yeni köy kurma.
+ *
+ * Yalnız göçmen gider (asker eşlik edemez) ve gidiş TEK YÖN: sefer başladı
+ * mı geri çağrılamaz, varışta arazi dolmuşsa göçmenler kaybolur. Sunucu
+ * ayrıca köy hakkını (köşk/saray seviyesi + kültür puanı) kontrol eder.
+ */
+function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs,
+  hourSeconds, worldSpeed, onSend, onClose }) {
+  const hiz = unitDefs?.gocmen?.stats?.hiz || 5;
+  const secs = gameMinutesToRealSeconds(Math.max(10, (distance / hiz) * 60),
+    hourSeconds, worldSpeed);
+  const yeter = gocmen >= gerekli;
+
+  return (
+    <div className="tn-rise" style={{
+      position: 'absolute', right: 18, bottom: 18, width: 268, zIndex: 30,
+      background: 'rgba(8,15,24,0.94)', border: `1px solid ${C.lineBright}`,
+      borderRadius: 9, padding: 12,
+      boxShadow: '0 18px 40px rgba(0,0,0,0.6)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 9 }}>
+        <Icon name="koy" size={16} color={C.iceDeep} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: FONT.head, fontSize: 14, color: C.frost }}>Boş Arazi</div>
+          <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>
+            {slot.key} · {distance} hex
+          </div>
+        </div>
+        <button onClick={onClose} title="Kapat" style={{
+          width: 24, height: 24, display: 'grid', placeItems: 'center', padding: 0,
+          borderRadius: 12, cursor: 'pointer',
+          background: 'rgba(8,14,24,0.7)', border: `1px solid ${C.lineSoft}`,
+        }}>
+          <Icon name="kapat" size={12} color={C.textDim} strokeWidth={2} />
+        </button>
+      </div>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        padding: '6px 8px', borderRadius: 5, marginBottom: 9,
+        background: yeter ? 'rgba(78,207,168,0.07)' : 'rgba(224,179,87,0.08)',
+        border: `1px solid ${yeter ? 'rgba(78,207,168,0.25)' : 'rgba(224,179,87,0.3)'}`,
+      }}>
+        <Icon name={yeter ? 'isci' : 'uyari'} size={12} color={yeter ? C.good : C.warn} />
+        <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: yeter ? C.textDim : '#e8cf9a', flex: 1 }}>
+          Göçmen {gocmen}/{gerekli}
+        </span>
+        <span style={num({ fontSize: 10, color: C.iceDeep })}>{fmtTime(secs)}</span>
+      </div>
+
+      <div style={{ fontFamily: FONT.ui, fontSize: 9, lineHeight: 1.5, color: C.textMute, marginBottom: 9 }}>
+        Üç göçmen buraya yerleşip yeni bir köy kurar. Gidiş tek yön —
+        sefer geri çağrılamaz.
+      </div>
+
+      <button onClick={onSend} disabled={!yeter}
+        title={yeter ? 'Göçmenleri gönder' : `${gerekli} göçmen gerekiyor (köşk ya da sarayda eğitilir)`}
+        style={btn(yeter ? 'good' : 'disabled', {
+          width: '100%', padding: '7px 0', letterSpacing: 1, fontSize: 10.5,
+        })}>
+        KÖY KUR
+      </button>
+    </div>
+  );
+}
+
 export default function MapView({
   socket, world, productionTiles = {}, maxProductionSlots = 6, anaBina,
   freeWorkers = 0, resources = {}, flows = {}, railInset = 0, myArmy = 0,
@@ -668,6 +735,10 @@ export default function MapView({
 }) {
   const wq = world?.q || 0;
   const wr = world?.r || 0;
+  /** Yeni köy için gereken göçmen — sunucudaki SETTLERS_REQUIRED ile aynı */
+  const GOCMEN_GEREKLI = 3;
+  const gocmenSayisi = army?.gocmen || 0;
+  const gocmenVar = gocmenSayisi > 0;
 
   const [snap, setSnap] = useState(null);
   const [scale, setScale] = useState(1.6);
@@ -684,6 +755,8 @@ export default function MapView({
   const [snapSeq, setSnapSeq] = useState(0);
   const [dbg, setDbg] = useState(null);      // D tuşu: imleç/hex ölçümü
   const [selField, setSelField] = useState(null);       // yerel anahtar
+  // Göçmen gönderilecek boş dünya slotu (yeni köy)
+  const [selEmpty, setSelEmpty] = useState(null);
   const [selVillage, setSelVillage] = useState(null);
   const [filterTier, setFilterTier] = useState(null);
   const [sendTarget, setSendTarget] = useState(null);   // ordu gönderme ekranı
@@ -921,7 +994,7 @@ export default function MapView({
       else if (e.key === '+' || e.key === '=') setScale(s => Math.min(Z_MAX, s * 1.15));
       else if (e.key === '-') setScale(s => Math.max(Z_MIN, s / 1.15));
       else if (e.key === 'Home') recenter();
-      else if (e.key === 'Escape') { setSelField(null); setSelVillage(null); }
+      else if (e.key === 'Escape') { setSelField(null); setSelVillage(null); setSelEmpty(null); }
       else if (e.key === 'd' || e.key === 'D') setDbg(d => (d ? null : { on: true }));
       else return;
       e.preventDefault();
@@ -1399,11 +1472,29 @@ export default function MapView({
               strokeLinejoin="round" />
           ))}
 
-          {/* Boş slotlar */}
+          {/*
+            Boş slotlar — göçmen varsa TIKLANABİLİR: yeni köy buraya kurulur.
+            Görünen nokta küçük; üstünde geniş görünmez bir tıklama alanı var,
+            yoksa isabet ettirmek imkânsız olurdu.
+          */}
           {scale >= Z_CLUSTER && scale < Z_TERRAIN && (snap?.emptySlots || []).map(s => {
             const p = hexToPixel(s.q, s.r, S);
-            return <circle key={s.key} cx={p.x} cy={p.y} r={2.2 / scale}
-              fill={C.textMute} opacity={0.5} />;
+            const secili = selEmpty?.key === s.key;
+            return (
+              <g key={s.key}>
+                <circle cx={p.x} cy={p.y} r={(secili ? 3.6 : 2.2) / scale}
+                  fill={secili ? CLAIM_GREEN : C.textMute} opacity={secili ? 0.95 : 0.5} />
+                {gocmenVar && (
+                  <circle cx={p.x} cy={p.y} r={9 / scale} fill="transparent"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      if (suppressClick.current) return;
+                      setSelField(null); setSelVillage(null);
+                      setSelEmpty(prev => (prev?.key === s.key ? null : s));
+                    }} />
+                )}
+              </g>
+            );
           })}
 
           {/* Kendi toprağın — yakın zoom'da etkileşimli tarlalar */}
@@ -1577,6 +1668,22 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           canAttack={selVillage.kind === 'npc'}
           onAttack={() => { setSendTarget(selVillage); setSelVillage(null); }}
           onClose={() => setSelVillage(null)} />
+      )}
+
+      {selEmpty && (
+        <SettlePanel slot={selEmpty}
+          distance={hexDistance(selEmpty.q - wq, selEmpty.r - wr)}
+          gocmen={gocmenSayisi} gerekli={GOCMEN_GEREKLI}
+          hourSeconds={hourSeconds} worldSpeed={worldSpeed}
+          unitDefs={unitDefs}
+          onSend={() => {
+            socket?.emit('send_army', {
+              targetKey: selEmpty.key, mode: 'yerlesim',
+              units: { gocmen: GOCMEN_GEREKLI },
+            });
+            setSelEmpty(null);
+          }}
+          onClose={() => setSelEmpty(null)} />
       )}
 
       {sendTarget && (

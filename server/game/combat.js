@@ -25,9 +25,11 @@ const TOWER_ARCHERS_PER_LEVEL = VILLAGE_DEFS.kule?.workersPerLevel || 4;
 const K_LOSS_EXPONENT = 1.5;     // Kirilloid sabiti
 const RAID_LOSS_MULT  = 0.5;     // Yağma modu kayıpları yarıya düşürür
 
+/** Göçmen ve kuşatma birimleri savaş hesabına girmez */
+const NON_COMBAT = new Set(['kusatma', 'gocmen']);
 function isCombatUnit(key) {
   const def = UNIT_DEFS[key];
-  return !!def && def.category !== 'kusatma';
+  return !!def && !NON_COMBAT.has(def.category);
 }
 
 function clampLevel(lvl, table) {

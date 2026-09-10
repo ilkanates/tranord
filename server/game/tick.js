@@ -32,8 +32,16 @@ const STARVE_HOURS_PER_LOSS     = 10;
 function getUnitTrainMinutes(unitType) {
   const def = UNIT_DEFS[unitType];
   if (!def) return Infinity;
+  // Ekipmansız birimler (göçmen) süreyi kendi tanımından verir
+  if (def.trainMinutes) return def.trainMinutes;
   const eqCount = (def.equipment || []).length;
   return Math.max(3, eqCount * 5);
+}
+
+/** Birim bu binada eğitilebilir mi — trainedAt tek ad ya da dizi olabilir */
+function trainedHere(def, buildingType) {
+  const at = def?.trainedAt;
+  return Array.isArray(at) ? at.includes(buildingType) : at === buildingType;
 }
 /** Geriye dönük ad — dakika döndürür (eski çağrı yerleri için) */
 const getUnitTrainSeconds = getUnitTrainMinutes;
@@ -607,7 +615,7 @@ function processUnitQueues(village, now) {
     if (!unitDef) { queue.shift(); return; }
 
     // Bu birim bu binada eğitiliyor mu?
-    if (unitDef.trainedAt !== buildingType) { queue.shift(); return; }
+    if (!trainedHere(unitDef, buildingType)) { queue.shift(); return; }
 
     // Yeni sipariş (henüz başlamamış) ise: kaynakları kontrol et + rezerve et
     if (!order.startTime || order.waiting) {
@@ -624,6 +632,22 @@ function processUnitQueues(village, now) {
       const eqAffordable = eqList.every(eq => (village.equipment[eq] || 0) >= 1);
       const workerAvailable = village.freeWorkers >= 1;
 
+      /**
+       * KAYNAK BEDELİ — ekipmansız birimler (göçmen) için.
+       * Ekipmanlı birimlerde bedel zaten ekipmanın kendisi; burada
+       * `def.cost` varsa kaynak da iş BAŞLARKEN düşülür.
+       */
+      const resCost = unitDef.cost || null;
+      if (resCost) {
+        const yeter = Object.entries(resCost)
+          .every(([r, a]) => (village.resources[r] || 0) >= a);
+        if (!yeter) {
+          order.waiting       = true;
+          order.waitingReason = 'kaynak_yok';
+          return;
+        }
+      }
+
       if (!eqAffordable) {
         order.waiting       = true;
         order.waitingReason = 'ekipman_yok';
@@ -636,6 +660,11 @@ function processUnitQueues(village, now) {
       }
 
       // Düş/rezerve et
+      if (resCost) {
+        for (const [r, a] of Object.entries(resCost)) {
+          village.resources[r] = (village.resources[r] || 0) - a;
+        }
+      }
       eqList.forEach(eq => { village.equipment[eq] = (village.equipment[eq] || 0) - 1; });
       village.freeWorkers -= 1;
       order.workerReserved = true;

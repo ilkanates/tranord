@@ -336,7 +336,13 @@ export default function BuildMenu({
       )}
 
       {/* ── İnşaat / yükseltme sürüyor ── */}
-      {building?.building && (
+      {/*
+        Poster modunda (controlsInHeader) inşaat/yükseltme durumu görselin
+        SAĞ ALT köşesinde duruyor — bkz. BuildingControls. Buradaki iki
+        sütunluk blok yalnız posterin olmadığı düzende çiziliyor; yoksa
+        bina yükseltilirken panelin bütün örüntüsü değişiyordu.
+      */}
+      {building?.building && !controlsInHeader && (
         <div style={popCols('1fr', '1.05fr')}>
           {/* SOL — bina çalışmaya devam ediyor */}
           <div style={popCol}>

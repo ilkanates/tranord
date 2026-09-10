@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
-import { EQ_LABEL, gameMinutesToRealSeconds } from '../flows';
+import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import { unitImage } from '../data/unitImages';
 import UnitDetail from './UnitDetail';
 import Icon from './Icons';
@@ -9,7 +9,9 @@ import { Qty, QueueList } from './queueUI';
 // Birim eğitim süresi — oyun DAKİKASI. Sunucudaki getUnitTrainMinutes ile
 // birebir: ekipman sayısı × 5 dk, en az 3 dk; eğitmen sayısına bölünür ve
 // MIN_PRODUCTION_MINUTES (=1) altına düşmez.
-const baseMinutes = (def) => Math.max(3, (def?.equipment || []).length * 5);
+// Ekipmansız birimler (göçmen) süreyi kendi tanımından verir
+const baseMinutes = (def) =>
+  def?.trainMinutes || Math.max(3, (def?.equipment || []).length * 5);
 const effMinutes = (def, trainers) =>
   trainers <= 0 ? baseMinutes(def) : Math.max(1, baseMinutes(def) / trainers);
 
@@ -32,7 +34,7 @@ function Stat({ icon, value, color, title }) {
  * 4 sütun × 2 satır tek ekrana sığıyor.
  */
 function UnitCard({
-  u, def, color, img, qty, setQty, equipment, equipmentDefs,
+  u, def, color, img, qty, setQty, equipment, equipmentDefs, resources = {},
   freeWorkers, trainerWorkers, onTrain, onOpen,
   buildingLevel = 0, buildingName = 'Bina', arastirildi = true,
   /** Ekipman yükseltmeleriyle GÜNCEL değerler; yoksa tanımdakiler */
@@ -41,6 +43,13 @@ function UnitCard({
 }) {
   const eqList = def.equipment || [];
   const eqOk = eqList.every(e => (equipment[e] || 0) >= 1);
+  /**
+   * KAYNAK BEDELİ — ekipmansız birimler (göçmen) doğrudan kaynakla ödenir.
+   * Sunucu bedeli iş BAŞLARKEN düşüyor (tick.js processUnitQueues); burada
+   * yalnız düğmeyi kapatmak ve eksiği göstermek için bakılıyor.
+   */
+  const costList = Object.entries(def.cost || {});
+  const costOk = costList.every(([r, a]) => (resources[r] || 0) >= a);
   const workerOk = freeWorkers >= 1;
   const trainerOk = trainerWorkers >= 1;
   /**
@@ -57,7 +66,7 @@ function UnitCard({
    */
   const arastirmaKilidi = !!def.research && !arastirildi;
   const kilitli = seviyeKilidi || arastirmaKilidi;
-  const ready = !kilitli && eqOk && workerOk && trainerOk;
+  const ready = !kilitli && eqOk && costOk && workerOk && trainerOk;
   const secs = gameMinutesToRealSeconds(effMinutes(def, trainerWorkers), hourSeconds, worldSpeed);
   /**
    * Kartta YÜKSELTİLMİŞ değer gösteriliyor: oyuncu silahçıya yatırım yapınca
@@ -134,6 +143,17 @@ function UnitCard({
               <span style={num({ fontSize: 8, color: '#cfc6ff' })}>RÚN</span>
             </span>
           )}
+          {!kilitli && costList.map(([r, need]) => {
+            const have = resources[r] || 0;
+            const ok = have >= need;
+            return (
+              <span key={r} title={`${RES_LABEL[r] || r}: ${Math.floor(have)} / ${need}`}
+                style={{ ...pill, borderColor: ok ? 'rgba(108,221,163,0.45)' : C.dangerDim }}>
+                <Icon name={r} size={9} color={ok ? C.good : '#ff9aa2'} />
+                <span style={num({ fontSize: 8, color: ok ? '#c8f0d8' : '#ff9aa2' })}>{need}</span>
+              </span>
+            );
+          })}
           {!kilitli && eqList.map(e => {
             const have = equipment[e] || 0;
             const ok = have >= 1;
@@ -180,6 +200,7 @@ function UnitCard({
               : arastirmaKilidi ? `Önce Rún Salonu'nda araştırılmalı (salon Lvl ${def.research.level})`
               : !trainerOk ? 'Eğitmen işçi yok'
               : !eqOk ? 'Yetersiz ekipman'
+              : !costOk ? 'Yetersiz kaynak'
               : !workerOk ? 'Askere dönüşecek boş işçi yok'
               : 'Eğitim kuyruğuna ekle'}
             style={btn(ready ? 'good' : 'disabled', {
@@ -196,7 +217,7 @@ function UnitCard({
 export default function UnitTrainingPanel({
   buildingType, buildingLevel = 0, buildingName = 'Bina',
   unitsByBuilding = {}, unitDefs = {}, equipmentDefs = {},
-  equipment = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
+  equipment = {}, resources = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
   research = {}, unitStatsNow = {},
   onTrain, onCancel,
   hourSeconds = 3600, worldSpeed = 1,
@@ -256,7 +277,14 @@ export default function UnitTrainingPanel({
          * 90px eşiğiyle 4 sütun sığmayıp 3'e düşüyordu (önizlemede görüldü).
          * Pencere genişlerse kendiliğinden daha fazla sütun açılır.
          */
-        gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 7,
+        /*
+          ÜST SINIR ŞART: auto-fit + 1fr, tek kart kalınca o kartı panel
+          genişliğine kadar şişiriyordu (sarayda tek göçmen kartı bütün
+          pencereyi kaplayıp bina görselini eziyordu). 120 px tavanla
+          kartlar hep aynı boyda kalıyor.
+        */
+        gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 120px))',
+        justifyContent: 'start', gap: 7,
         marginBottom: queue.length > 0 ? 9 : 0,
       }}>
         {allowed.map(u => {
@@ -268,7 +296,7 @@ export default function UnitTrainingPanel({
               img={unitImage(u)}
               qty={qty[u] || 1}
               setQty={(n) => setQty(s => ({ ...s, [u]: n }))}
-              equipment={equipment} equipmentDefs={equipmentDefs}
+              equipment={equipment} equipmentDefs={equipmentDefs} resources={resources}
               freeWorkers={freeWorkers} trainerWorkers={trainerWorkers}
               buildingLevel={buildingLevel} buildingName={buildingName}
               arastirildi={!unitDefs[u]?.research || !!research[u]}

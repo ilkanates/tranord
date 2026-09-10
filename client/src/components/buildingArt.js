@@ -42,6 +42,7 @@ import loncaDemirImg from '../assets/buildings/loncaDemir.jpg';
 import koskImg from '../assets/buildings/kosk.jpg';
 import sarayImg from '../assets/buildings/saray.jpg';
 import tavernaImg from '../assets/buildings/taverna.jpg';
+import runSalonuImg from '../assets/buildings/runSalonu.jpg';
 
 import anaBinaVideo from '../assets/buildings/videos/anaBina.mp4';
 import loncaDemirVideo from '../assets/buildings/videos/loncaDemir.mp4';
@@ -74,6 +75,7 @@ import islenmisMalDepoVideo from '../assets/buildings/videos/islenmisMalDepo.mp4
 import koskVideo from '../assets/buildings/videos/kosk.mp4';
 import sarayVideo from '../assets/buildings/videos/saray.mp4';
 import tavernaVideo from '../assets/buildings/videos/taverna.mp4';
+import runSalonuVideo from '../assets/buildings/videos/runSalonu.mp4';
 
 // Panel arka planinda oynayan bina videolari (varsa jpg yerine bu kullanilir)
 export const BUILDING_VIDEO = {
@@ -108,6 +110,7 @@ export const BUILDING_VIDEO = {
   kosk: koskVideo,
   saray: sarayVideo,
   taverna: tavernaVideo,
+  runSalonu: runSalonuVideo,
 };
 
 export const EMBLEM_DY = 26;
@@ -143,13 +146,14 @@ export const TEXTURE_EMBLEM = {
   zirh:       { icon: 'zirhAmblem', rot: 0, size: 18 },
   anaBina:    { icon: 'anaBinaAmblem', rot: 0, size: 19 },
   /*
-    Köşk, saray ve taverna amblemsiz kalmıştı. Bu üçünün dolgu (silüet)
-    amblemi yok; kendi çizgi ikonları kullanılıyor — rozette de hex'te de
-    boş durmasınlar. Silüet çizilirse yalnız buradaki adlar değişir.
+    Köşk, saray, taverna ve Rún Salonu amblemleri de dolgu (silüet):
+    İlkan'ın verdiği görsellerden vektörlendi (Icons.jsx · FILLED).
+    Artık bütün binaların amblemi var.
   */
-  kosk:       { icon: 'kosk', rot: 0, size: 17 },
-  saray:      { icon: 'saray', rot: 0, size: 17 },
-  taverna:    { icon: 'taverna', rot: 0, size: 16 },
+  runSalonu:  { icon: 'runSalonuAmblem', rot: 0, size: 18 },
+  kosk:       { icon: 'koskAmblem', rot: 0, size: 18 },
+  saray:      { icon: 'sarayAmblem', rot: 0, size: 18 },
+  taverna:    { icon: 'tavernaAmblem', rot: 0, size: 18 },
 };
 
 export const BUILDING_TEXTURE = {
@@ -184,6 +188,7 @@ export const BUILDING_TEXTURE = {
   kosk: koskImg,
   saray: sarayImg,
   taverna: tavernaImg,
+  runSalonu: runSalonuImg,
 };
 
 // Merkez hex'i (0,0) icin gorsel - eski merkez2.png yerine

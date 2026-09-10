@@ -269,6 +269,8 @@ export const NO_WORKER_TYPES = new Set(['sur', 'hendek']);
  */
 export const WORKER_ASSIGNABLE_MILITARY = new Set([
   'silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu',
+  // Göçmen köşk/sarayda eğitilir — eğitmen alırlar
+  'kosk', 'saray',
 ]);
 
 /** Bu bina personel alır mı? (üretim yapan her bina + askeri liste) */
@@ -282,6 +284,6 @@ export function maxWorkersOf(type, def, level) {
   if (!takesWorkers(type, def) || !level || level < 1) return 0;
   return level * (def.workersPerLevel || 3);
 }
-const WORKER_TERM = { kule: 'Okçu', runSalonu: 'Araştırmacı' };
+const WORKER_TERM = { kule: 'Okçu', runSalonu: 'Araştırmacı', kosk: 'Eğitmen', saray: 'Eğitmen' };
 export const workerTerm  = (type) => WORKER_TERM[type] || 'İşçi';
 export const workerTermLc = (type) => (WORKER_TERM[type] || 'İşçi').toLowerCase();

@@ -39,11 +39,11 @@ function Etiket({ children, icon, color }) {
 export default function BuildingControls({
   building, freeWorkers = 0, resources = {}, flows = {},
   hourSeconds = 3600, worldSpeed = 1,
-  onAssignVillageWorkers, onUpgrade,
+  onAssignVillageWorkers, onUpgrade, onCancelBuild,
   layout = 'strip',
 }) {
   const [upgradeWorkers, setUpgradeWorkers] = useState(1);
-  if (!building || building.building) return null;
+  if (!building) return null;
 
   const def = VILLAGE_DEFS[building.type];
   const maxW = maxWorkersOf(building.type, def, building.level);
@@ -67,6 +67,59 @@ export default function BuildingControls({
     WebkitBackdropFilter: 'blur(10px) saturate(1.15)',
     width: 168,
   } : { minWidth: 0 };
+
+  /**
+   * BİNA İNŞA/YÜKSELTME HÂLİNDEYSE de aynı şerit çizilir.
+   * Eskiden burada null dönülüyordu; denetimler BuildMenu'nün gövdesine
+   * düşüyor ve panelin düzeni yükseltme sırasında tamamen değişiyordu.
+   */
+  if (building.building) {
+    return (
+      <div style={{
+        display: 'flex', gap: 8, alignItems: 'flex-end',
+        flexWrap: serit ? 'wrap' : 'nowrap', justifyContent: 'flex-end',
+      }}>
+        {kadroVar && (
+          <div style={kutu}>
+            <Etiket icon={building.type === 'kule' ? 'kule' : 'isci'}>
+              {building.type === 'kule' ? 'Kuledeki okçu' : `Çalışan ${wTerm.toLowerCase()}`}
+            </Etiket>
+            <WorkerAssign
+              compact={serit}
+              mode="assign" value={building.workers || 0} max={maxW}
+              freeWorkers={freeWorkers} title="kadro"
+              onChange={(w) => onAssignVillageWorkers?.(w)}
+              effect={def?.processes
+                ? (w) => `+${(def.processes.outputPerHour * w).toFixed(0)} ${RES_LABEL[def.processes.output]}/sa`
+                : building.type === 'kule'
+                  ? (w) => `${w} okçu · +${towerSlotBonus(building.level, w)}% savunma`
+                  : (w) => `${w}× hız`} />
+          </div>
+        )}
+
+        <div style={kutu}>
+          <Etiket icon="insaat">
+            {building.level === 0 ? 'İnşa ediliyor' : `Lvl ${building.level} → ${building.level + 1}`}
+          </Etiket>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 4 }}>
+            <span style={num({ fontSize: 15, color: C.frost, lineHeight: 1.1 })}>
+              {fmtTime(building.buildTimeLeft)}
+            </span>
+            <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute }}>
+              {building.buildWorkers || 0} işçi
+            </span>
+          </div>
+          <button onClick={() => onCancelBuild?.()}
+            title={'İptalde kaynak iade edilir'}
+            style={btn('danger', {
+              width: '100%', padding: '4px 0', letterSpacing: 1, fontSize: 9,
+            })}>
+            {building.level === 0 ? 'İNŞAATI İPTAL' : 'YÜKSELTMEYİ İPTAL'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{

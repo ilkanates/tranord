@@ -9,107 +9,137 @@
  * Başlangıç birimleri (minLevel 1) listede YOK — onlar araştırma istemiyor,
  * listeye koymak "bunu da mı araştırmam lazım" diye yanıltırdı.
  *
- * Maliyet satırı ve "ne zaman yeter" notu ortak bileşenden (mapPanels.CostRow)
- * geliyor; panel başına ayrı bir maliyet gösterimi türetilmiyor.
+ * Liste kışla/ahırdaki eğitim kartlarıyla aynı ızgarada: 9:16 poster
+ * kartlar yan yana. Eski satır listesi on birimde paneli aşağı şişirip
+ * bina görselini eziyordu.
  */
-import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
-import { gameMinutesToRealSeconds } from '../flows';
-import { CostRow } from './mapPanels';
+import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime } from '../theme';
+import { RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import { WAIT_LABEL } from './queueUI';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
 const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069' };
 
-/** Tek birim satırı: görsel + ad + gereken seviye + maliyet + düğme */
-function Satir({
-  tip, def, durum, salonLv, arastirmaci, resources, flows,
+const pill = {
+  display: 'inline-flex', alignItems: 'center', gap: 2.5,
+  padding: '1px 4px', borderRadius: 3,
+  background: 'rgba(4,9,15,0.78)', border: '1px solid rgba(255,255,255,0.14)',
+  backdropFilter: 'blur(3px)',
+};
+
+/**
+ * Tek birim KARTI — kışla/ahırdaki eğitim kartlarıyla aynı dil:
+ * 9:16 tam kadraj görsel, bilgiler görselin üstünde. Eski uzun satır
+ * listesi paneli aşağı doğru şişiriyor, bina görselini eziyordu.
+ */
+function Kart({
+  tip, def, durum, salonLv, arastirmaci, resources,
   hourSeconds, worldSpeed, onResearch,
 }) {
   const ar = def.research;
-  const renk = CAT_COLOR[def.category] || C.ice;
+  const renk = CAT_COLOR[def.category] || C.iceSoft;
   const img = unitImage(tip);
   const seviyeTamam = salonLv >= ar.level;
   const acik = durum === 'acik';
   const sirada = durum === 'sirada';
-  const kaynakTamam = Object.entries(ar.cost)
-    .every(([r, a]) => (resources[r] || 0) >= a);
+  const kaynakTamam = Object.entries(ar.cost).every(([r, a]) => (resources[r] || 0) >= a);
   const basilabilir = !acik && !sirada && seviyeTamam;
-
   const sure = gameMinutesToRealSeconds(
     arastirmaci > 0 ? Math.max(1, ar.minutes / arastirmaci) : ar.minutes,
     hourSeconds, worldSpeed);
 
   return (
     <div style={{
-      display: 'flex', gap: 7, padding: 6, borderRadius: 6,
-      background: acik ? 'rgba(108,221,163,0.07)' : 'rgba(8,17,28,0.55)',
-      border: `1px solid ${acik ? 'rgba(108,221,163,0.32)'
-        : seviyeTamam ? C.lineSoft : 'rgba(224,179,87,0.28)'}`,
-      opacity: seviyeTamam || acik ? 1 : 0.72,
+      position: 'relative', aspectRatio: '9 / 16', borderRadius: 6, overflow: 'hidden',
+      background: '#0b1420',
+      border: `1px solid ${acik ? 'rgba(108,221,163,0.5)' : seviyeTamam ? `${renk}55` : C.lineSoft}`,
     }}>
-      {/* Görsel */}
+      {img ? (
+        <img src={img} alt={def.name || tip} draggable={false} style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          objectFit: 'cover', objectPosition: '50% 12%',
+          /* Salon seviyesi yetmiyorsa kart bakışta soluk — yapısal engel */
+          filter: acik ? 'none' : seviyeTamam ? 'grayscale(0.35)' : 'grayscale(0.85) brightness(0.55)',
+        }} />
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name={def.category === 'suvari' ? 'at' : 'kalkan'} size={28} color={C.lineBright} />
+        </div>
+      )}
+
+      {/* ÜST — gereken salon seviyesi (solda) · süre (sağda) */}
       <div style={{
-        flexShrink: 0, width: 32, height: 44, borderRadius: 4, overflow: 'hidden',
-        background: '#0b1420', display: 'grid', placeItems: 'center',
+        position: 'absolute', top: 4, left: 4, right: 4,
+        display: 'flex', alignItems: 'flex-start', gap: 3,
       }}>
-        {img ? (
-          <img src={img} alt="" draggable={false} style={{
-            width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 12%',
-            filter: acik ? 'none' : 'grayscale(0.7) brightness(0.75)',
-          }} />
-        ) : <Icon name={def.category === 'suvari' ? 'at' : 'kalkan'} size={18} color={C.lineBright} />}
+        <span title={seviyeTamam ? `Rún Salonu Lvl ${ar.level}`
+          : `Rún Salonu Lvl ${ar.level} gerekiyor (şu an ${salonLv})`}
+          style={{ ...pill, borderColor: seviyeTamam ? 'rgba(255,255,255,0.14)' : 'rgba(224,179,87,0.55)' }}>
+          <Icon name={seviyeTamam ? 'bilgi' : 'kilit'} size={9}
+            color={seviyeTamam ? C.textMute : '#e0b357'} />
+          <span style={num({ fontSize: 8, color: seviyeTamam ? C.textDim : '#e8cf9a' })}>
+            {ar.level}
+          </span>
+        </span>
+        {!acik && (
+          <span style={{ ...pill, marginLeft: 'auto', borderColor: `${renk}55` }}>
+            <span style={num({ fontSize: 8, color: renk })}>{fmtTime(sure)}</span>
+          </span>
+        )}
+        {acik && (
+          <span style={{ ...pill, marginLeft: 'auto', borderColor: 'rgba(108,221,163,0.5)' }}>
+            <Icon name="bonus" size={9} color={C.good} />
+          </span>
+        )}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ fontFamily: FONT.ui, fontSize: 11.5, color: C.frost }}>{def.name}</span>
-          <span style={num({ fontSize: 8.5, color: renk })}>
-            {def.trainedAt === 'ahir' ? 'süvari' : def.category === 'kusatma' ? 'kuşatma' : 'piyade'}
-          </span>
-          <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-            <Icon name={seviyeTamam ? 'bilgi' : 'kilit'} size={9}
-              color={seviyeTamam ? C.textMute : '#e0b357'} />
-            <span style={num({ fontSize: 8.5, color: seviyeTamam ? C.textMute : '#e8cf9a' })}>
-              salon Lvl {ar.level}
-            </span>
-          </span>
-        </div>
+      {/* ALT — ad, maliyet, düğme; hepsi görselin üstünde */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding: '24px 5px 5px',
+        background: 'linear-gradient(180deg, transparent, rgba(4,9,15,0.62) 32%, rgba(4,9,15,0.95) 68%)',
+        display: 'flex', flexDirection: 'column', gap: 4,
+      }}>
+        <div style={{
+          fontFamily: FONT.head, fontSize: 11.5, fontWeight: 600, letterSpacing: 0.3,
+          color: C.frost, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+        }}>{def.name}</div>
 
         {acik ? (
           <div style={{
-            marginTop: 4, display: 'flex', alignItems: 'center', gap: 5,
-            fontFamily: FONT.ui, fontSize: 9.5, color: C.good,
+            display: 'flex', alignItems: 'center', gap: 4,
+            fontFamily: FONT.ui, fontSize: 8.5, color: C.good,
           }}>
-            <Icon name="bonus" size={10} color={C.good} />
-            araştırıldı — {def.trainedAt === 'ahir' ? 'ahırda' : 'kışlada'} eğitilebilir
+            <Icon name="bonus" size={9} color={C.good} />
+            {def.trainedAt === 'ahir' ? 'ahırda eğitilir' : 'kışlada eğitilir'}
           </div>
         ) : (
           <>
-            {/* Maliyet · süre · düğme tek satırda — panel aşağı uzamasın */}
-            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 7 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <CostRow cost={ar.cost} resources={resources} flows={flows}
-                  hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
-              </div>
-              <span style={num({ fontSize: 9.5, color: C.textFaint, flexShrink: 0 })}
-                title={arastirmaci > 1 ? `${arastirmaci} araştırmacıyla` : undefined}>
-                {fmtTime(sure)}
-              </span>
-              <button type="button"
-                disabled={!basilabilir}
-                title={!seviyeTamam
-                  ? `Rún Salonu Lvl ${ar.level} gerekiyor (şu an ${salonLv})`
-                  : sirada ? 'Zaten kuyrukta'
-                    : kaynakTamam ? 'Araştırmayı sıraya al'
-                      : 'Kaynak yetmiyor — yine de sıraya alınır, sırası gelince ödenir'}
-                onClick={() => onResearch?.(tip)}
-                style={btn(basilabilir ? (kaynakTamam ? 'primary' : 'ghost') : 'disabled', {
-                  flexShrink: 0, padding: '4px 11px', fontSize: 9.5, letterSpacing: 0.8,
-                })}>
-                {sirada ? 'KUYRUKTA' : 'ARAŞTIR'}
-              </button>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {Object.entries(ar.cost).map(([r, a]) => {
+                const ok = (resources[r] || 0) >= a;
+                return (
+                  <span key={r} title={`${RES_LABEL[r] || r}: ${a}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                    <Icon name={r} size={9} color={ok ? RES_COLOR[r] : C.dangerDim} />
+                    <span style={num({ fontSize: 8, color: ok ? C.textDim : '#ff9aa2' })}>{a}</span>
+                  </span>
+                );
+              })}
             </div>
+            <button type="button" disabled={!basilabilir}
+              onClick={() => onResearch?.(tip)}
+              title={!seviyeTamam ? `Rún Salonu Lvl ${ar.level} gerekiyor (şu an ${salonLv})`
+                : sirada ? 'Zaten kuyrukta'
+                  : kaynakTamam ? 'Araştırmayı sıraya al'
+                    : 'Kaynak yetmiyor — yine de sıraya alınır, sırası gelince ödenir'}
+              style={btn(basilabilir ? (kaynakTamam ? 'primary' : 'ghost') : 'disabled', {
+                width: '100%', padding: '3px 4px', fontSize: 8.5, letterSpacing: 0.8,
+              })}>
+              {sirada ? 'KUYRUKTA' : !seviyeTamam ? `LVL ${ar.level}` : 'ARAŞTIR'}
+            </button>
           </>
         )}
       </div>
@@ -132,6 +162,13 @@ export default function ResearchPanel({
 
   const siradaki = new Set(queue.map(o => o.type));
   const acikSayi = liste.filter(([k]) => research[k]).length;
+  /*
+    Araştırılan birim listeden ÇIKAR: bu salonun işi biten iş değil,
+    bekleyen iş. Açık birimler zaten kışla/ahır panelinde duruyor.
+    Araştırma köy başına ayrı tutuluyor (village.research) — yeni köyde
+    liste yeniden dolu başlar.
+  */
+  const bekleyen = liste.filter(([k]) => !research[k]);
 
   return (
     <div style={{
@@ -205,16 +242,39 @@ export default function ResearchPanel({
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {liste.map(([tip, def]) => (
-          <Satir key={tip} tip={tip} def={def}
+      {bekleyen.length === 0 ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          padding: '9px 10px', borderRadius: 6,
+          background: 'rgba(78,207,168,0.07)', border: '1px solid rgba(78,207,168,0.25)',
+          fontFamily: FONT.ui, fontSize: 10, color: C.textDim,
+        }}>
+          <Icon name="bonus" size={12} color={C.good} />
+          Bu köyde araştırılacak birim kalmadı.
+        </div>
+      ) : (
+      /* Kışla/ahırla aynı ızgara: kartlar yan yana, panel aşağı uzamıyor */
+      <div style={{
+        display: 'grid',
+        /*
+          ÜST SINIR ŞART: auto-fit + 1fr, tek kart kalınca o kartı panel
+          genişliğine kadar şişiriyordu (sarayda tek göçmen kartı bütün
+          pencereyi kaplayıp bina görselini eziyordu). 120 px tavanla
+          kartlar hep aynı boyda kalıyor.
+        */
+        gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 120px))',
+        justifyContent: 'start', gap: 7,
+      }}>
+        {bekleyen.map(([tip, def]) => (
+          <Kart key={tip} tip={tip} def={def}
             durum={research[tip] ? 'acik' : siradaki.has(tip) ? 'sirada' : 'kapali'}
             salonLv={level} arastirmaci={workers}
-            resources={resources} flows={flows}
+            resources={resources}
             hourSeconds={hourSeconds} worldSpeed={worldSpeed}
             onResearch={onResearch} />
         ))}
       </div>
+      )}
     </div>
   );
 }

@@ -184,8 +184,34 @@ const UNIT_DEFS = {
     minLevel: 10,
     equipment: ['mancinik'],
     stats: { saldiri: 75, yayaSav: 60, atliSav: 10, hiz: 3, kapasite: 0 }
+  },
+
+  /**
+   * GÖÇMEN — yeni köy kurar, savaşmaz.
+   *
+   * Köşk ya da sarayda eğitilir (ikisi birden olamaz, tanımlar birbirini
+   * dışlıyor). Ekipmanı yok; bedeli doğrudan KAYNAK (`cost`) ve bir boş
+   * işçi. Üçü birden boş bir dünya slotuna gönderilince orada köy kurulur
+   * ve göçmenler harcanır.
+   *
+   * Savaş gücü sıfır ve `category: 'gocmen'` savaş hesabının dışında
+   * (bkz. combat.js isCombatUnit): göçmen ne saldırır ne savunur.
+   */
+  gocmen: {
+    name: 'Göçmen',
+    category: 'gocmen',
+    trainedAt: ['kosk', 'saray'],
+    minLevel: 10,
+    equipment: [],
+    cost: { kereste: 400, tugla: 350, yontmaTas: 350, demirKulce: 200 },
+    trainMinutes: 240,
+    stats: { saldiri: 0, yayaSav: 0, atliSav: 0, hiz: 5, kapasite: 0 }
   }
 };
+
+/** Yeni köy için gereken göçmen sayısı — tek doğruluk kaynağı */
+const SETTLER_UNIT = 'gocmen';
+const SETTLERS_REQUIRED = 3;
 
 /**
  * ARAŞTIRMA — Rún Salonu.
@@ -226,6 +252,11 @@ function researchFor(minLevel) {
 for (const def of Object.values(UNIT_DEFS)) {
   def.research = researchFor(def.minLevel);
 }
+/*
+  Göçmen Rún Salonu araştırması İSTEMEZ: kapısı zaten köşk/saray Lvl 10.
+  İkinci bir kapı koymak yeni köyü gereksiz yere kilitler.
+*/
+UNIT_DEFS[SETTLER_UNIT].research = null;
 
 /** Bu birim eğitilmeden önce araştırılmalı mı? */
 const needsResearch = (unitType) => !!UNIT_DEFS[unitType]?.research;
@@ -309,4 +340,5 @@ module.exports = {
   needsResearch, RESEARCHABLE, researchFor,
   unitStats, equipmentUpgradeCost, equipmentUpgradeMinutes,
   UPGRADABLE_EQUIPMENT, EQUIPMENT_MAX_LEVEL, EQUIPMENT_UPGRADE_STEP,
+  SETTLER_UNIT, SETTLERS_REQUIRED,
 };

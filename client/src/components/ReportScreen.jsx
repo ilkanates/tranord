@@ -16,8 +16,8 @@ import { RES_LABEL } from '../flows';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
-const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif' };
-const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita' };
+const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif', yerlesim: 'Yerleşim' };
+const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita', yerlesim: 'koy' };
 
 const sum = (o) => Object.values(o || {}).reduce((a, b) => a + (b || 0), 0);
 
