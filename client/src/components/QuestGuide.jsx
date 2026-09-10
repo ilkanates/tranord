@@ -57,6 +57,17 @@ export function Spotlight({ anchor, on }) {
       if (!el) { setBox(null); return; }
       const r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) { setBox(null); return; }
+      /*
+        HEDEF GERÇEKTEN GÖRÜNÜYOR MU?
+        Bina paneli gibi bir pencere açıkken hedef arkada kalıyor ve halka
+        pencerenin üstünde boşlukta duruyordu. Merkez noktadaki en üst
+        öğe hedefin kendisi (ya da içindeki bir şey) değilse çizme.
+      */
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const ust = document.elementFromPoint(cx, cy);
+      if (!ust || !(el === ust || el.contains(ust) || ust.contains(el))) {
+        setBox(null); return;
+      }
       setBox({ x: r.left, y: r.top, w: r.width, h: r.height });
     };
     olc();
@@ -78,7 +89,7 @@ export function Spotlight({ anchor, on }) {
   const w = box.w + pad * 2, h = box.h + pad * 2;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1400, pointerEvents: 'none' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 900, pointerEvents: 'none' }}>
       {/* Halka — tıklamayı engellemez, yalnız gösterir */}
       <div className="tn-pulse" style={{
         position: 'fixed', left: x, top: y, width: w, height: h,
