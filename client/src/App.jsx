@@ -12,6 +12,7 @@ import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
 import { MarchPanel, IncomingAlert } from './components/WarPanel';
 import ReportScreen, { unseenCount } from './components/ReportScreen';
+import QuestScreen, { QuestCard, Spotlight } from './components/QuestGuide';
 import LoginScreen from './components/LoginScreen';
 import LoginBackdrop from './components/LoginBackdrop';
 import StatsScreen from './components/StatsScreen';
@@ -137,6 +138,7 @@ const TABS = [
   { key: 'isciler',   label: 'Köylüler',         icon: 'isci' },
   { key: 'ordu',      label: 'Ordu',             icon: 'ordu' },
   { key: 'sefer',     label: 'Seferler',         icon: 'harita' },
+  { key: 'gorevler',  label: 'Görevler',         icon: 'bilgi' },
   { key: 'raporlar',  label: 'Raporlar',         icon: 'savas' },
   { key: 'istatistik', label: 'İstatistik',      icon: 'bonus' },
   { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilic' },
@@ -225,7 +227,7 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
         {TABS.map(t => {
           const on = tab === t.key;
           return (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button key={t.key} data-tut={`tab-${t.key}`} onClick={() => setTab(t.key)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
                 padding: '0 15px', border: 'none', background: 'transparent',
@@ -340,7 +342,7 @@ export function BottomTabs({ tab, setTab, badges = {} }) {
       {TABS.map(t => {
         const on = tab === t.key;
         return (
-          <button key={t.key} onClick={() => setTab(t.key)}
+          <button key={t.key} data-tut={`tab-${t.key}`} onClick={() => setTab(t.key)}
             style={{
               position: 'relative', flex: '0 0 auto',
               minWidth: 62, minHeight: TAP + 6,
@@ -406,6 +408,8 @@ function Game({ token, onLogout }) {
   const stampRef = useRef(0);
   const [beat, setBeat] = useState(0);
   const [tab, setTab] = useState('harita');
+  // Rehber kartında gösterilecek görev (listeden seçilirse); yoksa sunucunun sırası
+  const [questFocus, setQuestFocus] = useState(null);
   /**
    * Yardım sayfasına DERİN BAĞLANTI: bina panelindeki "?" düğmesi buraya
    * 'bina:kisla' gibi bir konu yazıp sekmeyi değiştiriyor. HelpScreen konuyu
@@ -770,6 +774,19 @@ function Game({ token, onLogout }) {
             </div>
           )}
 
+          {tab === 'gorevler' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: railInset, paddingRight: railInset,
+            }}>
+              <QuestScreen quests={village.quests || null} focus={questFocus}
+                onFocus={setQuestFocus}
+                onClaim={(id) => socket?.emit('claim_quest', { id })}
+                onToggle={(hidden) => socket?.emit('toggle_quests', { hidden })}
+                onGoTab={(t) => t && setTab(t)} />
+            </div>
+          )}
+
           {tab === 'raporlar' && (
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
@@ -875,6 +892,24 @@ function Game({ token, onLogout }) {
           badges={{ raporlar: unseenCount(village.reports || []),
             sefer: (village.marches || []).length + (village.incoming || []).length }} />
       )}
+
+      {/*
+        REHBER — her ekranın üstünde. Kart aktif görevi gösterir, spotlight
+        gidilecek yeri yakıp söndürür. Rehber kapalıyken kart rozete iner
+        ama görevler arka planda işlemeye devam eder.
+      */}
+      <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
+        onClaim={(id) => socket?.emit('claim_quest', { id })}
+        onToggle={(hidden) => socket?.emit('toggle_quests', { hidden })}
+        onGoTab={(t) => t && setTab(t)} />
+      <Spotlight
+        on={!!village.quests && !village.quests.hidden && tab !== 'gorevler'}
+        anchor={(() => {
+          const q = village.quests?.liste?.find(x => x.id === village.quests.aktif);
+          if (!q || q.tamam) return null;
+          // Hedef sekmedeysem çapayı kaldır: artık yönlendirmeye gerek yok
+          return q.tab && q.tab !== tab ? q.anchor : null;
+        })()} />
     </>
   );
 }

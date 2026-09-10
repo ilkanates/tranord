@@ -139,14 +139,17 @@ function createVillage(worldQ = 0, worldR = 0) {
       '0,1':  { type: 'tahil', level: 1, workers: 0, upgrading: false, upgradeEndTime: null, upgradeWorkersAssigned: 0 }
     },
 
+    /**
+     * KÖY MERKEZİ BOŞ BAŞLAR — yalnız Ana Bina.
+     *
+     * İşleme binaları (keresteci, tuğlacı, taşçı, demirci, değirmen,
+     * fırın) eskiden hazır geliyordu; oyuncu ne işe yaradıklarını
+     * öğrenemeden kuruluydular. Artık rehber görevleriyle tek tek
+     * kuruluyorlar. Hepsinin bedeli HAM kaynak (odun/kil/taş) olduğu
+     * için işlenmiş mal olmadan da kurulabilirler.
+     */
     villageBuildings: {
-      '0,0':   { type: 'anaBina',   level: 1 },
-      '1,0':   { type: 'keresteci', level: 1, workers: 0 },
-      '0,1':   { type: 'tuglaci',   level: 1, workers: 0 },
-      '-1,1':  { type: 'tasci',     level: 1, workers: 0 },
-      '-1,0':  { type: 'demirci',   level: 1, workers: 0 },
-      '0,-1':  { type: 'degirmen',  level: 1, workers: 0 },
-      '1,-1':  { type: 'firin',     level: 1, workers: 0 }
+      '0,0': { type: 'anaBina', level: 1 },
     },
 
     TOWER_SLOTS:      new Set(TOWER_SLOTS_ARR),

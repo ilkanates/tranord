@@ -1,63 +1,36 @@
-feat(yerlesim): serbest koy kurma, koy basina yerlesim hakki, harita duzeltmeleri
+feat(rehber): gorev zinciri, odul sistemi ve bos baslayan koy merkezi
 
-SERBEST YERLESIM
-- Gocmen seferi artik izgara slotlariyla sinirli degil: dunyadaki her
-  hex hedef olabilir. Slot kaydi yoksa sunucu uretir (ad, halka, tier
-  ayni kuralla). Mesafe siniri yok; topraklar cakisabilir.
-- Tek engel: uzerinde koy olan hex ve bonuslu arazi (orasi tarla
-  olarak degerli, koy merkezi bonusu heba eder).
-- Haritada bos araziye tiklayinca imlecin yaninda kucuk pencere acilir:
-  mesafe, sure, gocmen sayisi ve KOY KUR. Ret sebebi (koy hakki,
-  kultur puani, dolu arazi) pencerede yaziyor.
-- KRITIK DUZELTME: serbest yerlesimle kurulan koyler sunucu yeniden
-  baslayinca kayboluyordu (izgarada olmayan slot "haritada yok" diye
-  atlaniyor, koy adsiz kaliyordu). Kayitli her oyuncu slotu acilista
-  ve giriste geri uretiliyor.
+GOREV MOTORU (sunucu)
+- server/data/questDefs.js: 26 gorevlik acilis zinciri. Sira ogretici:
+  once ISCI ATAMA (iscisiz tarla uretmez), sonra seviye yukseltme ve
+  yukseltmenin de insaatci istedigi, sonra isleme binalari, buyume,
+  yiyecek zinciri ve askeri hat.
+- Kosullar SUNUCUDA olculur (tarla/bina seviyesi, tarladaki ve binadaki
+  isci, ekipman, ordu, sefer, nufus, arastirma); istemciye guvenilmez.
+  Kosullar oyuncunun butun koylerine bakar.
+- Durum HESAP basina: merkez koyun state'inde `quests`. Merkez tasininca
+  kayit da tasiniyor (set_capital).
+- Oduller: kaynak (depo tavanini asmaz), bos isci (nufus tavanini
+  asmaz), kultur puani. Odul claim aninda kosul yeniden olculuyor.
+- Yeni olaylar: claim_quest, toggle_quests. Gorev ilerlemesi parmak
+  izine girdi, yoksa kart 30 sn'lik kalp atisini bekliyordu.
 
-KOY BASINA YERLESIM HAKKI
-- Hak koy basina ve "yuksek su seviyesi" gibi: kosk/sarayin ULASTIGI
-  esikler hak kazandirir (kosk 10/20, saray 10/15/20), bina yikilsa da
-  dusmez, yeni hak icin bir sonraki esige cikmak gerekir.
-- Gocmen egitimi bu hakla sinirli: her hak 3 gocmen. Eldeki, yoldaki
-  ve kuyruktaki gocmenler birlikte sayiliyor.
-- Kosk/saray panelinde yeni kutu: kalan/toplam hak, gocmen kapasitesi
-  ve bu koyden kurulan koylerin listesi.
+ARAYUZ
+- Yeni "Gorevler" sekmesi: butun zincir, ilerleme, odul rozetleri.
+  Satira tiklayinca o gorev karta odaklanir.
+- Sag altta yuzen rehber karti: aktif gorev, ipucu, ilerleme cubugu,
+  ODULU AL. Kapatilinca kucuk rozete iner; gorevler arka planda
+  islemeye devam eder, odul hazir olunca rozet haber verir.
+- Spotlight: gidilecek sekmenin etrafi sari halkayla yanip soner
+  (hedef `data-tut` ile isaretlenir; hedef yoksa hicbir sey cizilmez).
+- Zincir kati degil: kosulu tamamlanan her gorevin odulu sira
+  beklemeden alinabilir.
 
-ARASTIRMA IKINCI KAPI
-- Bir birimi arastirmak icin Run Salonu seviyesi YETMIYOR; birimin
-  egitildigi binanin (kisla/ahir/atolye) seviyesi de gerekiyor.
-  Kartta hangi kapinin eksik oldugu rozetle gorunuyor.
-- Arastirilan birim listeden cikiyor; liste kisla/ahir tarzi kart
-  izgarasina cevrildi.
-
-HARITA
-- Koy isaretleri her zumda ciziliyor; kendi ikinci koyum yakin zumda
-  normal koy gibi (merkez + tarlalari) gorunuyor.
-- Bir hex yalniz TEK koy tarafindan alinabilir; ayni oyuncunun iki
-  koyu ayni araziyi isleyemiyor (sunucu denetimi + haritada gizleme).
-- Yayilma sinirinda olcut "baska koy" degil "yabanci koy": kendi
-  koylerimin alanlari ic ice girebilir.
-- Panel dugmeleri artik haritaya tiklama sayilmiyor (INSA ET arkadaki
-  hex'i seciyordu); tarlalar data-tile ile isaretli.
-- DUZELTME: ikinci koye ait tarlalar yerine AKTIF koyun tarlalari
-  gonderiliyordu (session.village her zaman aktif koy).
-
-ORDU / SEFERLER
-- Yeni "Seferler" sekmesi: giden ve gelen butun hareketler (saldiri,
-  yagma, kesif, yerlesim) tek ekranda, sekmede sayac rozeti.
-- Ordu ve sefer ekranlari ekipman yukseltmeleriyle GUNCEL degerleri
-  gosteriyor (toplam saldiri dahil); savas hesabi zaten oyleydi.
-- Gocmen orduda kendi basligiyla gorunuyor.
-
-DENGE / GORSEL
-- Ana Bina Lvl 11 -> Lvl 20; tarla slotu 5 + seviye, tavan 25.
-- Kosk, saray, taverna ve Run Salonu amblemleri (verilen siluetlerden
-  vektorlendi) - amblemsiz bina kalmadi.
-- Run Salonu poster gorseli ve videosu, gocmen birim gorseli.
-- Insaat/yukseltme sirasinda denetimler gorselin sag alt kosesinde:
-  panel duzeni yukseltme baslayinca degismiyor.
-- Bos arazi panelinde insa listesi tam genislikte (iki sutuna bolunup
-  sola sikismiyordu).
+KOY MERKEZI BOS BASLIYOR
+- Isleme binalari (keresteci, tuglaci, tasci, demirci, degirmen, firin)
+  artik hazir gelmiyor; yalniz Ana Bina var. Hepsinin bedeli HAM kaynak
+  oldugu icin islenmis mal olmadan kurulabiliyorlar ve zincir bunlari
+  tek tek kurduruyor.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RsJSGuBFCvuburd4jGQ2X8

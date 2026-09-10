@@ -15,6 +15,7 @@ const { router: authRouter, verifyToken } = require('./auth');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot } = require('./db');
 const W = require('./game/world');
+const { QUESTS, QUEST_BY_ID } = require('./data/questDefs');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
 
 // Kule de personel alır (arayüzde "okçu" adıyla); sur ve hendek almaz.
@@ -246,6 +247,100 @@ function getScaledUpgradeCost(type, currentLevel) {
   return Object.fromEntries(
     Object.entries(base).map(([k, v]) => [k, Math.round(v * mult)])
   );
+}
+
+// ─── GÖREV ZİNCİRİ ────────────────────────────────────────────────
+/**
+ * Görev durumu HESAP başına: merkez köyün state'inde tutulur.
+ * (Ayrı tablo açmamak için; merkez taşınınca kayıt da taşınıyor.)
+ */
+function questState(session) {
+  const v = session.villages.get(session.capitalSlot)
+    || session.villages.values().next().value;
+  if (!v) return null;
+  if (!v.quests || typeof v.quests !== 'object') {
+    v.quests = { claimed: [], hidden: false };
+  }
+  if (!Array.isArray(v.quests.claimed)) v.quests.claimed = [];
+  return v.quests;
+}
+
+/** Koşul ölçümü — oyuncunun BÜTÜN köylerine bakar, en iyisi sayılır */
+function questOlcu(cond, session) {
+  const koyler = [...session.villages.values()];
+  switch (cond.tur) {
+    case 'tarla': {
+      if (cond.adet) {
+        return Math.max(0, ...koyler.map(v => Object.values(v.productionTiles || {})
+          .filter(t => (t.level || 0) >= 1 && (!cond.tip || t.type === cond.tip)).length));
+      }
+      return Math.max(0, ...koyler.map(v => Math.max(0, ...Object.values(v.productionTiles || {})
+        .filter(t => !cond.tip || t.type === cond.tip).map(t => t.level || 0), 0)));
+    }
+    case 'bina':
+      return Math.max(0, ...koyler.map(v => Math.max(0, ...Object.values(v.villageBuildings || {})
+        .filter(b => b.type === cond.tip).map(b => b.level || 0), 0)));
+    case 'isci':
+      // tip verilirse yalnız o cins tarlalardaki işçiler sayılır
+      return Math.max(0, ...koyler.map(v => Object.values(v.productionTiles || {})
+        .filter(t => !cond.tip || t.type === cond.tip)
+        .reduce((s2, t) => s2 + (t.workers || 0), 0)));
+    case 'binaIsci3':
+      // birden çok bina türündeki işçilerin toplamı
+      return Math.max(0, ...koyler.map(v => Object.values(v.villageBuildings || {})
+        .filter(b => (cond.tipler || []).includes(b.type))
+        .reduce((s2, b) => s2 + (b.workers || 0), 0)));
+    case 'binaIsci':
+      return Math.max(0, ...koyler.map(v => Object.values(v.villageBuildings || {})
+        .filter(b => b.type === cond.tip)
+        .reduce((s2, b) => s2 + (b.workers || 0), 0)));
+    case 'kaynak':
+      return Math.max(0, ...koyler.map(v => Math.floor(v.resources?.[cond.res] || 0)));
+    case 'ordu':
+      return koyler.reduce((s2, v) => s2 + Object.values(v.army || {})
+        .reduce((a, b) => a + b, 0), 0);
+    case 'ekipman':
+      return Math.max(0, ...koyler.map(v => v.equipment?.[cond.tip] || 0));
+    case 'arastirma':
+      return Math.max(0, ...koyler.map(v => Object.values(v.research || {}).filter(Boolean).length));
+    case 'sefer':
+      return koyler.reduce((s2, v) => s2 + (v.stats?.attacksSent || 0) + (v.stats?.scoutsSent || 0), 0);
+    case 'nufus':
+      return Math.max(0, ...koyler.map(v => v.population || 0));
+    default: return 0;
+  }
+}
+
+const questHedef = (cond) => cond.seviye || cond.adet || 1;
+const questTamam = (def, session) => questOlcu(def.cond, session) >= questHedef(def.cond);
+
+/**
+ * İstemciye giden görev paketi: zincir sırayla açılır — bir görev
+ * ödülü alınmadan sonraki görev "aktif" olmaz, ama koşulu erken
+ * tamamlandıysa bu görünür (oyuncu sırayla ödülleri toplar).
+ */
+function questPayload(session) {
+  const st = questState(session);
+  if (!st) return null;
+  const claimed = new Set(st.claimed);
+  const liste = QUESTS.map(q => ({
+    id: q.id, title: q.title, text: q.text, hint: q.hint,
+    tab: q.tab, anchor: q.anchor, reward: q.reward,
+    hedef: questHedef(q.cond), olculen: questOlcu(q.cond, session),
+    tamam: questTamam(q, session),
+    alindi: claimed.has(q.id),
+  }));
+  /*
+    Zincir katı değil: oyuncu listeden istediğini yapabilir. Kart, ödülü
+    hazır olan ilk görevi gösterir; yoksa sıradaki ilk görevi.
+  */
+  const aktif = liste.find(q => !q.alindi && q.tamam) || liste.find(q => !q.alindi) || null;
+  return {
+    hidden: !!st.hidden,
+    aktif: aktif?.id || null,
+    bitti: claimed.size >= QUESTS.length,
+    liste,
+  };
 }
 
 /**
@@ -687,6 +782,7 @@ function buildPayload(village, tickMs, opts = {}) {
     research: { ...(village.research || {}) }, researchQueue,
     // Ekipman yükseltmeleri — ordunun tamamına anında işler
     equipmentLevels: { ...(village.equipmentLevels || {}) }, upgradeQueues, equipmentUpgrade,
+    quests: opts.quests || null,
     // Yerleşim hakkı — köşk/saray panelinde gösteriliyor
     expansion: {
       earned: refreshExpansionCredits(village),
@@ -822,6 +918,15 @@ function kuyrukOzeti(q) {
   return `${n}${b.waiting ? 'W' : 'R'}${b.waitingReason || ''}${b.type || ''}`;
 }
 
+/** Görev ilerlemesi de parmak izine girsin — yoksa kart 30 sn donuyor */
+function questFingerprint(session) {
+  const st = questState(session);
+  if (!st) return '';
+  const p = questPayload(session);
+  const aktif = p?.liste.find(q => q.id === p.aktif);
+  return `${st.claimed.length}|${st.hidden ? 'H' : ''}|${aktif ? aktif.id + aktif.olculen : ''}`;
+}
+
 function structFingerprint(v) {
   const q = v.unitQueues || {}, eq = v.equipmentQueues || {};
   const up = v.upgradeQueues || {};
@@ -871,7 +976,7 @@ function emitVillage(session, { force = false, statics = false } = {}) {
   if (!sockets || sockets.size === 0) return;
   const sock = io.to(room);
   const v = session.village;
-  const fp = structFingerprint(v);
+  const fp = structFingerprint(v) + '#' + questFingerprint(session);
   const nowReal = Date.now();
   const beat = nowReal - (session.lastEmitAt || 0) >= FULL_SYNC_MS;
   if (!force && !beat && fp === session.fp) return;
@@ -906,6 +1011,7 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     activeSlot: session.activeSlot,
     capitalSlot: session.capitalSlot,
     uniqueOwners: uniqueOwnersOf(session),
+    quests: questPayload(session),
   }));
 }
 
@@ -1950,6 +2056,17 @@ io.on('connection', async socket => {
         reason: 'Merkez yapmak için bu köyde tamamlanmış bir saray gerekiyor.' });
       return;
     }
+    /*
+      Görev kaydı merkez köyün state'inde duruyor; merkez taşınınca
+      kayıt da taşınmalı, yoksa zincir sıfırlanmış görünür.
+    */
+    const eskiMerkez = session.villages.get(session.capitalSlot);
+    const yeniMerkez = session.villages.get(hedef);
+    if (eskiMerkez?.quests && yeniMerkez) {
+      yeniMerkez.quests = eskiMerkez.quests;
+      delete eskiMerkez.quests;
+    }
+
     session.capitalSlot = hedef;
     for (const [k, v2] of session.villages) v2.isCapital = (k === hedef);
     for (const k of session.villages.keys()) session.dirtySlots.add(k);
@@ -2191,6 +2308,48 @@ io.on('connection', async socket => {
    * araştırmayı arka arkaya sıraya alabiliyor, ödemeyi sırası gelince
    * yapıyor. Burada yalnız "bu iş anlamlı mı" denetleniyor.
    */
+  /**
+   * GÖREV ÖDÜLÜ AL. Koşul sunucuda yeniden ölçülür; istemciye güvenilmez.
+   * Ödül AKTİF köye yazılır (kaynak depoyu aşarsa fazlası kaybolur).
+   */
+  socket.on('claim_quest', ({ id } = {}) => {
+    const def = QUEST_BY_ID[id];
+    const st = questState(session);
+    if (!def || !st) return;
+    if (st.claimed.includes(id)) return;
+    if (!questTamam(def, session)) {
+      socket.emit('build_refused', { reason: 'Görev henüz tamamlanmadı' });
+      return;
+    }
+    const village = v();
+    const { caps, granaryCap } = getStorageCaps(village);
+    for (const [res, amt] of Object.entries(def.reward?.res || {})) {
+      const tavan = ['un', 'ekmek'].includes(res) ? granaryCap : (caps?.[res] ?? Infinity);
+      village.resources[res] = Math.min(tavan, (village.resources[res] || 0) + amt);
+    }
+    if (def.reward?.isci) {
+      // Nüfus tavanını aşmaz; yer yoksa daha az işçi gelir
+      const yer = Math.max(0, maxPopulationOf(village) - (village.population || 0));
+      const gelen = Math.min(def.reward.isci, yer);
+      village.population = (village.population || 0) + gelen;
+      village.freeWorkers = (village.freeWorkers || 0) + gelen;
+    }
+    if (def.reward?.kp) {
+      village.culturePoints = (village.culturePoints || 0) + def.reward.kp;
+    }
+    st.claimed.push(id);
+    console.log(`[GÖREV] ${userEmail} → ${id} tamamlandı`);
+    dirty(); emit();
+  });
+
+  /** Rehberi gizle/göster — görevler arka planda işlemeye devam eder */
+  socket.on('toggle_quests', ({ hidden } = {}) => {
+    const st = questState(session);
+    if (!st) return;
+    st.hidden = hidden === undefined ? !st.hidden : !!hidden;
+    dirty(); emit();
+  });
+
   socket.on('research_unit', ({ unitType }) => {
     const def = UNIT_DEFS[unitType];
     if (!def?.research) return;                       // araştırma istemeyen birim
