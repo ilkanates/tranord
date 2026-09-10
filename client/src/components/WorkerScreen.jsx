@@ -18,6 +18,7 @@ import { useMemo, useState } from 'react';
 import VILLAGE_DEFS from '../data/villageDefs';
 import BUILDING_DEFS from '../data/buildingDefs';
 import { C, FONT, btn, label as lbl, num } from '../theme';
+import { useViewport, TAP } from '../responsive';
 import { RES_LABEL, takesWorkers, maxWorkersOf, workerTerm } from '../flows';
 import Icon from './Icons';
 
@@ -41,13 +42,16 @@ function Sayac({ etiket, deger, renk, ipucu, vurgu = false }) {
 /** Atanabilir tek satır — isim, seviye, x/y ve kaydırıcı */
 function Satir({
   ikon, ad, altYazi, seviye, isci, maks, renk, terim = 'İşçi',
-  bos, onDegistir,
+  bos, onDegistir, dar = false,
 }) {
   const bosluk = maks - isci;
   const artabilir = Math.min(bosluk, bos);
+  /* Satırın doğal genişliği ~470 px; telefonda kaydırıcı ve düğmeler alt
+     satıra sarıyor, doluluk çubuğu ise tamamen gizleniyor (yer yok). */
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 9,
+      display: 'flex', alignItems: 'center', gap: dar ? 6 : 9,
+      flexWrap: 'wrap', rowGap: 6,
       padding: '6px 9px', borderRadius: 5,
       background: 'rgba(8,17,28,0.5)',
       border: `1px solid ${isci === 0 && maks > 0 ? 'rgba(224,179,87,0.32)' : C.lineSoft}`,
@@ -71,8 +75,8 @@ function Satir({
         )}
       </div>
 
-      {/* Doluluk çubuğu */}
-      <div style={{ flex: '0 0 62px' }}>
+      {/* Doluluk çubuğu — dar ekranda yer yok */}
+      <div style={{ flex: '0 0 62px', display: dar ? 'none' : 'block' }}>
         <div style={{
           height: 5, borderRadius: 3, overflow: 'hidden',
           background: 'rgba(255,255,255,0.07)',
@@ -93,20 +97,29 @@ function Satir({
         onChange={(e) => onDegistir(Number(e.target.value))}
         // Havuzda olmayan işçiyi atamaya izin verilmiyor: sunucu da reddediyor,
         // kaydırıcının geri sıçraması sinir bozucu olurdu.
-        style={{ flex: '0 0 96px', height: 4 }}
+        style={{ flex: dar ? '1 1 120px' : '0 0 96px', height: dar ? 6 : 4 }}
         title={`En çok ${isci + artabilir} atanabilir (havuzda ${bos} boş)`} />
 
       <div style={{ display: 'flex', gap: 3 }}>
         <button type="button" onClick={() => onDegistir(Math.max(0, isci - 1))}
           disabled={isci <= 0}
-          style={btn(isci > 0 ? 'ghost' : 'disabled', { padding: '2px 7px', fontSize: 11, lineHeight: 1 })}>−</button>
+          style={btn(isci > 0 ? 'ghost' : 'disabled', {
+            padding: dar ? '0 12px' : '2px 7px', minHeight: dar ? TAP - 8 : 0,
+            fontSize: dar ? 14 : 11, lineHeight: 1,
+          })}>−</button>
         <button type="button" onClick={() => onDegistir(Math.min(maks, isci + 1))}
           disabled={artabilir <= 0}
-          style={btn(artabilir > 0 ? 'ghost' : 'disabled', { padding: '2px 7px', fontSize: 11, lineHeight: 1 })}>+</button>
+          style={btn(artabilir > 0 ? 'ghost' : 'disabled', {
+            padding: dar ? '0 12px' : '2px 7px', minHeight: dar ? TAP - 8 : 0,
+            fontSize: dar ? 14 : 11, lineHeight: 1,
+          })}>+</button>
         <button type="button" onClick={() => onDegistir(Math.min(maks, isci + artabilir))}
           disabled={artabilir <= 0}
           title="Kapasiteye kadar doldur"
-          style={btn(artabilir > 0 ? 'ghost' : 'disabled', { padding: '2px 7px', fontSize: 8.5 })}>MAKS</button>
+          style={btn(artabilir > 0 ? 'ghost' : 'disabled', {
+            padding: dar ? '0 10px' : '2px 7px', minHeight: dar ? TAP - 8 : 0,
+            fontSize: 8.5,
+          })}>MAKS</button>
       </div>
     </div>
   );
@@ -154,6 +167,7 @@ export default function WorkerScreen({
   villageName = null,
   onAssignVillageWorkers, onAssignProductionWorkers,
 }) {
+  const vp = useViewport();
   const [gizleBos, setGizleBos] = useState(false);
 
   // ── Kovalar ───────────────────────────────────────────────────────
@@ -431,16 +445,17 @@ export default function WorkerScreen({
           disabled={freeWorkers <= 0 || d.bosSlot <= 0}
           title="Sıra: 1) ekmek zinciri (tüketim + %15), 2) odun/kil/taş/demir üretimlerini eşitle, 3) işleme binaları ham üretimin taşıdığı kadar, 4) askeri binalar"
           style={btn(freeWorkers > 0 && d.bosSlot > 0 ? 'primary' : 'disabled',
-            { padding: '5px 11px', fontSize: 9.5 })}>
+            { padding: vp.mobile ? '0 11px' : '5px 11px',
+              minHeight: vp.mobile ? TAP - 8 : 0, fontSize: 9.5 })}>
           BOŞLARI DAĞIT
         </button>
         <button type="button" onClick={bosalt} disabled={d.calisan <= 0}
           title="Bütün tarla ve binalardaki personeli havuza al"
-          style={btn(d.calisan > 0 ? 'ghost' : 'disabled', { padding: '5px 11px', fontSize: 9.5 })}>
+          style={btn(d.calisan > 0 ? 'ghost' : 'disabled', { padding: vp.mobile ? '0 11px' : '5px 11px', minHeight: vp.mobile ? TAP - 8 : 0, fontSize: 9.5 })}>
           HEPSİNİ BOŞALT
         </button>
         <button type="button" onClick={() => setGizleBos(g => !g)}
-          style={btn('ghost', { padding: '5px 11px', fontSize: 9.5, marginLeft: 'auto' })}>
+          style={btn('ghost', { padding: vp.mobile ? '0 11px' : '5px 11px', minHeight: vp.mobile ? TAP - 8 : 0, fontSize: 9.5, marginLeft: 'auto' })}>
           {gizleBos ? 'BOŞLARI GÖSTER' : 'YALNIZ ÇALIŞANLAR'}
         </button>
       </div>
@@ -458,6 +473,7 @@ export default function WorkerScreen({
               + (t.yuks ? ` · yükseltmede ${t.yuks} işçi` : '')}
             seviye={t.seviye} isci={t.isci} maks={t.maks}
             renk="#7ae07a" bos={freeWorkers}
+            dar={vp.mobile}
             onDegistir={(n) => onAssignProductionWorkers?.(t.key, n)} />
         ))}
         {!gorunenTarla.length && (
@@ -483,6 +499,7 @@ export default function WorkerScreen({
             seviye={b.seviye} isci={b.isci} maks={b.maks}
             terim={b.terim}
             renk={b.isliyor ? '#7fd4ff' : '#e0b357'} bos={freeWorkers}
+            dar={vp.mobile}
             onDegistir={(n) => onAssignVillageWorkers?.(b.key, n)} />
         ))}
         {!gorunenBina.length && (

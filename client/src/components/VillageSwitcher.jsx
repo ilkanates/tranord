@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { C, FONT, label as lbl, num } from '../theme';
+import { useViewport } from '../responsive';
 import Icon from './Icons';
 
 /** Taç — merkez köy işareti */
@@ -21,6 +22,7 @@ function Crown({ size = 9, color }) {
 }
 
 export default function VillageSwitcher({ villages = [], activeSlot, onSwitch }) {
+  const vp = useViewport();
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
 
@@ -43,10 +45,12 @@ export default function VillageSwitcher({ villages = [], activeSlot, onSwitch })
         title="Köy değiştir"
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
-          padding: '4px 9px', borderRadius: 5, cursor: 'pointer',
+          padding: vp.mobile ? '0 9px' : '4px 9px',
+          minHeight: vp.mobile ? 36 : 0,
+          borderRadius: 5, cursor: 'pointer',
           background: open ? 'rgba(127,212,255,0.12)' : 'rgba(20,34,50,0.55)',
           border: `1px solid ${open ? C.iceDeep : C.lineSoft}`,
-          maxWidth: 190,
+          maxWidth: vp.mobile ? 138 : 190,
         }}>
         <Icon name="koy" size={13} color={C.iceSoft} />
         <span style={{

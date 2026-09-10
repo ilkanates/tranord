@@ -7,6 +7,7 @@
  */
 import { memo, useState } from 'react';
 import { C, FONT, RES_COLOR, label as lbl, num, short, signed, fmtTime } from '../theme';
+import { useHoverable, TAP } from '../responsive';
 import { CHAINS, RES_LABEL } from '../flows';
 import Icon from './Icons';
 
@@ -33,7 +34,7 @@ function Bar({ pct, color, danger }) {
 }
 
 // ── Hover detay kartı ────────────────────────────────────────────────
-function FlowCard({ f, at }) {
+function FlowCard({ f, at, sheet = false, onClose }) {
   if (!f) return null;
   const chainOf = CHAINS.find(c => c.steps.includes(f.key));
   const color = RES_COLOR[f.key] || C.ice;
@@ -53,8 +54,19 @@ function FlowCard({ f, at }) {
   if (f.etaKind === 'drain') eta = { t: 'Tükenir', v: fmtTime(f.etaSeconds), c: C.danger };
   if (f.etaKind === 'empty') eta = { t: 'Stok', v: 'BİTTİ', c: C.danger };
 
+  /**
+   * Dokunmatikte kart imlecin yaninda degil ekranin ortasinda acilir:
+   * parmagin altinda kalirdi ve `mouseleave` gelmedigi icin kapanmazdi.
+   * Kapatma perdesi cagiran tarafta.
+   */
   return (
-    <div style={{
+    <div onClick={onClose} style={sheet ? {
+      position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
+      width: 'min(300px, 92vw)', maxHeight: '82vh', overflowY: 'auto', padding: 13,
+      background: 'linear-gradient(180deg, rgba(13,26,42,0.98), rgba(9,18,30,0.98))',
+      border: `1px solid ${C.lineBright}`, borderRadius: 10,
+      boxShadow: '0 18px 50px rgba(0,0,0,.65)', zIndex: 9200,
+    } : {
       position: 'fixed', left: at.x, top: at.y, width: 240, padding: 11,
       background: 'linear-gradient(180deg, rgba(13,26,42,0.9), rgba(9,18,30,0.9))',
       border: `1px solid ${C.lineBright}`, borderRadius: 8,
@@ -125,7 +137,7 @@ function FlowCard({ f, at }) {
 }
 
 // ── Tek kaynak satırı (kompakt: 2 satırlık, ~26px) ───────────────────
-function ResRow({ f, resKey, onHover }) {
+function ResRow({ f, resKey, onHover, onPick, hoverable = true }) {
   const color = RES_COLOR[resKey] || C.ice;
   const full = f?.etaKind === 'full';
   const dry = f?.etaKind === 'empty' || (f && f.net < 0 && f.value <= 0.5);
@@ -134,15 +146,22 @@ function ResRow({ f, resKey, onHover }) {
   const zero = Math.abs(net) < 0.05;
   const netColor = zero ? C.textMute : net > 0 ? C.good : C.danger;
 
+  /* Dokunmatikte hover yok — satıra dokununca kart açılır (bkz. responsive.js) */
+  const hoverProps = hoverable ? {
+    onMouseEnter: (e) => onHover(resKey, e),
+    onMouseMove: (e) => onHover(resKey, e),
+    onMouseLeave: () => onHover(null),
+    onMouseOver: (e) => { e.currentTarget.style.background = 'rgba(127,212,255,0.09)'; },
+    onMouseOut: (e) => { e.currentTarget.style.background = 'transparent'; },
+  } : {};
+
   return (
     <div
-      onMouseEnter={(e) => onHover(resKey, e)}
-      onMouseMove={(e) => onHover(resKey, e)}
-      onMouseLeave={() => onHover(null)}
-      onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(127,212,255,0.09)'; }}
-      onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+      {...hoverProps}
+      onClick={() => onPick?.(resKey)}
       style={{
-        padding: '2px 6px 3px', borderRadius: 4, cursor: 'help',
+        padding: '2px 6px 3px', borderRadius: 4,
+        cursor: hoverable ? 'help' : 'pointer',
         opacity: idle ? 0.45 : 1, transition: 'background .12s',
       }}
     >
@@ -173,8 +192,46 @@ function ResRow({ f, resKey, onHover }) {
   );
 }
 
+/**
+ * ResChip — TELEFON şeridindeki tek kaynak.
+ *
+ * Dar ekranda 11 kaynak alt alta sığmıyor; şerit yatay kayıyor ve her kaynak
+ * yalnız simge + miktar + net gösteriyor. Ayrıntı (brüt, tüketim, depo dolma
+ * süresi) dokununca açılan kartta — masaüstündeki hover kartının aynısı.
+ */
+function ResChip({ f, resKey, onPick }) {
+  const color = RES_COLOR[resKey] || C.ice;
+  const full = f?.etaKind === 'full';
+  const dry = f?.etaKind === 'empty' || (f && f.net < 0 && f.value <= 0.5);
+  const net = f?.net || 0;
+  const zero = Math.abs(net) < 0.05;
+
+  return (
+    <button type="button" onClick={() => onPick?.(resKey)}
+      style={{
+        flex: '0 0 auto', minWidth: 58, minHeight: TAP - 8,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+        padding: '3px 7px', borderRadius: 5, cursor: 'pointer',
+        background: 'rgba(12,20,28,0.5)',
+        border: `1px solid ${dry ? 'rgba(232,99,111,0.45)' : full ? 'rgba(224,179,87,0.4)' : C.lineSoft}`,
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Icon name={resKey} size={12} color={color} />
+        <span style={num({
+          fontSize: 12, lineHeight: 1, fontWeight: 500,
+          color: dry ? C.danger : full ? C.warn : C.frost,
+        })}>{short(f?.value || 0)}</span>
+      </div>
+      <span style={num({
+        fontSize: 8.5, lineHeight: 1,
+        color: zero ? C.textMute : net > 0 ? C.good : C.danger,
+      })}>{zero ? '—' : signed(net)}</span>
+    </button>
+  );
+}
+
 // ── Zincir kartı ─────────────────────────────────────────────────────
-function ChainCard({ chain, flows, onHover }) {
+function ChainCard({ chain, flows, onHover, onPick, hoverable }) {
   const anyFull = chain.steps.some(k => flows[k]?.etaKind === 'full');
   const anyDry = chain.steps.some(k => flows[k]?.etaKind === 'empty');
 
@@ -196,15 +253,18 @@ function ChainCard({ chain, flows, onHover }) {
         </span>
       </div>
       {chain.steps.map(k => (
-        <ResRow key={k} resKey={k} f={flows[k]} onHover={onHover} />
+        <ResRow key={k} resKey={k} f={flows[k]} onHover={onHover}
+          onPick={onPick} hoverable={hoverable} />
       ))}
     </div>
   );
 }
 
 // ── Ana bileşen ──────────────────────────────────────────────────────
-function ResourceRail({ flows = {}, isStarving = false }) {
+function ResourceRail({ flows = {}, isStarving = false, mobile = false, railW = 186 }) {
   const [hover, setHover] = useState(null);
+  const [pick, setPick] = useState(null);      // dokunmatikte açılan kart
+  const hoverable = useHoverable();
 
   function onHover(key, e) {
     if (!key) return setHover(null);
@@ -217,10 +277,56 @@ function ResourceRail({ flows = {}, isStarving = false }) {
     setHover({ key, x, y });
   }
 
+  /* Fare varken tıklama kartı açmasın — hover zaten gösteriyor */
+  const onPick = (key) => { if (!hoverable || mobile) setPick(k => (k === key ? null : key)); };
+
+  // ── TELEFON: üst barın altında yatay şerit ────────────────────────
+  if (mobile) {
+    return (
+      <>
+        <div className="tn-scroll" style={{
+          flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+          padding: '5px 7px', overflowX: 'auto', overflowY: 'hidden',
+          background: 'rgba(10,17,25,0.72)',
+          borderBottom: `1px solid ${C.lineSoft}`,
+          backdropFilter: 'blur(14px) saturate(1.2)',
+          WebkitBackdropFilter: 'blur(14px) saturate(1.2)',
+        }}>
+          {isStarving && (
+            <span className="tn-pulse" title="Yiyecek yetmiyor — fırına işçi ata"
+              style={{
+                flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 3,
+                padding: '4px 6px', borderRadius: 4,
+                background: 'rgba(232,99,111,0.16)', border: `1px solid ${C.dangerDim}`,
+              }}>
+              <Icon name="uyari" size={11} color={C.danger} />
+              <span style={{ fontFamily: FONT.ui, fontSize: 8, letterSpacing: 0.8, color: '#f0b8bd' }}>
+                AÇLIK
+              </span>
+            </span>
+          )}
+          {CHAINS.flatMap(c => c.steps).map(k => (
+            <ResChip key={k} resKey={k} f={flows[k]} onPick={onPick} />
+          ))}
+        </div>
+
+        {pick && (
+          <>
+            <div onClick={() => setPick(null)} style={{
+              position: 'fixed', inset: 0, zIndex: 9150, background: 'rgba(0,0,0,0.5)',
+            }} />
+            <FlowCard f={flows[pick]} at={{ x: 0, y: 0 }} sheet onClose={() => setPick(null)} />
+          </>
+        )}
+      </>
+    );
+  }
+
+  // ── MASAÜSTÜ: sol sütun ───────────────────────────────────────────
   return (
     <>
       <div style={{
-        width: 186, flexShrink: 0, zIndex: 5,
+        width: railW, flexShrink: 0, zIndex: 5,
         display: 'flex', flexDirection: 'column', gap: 5,
         padding: '7px 5px 7px 7px',
         overflow: 'hidden',           // scroll yok — her şey sığar
@@ -243,11 +349,20 @@ function ResourceRail({ flows = {}, isStarving = false }) {
         </div>
 
         {CHAINS.map(chain => (
-          <ChainCard key={chain.id} chain={chain} flows={flows} onHover={onHover} />
+          <ChainCard key={chain.id} chain={chain} flows={flows}
+            onHover={onHover} onPick={onPick} hoverable={hoverable} />
         ))}
       </div>
 
-      {hover && <FlowCard f={flows[hover.key]} at={hover} />}
+      {hoverable && hover && <FlowCard f={flows[hover.key]} at={hover} />}
+      {pick && (
+        <>
+          <div onClick={() => setPick(null)} style={{
+            position: 'fixed', inset: 0, zIndex: 9150, background: 'rgba(0,0,0,0.5)',
+          }} />
+          <FlowCard f={flows[pick]} at={{ x: 0, y: 0 }} sheet onClose={() => setPick(null)} />
+        </>
+      )}
     </>
   );
 }

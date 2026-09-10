@@ -810,8 +810,28 @@ export default function MapView({
   // Pointer capture'ı SADECE gerçek sürüklemede al.
   // Capture aktifken tarayıcı click olayını da capture elemanına yönlendirir,
   // hex'in onClick'i hiç tetiklenmez — panellerin açılmamasının nedeni buydu.
+  /**
+   * İKİ PARMAKLA YAKINLAŞTIRMA.
+   *
+   * Zoom yalnız fare tekerleğine bağlıydı; telefonda haritayı yakınlaştırmanın
+   * hiçbir yolu yoktu (sayfanın kendi pinch'i de kapalı, `touchAction: none`).
+   * İkinci parmak inince sürükleme iptal edilir ve parmaklar arası mesafenin
+   * oranı ölçeğe uygulanır.
+   */
+  const ptrsRef = useRef(new Map());
+  const pinchRef = useRef(null);
+
   function onDown(e) {
     if (!onMapSurface(e)) return;
+    ptrsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrsRef.current.size === 2) {
+      const [a, b] = [...ptrsRef.current.values()];
+      pinchRef.current = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: scale };
+      // Tek parmak sürüklemesi vardıysa kapat, yoksa harita kayarak zıplıyor
+      if (dragRef.current) { endDrag(e); }
+      suppressClick.current = true;
+      return;
+    }
     if (e.button === 1 || e.button === 2) e.preventDefault();
     dragRef.current = {
       id: e.pointerId, el: e.currentTarget,
@@ -822,6 +842,15 @@ export default function MapView({
     };
   }
   function onMove(e) {
+    const pt = ptrsRef.current.get(e.pointerId);
+    if (pt) { pt.x = e.clientX; pt.y = e.clientY; }
+    if (pinchRef.current && ptrsRef.current.size >= 2) {
+      const [a, b] = [...ptrsRef.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const k = pinchRef.current.z * (dist / pinchRef.current.d);
+      setScale(Math.max(Z_MIN, Math.min(Z_MAX, +k.toFixed(3))));
+      return;
+    }
     const d = dragRef.current;
     if (!d || d.id !== e.pointerId) return;
     const dx = e.clientX - d.x, dy = e.clientY - d.y;
@@ -860,7 +889,11 @@ export default function MapView({
     setDragging(false);
     setTimeout(() => { suppressClick.current = false; }, 0);
   };
-  const onUp = (e) => endDrag(e);
+  const onUp = (e) => {
+    ptrsRef.current.delete(e.pointerId);
+    if (ptrsRef.current.size < 2) pinchRef.current = null;
+    endDrag(e);
+  };
   // Fare pencere dışında bırakılsa da sürükleme kapanır
   const endDragRef = useRef(endDrag);
   endDragRef.current = endDrag;
@@ -1272,6 +1305,8 @@ export default function MapView({
       style={{
         position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 2,
         cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none',
+        /* Parmakla kaydırma/yakınlaştırma bize gelsin, tarayıcı çalmasın */
+        touchAction: 'none',
         background: 'radial-gradient(circle at 50% 45%, #1b2418 0%, #141a13 55%, #0d1210 100%)',
       }}
       onWheel={onWheel}

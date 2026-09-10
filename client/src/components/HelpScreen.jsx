@@ -14,6 +14,7 @@ import VILLAGE_DEFS, {
 } from '../data/villageDefs';
 import BUILDING_DEFS from '../data/buildingDefs';
 import { C, FONT, label as lbl, num, panel, fmtTime } from '../theme';
+import { useViewport, TAP } from '../responsive';
 import { RES_LABEL, EQ_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import { BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG, TEXTURE_EMBLEM } from './buildingArt';
@@ -382,6 +383,12 @@ export default function HelpScreen({
   topic = null, onTopicHandled,
 }) {
   const [sel, setSel] = useState(topic || 'bina:anaBina');
+  /**
+   * DAR EKRAN: 236 px liste + içerik 390 px'e sığmıyor. Telefonda ikisi aynı
+   * anda değil sırayla görünüyor — önce konu listesi, seçilince içerik.
+   */
+  const vp = useViewport();
+  const [showList, setShowList] = useState(true);
   const [q, setQ] = useState('');
   const bodyRef = useRef(null);
 
@@ -390,6 +397,7 @@ export default function HelpScreen({
     if (!topic) return;
     setSel(topic);
     setQ('');
+    setShowList(false);   // telefonda doğrudan içeriği aç, listeyi değil
     onTopicHandled?.();
   }, [topic]);
 
@@ -473,12 +481,17 @@ export default function HelpScreen({
     : null;
   const vid = kind === 'bina' ? BUILDING_VIDEO[id] : null;
 
+  const listOnly = vp.mobile && showList;
+  const bodyOnly = vp.mobile && !showList;
+
   return (
     <div style={{ display: 'flex', gap: 12, height: '100%', minHeight: 0 }}>
 
       {/* SOL — arama + liste */}
       <div style={panel({
-        width: 236, flexShrink: 0, display: 'flex', flexDirection: 'column',
+        width: vp.mobile ? '100%' : 236,
+        display: bodyOnly ? 'none' : 'flex',
+        flexShrink: 0, flexDirection: 'column',
         minHeight: 0, padding: 0, overflow: 'hidden',
       })}>
         <div style={{ padding: 9, borderBottom: `1px solid ${C.lineSoft}` }}>
@@ -497,9 +510,11 @@ export default function HelpScreen({
               {g.items.map(it => {
                 const on = sel === it.id;
                 return (
-                  <button key={it.id} type="button" onClick={() => setSel(it.id)}
+                  <button key={it.id} type="button"
+                    onClick={() => { setSel(it.id); setShowList(false); }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 7,
+                      minHeight: vp.mobile ? TAP - 8 : 0,
                       padding: '5px 7px', marginBottom: 1, borderRadius: 4,
                       background: on ? `${it.edge}1f` : 'transparent',
                       border: `1px solid ${on ? `${it.edge}66` : 'transparent'}`,
@@ -525,7 +540,20 @@ export default function HelpScreen({
 
       {/* SAĞ — detay */}
       <div ref={bodyRef} className="tn-scroll"
-        style={panel({ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', padding: 0 })}>
+        style={panel({
+          flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', padding: 0,
+          display: listOnly ? 'none' : 'block',
+        })}>
+        {bodyOnly && (
+          <button type="button" onClick={() => setShowList(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              width: '100%', minHeight: TAP - 8, padding: '0 12px',
+              background: 'rgba(8,17,28,0.7)', border: 'none',
+              borderBottom: `1px solid ${C.lineSoft}`,
+              color: C.iceSoft, fontFamily: FONT.ui, fontSize: 11, cursor: 'pointer',
+            }}>‹ Konular</button>
+        )}
         {!def ? (
           <div style={{ padding: 20, fontFamily: FONT.ui, fontSize: 11, color: C.textMute }}>
             Soldan bir konu seç.

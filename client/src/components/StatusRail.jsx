@@ -6,6 +6,7 @@ import { memo, useState } from 'react';
 import { C, FONT, label as lbl, num, fmtTime } from '../theme';
 import { EQ_LABEL, RES_LABEL, gameHoursToRealSeconds } from '../flows';
 import Icon, { buildingIcon } from './Icons';
+import { useHoverable } from '../responsive';
 
 // Ortak havuzu paylaşan türler (at ayrı: ahır deposu)
 const POOL_KEYS = ['kilic', 'mizrak', 'kalkan', 'zirh'];
@@ -97,9 +98,17 @@ function Bar({ pct, color, danger }) {
   );
 }
 
-function Tip({ at, title, icon, rows, note }) {
+function Tip({ at, title, icon, rows, note, sheet = false }) {
   return (
-    <div style={{
+    <div style={sheet ? {
+      /* Dokunmatik: imlecin yaninda degil ekranin ortasinda; perde kapatir */
+      position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
+      width: 'min(300px, 92vw)', maxHeight: '82vh', overflowY: 'auto', padding: 13,
+      background: 'linear-gradient(180deg, rgba(13,26,42,0.98), rgba(9,18,30,0.98))',
+      border: `1px solid ${C.lineBright}`, borderRadius: 10,
+      boxShadow: '0 18px 50px rgba(0,0,0,.65)',
+      zIndex: 9200, pointerEvents: 'none',
+    } : {
       position: 'fixed', left: at.x, top: at.y, width: 224, padding: 11,
       background: 'linear-gradient(180deg, rgba(13,26,42,0.9), rgba(9,18,30,0.9))',
       border: `1px solid ${C.lineBright}`, borderRadius: 8,
@@ -139,10 +148,18 @@ function StatusRail({
   army = {}, unitDefs = {}, tickMs = 1000,
   populationPerHour = 0, hourSeconds = 3600, worldSpeed = 1,
   culture = null, festival = null,
+  mobile = false, railW = 186,
 }) {
   const [tip, setTip] = useState(null);
+  const hoverable = useHoverable();
 
+  /**
+   * İpucu kutusu. Dokunmatik ekranda `mouseenter` parmak değince ateşleniyor
+   * ama `mouseleave` HİÇ gelmiyor: kutu ekranda asılı kalıyordu. Orada kutu
+   * ekranın ortasında açılıyor ve arkasındaki perdeye dokununca kapanıyor.
+   */
   const place = (e, payload) => {
+    if (!hoverable) { setTip({ ...payload, at: { x: 0, y: 0 }, sheet: true }); return; }
     const w = 224, h = 230;
     let x = (e.clientX || 0) - w - 14;
     let y = (e.clientY || 0) - 30;
@@ -178,10 +195,11 @@ function StatusRail({
   return (
     <>
       <div style={{
-        width: 186, flexShrink: 0, zIndex: 5,
+        width: mobile ? '100%' : railW, flexShrink: 0, zIndex: 5,
         display: 'flex', flexDirection: 'column', gap: 5,
         padding: '7px 7px 7px 5px',
-        overflow: 'hidden',
+        /* Telefonda çekmece kaydırıyor; masaüstünde her şey sığar */
+        overflow: mobile ? 'visible' : 'hidden',
       }}>
 
         {/* ══ NÜFUS ══ */}
@@ -609,6 +627,12 @@ function StatusRail({
         )}
       </div>
 
+      {/* Dokunmatikte perde: ipucunun dışına dokununca kapanır */}
+      {tip?.sheet && (
+        <div onClick={() => setTip(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 9150, background: 'rgba(0,0,0,0.5)',
+        }} />
+      )}
       {tip && <Tip {...tip} />}
     </>
   );

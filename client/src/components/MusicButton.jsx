@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { C, FONT, label as lbl, num } from '../theme';
+import { useHoverable } from '../responsive';
 import { setMuted, setVolume, nextTrack, subscribe } from '../audio';
 
 /** Hoparlör — sessizken üstü çizili, açıkken ses dalgaları */
@@ -28,6 +29,7 @@ function Speaker({ muted, size = 15, color }) {
 }
 
 export default function MusicButton() {
+  const hoverable = useHoverable();
   const [s, setS] = useState({ muted: false, volume: 0.45, playing: false, track: '' });
   const [open, setOpen] = useState(false);
   const closeRef = useRef(null);
@@ -59,7 +61,9 @@ export default function MusicButton() {
       <button type="button" onClick={() => setMuted(!s.muted)}
         title={s.muted ? 'Müziği aç' : 'Müziği kapat'}
         style={{
-          display: 'grid', placeItems: 'center', width: 28, height: 28, padding: 0,
+          display: 'grid', placeItems: 'center', padding: 0,
+          /* Dokunmatikte 28 px cok kucuk (olcum) */
+          width: hoverable ? 28 : 36, height: hoverable ? 28 : 36,
           background: 'none', border: 'none', cursor: 'pointer',
         }}>
         <Speaker muted={s.muted} color={color} />

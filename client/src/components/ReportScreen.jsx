@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { C, FONT, panel, btn, label as lbl, num, short } from '../theme';
+import { useViewport } from '../responsive';
 import { RES_LABEL } from '../flows';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
@@ -368,6 +369,7 @@ function Detail({ r, unitDefs }) {
 
 // ── Ekran ────────────────────────────────────────────────────────────
 export default function ReportScreen({ reports = [], unitDefs = {} }) {
+  const vp = useViewport();
   const [filter, setFilter] = useState('all');
   const [selId, setSelId] = useState(null);
   const [read, setRead] = useState(() => new Set(readIds()));
@@ -441,7 +443,11 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
         })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 400px) 1fr', gap: 12 }}>
+      {/* Dar ekranda liste ve detay alt alta — 300 px liste + detay sığmıyor */}
+      <div style={{
+        display: 'grid', gap: 12,
+        gridTemplateColumns: vp.mobile ? '1fr' : 'minmax(300px, 400px) 1fr',
+      }}>
         {/* Liste */}
         <div className="tn-scroll" style={{
           display: 'flex', flexDirection: 'column', gap: 5,

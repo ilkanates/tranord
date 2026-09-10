@@ -20,6 +20,7 @@ import StatusRail      from './components/StatusRail';
 import NordicBackdrop  from './components/NordicBackdrop';
 import Icon            from './components/Icons';
 import { computeFlows, extrapolate } from './flows';
+import { useViewport, TAP } from './responsive';
 import { C, FONT, btn, label as lbl, num } from './theme';
 
 /**
@@ -141,7 +142,7 @@ const TABS = [
 ];
 
 const SPEED_STEPS = [0.1, 0.5, 1, 2, 4, 8, 16, 32, 64, 128];
-const RAIL_W = 186;   // sol/sağ ray genişliği — üst bar ve popover kaçınması bunu kullanır
+// Ray genişliği artık ekrana göre: bkz. responsive.js -> useViewport().railW
 
 function emailFromToken(tok) {
   try { return JSON.parse(atob(tok.split('.')[1])).email || ''; } catch { return ''; }
@@ -156,8 +157,10 @@ function scaleLabel(hourSeconds, mult) {
   return `1 oyun saati = ${s.toFixed(s < 10 ? 1 : 0)} sn`;
 }
 
-function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
-  villages = [], activeSlot = null, onSwitchVillage }) {
+export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
+  villages = [], activeSlot = null, onSwitchVillage,
+  vp = { mobile: false, railW: 186 }, onOpenStatus }) {
+  const dar = vp.mobile;
   return (
     <header style={{
       flexShrink: 0, zIndex: 20, position: 'relative',
@@ -170,22 +173,31 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
     }}>
       {/* Marka */}
       <div style={{
-        width: RAIL_W, flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 9,
-        padding: '10px 14px',
+        width: dar ? 'auto' : vp.railW, flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: dar ? 6 : 9,
+        padding: dar ? '7px 9px' : '10px 14px',
         borderRight: `1px solid ${C.lineSoft}`,
       }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+        <svg width={dar ? 18 : 22} height={dar ? 18 : 22} viewBox="0 0 24 24" fill="none"
           stroke={C.ice} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z" />
           <path d="M12 7.5 16 10v4l-4 2.5L8 14v-4z" opacity=".7" />
         </svg>
-        <div style={{ lineHeight: 1 }}>
+        {/*
+          OLCUM: 390 px'te marka + koy secici + kullanici yan yana sigmiyor,
+          cikis dugmesi ekranin 18 px disinda kaliyordu. Oyunun adi her
+          ekranda durmak zorunda degil; koyun adi onemli. Tek koyde yazi
+          kaliyor — ust bar zaten bos.
+        */}
+        <div style={{ lineHeight: 1, display: (dar && villages.length > 1) ? 'none' : 'block' }}>
           <div style={{
-            fontFamily: FONT.head, fontSize: 19, fontWeight: 700,
-            letterSpacing: 4, color: C.frost,
+            fontFamily: FONT.head, fontSize: dar ? 14 : 19, fontWeight: 700,
+            letterSpacing: dar ? 2 : 4, color: C.frost,
           }}>TRANORD</div>
-          <div style={lbl({ fontSize: 7.5, letterSpacing: 2, marginTop: 3 })}>fiyort krallığı</div>
+          {/* Alt baslik dar ekranda yer kaplıyor — yalnız masaustunde */}
+          {!dar && (
+            <div style={lbl({ fontSize: 7.5, letterSpacing: 2, marginTop: 3 })}>fiyort krallığı</div>
+          )}
         </div>
       </div>
 
@@ -201,8 +213,13 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
       )}
 
       {/* Sekmeler */}
+      {/*
+        Sekmeler: masaustunde ust barda, TELEFONDA alt barda (BottomTabs).
+        Alt bar hem basparmakla ulasilabilir hem de ust barda marka +
+        koy secici + kullanici ile birlikte 8 sekme 390 px'e sigmiyordu.
+      */}
       <nav className="tn-scroll"
-        style={{ flex: 1, display: 'flex', alignItems: 'stretch', paddingLeft: 6, minWidth: 0, overflowX: 'auto' }}>
+        style={{ flex: 1, display: dar ? 'none' : 'flex', alignItems: 'stretch', paddingLeft: 6, minWidth: 0, overflowX: 'auto' }}>
         {TABS.map(t => {
           const on = tab === t.key;
           return (
@@ -238,10 +255,21 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
 
       {/* Hız + kullanıcı */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '0 14px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: dar ? 4 : 12,
+        padding: dar ? '0 6px' : '0 14px', flexShrink: 0,
+        marginLeft: dar ? 'auto' : 0,
         borderLeft: `1px solid ${C.lineSoft}`,
       }}>
+        {/* Durum rayi telefonda cekmecede — buradan acilir */}
+        {dar && (
+          <button type="button" onClick={onOpenStatus} title="Durum"
+            style={{
+              width: TAP - 8, height: TAP - 8, display: 'grid', placeItems: 'center',
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            }}>
+            <Icon name="nufus" size={17} color={C.iceDeep} />
+          </button>
+        )}
         {/* Müzik — tam ayarlar menüsü gelene kadar tek denetim burası */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px' }}>
           <MusicButton />
@@ -267,17 +295,77 @@ function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout,
             background: connected ? C.good : C.danger,
             boxShadow: `0 0 6px ${connected ? C.good : C.danger}`,
           }} />
-          <span style={{
-            fontFamily: FONT.ui, fontSize: 10, color: C.textFaint,
-            maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{userEmail}</span>
+          {/* E-posta dar ekranda yer kaplıyor — bagli/kopuk noktasi yeter */}
+          {!dar && (
+            <span style={{
+              fontFamily: FONT.ui, fontSize: 10, color: C.textFaint,
+              maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{userEmail}</span>
+          )}
           <button onClick={onLogout} title="Çıkış"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'grid' }}>
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', display: 'grid',
+              placeItems: 'center', padding: 0,
+              width: dar ? TAP - 8 : 22, height: dar ? TAP - 8 : 22,
+            }}>
             <Icon name="cikis" size={15} color={C.textMute} />
           </button>
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * BottomTabs — telefonda sekmeler ekranin ALTINDA.
+ *
+ * Ust barda 8 sekme 390 px'e sigmiyor, sigsa da basparmakla en uzak yer
+ * ekranin ust kenari. Alt bar yatay kaydirilabilir; her hedef en az
+ * TAP (44 px) yuksekliginde.
+ */
+export function BottomTabs({ tab, setTab, badges = {} }) {
+  return (
+    <nav className="tn-scroll" style={{
+      flexShrink: 0, display: 'flex', alignItems: 'stretch',
+      overflowX: 'auto', overflowY: 'hidden',
+      background: 'linear-gradient(0deg, rgba(9,15,21,0.96) 0%, rgba(12,20,28,0.88) 100%)',
+      borderTop: `1px solid ${C.lineSoft}`,
+      backdropFilter: 'blur(16px) saturate(1.15)',
+      WebkitBackdropFilter: 'blur(16px) saturate(1.15)',
+      /* iPhone'da alt cubugun altinda kalmasin */
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+    }}>
+      {TABS.map(t => {
+        const on = tab === t.key;
+        return (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            style={{
+              position: 'relative', flex: '0 0 auto',
+              minWidth: 62, minHeight: TAP + 6,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 3,
+              padding: '5px 8px', border: 'none', background: 'transparent',
+              borderTop: `2px solid ${on ? C.ice : 'transparent'}`,
+              color: on ? C.frost : C.textFaint,
+              fontFamily: FONT.ui, fontSize: 8.5, letterSpacing: 0.4,
+              cursor: 'pointer', whiteSpace: 'nowrap',
+              ...(on ? { background: 'linear-gradient(0deg, rgba(127,212,255,0.03), rgba(127,212,255,0.12))' } : {}),
+            }}>
+            <Icon name={t.icon} size={17} color={on ? C.ice : C.textMute} />
+            {t.label}
+            {badges[t.key] > 0 && (
+              <span style={{
+                position: 'absolute', top: 4, right: 8,
+                minWidth: 15, height: 15, padding: '0 3px', borderRadius: 8,
+                display: 'grid', placeItems: 'center',
+                background: C.danger, color: '#1a0508',
+                fontFamily: FONT.num, fontSize: 9, fontWeight: 700, lineHeight: 1,
+              }}>{badges[t.key] > 99 ? '99+' : badges[t.key]}</span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -334,6 +422,16 @@ function Game({ token, onLogout }) {
    */
   const [refusal, setRefusal] = useState(null);
   const userEmail = emailFromToken(token || '');
+  /**
+   * OLCU. Raylarin genisligi ve sekmelerin yeri buradan geliyor; sabit
+   * artik yalnizca varsayilan (bkz. responsive.js).
+   */
+  const vp = useViewport();
+  const railInset = vp.mobile ? 8 : vp.railW + 8;
+  /** Telefonda sag ray cekmece — ust bardaki nufus dugmesi aciyor */
+  const [statusOpen, setStatusOpen] = useState(false);
+  // Sekme degisince cekmece kapansin, ustunde asili kalmasin
+  useEffect(() => { setStatusOpen(false); }, [tab]);
 
   useEffect(() => {
     const onUpdate = (v) => {
@@ -479,14 +577,20 @@ function Game({ token, onLogout }) {
         socket={socket}
         villages={village.villages || []}
         activeSlot={village.activeSlot || null}
-        onSwitchVillage={switchVillage} />
+        onSwitchVillage={switchVillage}
+        vp={vp} onOpenStatus={() => setStatusOpen(o => !o)} />
+
+      {/* Telefonda kaynak rayi ust barin ALTINDA yatay serit olur */}
+      {vp.mobile && (
+        <ResourceRail flows={flows} isStarving={village.isStarving} mobile />
+      )}
 
       {/* Gelen saldırı: hangi sekmede olursam olayım görünür. Ordu sekmesinde
           uyarı listenin başında zaten var, orada tekrar etmesin. */}
       {tab !== 'ordu' && (village.incoming || []).length > 0 && (
         <div onClick={() => setTab('ordu')} style={{
-          position: 'fixed', top: 62, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 900, width: 'min(420px, 90vw)', cursor: 'pointer',
+          position: 'fixed', top: vp.mobile ? 96 : 62, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 900, width: 'min(420px, 92vw)', cursor: 'pointer',
         }} title="Ordu sekmesine git">
           <IncomingAlert incoming={village.incoming} />
         </div>
@@ -519,7 +623,7 @@ function Game({ token, onLogout }) {
               freeWorkers={village.freeWorkers}
               resources={village.resources}
               flows={flows}
-              railInset={RAIL_W + 8}
+              railInset={railInset}
               myArmy={Object.values(village.army || {}).reduce((a, b) => a + b, 0)}
               army={village.army || {}}
               unitDefs={village.unitDefs || {}}
@@ -557,7 +661,7 @@ function Game({ token, onLogout }) {
               resources={village.resources}
               processingRates={village.processingRates || {}}
               flows={flows}
-              railInset={RAIL_W + 8}
+              railInset={railInset}
               equipment={village.equipment || {}}
               equipmentCaps={village.equipmentCaps || {}}
               equipmentPool={village.equipmentPool || { capacity: 0, used: 0, free: 0 }}
@@ -583,7 +687,7 @@ function Game({ token, onLogout }) {
           {tab === 'isciler' && (
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
-              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+              paddingLeft: railInset, paddingRight: railInset,
             }}>
               <WorkerScreen
                 population={village.population || 0}
@@ -605,7 +709,7 @@ function Game({ token, onLogout }) {
           {tab === 'ordu' && (
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
-              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+              paddingLeft: railInset, paddingRight: railInset,
             }}>
               <div style={{ maxWidth: 1240, margin: '0 auto', paddingTop: 12 }}>
                 <IncomingAlert incoming={village.incoming || []} />
@@ -626,7 +730,7 @@ function Game({ token, onLogout }) {
           {tab === 'raporlar' && (
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
-              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+              paddingLeft: railInset, paddingRight: railInset,
             }}>
               <ReportScreen
                 reports={village.reports || []}
@@ -637,7 +741,7 @@ function Game({ token, onLogout }) {
           {tab === 'istatistik' && (
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
-              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+              paddingLeft: railInset, paddingRight: railInset,
             }}>
               <StatsScreen socket={socket} />
             </div>
@@ -646,7 +750,7 @@ function Game({ token, onLogout }) {
           {tab === 'yardim' && (
             <div style={{
               height: '100%', minHeight: 0,
-              padding: `8px ${RAIL_W + 8}px 8px ${RAIL_W + 8}px`,
+              padding: `8px ${railInset}px`,
               boxSizing: 'border-box',
             }}>
               <HelpScreen
@@ -663,20 +767,36 @@ function Game({ token, onLogout }) {
           {tab === 'simulator' && (
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
-              paddingLeft: RAIL_W + 8, paddingRight: RAIL_W + 8,
+              paddingLeft: railInset, paddingRight: railInset,
             }}>
               <BattleSimulator socket={socket} unitDefs={village.unitDefs || {}} army={village.army || {}} />
             </div>
           )}
         </div>
 
-        {/* SOL RAY — sahnenin üstünde yüzen cam panel */}
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 6, display: 'flex' }}>
-          <ResourceRail flows={flows} isStarving={village.isStarving} />
-        </div>
+        {/* SOL RAY — sahnenin üstünde yüzen cam panel (telefonda üstteki şerit) */}
+        {!vp.mobile && (
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 6, display: 'flex' }}>
+            <ResourceRail flows={flows} isStarving={village.isStarving} railW={vp.railW} />
+          </div>
+        )}
 
-        {/* SAĞ RAY */}
-        <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 6, display: 'flex' }}>
+        {/* Çekmece perdesi — dışına dokununca kapanır */}
+        {vp.mobile && statusOpen && (
+          <div onClick={() => setStatusOpen(false)} style={{
+            position: 'absolute', inset: 0, zIndex: 39, background: 'rgba(0,0,0,0.45)',
+          }} />
+        )}
+
+        {/* SAĞ RAY — telefonda sağdan açılan çekmece */}
+        <div className="tn-scroll" style={vp.mobile ? {
+          position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 40,
+          display: statusOpen ? 'flex' : 'none',
+          width: 'min(300px, 86vw)', overflowY: 'auto',
+          background: 'linear-gradient(180deg, rgba(10,18,28,0.97), rgba(7,13,21,0.97))',
+          borderLeft: `1px solid ${C.lineSoft}`,
+          boxShadow: '-14px 0 40px rgba(0,0,0,.55)',
+        } : { position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 6, display: 'flex' }}>
           <StatusRail
             population={village.population}
             civilians={village.civilians ?? null}
@@ -700,9 +820,17 @@ function Game({ token, onLogout }) {
             army={village.army || {}}
             unitDefs={village.unitDefs || {}}
             tickMs={tickMs}
+            railW={vp.mobile ? '100%' : vp.railW}
+            mobile={vp.mobile}
           />
         </div>
       </main>
+
+      {/* Telefonda sekmeler altta */}
+      {vp.mobile && (
+        <BottomTabs tab={tab} setTab={setTab}
+          badges={{ raporlar: unseenCount(village.reports || []) }} />
+      )}
     </>
   );
 }

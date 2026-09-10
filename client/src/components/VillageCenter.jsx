@@ -10,6 +10,8 @@ import { popoverStyle, computePopoverPos } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, signed, fmtTime } from '../theme';
 import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf } from '../flows';
 import Icon, { buildingIcon } from './Icons';
+import usePinchPan from './usePinchPan';
+import { useHoverable, TAP } from '../responsive';
 // Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
 import surTexture from '../assets/buildings/sur-doku.jpg';
 const EQUIPMENT_BUILDINGS = new Set(['silahci', 'zirh', 'ahir']);
@@ -754,7 +756,28 @@ export default function VillageCenter({
     return () => ro.disconnect();
   }, []);
 
-  const VC_SCALE = 1.0;
+  /**
+   * SAHNE ÖLÇEĞİ.
+   *
+   * Sahne 860×860 sabit çiziliyordu ve kaba sığmayınca kırpılıyordu: 390 px'lik
+   * bir telefonda köyün yalnız ortası görünüyordu. Artık iki çarpan var —
+   * `fitScale` sahneyi kaba sığdırır, `zoom` oyuncunun iki parmakla yaptığı
+   * yakınlaştırmadır. Popover konumu da bu ölçeği kullandığı için paneller
+   * doğru yerde açılmaya devam ediyor.
+   */
+  const fitScale = useMemo(() => {
+    const bandW = Math.max(220, (viewSize.w || W) - 2 * railInset);
+    const bandH = Math.max(220, (viewSize.h || H) - 12);
+    return Math.min(1, bandW / W, bandH / H);
+  }, [viewSize.w, viewSize.h, railInset]);
+
+  const hoverable = useHoverable();
+  const pinch = usePinchPan({
+    min: 1, max: 3.2,
+    viewW: viewSize.w, viewH: viewSize.h,
+    contentW: W * fitScale, contentH: H * fitScale,
+  });
+  const VC_SCALE = fitScale * pinch.zoom;
   const selB = selected ? villageBuildings[selected] : null;
   // Yükseltme sırasında da bina çalıştığı için kuyruk paneli açık kalır
   const hasQueuePanel = !!selB && selB.level >= 1
@@ -808,16 +831,20 @@ export default function VillageCenter({
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-      <div ref={containerRef} style={{
+      <div ref={containerRef} {...pinch.handlers} style={{
         position: 'absolute', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden', zIndex: 2,
         perspective: '1400px', perspectiveOrigin: '50% 50%',
+        cursor: pinch.dragging ? 'grabbing' : 'pointer',
+        ...pinch.handlers.style,
       }}>
         <svg width={W} height={H} style={{
           cursor: 'pointer', flexShrink: 0,
-          transform: 'rotateX(16deg)',
+          transform: `translate3d(${pinch.pan.x}px, ${pinch.pan.y}px, 0)`
+            + ` scale(${VC_SCALE}) rotateX(16deg)`,
           transformStyle: 'preserve-3d', transformOrigin: 'center center',
+          transition: pinch.dragging ? 'none' : 'transform .12s ease-out',
         }}>
           <defs>
             <radialGradient id="vc-ground" cx="50%" cy="50%" r="55%">
@@ -851,7 +878,7 @@ export default function VillageCenter({
             sur={villageBuildings.sur} hendek={villageBuildings.hendek}
             towerSlots={towerSlots} villageBuildings={villageBuildings}
             selected={selected} hovered={hovered}
-            onSlot={handleSlotClick} onHover={setHovered} />
+            onSlot={handleSlotClick} onHover={hoverable ? setHovered : () => {}} />
 
           {ALL_SLOTS.map(({ q, r, ring }) => {
             const key = `${q},${r}`;
@@ -891,7 +918,7 @@ export default function VillageCenter({
             return (
               <g key={key}
                 onClick={() => handleSlotClick(key)}
-                onMouseEnter={() => setHovered(key)}
+                onMouseEnter={() => hoverable && setHovered(key)}
                 onMouseLeave={() => setHovered(prev => (prev === key ? null : prev))}
                 transform={isHovered ? `translate(${x} ${y}) scale(1.06) translate(${-x} ${-y})` : undefined}
                 style={{
@@ -1005,8 +1032,41 @@ export default function VillageCenter({
             sur={villageBuildings.sur} hendek={villageBuildings.hendek}
             towerSlots={towerSlots} villageBuildings={villageBuildings}
             selected={selected} hovered={hovered}
-            onSlot={handleSlotClick} onHover={setHovered} />
+            onSlot={handleSlotClick} onHover={hoverable ? setHovered : () => {}} />
         </svg>
+
+        {/*
+          YAKINLAŞTIRMA — dokunmatikte iki parmak zaten çalışıyor, bu düğmeler
+          tek elle kullananlar ve fare için. Sahne kaba sığdırıldığı için
+          "sığdır" başlangıç durumuna döner.
+        */}
+        {(!hoverable || pinch.zoom !== 1) && (
+          <div style={{
+            position: 'absolute', left: railInset, bottom: 10, zIndex: 8,
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            {[
+              { t: '−', f: () => pinch.setZoom(z => Math.max(1, +(z / 1.3).toFixed(3))), title: 'Uzaklaş' },
+              { t: '+', f: () => pinch.setZoom(z => Math.min(3.2, +(z * 1.3).toFixed(3))), title: 'Yakınlaş' },
+            ].map(b => (
+              <button key={b.t} type="button" onClick={b.f} title={b.title}
+                style={{
+                  width: TAP - 8, height: TAP - 8, display: 'grid', placeItems: 'center',
+                  borderRadius: 6, cursor: 'pointer',
+                  background: 'rgba(12,20,28,0.72)', border: `1px solid ${C.lineSoft}`,
+                  color: C.iceSoft, fontFamily: FONT.ui, fontSize: 17, lineHeight: 1,
+                }}>{b.t}</button>
+            ))}
+            {pinch.zoom !== 1 && (
+              <button type="button" onClick={pinch.reset} title="Ekrana sığdır"
+                style={{
+                  height: TAP - 8, padding: '0 10px', borderRadius: 6, cursor: 'pointer',
+                  background: 'rgba(12,20,28,0.72)', border: `1px solid ${C.lineSoft}`,
+                  color: C.iceSoft, fontFamily: FONT.ui, fontSize: 10, letterSpacing: 0.6,
+                }}>SIĞDIR</button>
+            )}
+          </div>
+        )}
 
         {/* Hover bilgi kartı */}
         {hovered && !showMenu && (hoveredSlot || hoveredKind !== 'hex') && (
