@@ -166,6 +166,26 @@ function applyLossesToVillage(village, losses) {
   return dead;
 }
 
+// ── Keşif yardımcıları ────────────────────────────────────────────────
+
+/**
+ * Köyün ordusundaki izcileri AYIR.
+ *
+ * Savunanın izcileri keşfe karşı çıkıyor; kalan ordusu (piyade, süvari)
+ * karışmıyor — casus avlamak onların işi değil. Kayıp uygularken de
+ * yalnız bu kırılım kullanılıyor, yoksa keşif savaşı normal orduyu
+ * kırardı.
+ */
+function izciKirilimi(army) {
+  const out = {};
+  for (const [k, c] of Object.entries(army || {})) {
+    if (!SCOUT_UNITS.has(k)) continue;
+    const n = Math.max(0, Math.floor(Number(c) || 0));
+    if (n > 0) out[k] = n;
+  }
+  return out;
+}
+
 /**
  * Hedefin deposundan ganimet al. Kapasiteye kadar, mevcut olanlarla
  * ORANTILI dağıtılır — böylece tek kaynak süpürülmez.
@@ -339,9 +359,60 @@ function resolveArrival(march, origin, target, opts = {}) {
   // Kule bonusu okçu dolulukla ölçeklenir — boş kule fayda vermez
   const kulePct     = towerBonusPct(target);
 
-  // ── KEŞİF: çarpışma yok, bilgi toplanır ──────────────────────────
+  /**
+   * ── KEŞİF ────────────────────────────────────────────────────────
+   *
+   * ESKİDEN risksizdi: tek izci gönderip rakibin ordusunu, surunu ve
+   * deposunu bedavaya görüyordun, savunanın haberi de olmuyordu. PvP'de
+   * bu dengesiz. Artık savunanın izcileri karşı çıkıyor ve çarpışma
+   * NORMAL savaş hesabıyla (simulateBattle: sur/hendek/kule + Kirilloid)
+   * çözülüyor:
+   *   • savunanda izci yoksa → savunma 0: bilgi tam, kayıp yok,
+   *     savunan fark etmiyor
+   *   • izci varsa → savaş. Saldıran kazanırsa bilgi gelir, kaybederse
+   *     HİÇ bilgi gelmez.
+   * Fark edildiyse savunana da rapor düşüyor — saldırının geldiğini sezer.
+   */
   if (march.mode === 'scout') {
-    const intel = {
+    // Kayıplar march.units'i DEĞİŞTİRİYOR — raporda "yola çıkan" için
+    // önceki hâli saklamak gerekiyor, yoksa gönderilen sayı yanlış yazılır.
+    const sentSnapshot   = { ...march.units };
+    const savunanIzciler = izciKirilimi(target.army);
+    const savunanSayisi  = totalUnits(savunanIzciler);
+
+    /**
+     * KEŞİF DE NORMAL SAVAŞ HESABIYLA ÇÖZÜLÜYOR.
+     *
+     * Ayrı bir "izci sayısı karşılaştırması" yoktu artık: simulateBattle
+     * çağrılıyor, yani sur/hendek/kule bonusları ve Kirilloid kayıp
+     * eğrisi aynen işliyor. Savunanda izci yoksa savunma 0 çıkıyor,
+     * saldıran kayıpsız kazanıyor ve keşif fark edilmiyor (eski davranış).
+     *
+     * SAVUNAN TARAFTA YALNIZ İZCİLER var: normal ordu (piyade, süvari)
+     * casus avına katılmıyor. Aksi hâlde ordusu olan hiç kimse
+     * keşfedilemez, üstelik tek izci göndermek rakibin ordusunu kırmanın
+     * bedava yolu olurdu.
+     *
+     * Ölçüm (savunanda 5 izci, sur/hendek 10): kazanmak için 23 izci
+     * gerekiyor. Savunmasız köy tek izciyle görülüyor.
+     */
+    const res = simulateBattle(march.units, savunanIzciler, {
+      surLevel, hendekLevel, kulePct, mode: 'normal',
+      attackerLevels: origin?.equipmentLevels || null,
+      defenderLevels: target?.equipmentLevels || null,
+    });
+    const kazandim   = res.winner === 'attacker';
+    // Savunanın izcisi yoksa keşif fark edilmez — haberi olmaz
+    const gorundu    = savunanSayisi > 0;
+    const benimKayip = res.attackerLosses || {};
+    const onunKayip  = res.defenderLosses || {};
+
+    for (const [k, n] of Object.entries(benimKayip)) {
+      if (n > 0) march.units[k] = Math.max(0, (march.units[k] || 0) - n);
+    }
+    if (Object.keys(onunKayip).length) applyLossesToVillage(target, onunKayip);
+
+    const intel = kazandim ? {
       population: target.population || 0,
       army: { ...(target.army || {}) },
       armyTotal: totalUnits(target.army),
@@ -350,7 +421,8 @@ function resolveArrival(march, origin, target, opts = {}) {
       resources: Object.fromEntries(
         LOOTABLE.map(r => [r, Math.floor(target.resources?.[r] || 0)])),
       at: now,
-    };
+    } : null;
+
     statsOf(origin).scoutsSent += 1;
     march.phase = 'return';
     march.remainingHours = march.legHours;
@@ -359,10 +431,31 @@ function resolveArrival(march, origin, target, opts = {}) {
     pushReport(origin, {
       id: `${march.id}-${now}`, at: now, dir: 'out', mode: 'scout',
       fromName: march.fromName, toName, toKey: march.toKey,
-      outcome: 'kesif', winner: 'none',
-      sent: { ...march.units }, myLosses: {}, theirLosses: {}, loot: {},
+      outcome: kazandim ? 'kesif' : 'kesif_basarisiz',
+      winner: res.winner,
+      sent: { ...sentSnapshot }, myLosses: benimKayip, theirLosses: onunKayip,
+      loot: {},
+      // Raporda savunmanin neden gucu oldugu gorunsun
+      karsiIzci: savunanSayisi, wallBonusPct: res.wallBonusPct,
+      attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
       intel,
     });
+
+    // Savunan yalnız FARK ETTİYSE haber alır (izcisi yoksa hiçbir şey görmez)
+    if (gorundu) {
+      statsOf(target).defensesTotal += 1;
+      if (!kazandim) statsOf(target).defensesWon += 1;
+      pushReport(target, {
+        id: `${march.id}-${now}-d`, at: now, dir: 'in', mode: 'scout',
+        fromName: march.fromName, fromKey: march.fromKey, toName,
+        outcome: kazandim ? 'kesfedildim' : 'kesif_engellendi',
+        winner: res.winner,
+        attackerUnits: { ...sentSnapshot },
+        myLosses: onunKayip, theirLosses: benimKayip, loot: {},
+        wallBonusPct: res.wallBonusPct,
+        attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
+      });
+    }
     return march;
   }
 

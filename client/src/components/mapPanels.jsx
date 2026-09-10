@@ -618,8 +618,9 @@ export function ForeignVillagePanel({
             marginTop: 6, fontFamily: FONT.ui, fontSize: 9, lineHeight: 1.5,
             color: C.textFaint,
           }}>
-            Savunmasını bilmiyorsun. Önce izci gönderirsen suru, hendeği
-            ve deposunu görürsün.
+            Savunmasını bilmiyorsun. İzci gönderirsen suru, hendeği ve
+            deposunu görürsün — ama onun izcileri de karşı çıkar, az izciyle
+            gidersen bilgi gelmez.
           </div>
         )}
       </div>

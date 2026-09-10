@@ -78,17 +78,38 @@ function fmtWhen(at) {
   return `${d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} ${hm}`;
 }
 
+/**
+ * KEŞİF RAPOR TÜRLERİ — dört ayrı sonuç var.
+ *
+ *   kesif             benim keşfim başardı, bilgi geldi
+ *   kesif_basarisiz   karşı izciler durdurdu, bilgi YOK
+ *   kesfedildim       köyüm keşfedildi (izcim vardı, fark ettim ama yetmedi)
+ *   kesif_engellendi  izcilerim casusu durdurdu, bilgi sızmadı
+ *
+ * İzcisi olmayan oyuncu keşfedildiğini HİÇ görmez — rapor yazılmıyor.
+ */
+const KESIF_SONUCLARI = new Set([
+  'kesif', 'kesif_basarisiz', 'kesfedildim', 'kesif_engellendi',
+]);
+const kesifMi = (r) => KESIF_SONUCLARI.has(r?.outcome);
+
 /** Rapor bir kazanç mı kayıp mı — saldıran/savunan tarafına göre */
 function verdictOf(r) {
   if (r.outcome === 'kesif') return { txt: 'keşif tamam', col: C.ice, won: null };
+  if (r.outcome === 'kesif_basarisiz') return { txt: 'keşif durduruldu', col: C.danger, won: false };
+  if (r.outcome === 'kesfedildim') return { txt: 'köyün keşfedildi', col: C.warn, won: false };
+  if (r.outcome === 'kesif_engellendi') return { txt: 'casusu durdurdun', col: C.good, won: true };
   if (r.outcome === 'hedef_yok') return { txt: 'hedef bulunamadı', col: C.textMute, won: null };
   const won = r.dir === 'in' ? r.winner === 'defender' : r.winner === 'attacker';
   return { txt: won ? 'kazandın' : 'kaybettin', col: won ? C.good : C.danger, won };
 }
 
 function titleOf(r) {
+  if (r.outcome === 'kesfedildim') return `${r.fromName} köyünü keşfetti`;
+  if (r.outcome === 'kesif_engellendi') return `${r.fromName} keşfe geldi, durduruldu`;
   if (r.dir === 'in') return `${r.fromName} köyüne saldırdı`;
   if (r.outcome === 'kesif') return `${r.toName} keşfedildi`;
+  if (r.outcome === 'kesif_basarisiz') return `${r.toName} — keşif başarısız`;
   return `${r.toName} — ${MODE_LABEL[r.mode] || r.mode}`;
 }
 
@@ -358,6 +379,30 @@ function Detail({ r, unitDefs }) {
         </>
       )}
 
+      {/* Keşif ÇARPIŞMASI — bilgi gelmedi ya da savunan tarafın raporu */}
+      {kesifMi(r) && r.outcome !== 'kesif' && (
+        <div style={{
+          padding: '9px 11px', borderRadius: 6,
+          background: r.outcome === 'kesif_engellendi'
+            ? 'rgba(78,207,168,0.08)' : 'rgba(232,99,111,0.08)',
+          border: `1px solid ${r.outcome === 'kesif_engellendi'
+            ? 'rgba(78,207,168,0.28)' : 'rgba(232,99,111,0.28)'}`,
+          fontFamily: FONT.ui, fontSize: 11, color: C.textDim, lineHeight: 1.7,
+        }}>
+          {r.outcome === 'kesif_basarisiz' && (
+            <>Karşı tarafın izcileri{r.karsiIzci ? ` (${r.karsiIzci} izci)` : ''} keşfi
+            durdurdu — hiçbir bilgi gelmedi. Daha fazla izci gönderirsen geçebilirsin.</>
+          )}
+          {r.outcome === 'kesfedildim' && (
+            <>İzcilerin casusu fark etti ama durduramadı: karşı taraf ordunu,
+            surunu ve deponu gördü. Yakında saldırı gelebilir.</>
+          )}
+          {r.outcome === 'kesif_engellendi' && (
+            <>İzcilerin casusu durdurdu — köyün hakkında hiçbir bilgi sızmadı.</>
+          )}
+        </div>
+      )}
+
       {r.outcome === 'hedef_yok' && (
         <div style={{ fontFamily: FONT.ui, fontSize: 11, color: C.textDim, lineHeight: 1.7 }}>
           Hedef köy varış anında haritada yoktu; ordu kayıpsız geri döndü.
@@ -381,10 +426,17 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
     if (id && !read.has(id)) setRead(new Set(markRead(id)));
   };
 
+  /*
+    KEŞİFLER sekmesi artık dört sonucu da topluyor (başarılı, durdurulan,
+    köyümün keşfedilmesi, casusu durdurmam). Eskiden yalnız 'kesif'e
+    bakıyordu; keşif çarpışması gelince başarısız keşifler SALDIRILARIM
+    sekmesine düşüyor, savunan tarafın keşif raporu da BANA GELENLER'e
+    karışıyordu.
+  */
   const list = useMemo(() => reports.filter(r => {
-    if (filter === 'out') return r.dir === 'out' && r.outcome !== 'kesif';
-    if (filter === 'in') return r.dir === 'in';
-    if (filter === 'scout') return r.outcome === 'kesif';
+    if (filter === 'out') return r.dir === 'out' && !kesifMi(r);
+    if (filter === 'in') return r.dir === 'in' && !kesifMi(r);
+    if (filter === 'scout') return kesifMi(r);
     return true;
   }), [reports, filter]);
 
@@ -397,9 +449,9 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
 
   const counts = useMemo(() => ({
     all: reports.length,
-    out: reports.filter(r => r.dir === 'out' && r.outcome !== 'kesif').length,
-    in: reports.filter(r => r.dir === 'in').length,
-    scout: reports.filter(r => r.outcome === 'kesif').length,
+    out: reports.filter(r => r.dir === 'out' && !kesifMi(r)).length,
+    in: reports.filter(r => r.dir === 'in' && !kesifMi(r)).length,
+    scout: reports.filter(r => kesifMi(r)).length,
   }), [reports]);
 
   if (!reports.length) {
