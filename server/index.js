@@ -1429,10 +1429,18 @@ async function bootWorld() {
       Math.max(0, (Date.now() - savedAt) / 1000 / GT.HOUR_SECONDS));
     const steps = Math.floor(hours / GT.CATCHUP_HOURS_PER_STEP);
     if (steps <= 0) continue;
-    for (let t = 0; t < steps; t++) {
-      stepVillage(n.village, GT.CATCHUP_HOURS_PER_STEP);
-      if (t % NPC_AI_EVERY_HOURS === 0) runNpcAi(n.village, n.slot);
-    }
+    /*
+      Tek bozuk NPC açılışı düşürmesin. Korumasız hâlde hata bootWorld
+      üzerinden bootServer'ın catch'ine düşüyor ve süreç exit(1) ile ölüyor;
+      systemd yeniden başlatıyor, aynı köy yine düşürüyor — sunucu hiç
+      açılmıyor. Bozuk köy atlanıp dünya ayağa kalkmalı.
+    */
+    try {
+      for (let t = 0; t < steps; t++) {
+        stepVillage(n.village, GT.CATCHUP_HOURS_PER_STEP);
+        if (t % NPC_AI_EVERY_HOURS === 0) runNpcAi(n.village, n.slot);
+      }
+    } catch (err) { kalkanLog(`açılış telafisi NPC ${n.slot.key}`, err); }
     catchupMax = Math.max(catchupMax, steps);
     catchupSum += steps; catchupCount++;
   }
@@ -1448,6 +1456,21 @@ async function bootWorld() {
   console.log(`[WORLD] ${WORLD.slots.length} slot · ${WORLD.npcs.size} NPC (${created} yeni, ${restored} kayıtlı) · ${Date.now() - t0} ms`);
 }
 
+/**
+ * KALKAN LOGU — aynı hata kaynağını en fazla dakikada bir yazar.
+ *
+ * Tick döngüleri 50 ms'de bir koşuyor; bozuk tek bir köy kısıtlamasız logla
+ * dakikada 1.200 yığın izi üretir ve journald'ı (Pi'de SD kartı) boğar.
+ * Etiket başına kısıldığı için farklı hatalar birbirini gizlemiyor.
+ */
+const sonHataAni = new Map();
+function kalkanLog(etiket, err) {
+  const now = Date.now();
+  if (now - (sonHataAni.get(etiket) || 0) < 60000) return;
+  sonHataAni.set(etiket, now);
+  console.error(`[KALKAN] ${etiket}:`, err?.stack || err);
+}
+
 // NPC yaşam döngüsü
 let npcLastTick = Date.now();
 setInterval(() => {
@@ -1457,17 +1480,24 @@ setInterval(() => {
   WORLD.npcTick++;
   const runAi = WORLD.npcTick % NPC_AI_EVERY === 0;
   for (const n of WORLD.npcs.values()) {
-    stepVillage(n.village, hours);
-    if (runAi) {
-      runNpcAi(n.village, n.slot);
-      maybeNpcRaid(n);
-      // Yapay zekâ turu = yapısal değişiklik olabilir + kaydın bayatlamasına
-      // üst sınır (NPC_AI_EVERY_HOURS oyun saati). Kaynak artışı için kayıt
-      // gerekmiyor, telafi onu hesaplıyor.
-      markNpcDirty(n.slot.key);
-    }
+    /*
+      Tek bozuk NPC bütün dünyayı durdurmasın: eskiden buradan fırlayan hata
+      setInterval geri çağrısını terk ediyor, sonraki NPC'ler hiç işlenmiyor
+      ve processMarches atlandığı için BÜTÜN seferler donuyordu.
+    */
+    try {
+      stepVillage(n.village, hours);
+      if (runAi) {
+        runNpcAi(n.village, n.slot);
+        maybeNpcRaid(n);
+        // Yapay zekâ turu = yapısal değişiklik olabilir + kaydın bayatlamasına
+        // üst sınır (NPC_AI_EVERY_HOURS oyun saati). Kaynak artışı için kayıt
+        // gerekmiyor, telafi onu hesaplıyor.
+        markNpcDirty(n.slot.key);
+      }
+    } catch (err) { kalkanLog(`NPC ${n.slot.key}`, err); }
   }
-  processMarches(hours);
+  try { processMarches(hours); } catch (err) { kalkanLog('processMarches', err); }
 }, NPC_TICK_MS);
 
 /**
@@ -2146,7 +2176,13 @@ setInterval(() => {
     if (now >= session.nextTickAt) {
       // Aralık yalnızca EKRAN tazeleme sıklığı; tempo geçen süreden geliyor
       session.nextTickAt = now + Math.min(DEFAULT_TICK_MS, Math.max(100, session.tickMs));
-      runTickForUser(userId, session);
+      /*
+        Bir oyuncunun köyünde çıkan hata DİĞER oyuncuların tick'ini almasın.
+        Kalkansız hâlde döngü terk ediliyor ve sıradaki bütün oturumlar o turu
+        kaçırıyordu; hata her turda tekrarlandığı için de kalıcı oluyordu.
+      */
+      try { runTickForUser(userId, session); }
+      catch (err) { kalkanLog(`tick userId=${userId}`, err); }
     }
   }
 }, 50);
@@ -2194,8 +2230,52 @@ io.on('connection', async socket => {
   const { userId, userEmail } = socket;
   console.log(`[CONNECT] ${userEmail} (${userId})`);
 
-  // TEK HARİTA: köy oluşturulmadan önce dünya slotunu al
-  const slotKey = await ensurePlayerSlot(userId, userEmail);
+  /**
+   * KOMUT KALKANI — bir handler'daki hata SUNUCUYU düşürmesin.
+   *
+   * Socket.io handler hatalarını yakalamıyor: fırlayan hata uncaughtException'a
+   * kadar çıkıyor ve süreç ölüyor — o an oynayan HERKESLE birlikte. Bir
+   * oyuncunun geçersiz komutu bütün dünyayı düşürmemeli. (Ölçüldü: havuzda 10
+   * işçi varken 42 kadroluk tarlaya atama isteği sunucuyu exit(1) ile
+   * öldürüyordu.)
+   *
+   * Kalkan ayrı bir sarmalayıcı fonksiyona değil, `socket.on`un KENDİSİNE
+   * takılıyor. Sebep: bu dosyaya yeni olay eklemek olağan iş (bkz.
+   * PROJE_CONTEXT.md) ve hatırlanması gereken bir koruma er ya da geç
+   * unutulur. Async handler'ların reddi de yakalanıyor; yoksa Node 22+
+   * süreci yine öldürürdü.
+   *
+   * Hata YUTULMUYOR: tam yığın izi olay adı ve oyuncuyla loglanıyor, istemciye
+   * de `komut_hatasi` gidiyor ki arayüz sebepsiz donmasın.
+   */
+  const komutHatasi = (event, err) => {
+    console.error(`[KOMUT HATASI] ${event} · userId=${userId} (${userEmail})`);
+    console.error(err?.stack || err);
+    try { socket.emit('komut_hatasi', { event }); } catch { /* soket kapanmış olabilir */ }
+  };
+  const socketOn = socket.on.bind(socket);
+  socket.on = (event, handler) => socketOn(event, (...args) => {
+    try {
+      const sonuc = handler(...args);
+      if (sonuc && typeof sonuc.then === 'function') sonuc.catch(err => komutHatasi(event, err));
+    } catch (err) { komutHatasi(event, err); }
+  });
+
+  /*
+    Bu `await` kalkanın DIŞINDA: bağlantı geri çağrısının kendisi async, yani
+    burada fırlayan hata handler değil, yakalanmamış bir RET oluyordu ve Node
+    22+ süreci öldürüyordu. Veritabanı bir an cevap vermezse tek bir bağlanma
+    denemesi sunucuyu düşürebilirdi. Artık bağlantı kesiliyor; istemci sınırsız
+    yeniden bağlanma ile birazdan tekrar deniyor (bkz. client/src/App.jsx).
+  */
+  let slotKey;
+  try {
+    slotKey = await ensurePlayerSlot(userId, userEmail);
+  } catch (err) {
+    console.error(`[BAĞLANTI] ${userEmail} için dünya slotu alınamadı:`, err?.stack || err);
+    socket.disconnect(true);
+    return;
+  }
   const slot = slotKey ? WORLD.slotByKey.get(slotKey) : null;
 
   socket.join(userRoom(userId));
@@ -2381,6 +2461,19 @@ io.on('connection', async socket => {
   });
 
   socket.on('assign_production_workers', ({ slotKey, workers }) => {
+    /**
+     * BU TANIM ŞARTTI. Aşağıdaki `reject(...)` çağrısının bu kapsamda
+     * karşılığı yoktu (ikizi yalnız assign_village_workers içinde tanımlı):
+     * havuzdakinden fazla işçi isteyen HER istek ReferenceError fırlatıyordu.
+     * Socket.io handler hatalarını yakalamaz, süreçte uncaughtException
+     * kancası da yok — yani tek bir bayat istek SUNUCUYU KOMPLE düşürüyordu,
+     * o an oynayan bütün oyuncularla birlikte. Tetiklemek için hile
+     * gerekmiyordu: iki sekme, arka arkaya iki atama ya da açlıkla işçi
+     * kaybının ardından gelen tek tık yetiyordu.
+     */
+    const reject = (why) => {
+      if (IS_DEV_ENTRY) console.warn(`[ISCI RED] ${slotKey}: ${why}`);
+    };
     const b = v().productionTiles[slotKey];
     // Yükseltme sırasında da işçi atanabilir — bina çalışmaya devam ediyor.
     // Yalnızca hiç kurulmamış tile'a (level 0) işçi atanamaz.
@@ -2865,14 +2958,6 @@ io.on('connection', async socket => {
     }
   });
 
-  socket.on('set_speed', ({ tickMs: newMs }) => {
-    session.tickMs = Math.max(MIN_TICK_MS, Math.min(MAX_TICK_MS, Number(newMs) || DEFAULT_TICK_MS));
-    // Çubuk DÜNYA hızını ayarlar: ekonomi, NPC'ler ve seferler birlikte akar
-    WORLD.speed = DEFAULT_TICK_MS / session.tickMs;
-    console.log(`[HIZ] ${userEmail} → ${WORLD.speed.toFixed(2)}× `
-      + `(1 oyun saati = ${(GT.HOUR_SECONDS / WORLD.speed).toFixed(0)} gerçek sn)`);
-    emit();
-  });
 
   // ── SEFER: ordu gönder ────────────────────────────────────────────
   socket.on('send_army', ({ targetKey, mode, units } = {}) => {
@@ -2985,6 +3070,32 @@ io.on('connection', async socket => {
    * yoksa olay hiç kaydedilmez, yani üretimde erişilebilir bir yüzey oluşmaz.
    */
   if (process.env.TRANORD_DEV_CHEATS === '1') {
+    /**
+     * HIZ ÇUBUĞU — kasten BU BLOĞUN İÇİNDE.
+     *
+     * `WORLD.speed` oturuma değil DÜNYAYA ait: ekonomi, NPC'ler ve seferler
+     * hep birlikte o çarpanla akıyor. Handler blok dışındayken giriş yapmış
+     * HERHANGİ bir oyuncu tarayıcı konsolundan
+     *     socket.emit('set_speed', { tickMs: 7 })
+     * yazıp bütün dünyayı 143×'e çıkarabiliyordu (ya da 10000 ile 0,1×'e
+     * düşürüp herkesi durdurabiliyordu). Oyun satılacağı için bu hem ekonomi
+     * hilesi hem griefing yüzeyi.
+     *
+     * İstemcideki `import.meta.env.DEV` kapısı yalnızca DÜĞMEYİ gizliyordu,
+     * olayı değil — sunucu tarafında kapatmak şarttı. index.dev.js bu
+     * değişkeni kendisi kuruyor, yani yerel geliştirmede çubuk çalışmaya
+     * devam ediyor; Pi ve Hetzner'de tanımlı olmadığı için olay hiç
+     * kaydedilmiyor.
+     */
+    socket.on('set_speed', ({ tickMs: newMs } = {}) => {
+      session.tickMs = Math.max(MIN_TICK_MS, Math.min(MAX_TICK_MS, Number(newMs) || DEFAULT_TICK_MS));
+      // Çubuk DÜNYA hızını ayarlar: ekonomi, NPC'ler ve seferler birlikte akar
+      WORLD.speed = DEFAULT_TICK_MS / session.tickMs;
+      console.log(`[HIZ] ${userEmail} → ${WORLD.speed.toFixed(2)}× `
+        + `(1 oyun saati = ${(GT.HOUR_SECONDS / WORLD.speed).toFixed(0)} gerçek sn)`);
+      emit();
+    });
+
     socket.on('dev_grant', ({ army: a, resources: r } = {}) => {
       const village = v();
       /**
@@ -3289,8 +3400,25 @@ async function bootServer() {
     // stepVillage (processTick DEĞİL): inşaatlar da tamamlanmalı.
     // processTick tek başına bina inşaatını bitirmiyordu; oyuncu offline dönerken
     // inşaatları asılı kalıyordu.
-    for (let i = 0; i < offlineTicks; i++) stepVillage(village, GT.CATCHUP_HOURS_PER_STEP);
-    if (offlineTicks > 0) telafiEdilen++;
+    /*
+      TELAFİ KALKANI — bu döngü SUNUCUNUN AÇILIŞ YOLU üzerinde.
+
+      Korumasız hâlde tek bir köyün durumundan kaynaklanan hata bütün
+      açılışı iptal ediyordu: bootServer().catch() exit(1) veriyor, systemd
+      3 saniyede yeniden başlatıyor, aynı köy yine düşürüyor. Sonuç sonsuz
+      açılış döngüsü — bir oyuncunun köyü yüzünden HERKES oyun dışı kalıyor.
+
+      Gerçek örnek: Rún Salonu araştırması sürerken kaydedilen bir köy,
+      processResearchQueue'daki ReferenceError yüzünden tam olarak bunu
+      yapabilirdi. Artık o köy telafisiz yükleniyor (kaynakları eksik
+      kalıyor), dünya ayağa kalkıyor ve sorun logdan görülüyor.
+    */
+    try {
+      for (let i = 0; i < offlineTicks; i++) stepVillage(village, GT.CATCHUP_HOURS_PER_STEP);
+      if (offlineTicks > 0) telafiEdilen++;
+    } catch (err) {
+      kalkanLog(`açılış telafisi userId=${userId} slot=${slotKey}`, err);
+    }
 
     let rec = byUser.get(userId);
     if (!rec) { rec = { villages: new Map(), capitalSlot: null, tickMs: null, dirty: new Set() }; byUser.set(userId, rec); }
@@ -3337,6 +3465,42 @@ async function bootServer() {
     console.log(`[CORS] izinli origin: ${ORIGIN_LIST.length ? ORIGIN_LIST.join(', ') : '(yok)'}`);
   });
 }
+
+/**
+ * SON ÇARE — kalkanların dışında kalan hatalar.
+ *
+ * İkisi KASTEN farklı davranıyor:
+ *
+ * `unhandledRejection` yalnızca loglanıyor. Bu projede retler pratikte
+ * veritabanı/G-Ç çağrılarından geliyor; tek bir başarısız sorgu için oynayan
+ * herkesi düşürmek zararın kendisinden büyük olurdu.
+ *
+ * `uncaughtException` ise loglanıp süreç KAPATILIYOR — ama diske YAZMADAN.
+ *
+ * Yazmamak kasıtlı. Çökme köyün DURUMUNDAN kaynaklanıyorsa (bu projede
+ * yaşandı: araştırma kuyruğundaki bir iş her tick hata fırlatıyordu), o
+ * durumu kaydetmek hatayı KALICI yapar: sunucu açılır, aynı köyü yükler,
+ * yine düşer. Kayıtsız çıkışta en fazla son 30 saniyenin komutları
+ * kaybolur — üretim zaten açılışta `updated_at` üzerinden yeniden
+ * hesaplanıyor, yani kaybın büyük kısmı kendiliğinden geri geliyor.
+ *
+ * systemd 3 saniyede geri getiriyor (Restart=always).
+ */
+process.on('unhandledRejection', (reason) => {
+  console.error('[YAKALANMAMIŞ RET]', reason?.stack || reason);
+});
+
+let kapaniyor = false;
+process.on('uncaughtException', (err) => {
+  console.error('[YAKALANMAMIŞ HATA] süreç kapatılıyor:', err?.stack || err);
+  if (kapaniyor) return;                   // kapanış sırasında ikinci hata
+  kapaniyor = true;
+  /*
+    Bilerek KAYIT YOK — gerekçe yukarıdaki blokta. Loglar journald'a
+    ulaşsın diye bir tick bekleyip çıkıyoruz.
+  */
+  setTimeout(() => process.exit(1), 100).unref();
+});
 
 bootServer().catch(err => {
   console.error('[BOOT FAIL]', err.message);

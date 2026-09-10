@@ -6,7 +6,17 @@
 const fs   = require('fs');
 const path = require('path');
 
-const FILE = path.join(__dirname, '.dev-data.json');
+/**
+ * VERİ DOSYASI — testler için değiştirilebilir.
+ *
+ * Yol sabitken otomatik testler geliştiricinin GERÇEK dev dünyasına yazıyordu:
+ * test kullanıcıları aynı dosyaya ekleniyor, test köyleri aynı dünyada yer
+ * kaplıyor ve testin ortasında kesilen bir kayıt oyuncunun köyünü bozabiliyordu.
+ * TRANORD_DEV_DATA verildiğinde test kendi geçici dosyasında koşar.
+ */
+const FILE = process.env.TRANORD_DEV_DATA
+  ? path.resolve(process.env.TRANORD_DEV_DATA)
+  : path.join(__dirname, '.dev-data.json');
 
 let db = { users: [], villages: {}, world: {}, playerSlots: {}, nextUserId: 1 };
 
