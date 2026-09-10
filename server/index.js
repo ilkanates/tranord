@@ -497,6 +497,30 @@ function settlerCapacity(village) {
  */
 const MAX_BUILDERS = (mevcutSeviye) => Math.max(1, (mevcutSeviye || 0) + 2);
 
+/**
+ * SAYISAL GİRDİ SÜZGECİ — istemciden gelen her sayı buradan geçmeli.
+ *
+ * İşçi sayısı doğrudan Math.min/Math.max'e veriliyordu. NaN geldiğinde
+ * (yazı, null, eksik alan, bozuk istemci) sonuç da NaN oluyor ve NaN her
+ * karşılaştırmada FALSE döndüğü için bütün korumalar sessizce geçiliyor:
+ *     Math.max(0, Math.min(5, NaN))  →  NaN
+ *     NaN > freeWorkers              →  false   (koruma devreye girmiyor)
+ *     freeWorkers -= NaN             →  freeWorkers artık NaN
+ * Oradan sonra köyün bütün sayıları NaN'a dönüyor ve bu hâliyle diske
+ * yazılıyor — kurtarılamaz köy.
+ *
+ * KOMUT KALKANI BUNU YAKALAMAZ: hata fırlamıyor, değer sessizce yayılıyor.
+ * Bu yüzden ayrı bir süzgeç gerekiyor.
+ *
+ * Math.floor ayrıca kesirli işçiyi de eliyor: 2,7 işçi hiçbir zaman
+ * anlamlı değildi ama eski koşullar (workers < 1) onu geçiriyordu.
+ */
+function sayi(ham, { enAz = 0, enCok = Number.MAX_SAFE_INTEGER, yoksa = 0 } = {}) {
+  const n = Math.floor(Number(ham));
+  if (!Number.isFinite(n)) return yoksa;
+  return Math.max(enAz, Math.min(enCok, n));
+}
+
 function getMaxProductionSlots(village) {
   // Ana Bina her seviyede +1 tarla slotu; Lvl 20'de 25 (tavan)
   const anaBina = village.villageBuildings['0,0'];
@@ -520,6 +544,9 @@ function slotKind(village, slotKey) {
 }
 
 function canBuildAt(village, slotKey, buildingType, otherVillages = null) {
+  // Slot anahtarı metin olmak zorunda: sayı/nesne gelince aşağıdaki
+  // dizin erişimleri ve slotKind() beklenmedik şekilde davranıyor.
+  if (typeof slotKey !== 'string' || !slotKey) return false;
   if (slotKey === '0,0') return false;
   if (village.villageBuildings[slotKey]) return false;
   const def = VILLAGE_DEFS[buildingType];
@@ -695,6 +722,8 @@ function hexOwnedByMyOtherVillage(wq, wr, userId, village) {
 }
 
 function canBuildProductionAt(village, slotKey, type, userId) {
+  // Aşağıda slotKey.split(...) çağrılıyor — metin değilse TypeError.
+  if (typeof slotKey !== 'string' || !slotKey) return false;
   if (slotKey === '0,0') return false;
   if (village.productionTiles[slotKey]) return false;
   if (!VALID_PRODUCTION_TYPES.has(type)) return false;
@@ -2460,7 +2489,7 @@ io.on('connection', async socket => {
     console.log(`[MERKEZ] userId=${userId} → ${hedef}`);
   });
 
-  socket.on('assign_production_workers', ({ slotKey, workers }) => {
+  socket.on('assign_production_workers', ({ slotKey, workers } = {}) => {
     /**
      * BU TANIM ŞARTTI. Aşağıdaki `reject(...)` çağrısının bu kapsamda
      * karşılığı yoktu (ikizi yalnız assign_village_workers içinde tanımlı):
@@ -2481,7 +2510,7 @@ io.on('connection', async socket => {
     const def = BUILDING_DEFS[b.type];
     if (!def) return;
     const maxW = def.levels[b.level - 1]?.workers || 1;
-    const newW = Math.max(0, Math.min(maxW, workers));
+    const newW = sayi(workers, { enCok: maxW });
     const diff = newW - (b.workers || 0);
     if (diff > v().freeWorkers) {
       return reject(`havuzda ${v().freeWorkers} işçi var, ${diff} isteniyor`);
@@ -2490,34 +2519,37 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
-  socket.on('upgrade_production', ({ slotKey, workers }) => {
+  socket.on('upgrade_production', ({ slotKey, workers } = {}) => {
     const b = v().productionTiles[slotKey];
-    if (!b || b.upgrading || workers <= 0 || workers > v().freeWorkers) return;
-    if (workers > MAX_BUILDERS(b.level)) return;
+    if (!b || b.upgrading) return;
+    // NaN eski koşulların ÜÇÜNÜ de geçiyordu (NaN her karşılaştırmada false)
+    const isci = sayi(workers);
+    if (isci < 1 || isci > v().freeWorkers || isci > MAX_BUILDERS(b.level)) return;
     const def = BUILDING_DEFS[b.type];
     if (!def || b.level >= def.levels.length) return;
     const cost = def.levels[b.level]?.cost;
     if (!cost) return;
     for (const [res, amt] of Object.entries(cost)) { if ((v().resources[res] || 0) < amt) return; }
     for (const [res, amt] of Object.entries(cost)) { v().resources[res] -= amt; }
-    v().freeWorkers -= workers;
-    b.upgrading = true; b.upgradeEndTime = v().clockMs + GT.minutesToClock(getUpgradeSeconds(b.type, b.level, workers)); b.upgradeWorkersAssigned = workers;
+    v().freeWorkers -= isci;
+    b.upgrading = true; b.upgradeEndTime = v().clockMs + GT.minutesToClock(getUpgradeSeconds(b.type, b.level, isci)); b.upgradeWorkersAssigned = isci;
     dirty(); emit();
   });
 
-  socket.on('build_production', ({ slotKey, type, workers }) => {
-    if (!canBuildProductionAt(v(), slotKey, type, userId) || !workers || workers < 1 || workers > v().freeWorkers) return;
-    if (workers > MAX_BUILDERS(0)) return;
+  socket.on('build_production', ({ slotKey, type, workers } = {}) => {
+    const isci = sayi(workers);
+    if (!canBuildProductionAt(v(), slotKey, type, userId)) return;
+    if (isci < 1 || isci > v().freeWorkers || isci > MAX_BUILDERS(0)) return;
     const def = BUILDING_DEFS[type];
     const cost = def.levels[0]?.cost || {};
     for (const [res, amt] of Object.entries(cost)) { if ((v().resources[res] || 0) < amt) return; }
     for (const [res, amt] of Object.entries(cost)) { v().resources[res] -= amt; }
-    v().freeWorkers -= workers;
-    v().productionTiles[slotKey] = { type, level: 0, workers: 0, upgrading: true, upgradeEndTime: v().clockMs + GT.minutesToClock((def.levels[0]?.sureSaat || 5) / workers), upgradeWorkersAssigned: workers };
+    v().freeWorkers -= isci;
+    v().productionTiles[slotKey] = { type, level: 0, workers: 0, upgrading: true, upgradeEndTime: v().clockMs + GT.minutesToClock((def.levels[0]?.sureSaat || 5) / isci), upgradeWorkersAssigned: isci };
     dirty(); emit();
   });
 
-  socket.on('demolish_production', ({ slotKey }) => {
+  socket.on('demolish_production', ({ slotKey } = {}) => {
     const b = v().productionTiles[slotKey];
     if (!b) return;
     if (b.upgrading && b.upgradeWorkersAssigned) v().freeWorkers += b.upgradeWorkersAssigned;
@@ -2526,43 +2558,44 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
-  socket.on('build_village', ({ slotKey, buildingType, workers }) => {
+  socket.on('build_village', ({ slotKey, buildingType, workers } = {}) => {
+    const isci = sayi(workers);
     if (!canBuildAt(v(), slotKey, buildingType, session.villages)
-      || !workers || workers < 1 || workers > v().freeWorkers
-      || workers > MAX_BUILDERS(0)) {
+      || isci < 1 || isci > v().freeWorkers || isci > MAX_BUILDERS(0)) {
       // Sessiz red oyuncuyu koru bırakıyordu ("saray kuramıyorum, sebep yok").
       socket.emit('build_refused', { slotKey, buildingType,
-        reason: buildRefusalReason(v(), slotKey, buildingType, session.villages, workers) });
+        reason: buildRefusalReason(v(), slotKey, buildingType, session.villages, isci) });
       return;
     }
     const def = VILLAGE_DEFS[buildingType];
     const cost = def?.cost || {};
     for (const [res, amount] of Object.entries(cost)) { if ((v().resources[res] || 0) < amount) return; }
     for (const [res, amount] of Object.entries(cost)) { v().resources[res] -= amount; }
-    v().freeWorkers -= workers;
-    v().villageBuildings[slotKey] = { type: buildingType, level: 0, workers: 0, building: true, buildEndTime: v().clockMs + GT.minutesToClock(getVillageBuildMinutes(buildingType, 1, workers)), buildWorkers: workers };
+    v().freeWorkers -= isci;
+    v().villageBuildings[slotKey] = { type: buildingType, level: 0, workers: 0, building: true, buildEndTime: v().clockMs + GT.minutesToClock(getVillageBuildMinutes(buildingType, 1, isci)), buildWorkers: isci };
     dirty(); emit();
   });
 
-  socket.on('upgrade_village', ({ slotKey, workers }) => {
+  socket.on('upgrade_village', ({ slotKey, workers } = {}) => {
     const b = v().villageBuildings[slotKey];
     if (!b || b.building) return;
     const def = VILLAGE_DEFS[b.type];
     // Tavan: tanımda yoksa DEFAULT_MAX_LEVEL. Eski koşul `def.maxLevel &&`
     // ile başlıyordu, tanımsız olan 18 bina sınırsız yükseliyordu.
-    if (!def || b.level >= maxLevelOf(b.type) || !workers || workers < 1 || workers > v().freeWorkers) return;
-    if (workers > MAX_BUILDERS(b.level)) return;
+    if (!def || b.level >= maxLevelOf(b.type)) return;
+    const isci = sayi(workers);
+    if (isci < 1 || isci > v().freeWorkers || isci > MAX_BUILDERS(b.level)) return;
     const upgradeCost = getScaledUpgradeCost(b.type, b.level);
     if (upgradeCost) {
       for (const [res, amt] of Object.entries(upgradeCost)) { if ((v().resources[res] || 0) < amt) return; }
       for (const [res, amt] of Object.entries(upgradeCost)) { v().resources[res] -= amt; }
     }
-    v().freeWorkers -= workers;
-    b.building = true; b.buildEndTime = v().clockMs + GT.minutesToClock(getVillageBuildMinutes(b.type, b.level + 1, workers)); b.buildWorkers = workers;
+    v().freeWorkers -= isci;
+    b.building = true; b.buildEndTime = v().clockMs + GT.minutesToClock(getVillageBuildMinutes(b.type, b.level + 1, isci)); b.buildWorkers = isci;
     dirty(); emit();
   });
 
-  socket.on('assign_village_workers', ({ slotKey, workers }) => {
+  socket.on('assign_village_workers', ({ slotKey, workers } = {}) => {
     /**
      * Sessiz reddetme teşhis edilemiyordu: kule listeye eklenmeden önce bu
      * handler hiçbir iz bırakmadan `return` ediyordu, arayüzde de değer geri
@@ -2579,7 +2612,7 @@ io.on('connection', async socket => {
       return reject(`${b.type} personel almıyor (processes yok, atanabilir listede değil)`);
     }
     const maxW = b.level * (def.workersPerLevel || 3);
-    const newW = Math.max(0, Math.min(maxW, workers));
+    const newW = sayi(workers, { enCok: maxW });
     const diff = newW - (b.workers || 0);
     if (diff > v().freeWorkers) return;
     v().freeWorkers -= diff; b.workers = newW;
@@ -2621,7 +2654,7 @@ io.on('connection', async socket => {
       + ` (${f.hours} oyun saati, +${Math.round(village.festival.cpAtStart * f.multiplier)} CP)`);
   });
 
-  socket.on('demolish_village', ({ slotKey }) => {
+  socket.on('demolish_village', ({ slotKey } = {}) => {
     if (slotKey === '0,0') return;
     const b = v().villageBuildings[slotKey];
     if (b) {
@@ -2632,7 +2665,7 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
-  socket.on('queue_equipment', ({ buildingType, equipmentType, quantity }) => {
+  socket.on('queue_equipment', ({ buildingType, equipmentType, quantity } = {}) => {
     const allowed = EQUIPMENT_BY_BUILDING[buildingType];
     if (!allowed?.includes(equipmentType)) return;
     const b = Object.values(v().villageBuildings).find(vb => vb.type === buildingType);
@@ -2642,14 +2675,14 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
-  socket.on('cancel_equipment_order', ({ buildingType, orderId }) => {
+  socket.on('cancel_equipment_order', ({ buildingType, orderId } = {}) => {
     const queue = v().equipmentQueues?.[buildingType];
     if (!queue) return;
     const idx = queue.findIndex(o => o.id === orderId);
     if (idx >= 0) { queue.splice(idx, 1); dirty(); emit(); }
   });
 
-  socket.on('train_unit', ({ buildingType, unitType, quantity }) => {
+  socket.on('train_unit', ({ buildingType, unitType, quantity } = {}) => {
     const allowed = UNITS_BY_BUILDING[buildingType];
     if (!allowed?.includes(unitType)) return;
     const b = Object.values(v().villageBuildings).find(vb => vb.type === buildingType);
@@ -2754,7 +2787,7 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
-  socket.on('research_unit', ({ unitType }) => {
+  socket.on('research_unit', ({ unitType } = {}) => {
     const def = UNIT_DEFS[unitType];
     if (!def?.research) return;                       // araştırma istemeyen birim
     if (v().research?.[unitType]) return;             // zaten açık
@@ -2807,7 +2840,7 @@ io.on('connection', async socket => {
   });
 
   /** Araştırmayı iptal et — ödeme yapıldıysa kaynak TAM iade */
-  socket.on('cancel_research', ({ orderId }) => {
+  socket.on('cancel_research', ({ orderId } = {}) => {
     const kuyruk = v().researchQueue;
     if (!kuyruk) return;
     const i = kuyruk.findIndex(o => o.id === orderId);
@@ -2830,7 +2863,7 @@ io.on('connection', async socket => {
    * seviyeyi arka arkaya sıraya alabilsin ve ikinci iş kendi seviyesinin
    * bedelini ödesin.
    */
-  socket.on('upgrade_equipment', ({ buildingType, equipment }) => {
+  socket.on('upgrade_equipment', ({ buildingType, equipment } = {}) => {
     if (!EQUIPMENT_BY_BUILDING[buildingType]?.includes(equipment)) return;
     if (equipment === 'at') return;                       // at yükseltilmiyor
     const b = Object.values(v().villageBuildings).find(vb => vb.type === buildingType);
@@ -2856,7 +2889,7 @@ io.on('connection', async socket => {
   });
 
   /** Yükseltmeyi iptal et — ödenmişse o seviyenin bedeli TAM iade */
-  socket.on('cancel_equipment_upgrade', ({ buildingType, orderId }) => {
+  socket.on('cancel_equipment_upgrade', ({ buildingType, orderId } = {}) => {
     const kuyruk = v().upgradeQueues?.[buildingType];
     if (!kuyruk) return;
     const i = kuyruk.findIndex(o => o.id === orderId);
@@ -2872,7 +2905,7 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
-  socket.on('cancel_unit_order', ({ buildingType, orderId }) => {
+  socket.on('cancel_unit_order', ({ buildingType, orderId } = {}) => {
     const queue = v().unitQueues?.[buildingType];
     if (!queue) return;
     const idx = queue.findIndex(o => o.id === orderId);
@@ -2890,7 +2923,7 @@ io.on('connection', async socket => {
   // İptalde harcanan kaynak TAM iade edilir, inşaat işçileri havuza döner.
   // İlk inşaat iptal edilirse bina/tile tamamen kaldırılır.
 
-  socket.on('cancel_production_build', ({ slotKey }) => {
+  socket.on('cancel_production_build', ({ slotKey } = {}) => {
     const b = v().productionTiles[slotKey];
     if (!b || !b.upgrading) return;
     const def = BUILDING_DEFS[b.type];
@@ -2915,7 +2948,7 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
-  socket.on('cancel_village_build', ({ slotKey }) => {
+  socket.on('cancel_village_build', ({ slotKey } = {}) => {
     const b = v().villageBuildings[slotKey];
     if (!b || !b.building) return;
     const def = VILLAGE_DEFS[b.type];
