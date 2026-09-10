@@ -202,7 +202,9 @@ function VillageFrame({
   const mark  = (key) => (selected === key ? '#f0c860' : hovered === key ? C.ice : null);
 
   // ── Yollar: hücre kenarları boyunca (binaların arası) ──
-  const roadW = Math.max(3, 0.22 * S);
+  /* Yollar hem çok genişti hem toprak rengiydi; genişlik yarıya indi
+     ve renkler kara döndü — bkz. YOLLAR bloğu. */
+  const roadW = Math.max(2, 0.11 * S);
   const roadSegs = useMemo(() => {
     const seen = new Set(), out = [];
     for (const { q, r } of ALL_SLOTS) {
@@ -301,17 +303,17 @@ function VillageFrame({
         {roadSegs.map(([p1, p2], i) => (
           <line key={`a${i}`} x1={p1[0].toFixed(1)} y1={p1[1].toFixed(1)}
             x2={p2[0].toFixed(1)} y2={p2[1].toFixed(1)}
-            stroke="#241d13" strokeWidth={roadW + 4} strokeLinecap="round" />
+            stroke="rgba(14,26,38,0.55)" strokeWidth={roadW + 3} strokeLinecap="round" />
         ))}
         {roadSegs.map(([p1, p2], i) => (
           <line key={`b${i}`} x1={p1[0].toFixed(1)} y1={p1[1].toFixed(1)}
             x2={p2[0].toFixed(1)} y2={p2[1].toFixed(1)}
-            stroke="#6b5c42" strokeWidth={roadW} strokeLinecap="round" />
+            stroke="#7e94a6" strokeWidth={roadW} strokeLinecap="round" />
         ))}
         {roadSegs.map(([p1, p2], i) => (
           <line key={`c${i}`} x1={p1[0].toFixed(1)} y1={p1[1].toFixed(1)}
             x2={p2[0].toFixed(1)} y2={p2[1].toFixed(1)}
-            stroke="#83734f" strokeWidth={Math.max(1, roadW * 0.42)} strokeLinecap="round" />
+            stroke="#a6bccc" strokeWidth={Math.max(1, roadW * 0.42)} strokeLinecap="round" />
         ))}
       </g>
     </g>
@@ -331,7 +333,9 @@ function VillageWall({
   const { thick, band, wallR, villageR } = frameGeom(surLv, henLv);
   const WALL  = bigHex(wallR, cx, cy);
   const mark  = (key) => (selected === key ? '#f0c860' : hovered === key ? C.ice : null);
-  const roadW = Math.max(3, 0.22 * S);
+  /* Yollar hem çok genişti hem toprak rengiydi; genişlik yarıya indi
+     ve renkler kara döndü — bkz. YOLLAR bloğu. */
+  const roadW = Math.max(2, 0.11 * S);
 
   /**
    * MAZGAL DİŞLERİ — eskiden surun üstüne dizilmiş yuvarlak noktalardı ve
@@ -397,7 +401,7 @@ function VillageWall({
             strokeWidth={thick} strokeLinejoin="round" />
           {merlons}
           {/* kapı + kapıdan çıkan yol */}
-          <line x1={gp[0]} y1={gp[1]} x2={gOut[0]} y2={gOut[1]} stroke="#6b5c42" strokeWidth={roadW + 3} />
+          <line x1={gp[0]} y1={gp[1]} x2={gOut[0]} y2={gOut[1]} stroke="#7e94a6" strokeWidth={roadW + 3} />
           <line x1={g1[0]} y1={g1[1]} x2={g2[0]} y2={g2[1]} stroke="#2a1c10" strokeWidth={thick * 1.6} />
           <line x1={g1[0]} y1={g1[1]} x2={g2[0]} y2={g2[1]} stroke="#6b4a28" strokeWidth={thick * 1.15} />
         </g>
@@ -847,9 +851,14 @@ export default function VillageCenter({
           transition: pinch.dragging ? 'none' : 'transform .12s ease-out',
         }}>
           <defs>
+            {/*
+              Köy zemini yeşil çimendi ve arayüzün nordic buz paletiyle
+              çarpışıyordu. Artık karlı-buzlu soğuk mavi: ortada ışık alan
+              açık buz, kenarlarda gölgeli lacivert.
+            */}
             <radialGradient id="vc-ground" cx="50%" cy="50%" r="55%">
-              <stop offset="0%" stopColor="#3a5230" stopOpacity="0.85" />
-              <stop offset="100%" stopColor="#1c2a18" stopOpacity="0.5" />
+              <stop offset="0%" stopColor="#3c5872" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#16232f" stopOpacity="0.55" />
             </radialGradient>
             <linearGradient id="vc-water" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#12384d" />
@@ -894,18 +903,18 @@ export default function VillageCenter({
               : building ? (building.type === 'anaBina' ? 'anaBina' : VILLAGE_DEFS[building.type]?.category || '')
               : '';
 
-            let fill = isRing3 ? '#26361f' : '#2f4a28';
+            let fill = isRing3 ? '#1e2d3b' : '#284054';
             if (isCenter) fill = CAT_FILL.merkez;
             else if (isTower) fill = '#2a3a44';
-            else if (building) fill = CAT_FILL[cat] || '#2f4a28';
+            else if (building) fill = CAT_FILL[cat] || '#284054';
 
             const edge = CAT_EDGE[cat] || C.lineBright;
             const stroke = isSelected || isHovered ? edge
               : isTower ? 'rgba(143,188,255,0.6)'
               : isCenter ? '#f0c860'
               : building ? `${edge}88`
-              : isRing3 ? 'rgba(150,180,120,0.25)'
-              : 'rgba(150,190,120,0.4)';
+              : isRing3 ? 'rgba(150,186,220,0.25)'
+              : 'rgba(158,200,234,0.4)';
             const sw = isSelected ? 3.2 : isHovered ? 3 : isCenter ? 2.4 : 1.4;
 
             const tex = isCenter ? MERKEZ_IMG : (building ? BUILDING_TEXTURE[building.type] : null);

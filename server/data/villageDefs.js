@@ -137,7 +137,7 @@ const VILLAGE_DEFS = {
   // ── Depo ────────────────────────────────────────────────────────
   hammaddeDepo: { cpPerLevel:1,
     name:'Hammadde Deposu', category:'depo', icon:'📦',
-    description:'Ham odun, kil, taş, demir ve tahıl depolar.',
+    description:'Ham odun, kil, taş ve demir depolar.',
     unique:true, repeatableWhenMaxed:true, maxLevel:20,
     stores:['odun','kil','tas','demir'],
     baseCapacity:3000, capacityPerLevel:1500,

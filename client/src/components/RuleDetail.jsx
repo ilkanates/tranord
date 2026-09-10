@@ -30,6 +30,13 @@ const GRAIN_PER_HORSE_PER_DAY   = 3;
 const HOURS_PER_DAY             = 24;
 // server/index.js — getMaxProductionSlots
 const TARLA_TAVANI = (anaBinaLvl) => Math.min(16, 5 + anaBinaLvl);
+// server/game/army.js
+const RAID_LOOT_SHARE = 0.5;
+const LOOTABLE = [
+  'odun', 'kil', 'tas', 'demir', 'tahil',
+  'kereste', 'tugla', 'yontmaTas', 'demirKulce', 'un', 'ekmek',
+];
+const MIN_MARCH_MINUTES = 1;
 
 const say = (n) => Math.round(n).toLocaleString('tr-TR');
 
@@ -505,6 +512,87 @@ function Koyler() {
   );
 }
 
+function Sefer({ unitDefs = {} }) {
+  const birimler = Object.entries(unitDefs)
+    .filter(([, d]) => (d.stats?.kapasite || 0) > 0)
+    .sort((a, b) => (b[1].stats?.kapasite || 0) - (a[1].stats?.kapasite || 0));
+  const enIyiTasiyici = birimler[0];
+  const izciler = Object.entries(unitDefs)
+    .filter(([, d]) => (d.stats?.kapasite || 0) >= 100 && (d.stats?.saldiri || 0) <= 10);
+  const hizlar = Object.entries(unitDefs)
+    .filter(([, d]) => (d.stats?.hiz || 0) > 0)
+    .sort((a, b) => (a[1].stats?.hiz || 0) - (b[1].stats?.hiz || 0));
+  const enYavas = hizlar[0], enHizli = hizlar[hizlar.length - 1];
+
+  return (
+    <>
+      <P>
+        Sefer üç modda gider. Fark yalnız <b>ne kadar yağmalanabildiği</b> ve
+        kimin gidebildiği; savaş hesabı üçünde de aynı.
+      </P>
+      <Sat k="Yağma" v={`hedefin stoğunun %${RAID_LOOT_SHARE * 100}`}
+        not="Kısa vuruş: köyü boşaltmaz, sık sık tekrarlanır." />
+      <Sat k="Tam saldırı" v="stoğun tamamı"
+        not="Bütün depoyu hedefler; karşı taraf savunmasını toplamışsa kayıp da büyük olur." />
+      <Sat k="Keşif" v="ganimet yok"
+        not={izciler.length
+          ? `Yalnız yük taşıyan ama savaşmayan birimler: ${izciler.map(([, d]) => d.name).join(', ')}.`
+          : 'Yalnız yük taşıyan ama savaşmayan birimler.'} />
+
+      <Baslik icon="ordu" renk="#8fbcff">Ganimet ne kadar</Baslik>
+      <Kutu baslik="Taşıyan hayatta kalanlardır" renk="#8fbcff">
+        Ganimet, savaştan <b>sağ çıkan</b> birimlerin taşıma kapasitesi
+        kadardır — gönderdiğin ordu değil, dönen ordu. Ağır kayıp verdiysen
+        hedefin deposu dolu olsa bile az mal getirirsin.
+      </Kutu>
+      <P>
+        İki tavan aynı anda geçerli: <b>taşıma kapasitesi</b> ve <b>moda göre
+        yağmalanabilir stok</b>. Hangisi küçükse o belirler — 5.000 kapasiteyle
+        gidip hedefte 2.000 bulursan yağmada en fazla 1.000 alırsın.
+      </P>
+      {enIyiTasiyici && (
+        <>
+          <div style={lbl({ fontSize: 8, margin: '10px 0 3px' })}>Birim başına kapasite</div>
+          {birimler.map(([k, d]) => (
+            <Sat key={k} k={d.name} v={`${say(d.stats.kapasite)} birim`} />
+          ))}
+        </>
+      )}
+      <P>
+        Alınan mal tek kaynağı süpürmez: hedefin deposunda hangi kaynaktan ne
+        oranda varsa yük o oranda dağıtılır. {LOOTABLE.length} kaynağın hepsi
+        yağmalanabilir — ham maddeler, işlenmiş mallar, un ve ekmek dâhil.
+      </P>
+
+      <Baslik icon="depo" renk="#ff6f78">Eve dönüş</Baslik>
+      <Kutu baslik="Sığmayan mal çöp olur" renk="#ff6f78">
+        Ordu deponda yer olup olmadığına bakmadan yükler. Eve varışta depo
+        tavanını aşan kısım <b>kaybolur</b> ve savaş raporunda ne kadarının
+        ziyan olduğu yazar. Büyük yağmadan önce depo yükseltmek işin parçası.
+      </Kutu>
+
+      <Baslik icon="harita" renk="#7fd4ff">Süre</Baslik>
+      <P>
+        Hız = <b>saatte kaç hex</b>. Sefer süresini <b>en yavaş birim</b>
+        belirler, yani hızlı süvariyi yavaş piyadeyle göndermek ikisini de
+        yavaşlatır. Gidiş ve dönüş ayrı ayrı sayılır.
+      </P>
+      {enYavas && enHizli && (
+        <>
+          <Sat k={`En yavaş — ${enYavas[1].name}`} v={`${enYavas[1].stats.hiz} hex/sa`} />
+          <Sat k={`En hızlı — ${enHizli[1].name}`} v={`${enHizli[1].stats.hiz} hex/sa`} />
+          <Sat k="En kısa sefer" v={`${MIN_MARCH_MINUTES} dk`}
+            not="Bitişik köye bile en az bu kadar sürer." />
+        </>
+      )}
+      <P>
+        Sefer süresi oyun saatine bağlı, gerçek saate değil: dünya hızı
+        değişince seferler de aynı oranda hızlanır.
+      </P>
+    </>
+  );
+}
+
 /* ── dışa açılan tablo ────────────────────────────────────────────── */
 
 export const RULE_PAGES = {
@@ -515,6 +603,7 @@ export const RULE_PAGES = {
   depo:    { name: 'Depolar',             icon: 'depo',   Comp: Depo },
   seviye:  { name: 'Seviye tavanları',    icon: 'yukari', Comp: Seviye },
   ordu:    { name: 'Ordu ve birimler',    icon: 'ordu',   Comp: Ordu },
+  sefer:   { name: 'Saldırı ve yağma',    icon: 'savas',  Comp: Sefer },
   savunma: { name: 'Savunma bonusu',      icon: 'sur',    Comp: Savunma },
   koyler:  { name: 'Köyler ve kültür',    icon: 'koy',    Comp: Koyler },
 };
