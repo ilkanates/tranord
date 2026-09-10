@@ -44,10 +44,13 @@ coverage/
 
 # Yerel gelistirme verisi — hesap sifre hash'i ve 1.7 MB dunya kaydi icerir,
 # repoya girmemeli. Silinirse sunucu ilk acilista yeniden olusturur.
-server/.dev-data.json
-*.dev-data.json
-*.dev-data.YEDEK-*.json
-.dev-data.YEDEK-*.json
+# DIKKAT: asagidaki desenler NOKTA ile baslayan adlari da kapsamali.
+# Eskiden yalniz "*.dev-data.json" vardi; ".dev-data.yedek.json" ve
+# ".dev-data.yedek2.json" bu desene UYMADIGI icin depoya girdiler.
+# Artik ".dev-data" ile baslayan her sey disarida.
+server/.dev-data*
+.dev-data*
+*.dev-data*
 
 # Gecici aktarim paketleri ve arac ciktilari
 *.tar.gz
@@ -57,3 +60,7 @@ Claude outputs/
 # Repoyu ve klonlamayi sisirirdi; sunucuya ayrica kopyalaniyor.
 # Yerler: client/public/muzik/  -> sunucuda ayni yola koy
 client/public/muzik/*.mp3
+
+# Commit yardimcilari (oturumluk, depoya girmez)
+commit-msg*.txt
+commit*.ps1
