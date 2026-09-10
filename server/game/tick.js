@@ -524,8 +524,13 @@ function processUpgradeQueues(village, now) {
     const mevcut = village.equipmentLevels[eq] || 0;
     if (mevcut >= EQUIPMENT_MAX_LEVEL) { queue.shift(); continue; }
 
+    // İŞÇİ SAYISI if/else'in ÜSTÜNDE: else dalı (isciyeGoreOlcekle) da
+    // kullanıyor. İçeride kalınca yükseltme başladıktan sonra her tick
+    // "ReferenceError: isci is not defined" atıyordu (araştırmadaki
+    // hatanın aynısı).
+    const isci = b.workers || 0;
+
     if (job.waiting || !job.startTime) {
-      const isci = b.workers || 0;
       if (isci <= 0) { job.waiting = true; job.waitingReason = 'isci_yok'; continue; }
       if (!job.paid) {
         const cost = equipmentUpgradeCost(mevcut);
@@ -578,12 +583,21 @@ function processResearchQueue(village, now) {
     return;
   }
 
+  /*
+    ARAŞTIRMACI SAYISI if/else'in ÜSTÜNDE tanımlı olmak ZORUNDA.
+    Eskiden `const arastirmaci` if bloğunun içindeydi ama aşağıdaki
+    else dalı (isciyeGoreOlcekle) da onu kullanıyordu: iş başladıktan
+    sonra her tick "ReferenceError: arastirmaci is not defined" atıp
+    tick'i çökertiyordu. Belirti: asker araştırmaya başlayınca sunucu
+    ölüyor, istemci "sunucu bağlantısı kopuk" diyor.
+  */
+  const arastirmaci = salon.workers || 0;
+
   if (job.waiting || !job.startTime) {
     if (salon.level < arastirma.level) {
       job.waiting = true; job.waitingReason = 'salon_seviyesi_dusuk';
       return;
     }
-    const arastirmaci = salon.workers || 0;
     if (arastirmaci <= 0) {
       job.waiting = true; job.waitingReason = 'arastirmaci_yok';
       return;
