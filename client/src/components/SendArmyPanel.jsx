@@ -33,7 +33,9 @@ const ERR = {
   kendi_koyun: 'Kendi köyüne saldıramazsın.',
   sefer_limiti: 'Aynı anda daha fazla sefer yürütemezsin.',
   gecersiz_hedef: 'Bu hedefe sefer açılamaz.',
-  oyuncu_hedefi_kapali: 'Oyuncu köylerine saldırı henüz kapalı.',
+  // PvP açıldı; sunucu bu sebebi artık göndermiyor ama eski istemciler
+  // ya da yolda kalmış bir paket için karşılığı duruyor.
+  oyuncu_hedefi_kapali: 'Oyuncu köylerine saldırı kapalı.',
   gecersiz_mod: 'Geçersiz sefer türü.',
   bilinmeyen_birim: 'Bilinmeyen birim.',
   yetersiz_asker: 'O kadar askerin yok.',

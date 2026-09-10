@@ -560,6 +560,15 @@ export function ForeignVillagePanel({
             <Row k="Puan" v={short(v.score)} c={C.textDim} />
           </>
         )}
+        {/*
+          OYUNCU köyünün savunması KASTEN gizli: sunucu sur/hendek
+          seviyesini yollamıyor. Öğrenmenin tek yolu izci göndermek —
+          keşif birimini anlamlı kılan şey bu. Boş "0 / 0" satırı
+          göstermek yanlış bilgi olurdu, onun yerine niye yok yazıyor.
+        */}
+        {v.kind === 'player' && !intel && (
+          <Row k="Sur / hendek" v="bilinmiyor" c={C.textMute} />
+        )}
 
         {ratio != null && (
           <div style={{
@@ -600,7 +609,17 @@ export function ForeignVillagePanel({
             background: 'rgba(143,220,255,0.06)', border: `1px solid ${C.lineSoft}`,
             fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.5,
           }}>
-            Oyuncu köylerine saldırı henüz kapalı — şimdilik yalnız NPC köyleri hedef olabilir.
+            Bu köy hedef alınamaz.
+          </div>
+        )}
+        {/* Oyuncu köyüne saldırıyorsa keşif uyarısı — savunması gizli */}
+        {canAttack && v.kind === 'player' && !intel && (
+          <div style={{
+            marginTop: 6, fontFamily: FONT.ui, fontSize: 9, lineHeight: 1.5,
+            color: C.textFaint,
+          }}>
+            Savunmasını bilmiyorsun. Önce izci gönderirsen suru, hendeği
+            ve deposunu görürsün.
           </div>
         )}
       </div>

@@ -1826,7 +1826,12 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
       {selVillage && popoverPos && (
         <ForeignVillagePanel v={selVillage} myArmy={myArmy} popoverPos={popoverPos}
           intel={intel[selVillage.key] || null}
-          canAttack={selVillage.kind === 'npc'}
+          /*
+            PvP AÇIK: NPC ve başka oyuncuların köyleri hedef olabilir.
+            'self' kendi köyün — panel zaten açılmıyor, sunucu da
+            sahibe bakıp reddediyor (kendi_koyun).
+          */
+          canAttack={selVillage.kind === 'npc' || selVillage.kind === 'player'}
           onAttack={() => { setSendTarget(selVillage); setSelVillage(null); }}
           onClose={() => setSelVillage(null)} />
       )}

@@ -156,8 +156,31 @@ function uniqueOwnersOf(session) {
 }
 
 /** Arayüzdeki köy değiştirici için hafif liste */
+/**
+ * Verilen slotlara YÜRÜMEKTE OLAN düşman sefer sayıları — TEK geçişte.
+ *
+ * incomingMarchesFor() her çağrıda dünyadaki bütün seferleri tarıyor;
+ * köy listesinde köy başına bir kez çağırmak N kat maliyet demekti.
+ * Burada bütün seferler bir kez geziliyor, ilgilenilen slotlar sayılıyor.
+ */
+function gelenSeferSayilari(slotKeys) {
+  const say = new Map();
+  if (!slotKeys.size) return say;
+  for (const entry of marchingVillages()) {
+    for (const m of entry.village.marches || []) {
+      if (m.phase !== 'outbound' || m.mode === 'yerlesim') continue;
+      if (!slotKeys.has(m.toKey)) continue;
+      // Kendi köyünden kendi köyüne takviye uyarı sayılmaz
+      if (slotKeys.has(m.fromKey)) continue;
+      say.set(m.toKey, (say.get(m.toKey) || 0) + 1);
+    }
+  }
+  return say;
+}
+
 function villageList(session) {
   const out = [];
+  const gelen = gelenSeferSayilari(new Set(session.villages.keys()));
   for (const [slotKey, v] of session.villages) {
     const slot = WORLD.slotByKey.get(slotKey);
     out.push({
@@ -175,6 +198,21 @@ function villageList(session) {
       r: slot?.r ?? v.worldR ?? 0,
       building: Object.values(v.villageBuildings || {}).some(b => b.building),
       starving: !!v.isStarving,
+      /**
+       * SALDIRI UYARISI — çoklu köyde hayati.
+       *
+       * Rapor listesi ve gelen sefer uyarısı yalnız AKTİF köyün paketinde
+       * gidiyor. Oyuncuya saldırılan köy o an aktif değilse hiçbir şey
+       * görmüyordu: ordusu eriyor, kaynağı gidiyor, haberi olmuyor.
+       *
+       * `incoming`  : şu an bu köye yürüyen düşman sefer sayısı
+       * `reportIds` : bu köyün en yeni raporlarının kimlikleri — okunmuş
+       *               işareti istemcide (localStorage) tutulduğu için
+       *               sayıyı sunucu hesaplayamıyor; kimlikleri verince
+       *               istemci okunmamışı köy köy kendisi buluyor.
+       */
+      incoming: gelen.get(slotKey) || 0,
+      reportIds: (v.reports || []).slice(0, 15).map(r => r.id),
     });
   }
   return out.sort((a, b) => (b.isCapital - a.isCapital) || a.slotKey.localeCompare(b.slotKey));
@@ -1005,6 +1043,21 @@ function questFingerprint(session) {
   return `${st.claimed.length}|${st.done.length}|${st.hidden ? 'H' : ''}|${aktif ? aktif.id + aktif.olculen : ''}`;
 }
 
+/**
+ * AKTİF OLMAYAN köylerin uyarı durumu — gelen sefer sayısı ve en yeni
+ * rapor kimliği. structFingerprint yalnız aktif köye baktığı için
+ * arkadaki köye saldırı geldiğinde paket gitmiyordu.
+ */
+function digerKoyFingerprint(session) {
+  const gelen = gelenSeferSayilari(new Set(session.villages.keys()));
+  let s = '';
+  for (const [k, v] of session.villages) {
+    if (k === session.activeSlot) continue;
+    s += `|${k}:${gelen.get(k) || 0}:${(v.reports || [])[0]?.id || '-'}`;
+  }
+  return s;
+}
+
 function structFingerprint(v) {
   const q = v.unitQueues || {}, eq = v.equipmentQueues || {};
   const up = v.upgradeQueues || {};
@@ -1054,7 +1107,13 @@ function emitVillage(session, { force = false, statics = false } = {}) {
   if (!sockets || sockets.size === 0) return;
   const sock = io.to(room);
   const v = session.village;
-  const fp = structFingerprint(v) + '#' + questFingerprint(session);
+  /*
+    Parmak izine DİĞER köylerin de saldırı durumu giriyor: yoksa aktif
+    olmayan bir köye ordu yürüdüğünde ekran 30 saniyelik kalp atışını
+    bekliyordu. Uyarı geciktiğinde işe yaramıyor.
+  */
+  const fp = structFingerprint(v) + '#' + questFingerprint(session)
+    + '#' + digerKoyFingerprint(session);
   const nowReal = Date.now();
   const beat = nowReal - (session.lastEmitAt || 0) >= FULL_SYNC_MS;
   if (!force && !beat && fp === session.fp) return;
@@ -1473,6 +1532,15 @@ const NPC_RAID_CHANCE       = 0.06;
  */
 const PROTECT_MIN_ARMY = 20;
 
+/**
+ * HEDEF KÖYÜ BELLEKTE BULUNAMAZSA kaç OYUN SAATİ beklenir.
+ *
+ * Açılışta her oyuncunun köyü yükleniyor, yani bu yalnız kayıtlı ama hiç
+ * oynamamış hesabın slotuna denk gelir. Süre dolunca ordu eve döner —
+ * eskiden sonsuza kadar bekliyor, oyuncu ordusunu kalıcı kaybediyordu.
+ */
+const HEDEF_BEKLEME_SAAT = 6;
+
 let lastNpcRaidAt = 0;
 
 /** slotKey → köy nesnesi. Çevrimdışı oyuncu için village null döner. */
@@ -1684,9 +1752,29 @@ function processMarches(hours) {
           continue;
         }
         const tgt = villageAtSlot(m.toKey);
-        // Hedef oyuncu çevrimdışıysa köyü bellekte yok — sefer BEKLETİLİR,
-        // oyuncu girdiğinde çözülür. Boş savunmaya vurmak haksız olurdu.
-        if (tgt && tgt.offline) { m.remainingHours = 0; continue; }   // beklet
+        /**
+         * HEDEF KÖYÜ BELLEKTE YOK.
+         *
+         * Açılışta HER oyuncunun köyü belleğe yükleniyor ve çevrimdışıyken
+         * de tick alıyor (bkz. bootServer + global tick), yani bu dal
+         * neredeyse hiç işlemiyor. İşlediği tek durum: kayıtlı ama hiç
+         * oynanmamış hesabın slotu — köy satırı yer tutucu.
+         *
+         * ESKİDEN sefer sonsuza kadar bekletiliyordu (`remainingHours = 0`
+         * her tick yeniden sıfırlanıyor, zaman aşımı yok): ordu ne
+         * dönüyor ne savaşıyordu, oyuncu ordusunu kalıcı kaybediyordu.
+         * Artık bir süre beklenip ordu EVE YOLLANIYOR ve raporda sebebi
+         * yazıyor.
+         */
+        if (tgt && tgt.offline) {
+          m.bekleyenSaat = (m.bekleyenSaat || 0) + hours;
+          if (m.bekleyenSaat < HEDEF_BEKLEME_SAAT) { m.remainingHours = 0; continue; }
+          // Süre doldu: hedefi YOK say. resolveArrival(target=null) zaten
+          // orduyu eve yollayıp "hedef_yok" raporunu yazıyor.
+          ARMY.resolveArrival(m, v, null, { targetName: tgt.name });
+          entry.dirty();
+          continue;
+        }
         ARMY.resolveArrival(m, v, tgt?.village || null, { targetName: tgt?.name });
         entry.dirty();
         if (tgt?.userId) markUserDirty(tgt.userId, m.toKey);
@@ -2823,10 +2911,30 @@ io.on('connection', async socket => {
       }
       tgtSlot = ensureSlot(uygun.q, uygun.r); tgtKind = 'bos'; tgtName = tgtSlot.name;
     } else {
-      // FAZ 1: yalnız NPC köyleri hedef olabilir
-      const tgt = WORLD.npcs.get(targetKey);
-      if (!tgt) return fail(WORLD.playerBySlot.has(targetKey) ? 'oyuncu_hedefi_kapali' : 'gecersiz_hedef');
-      tgtSlot = tgt.slot; tgtKind = 'npc'; tgtName = tgt.slot.name;
+      /**
+       * HEDEF ÇÖZÜMÜ — NPC ya da OYUNCU köyü.
+       *
+       * Eskiden yalnız WORLD.npcs'e bakılıyordu (faz 1). Boru hattının
+       * geri kalanı zaten hedef cinsinden bağımsız: villageAtSlot iki
+       * türü de çözüyor, resolveArrival iki tarafa da rapor yazıyor,
+       * yağma ve kayıplar savunanın köyüne işleniyor. Tek engel buydu.
+       */
+      const npc = WORLD.npcs.get(targetKey);
+      if (npc) {
+        tgtSlot = npc.slot; tgtKind = 'npc'; tgtName = npc.slot.name;
+      } else {
+        const p = WORLD.playerBySlot.get(targetKey);
+        const slot = p ? WORLD.slotByKey.get(targetKey) : null;
+        if (!p || !slot) return fail('gecersiz_hedef');
+        /*
+          KENDİ KÖYÜNE SALDIRAMAZSIN.
+          Yukarıdaki `targetKey === mySlot` yalnız AKTİF köyü karşılaştırıyor;
+          çoklu köyde oyuncu ikinci köyünü kendine çiftlik yapabilirdi
+          (yağma kendi kaynağını taşımak olurdu). Sahibe bakmak gerekiyor.
+        */
+        if (p.userId === userId) return fail('kendi_koyun');
+        tgtSlot = slot; tgtKind = 'player'; tgtName = p.name || slot.name;
+      }
     }
 
     const dist = W.distanceBetween(me, tgtSlot);
