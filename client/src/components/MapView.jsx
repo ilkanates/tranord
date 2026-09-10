@@ -358,7 +358,8 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worke
     const sp = _sprites[key];
     if (sp) ctx.drawImage(sp, x - S, y - S, S * 2, S * 2);
     owned.push([x, y, owner]);
-    if (owner.tile && showBadge) labels.push([x, y, owner.tile[1]]);
+    // Seviye 0 = yabancı köyün tarlası (sunucu seviyeyi göndermiyor): rozet yok
+    if (owner.tile && showBadge && owner.tile[1] > 0) labels.push([x, y, owner.tile[1]]);
   }
 
   // 2) sahiplik tonları — renge göre gruplanmış tek fill
@@ -685,6 +686,13 @@ const SETTLE_ERR = {
  */
 function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs, engel = null,
   sunucuHatasi = null, box = { w: 900, h: 700 },
+  /*
+    DOKUNMATIK: "Sahibi" ve "arazi bonusu" bilgisi eskiden YALNIZ fareyle
+    uzerine gelince cikan kartta vardi. Parmakla dokununca hover kartı hic
+    olusmuyor, dokunma dogrudan bu paneli aciyordu — yani telefonda arazinin
+    kime ait oldugu hicbir yerde gorunmuyordu. Artik panelin kendisi yaziyor.
+  */
+  owner = null, bonus = null, ownerColor = null,
   hourSeconds, worldSpeed, onSend, onClose }) {
   const hiz = unitDefs?.gocmen?.stats?.hiz || 5;
   const secs = gameMinutesToRealSeconds(Math.max(10, (distance / hiz) * 60),
@@ -738,6 +746,32 @@ function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs, engel = null,
           Göçmen {gocmen}/{gerekli}
         </span>
         <span style={num({ fontSize: 10, color: C.iceDeep })}>{fmtTime(secs)}</span>
+      </div>
+
+      {/* Arazi künyesi — dokunmatikte hover kartının yerini tutar */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: '3px 12px', marginBottom: 9,
+        padding: '5px 8px', borderRadius: 5,
+        background: 'rgba(8,14,24,0.55)', border: `1px solid ${C.lineSoft}`,
+      }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint }}>Sahibi</span>
+          <span style={{
+            fontFamily: FONT.ui, fontSize: 9.5,
+            color: owner ? (ownerColor || C.frost) : C.good,
+          }}>
+            {owner
+              ? (owner.kind === 'player' && owner.owner
+                ? `${owner.name} · ${owner.owner}` : owner.name)
+              : 'sahipsiz'}
+          </span>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint }}>Arazi bonusu</span>
+          <span style={num({ fontSize: 9.5, color: bonus ? C.warn : C.textMute })}>
+            {bonus ? `+%${bonus.amount} ${RES_LABEL[bonus.resource] || bonus.resource}` : 'yok'}
+          </span>
+        </span>
       </div>
 
       {(engel || sunucuHatasi) ? (
@@ -1410,10 +1444,12 @@ export default function MapView({
       const ratio = myArmy && v.army ? v.army / Math.max(1, myArmy) : null;
       return {
         title: v.name,
-        sub: `${v.kind === 'player' ? 'oyuncu' : v.tierLabel} · ${v.key}`,
+        // Oyuncu köyünde SAHİBİNİN adı; NPC'de kademe etiketi
+        sub: `${v.kind === 'player' ? (v.owner || 'oyuncu') : v.tierLabel} · ${v.key}`,
         icon: 'koy',
         iconColor: colorOf(v),
         rows: [
+          ...(v.kind === 'player' && v.owner ? [['Sahibi', v.owner, PLAYER_COL.line]] : []),
           ['Mesafe', v.distance != null ? `${v.distance} hex` : '—', C.iceSoft],
           ['Nüfus', v.population != null ? short(v.population) : '—'],
           ['Ordu', v.army != null ? short(v.army) : '—',
@@ -1433,10 +1469,13 @@ export default function MapView({
         iconColor: bonus ? TYPE_EDGE[bonus.resource] : C.textFaint,
         rows: [
           ['Arazi bonusu', bonus ? `+%${bonus.amount}` : 'yok', bonus ? C.warn : C.textMute],
+          // Sahibi = KÖYÜN adı; oyuncu köyündeyse sahibinin adı da ayrı satır
           ['Sahibi', owner ? owner.name : 'sahipsiz', owner ? colorOf(owner) : C.good],
+          ...(owner?.kind === 'player' && owner.owner
+            ? [['Oyuncu', owner.owner, PLAYER_COL.line]] : []),
         ],
         note: owner
-          ? `${owner.kind === 'player' ? 'Oyuncu' : owner.tierLabel} köyünün toprağı.`
+          ? `${owner.kind === 'player' ? (owner.owner || 'Oyuncu') : owner.tierLabel} köyünün toprağı.`
           : 'Boş arazi — 3 göçmenle buraya köy kurulabilir.',
       };
     }
@@ -1797,6 +1836,12 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           distance={hexDistance(selEmpty.q - wq, selEmpty.r - wr)}
           gocmen={gocmenSayisi} gerekli={GOCMEN_GEREKLI}
           box={size}
+          {...(() => {
+            // Hover kartındaki "Sahibi / Arazi bonusu" ile aynı kaynak
+            const o = tileOwners.get(selEmpty.key)?.v || null;
+            return { owner: o, ownerColor: o ? colorOf(o) : null,
+              bonus: worldTileBonus(selEmpty.q, selEmpty.r) };
+          })()}
           /*
             Sunucu zaten denetliyor; buradaki ön-denetim yalnız düğmeyi
             kapatıp sebebini yazsın diye. Kendi köylerime mesafe sınırı yok.

@@ -181,13 +181,22 @@ export function signed(n, digits = 1) {
  *
  * Gün YOK: 4 günlük bir iş 99:19:15 diye saat olarak yazılır (istenen bu).
  */
+/**
+ * Süre biçimi.
+ *  - Bir dakikanın altı: "50 sn" (eskiden yalnız "50" yazıyor, seviye
+ *    ya da adet sanılıyordu).
+ *  - Üstü: 2:05 / 1:02:05 — dakika ve saniye İKİ HANE (eskiden "1:2:5"
+ *    çıkıyordu, okunmuyordu).
+ */
+const iki = (n) => String(n).padStart(2, '0');
+
 export function fmtTime(seconds) {
   if (!isFinite(seconds) || seconds <= 0) return '—';
   const t = Math.ceil(seconds);
   const h = Math.floor(t / 3600);
   const m = Math.floor((t % 3600) / 60);
   const s = t % 60;
-  if (h > 0) return `${h}:${m}:${s}`;
-  if (m > 0) return `${m}:${s}`;
-  return `${s}`;
+  if (h > 0) return `${h}:${iki(m)}:${iki(s)}`;
+  if (m > 0) return `${m}:${iki(s)}`;
+  return `${s} sn`;
 }

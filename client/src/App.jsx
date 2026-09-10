@@ -5,6 +5,7 @@ import VillageCenter   from './components/VillageCenter';
 import HelpScreen      from './components/HelpScreen';
 import MusicButton     from './components/MusicButton';
 import VillageSwitcher from './components/VillageSwitcher';
+import { ProfileButton, NameGate } from './components/ProfilePanel';
 import DevMenu        from './components/DevMenu';
 import WorkerScreen   from './components/WorkerScreen';
 import { startMusic }  from './audio';
@@ -162,7 +163,7 @@ function scaleLabel(hourSeconds, mult) {
 }
 
 export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
-  villages = [], activeSlot = null, onSwitchVillage,
+  villages = [], activeSlot = null, onSwitchVillage, playerName = '',
   vp = { mobile: false, railW: 186 }, onOpenStatus }) {
   const dar = vp.mobile;
   return (
@@ -299,13 +300,13 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
             background: connected ? C.good : C.danger,
             boxShadow: `0 0 6px ${connected ? C.good : C.danger}`,
           }} />
-          {/* E-posta dar ekranda yer kaplıyor — bagli/kopuk noktasi yeter */}
-          {!dar && (
-            <span style={{
-              fontFamily: FONT.ui, fontSize: 10, color: C.textFaint,
-              maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{userEmail}</span>
-          )}
+          {/*
+            Eskiden burada E-POSTA yazıyordu. Artık oyuncu adı duruyor ve
+            tıklanabilir: profil penceresinden hem oyuncu adı hem aktif
+            köyün adı değiştiriliyor. Dar ekranda yalnız simge görünür.
+          */}
+          <ProfileButton socket={socket} playerName={playerName} email={userEmail}
+            villages={villages} activeSlot={activeSlot} dar={dar} />
           <button onClick={onLogout} title="Çıkış"
             style={{
               background: 'none', border: 'none', cursor: 'pointer', display: 'grid',
@@ -596,7 +597,15 @@ function Game({ token, onLogout }) {
         villages={village.villages || []}
         activeSlot={village.activeSlot || null}
         onSwitchVillage={switchVillage}
+        playerName={village.playerName || ''}
         vp={vp} onOpenStatus={() => setStatusOpen(o => !o)} />
+
+      {/*
+        İLK GİRİŞ: adı olmayan oyuncuya tek soruluk ekran. Sunucu
+        `adVerilmedi` diyorsa gösteriliyor; ad kabul edilince paket
+        güncelleniyor ve ekran kendiliğinden kapanıyor.
+      */}
+      {village.adVerilmedi && <NameGate socket={socket} email={userEmail} />}
 
       {/* Telefonda kaynak rayi ust barin ALTINDA yatay serit olur */}
       {vp.mobile && (

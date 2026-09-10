@@ -8,6 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { C, FONT, label as lbl, num } from '../theme';
+import { useViewport } from '../responsive';
 import Icon from './Icons';
 
 const stepBtn = (off) => ({
@@ -40,8 +41,17 @@ export default function WorkerAssign({
    * etki başlığın yanına küçük yazıyla girer. Poster görselinin üstündeki
    * şeritte tam boy denetim panelin yarısını kaplıyordu.
    */
-  compact = false,
+  compact: compactProp = false,
 }) {
+  /*
+    KOMPAKT artik iki kaynaktan gelebiliyor: cagiran bilesen acikca
+    istediyse (poster seridi) YA DA ekran dar ise. Eskiden yalniz
+    cagiranin verdigi prop'a bakiliyordu; mapPanels ve BuildMenu bu
+    prop'u hic gecmedigi icin telefonda ~150 px'lik sutuna tam boy
+    denetim siginiyordu.
+  */
+  const vp = useViewport();
+  const compact = compactProp || vp.mobile;
   const [local, setLocal] = useState(value);
   const [flash, setFlash] = useState(false);
   const commitRef = useRef(null);
@@ -147,20 +157,20 @@ export default function WorkerAssign({
 
       {/* Stepper + slider */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button type="button" style={{ ...stepBtn(atBottom), ...(compact ? { width: 20, height: 20, fontSize: 12 } : {}) }} disabled={atBottom}
+        <button type="button" className="tn-step" style={{ ...stepBtn(atBottom), ...(compact ? { width: 20, height: 20, fontSize: 12 } : {}) }} disabled={atBottom}
           onClick={() => push(local - 1, true)}>−</button>
         <input type="range" min={min} max={Math.max(min + 1, ceiling)} value={local}
           onChange={(e) => push(Number(e.target.value))}
           onPointerUp={() => push(local, true)}
           disabled={noRoom}
           style={{ flex: 1, minWidth: 30, height: 4 }} />
-        <button type="button" style={{ ...stepBtn(atTop), ...(compact ? { width: 20, height: 20, fontSize: 12 } : {}) }} disabled={atTop}
+        <button type="button" className="tn-step" style={{ ...stepBtn(atTop), ...(compact ? { width: 20, height: 20, fontSize: 12 } : {}) }} disabled={atTop}
           onClick={() => push(local + 1, true)}>+</button>
       </div>
 
       {/* Kısayollar + havuz — kompaktta gizli */}
       {!compact && (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
         {min === 0 && (
           <button type="button" style={quick(local === 0)} onClick={() => push(0, true)}>0</button>
         )}

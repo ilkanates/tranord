@@ -7,7 +7,7 @@ import BUILDING_DEFS from '../data/buildingDefs';
 import VILLAGE_DEFS from '../data/villageDefs';
 import { popoverStyle, popHeader, popBody, popCols, popCol } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed, short } from '../theme';
-import { RES_LABEL, gameMinutesToRealSeconds, gameHoursToRealSeconds } from '../flows';
+import { RES_LABEL, gameMinutesToRealSeconds, gameHoursToRealSeconds, maxBuilders } from '../flows';
 import { worldTileBonus, localEfficiency, fieldMultiplier, hexDistance } from '../data/worldConfig';
 import Icon from './Icons';
 import WorkerAssign from './WorkerAssign';
@@ -277,7 +277,8 @@ export function AnaBinaPanel({
               <ColLabel icon="insaat">Lvl {level + 1}’e yükselt</ColLabel>
               <CostRow cost={cost} resources={resources} flows={flows}
                 hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
-              <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={workers}
+              <WorkerAssign mode="pick" min={1}
+                max={Math.max(1, Math.min(freeWorkers, maxBuilders(level)))} value={workers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setWorkers}
                 effect={(w) => `süre ${fmtTime(w > 0
                   ? gameMinutesToRealSeconds(baseWork / w, hourSeconds, worldSpeed)
@@ -418,7 +419,8 @@ export function FieldPanel({
               <ColLabel icon="insaat">Lvl {tile.level + 1} · {next.workers} işçi kap.</ColLabel>
               <CostRow cost={next.cost} resources={resources} flows={flows}
                 hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
-              <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={buildWorkers}
+              <WorkerAssign mode="pick" min={1}
+                max={Math.max(1, Math.min(freeWorkers, maxBuilders(tile.level)))} value={buildWorkers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setBuildWorkers}
                 effect={(w) => `süre ${fmtTime(w > 0
                   ? gameMinutesToRealSeconds(next.sureSaat / w, hourSeconds, worldSpeed)
@@ -507,7 +509,8 @@ export function BuildFieldPanel({
               <ColLabel icon="insaat">Lvl 1 · {lvl1?.workers || 1} işçi kap.</ColLabel>
               <CostRow cost={lvl1?.cost} resources={resources} flows={flows}
                 hourSeconds={hourSeconds} worldSpeed={worldSpeed} />
-              <WorkerAssign mode="pick" min={1} max={Math.max(1, freeWorkers)} value={workers}
+              <WorkerAssign mode="pick" min={1}
+                max={Math.max(1, Math.min(freeWorkers, maxBuilders(0)))} value={workers}
                 freeWorkers={freeWorkers} title="İnşaat işçisi" onChange={setWorkers}
                 effect={(w) => `süre ${fmtTime(w > 0
                   ? gameMinutesToRealSeconds((lvl1?.sureSaat || 5) / w, hourSeconds, worldSpeed)
@@ -540,8 +543,10 @@ export function ForeignVillagePanel({
   return (
     <div style={popoverStyle(popoverPos, { width: 268 })} className="tn-rise">
       <PopHead icon="koy" iconColor={color} title={v.name}
-        sub={`${v.kind === 'player' ? 'oyuncu' : v.tierLabel} · ${v.key}`} onClose={onClose} />
+        /* Oyuncu köyünde sahibinin adı yazsın — 'oyuncu' bilgi vermiyor */
+        sub={`${v.kind === 'player' ? (v.owner || 'oyuncu') : v.tierLabel} · ${v.key}`} onClose={onClose} />
       <div style={{ ...popBody, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {v.kind === 'player' && v.owner && <Row k="Sahibi" v={v.owner} c={color} />}
         {v.distance != null && <Row k="Mesafe" v={`${v.distance} hex`} c={C.iceSoft} />}
         {v.population != null && <Row k="Nüfus" v={short(v.population)} />}
         {v.army != null && (

@@ -120,6 +120,40 @@ input[type='range']::-moz-range-thumb {
 }
 input[type='range']:disabled::-webkit-slider-thumb { background: #3f5670; box-shadow: none; }
 
+/*
+  DOKUNMATIK: dokunma hedefleri.
+
+  Butonlar masaustu yogunluguna gore yazildi — ARASTIR ~16 px, EGIT ~17 px,
+  kuyruk iptali 19 px, ± adet 20 px. Parmakla bunlar isabet etmiyor
+  (Apple/Google kilavuzu 44 px).
+
+  DUSEY buyutuyoruz (min-height), YATAYDA olculu (min-width: 36):
+  bir satirda yan yana 4-5 buton olan yerler (0 / ½ / TAM / havuz) 44 px
+  ile 375 px ekrana sigmiyordu. min-height satir ici `height: 20` gibi
+  degerleri de yener (min-height > height), o yuzden !important gerekmiyor.
+
+  Kural yalnizca `hover: none` altinda — masaustu gorunumu hic degismiyor.
+*/
+@media (hover: none) {
+  button,
+  [role='button'] {
+    min-height: 44px;
+    min-width: 36px;
+  }
+  /* Kaydiracin yaninda duran ± adimlayicilari kare kalsin */
+  button.tn-step {
+    min-width: 44px;
+  }
+  /* Adimlayicilarin arasindaki sayi kutusu da ayni boya gelsin,
+     yoksa cerceve icinde 44 px buton + 22 px kutu goruntusu bozuluyor */
+  input[type='number'],
+  input[type='text'],
+  input[type='email'],
+  input[type='password'] {
+    min-height: 44px;
+  }
+}
+
 /* ── Yardımcılar ─────────────────────────────────────────────── */
 @keyframes tn-pulse {
   0%, 100% { opacity: 1; }

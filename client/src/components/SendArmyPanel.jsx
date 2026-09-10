@@ -89,7 +89,7 @@ function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
           fontFamily: FONT.head, fontSize: 11.5, color: C.frost,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{def?.name || u}</div>
-        <div style={{ display: 'flex', gap: 7, marginTop: 1 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 1 }}>
           {/* Yükseltmelerle güncel saldırı (unitStatsNow) — temel değer değil */}
           <span style={num({ fontSize: 8.5, color: C.textMute })}>
             sal {st?.saldiri != null ? Math.round(st.saldiri) : '—'}
@@ -110,14 +110,15 @@ function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
       <input type="number" min={0} max={have} value={value} disabled={disabled}
         onChange={(e) => onChange(Math.max(0, Math.min(have, Math.floor(Number(e.target.value) || 0))))}
         style={{
-          width: 58, padding: '3px 5px', textAlign: 'right',
+          width: 58, flexShrink: 0, minWidth: 0,
+          padding: '3px 5px', textAlign: 'right',
           fontFamily: FONT.num, fontSize: 11, color: C.frost,
           background: 'rgba(4,9,15,0.75)', border: `1px solid ${C.lineSoft}`,
           borderRadius: 4, outline: 'none',
         }} />
 
       <button onClick={() => onChange(have)} disabled={disabled} title="Tümünü seç"
-        style={btn('ghost', { padding: '3px 6px', fontSize: 8, letterSpacing: 0.6 })}>
+        style={btn('ghost', { padding: '3px 6px', fontSize: 8, letterSpacing: 0.6, flexShrink: 0 })}>
         TÜM
       </button>
     </div>
@@ -329,8 +330,16 @@ export default function SendArmyPanel({
                 </div>
               ) : (
                 <div style={{
-                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5,
-                  maxHeight: 250, overflowY: 'auto',
+                  /*
+                    Sabit "1fr 1fr" telefonda her sutunu ~149 px'e dusuruyor,
+                    satirdaki resim + /adet + sayi kutusu + TUM tusu o genislige
+                    sigmiyordu. auto-fill ile dar ekranda kendiliginden tek
+                    sutuna iniyor, genis ekranda iki sutun kaliyor.
+                  */
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                  gap: 5,
+                  maxHeight: 250, overflowY: 'auto', overflowX: 'hidden',
                 }}>
                   {available.map(([u, have]) => {
                     const scoutOnly = mode === 'scout' && !scoutSet.has(u);

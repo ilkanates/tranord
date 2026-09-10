@@ -71,7 +71,7 @@ export function Qty({ value, onChange, max = 50 }) {
       display: 'flex', alignItems: 'center', flexShrink: 0,
       border: `1px solid ${C.lineSoft}`, borderRadius: 4, overflow: 'hidden',
     }}>
-      <button onClick={() => set(value - 1)} style={{
+      <button onClick={() => set(value - 1)} className="tn-step" style={{
         width: 20, height: 22, border: 'none', background: 'rgba(28,51,73,0.6)',
         color: C.iceSoft, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0,
       }}>−</button>
@@ -82,7 +82,7 @@ export function Qty({ value, onChange, max = 50 }) {
           background: 'rgba(8,17,28,0.8)', color: C.frost,
           fontFamily: FONT.num, fontSize: 11, MozAppearance: 'textfield',
         }} />
-      <button onClick={() => set(value + 1)} style={{
+      <button onClick={() => set(value + 1)} className="tn-step" style={{
         width: 20, height: 22, border: 'none', background: 'rgba(28,51,73,0.6)',
         color: C.iceSoft, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0,
       }}>+</button>

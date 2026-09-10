@@ -13,7 +13,8 @@ const ARMY = require('./game/army');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
-        loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot } = require('./db');
+        loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
+        setDisplayName, loadDisplayNames, renameVillage } = require('./db');
 const W = require('./game/world');
 const { QUESTS, QUEST_BY_ID } = require('./data/questDefs');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -161,7 +162,12 @@ function villageList(session) {
     const slot = WORLD.slotByKey.get(slotKey);
     out.push({
       slotKey,
-      name: slot?.name || slotKey,
+      /*
+        Oyuncunun verdiği ad önce gelir (playerBySlot.name), yoksa slotun
+        kendi Nordic adı. Eskiden hep slot adı gösteriliyordu; köy adını
+        değiştirmek listeye yansımıyordu.
+      */
+      name: WORLD.playerBySlot.get(slotKey)?.name || slot?.name || slotKey,
       isCapital: slotKey === session.capitalSlot,
       active: slotKey === session.activeSlot,
       population: v.population || 0,
@@ -259,9 +265,20 @@ function questState(session) {
     || session.villages.values().next().value;
   if (!v) return null;
   if (!v.quests || typeof v.quests !== 'object') {
-    v.quests = { claimed: [], hidden: false };
+    v.quests = { claimed: [], done: [], hidden: false };
   }
   if (!Array.isArray(v.quests.claimed)) v.quests.claimed = [];
+  /*
+    `done` = koşulu BİR KEZ sağlanmış görevler. Ödül almadan devam edip
+    sonradan almak için gerekli: koşul geri düşse bile (kılıç birim
+    eğitiminde harcandı, işçi başka tarlaya alındı, birim seferde öldü)
+    görev tamamlanmış sayılır ve ödül alınabilir kalır.
+  */
+  if (!Array.isArray(v.quests.done)) v.quests.done = [];
+  // Eski kayıtlar: ödülü alınmış görev zaten tamamlanmıştır
+  for (const id of v.quests.claimed) {
+    if (!v.quests.done.includes(id)) v.quests.done.push(id);
+  }
   return v.quests;
 }
 
@@ -285,6 +302,19 @@ function questOlcu(cond, session) {
       return Math.max(0, ...koyler.map(v => Object.values(v.productionTiles || {})
         .filter(t => !cond.tip || t.type === cond.tip)
         .reduce((s2, t) => s2 + (t.workers || 0), 0)));
+    case 'bonusTarla':
+      /*
+        Bonuslu hex'e DOĞRU üretimi dikmiş tarla sayısı. Bonus hex'e
+        bağlı ve sabit; oraya aynı cinsten ocak kurmak üretimi %X
+        artırıyor. Rehber bunu bir görevle öğretiyor.
+      */
+      return Math.max(0, ...koyler.map(v => Object.entries(v.productionTiles || {})
+        .filter(([k, t]) => {
+          if (!(t.level >= 1)) return false;
+          const [lq, lr] = k.split(',').map(Number);
+          const bns = W.worldTileBonus((v.worldQ || 0) + lq, (v.worldR || 0) + lr);
+          return bns && bns.resource === t.type;
+        }).length));
     case 'binaIsci3':
       // birden çok bina türündeki işçilerin toplamı
       return Math.max(0, ...koyler.map(v => Object.values(v.villageBuildings || {})
@@ -312,7 +342,38 @@ function questOlcu(cond, session) {
 }
 
 const questHedef = (cond) => cond.seviye || cond.adet || 1;
-const questTamam = (def, session) => questOlcu(def.cond, session) >= questHedef(def.cond);
+/** ŞU AN koşul sağlanıyor mu (anlık ölçüm) */
+const questOlculuyor = (def, session) => questOlcu(def.cond, session) >= questHedef(def.cond);
+
+/**
+ * Tamamlananları KALICI işaretle.
+ *
+ * Her emitVillage'da (questPayload üzerinden) çalışır; oyun durumunu
+ * değiştiren her şey zaten bir emit tetiklediği için koşulun sağlandığı
+ * an kaçmaz. Bir kez `done`'a girdikten sonra ölçüm geri düşse de görev
+ * tamam kalır — oyuncu ödülü istediği zaman alır.
+ */
+function questSync(session) {
+  const st = questState(session);
+  if (!st) return null;
+  let degisti = false;
+  for (const q of QUESTS) {
+    if (st.done.includes(q.id)) continue;
+    if (questOlculuyor(q, session)) { st.done.push(q.id); degisti = true; }
+  }
+  if (degisti) {
+    const key = session.villages.has(session.capitalSlot)
+      ? session.capitalSlot : session.villages.keys().next().value;
+    if (key) session.dirtySlots.add(key);
+  }
+  return st;
+}
+
+/** Görev tamam mı — bir kez sağlandıysa kalıcı olarak tamam */
+const questTamam = (def, session) => {
+  const st = questState(session);
+  return (st && st.done.includes(def.id)) || questOlculuyor(def, session);
+};
 
 /**
  * İstemciye giden görev paketi: zincir sırayla açılır — bir görev
@@ -320,16 +381,24 @@ const questTamam = (def, session) => questOlcu(def.cond, session) >= questHedef(
  * tamamlandıysa bu görünür (oyuncu sırayla ödülleri toplar).
  */
 function questPayload(session) {
-  const st = questState(session);
+  const st = questSync(session);
   if (!st) return null;
   const claimed = new Set(st.claimed);
-  const liste = QUESTS.map(q => ({
-    id: q.id, title: q.title, text: q.text, hint: q.hint,
-    tab: q.tab, anchor: q.anchor, reward: q.reward,
-    hedef: questHedef(q.cond), olculen: questOlcu(q.cond, session),
-    tamam: questTamam(q, session),
-    alindi: claimed.has(q.id),
-  }));
+  const done = new Set(st.done);
+  const liste = QUESTS.map(q => {
+    const tamam = done.has(q.id);
+    const olculen = questOlcu(q.cond, session);
+    const hedef = questHedef(q.cond);
+    return {
+      id: q.id, title: q.title, text: q.text, hint: q.hint,
+      tab: q.tab, anchor: q.anchor, reward: q.reward,
+      hedef,
+      // Tamamlanmış görevin çubuğu geri düşmesin (kılıç harcandı vb.)
+      olculen: tamam ? Math.max(olculen, hedef) : olculen,
+      tamam,
+      alindi: claimed.has(q.id),
+    };
+  });
   /*
     Zincir katı değil: oyuncu listeden istediğini yapabilir. Kart, ödülü
     hazır olan ilk görevi gösterir; yoksa sıradaki ilk görevi.
@@ -380,6 +449,15 @@ function settlerCapacity(village) {
   }
   return { izin, mevcut, bos: Math.max(0, izin - mevcut) };
 }
+
+/**
+ * BİR İNŞAATA KONABİLECEK EN FAZLA İŞÇİ.
+ *
+ * Eskiden tek sınır boş işçi sayısıydı: 2000 işçiyle her bina anında
+ * bitiyordu. Tavan = inşa edilecek SEVİYE + 2 (yeni bina için 3).
+ * Yüksek seviye inşaatlar zaten uzun; kural kendi kendini dengeliyor.
+ */
+const MAX_BUILDERS = (mevcutSeviye) => Math.max(1, (mevcutSeviye || 0) + 2);
 
 function getMaxProductionSlots(village) {
   // Ana Bina her seviyede +1 tarla slotu; Lvl 20'de 25 (tavan)
@@ -924,7 +1002,7 @@ function questFingerprint(session) {
   if (!st) return '';
   const p = questPayload(session);
   const aktif = p?.liste.find(q => q.id === p.aktif);
-  return `${st.claimed.length}|${st.hidden ? 'H' : ''}|${aktif ? aktif.id + aktif.olculen : ''}`;
+  return `${st.claimed.length}|${st.done.length}|${st.hidden ? 'H' : ''}|${aktif ? aktif.id + aktif.olculen : ''}`;
 }
 
 function structFingerprint(v) {
@@ -1012,6 +1090,12 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     capitalSlot: session.capitalSlot,
     uniqueOwners: uniqueOwnersOf(session),
     quests: questPayload(session),
+    /*
+      OYUNCU ADI. `adVerilmedi` true ise istemci açılışta tek soruluk
+      ad ekranını gösteriyor — kimse haritada e-postasıyla dolaşmasın.
+    */
+    playerName: ownerName(session.userId, session.userEmail),
+    adVerilmedi: !WORLD.ownerByUser.has(session.userId),
   }));
 }
 
@@ -1113,9 +1197,17 @@ const WORLD = {
   slots: [],                 // tüm köy slotları (deterministik üretilir)
   slotByKey: new Map(),
   npcs: new Map(),           // slotKey -> { slot, village }
-  playerBySlot: new Map(),   // slotKey -> { userId, email, name }
+  playerBySlot: new Map(),   // slotKey -> { userId, email, name }  (name = KÖY adı)
   slotByUser: new Map(),     // userId  -> MERKEZ (ya da ilk) slotKey
   slotsByUser: new Map(),    // userId  -> Set<slotKey>  (çoklu köy)
+  /**
+   * OYUNCU ADLARI — userId -> görünen ad.
+   *
+   * Köy adı ile oyuncu adı AYRI şeyler; eskiden karışıyorlardı ve yeni
+   * oyuncunun köyüne e-postasının @ öncesi ad olarak veriliyordu. Köy adı
+   * artık slotun kendi Nordic adı, oyuncu adı da burada.
+   */
+  ownerByUser: new Map(),
   npcTick: 0,
   /**
    * KİRLİ NPC'LER — yalnız bunlar diske yazılır.
@@ -1165,6 +1257,12 @@ async function bootWorld() {
   WORLD.slots = W.generateSlots();
   WORLD.slots.forEach(s => WORLD.slotByKey.set(s.key, s));
 
+  // Oyuncu adları — harita ve raporlar bunu kullanır (yoksa e-posta öneki)
+  try {
+    WORLD.ownerByUser = await loadDisplayNames();
+    console.log(`[WORLD] ${WORLD.ownerByUser.size} oyuncu adı yüklendi`);
+  } catch (err) { console.error('[WORLD] oyuncu adları:', err.message); }
+
   // Oyuncu konumları
   try {
     const players = await loadPlayerSlots();
@@ -1180,6 +1278,7 @@ async function bootWorld() {
         return;
       }
       WORLD.playerBySlot.set(p.slotKey, { userId: p.userId, email: p.email, name: p.name });
+      if (p.displayName) WORLD.ownerByUser.set(p.userId, p.displayName);
       if (!WORLD.slotByUser.has(p.userId) || p.isCapital) {
         WORLD.slotByUser.set(p.userId, p.slotKey);
       }
@@ -1531,7 +1630,8 @@ function foundVillageAt(userId, slotKey, origin) {
   session.dirtySlots.add(slotKey);
 
   const kayit = WORLD.playerBySlot.get(session.capitalSlot);
-  const name = kayit?.name || 'oyuncu';
+  // Yeni köyün adı da slotun kendi adı — merkez köyün adının kopyası değil
+  const name = slot.name;
   WORLD.playerBySlot.set(slotKey, { userId, email: kayit?.email || null, name });
   if (!WORLD.slotsByUser.has(userId)) WORLD.slotsByUser.set(userId, new Set());
   WORLD.slotsByUser.get(userId).add(slotKey);
@@ -1769,13 +1869,58 @@ function buildStats(forUserId) {
   return { updatedAt: Date.now(), villageCount: rows.length, boards };
 }
 
+/**
+ * AD DOĞRULAMA — hem oyuncu adı hem köy adı için.
+ *
+ * Türkçe harfler, rakam, boşluk, tire, kesme ve alt çizgi serbest.
+ * HTML/kontrol karakterleri ve baştaki/sondaki boşluklar temizlenir;
+ * ad haritada, raporlarda ve sohbette görüneceği için biçim serbest
+ * bırakılamaz. Sunucu son sözü söyler — istemcinin denetimine güvenilmez.
+ */
+const AD_DESEN = /^[0-9A-Za-zÇĞİIÖŞÜçğıiöşü][0-9A-Za-zÇĞİIÖŞÜçğıiöşü _''\-.]*$/;
+
+function adDogrula(ham, { enAz = 3, enCok = 18 } = {}) {
+  const ad = String(ham ?? '').replace(/\s+/g, ' ').trim();
+  if (ad.length < enAz) return { hata: `En az ${enAz} karakter olmalı` };
+  if (ad.length > enCok) return { hata: `En fazla ${enCok} karakter olabilir` };
+  if (!AD_DESEN.test(ad)) return { hata: 'Yalnız harf, rakam, boşluk ve - _ . kullanılabilir' };
+  return { ad };
+}
+
+/**
+ * DÜNYAYI HERKESE YENİDEN YOLLA.
+ *
+ * Anlık görüntü BAKAN oyuncuya göre değişiyor (kendi köyü 'self',
+ * mesafeye göre tarlalar) — tek bir paketi herkese yayamayız, her
+ * oturum için ayrı üretiliyor. Ad değişikliği gibi HERKESİ ilgilendiren
+ * ama seyrek olan olaylarda çağrılır; tick yolunda kullanılmaz.
+ */
+function yayinlaDunya() {
+  for (const [uid, s] of userSessions) {
+    const room = userRoom(uid);
+    if (!io.sockets.adapter.rooms.get(room)) continue;   // çevrimdışı
+    try { io.to(room).emit('world_snapshot', worldSnapshot(uid, s.activeSlot)); }
+    catch (err) { console.error('[WORLD YAYIN]', err.message); }
+  }
+}
+
+/** Bu oyuncunun görünen adı — verilmemişse e-postanın @ öncesi */
+const ownerName = (userId, email) =>
+  WORLD.ownerByUser.get(userId) || String(email || 'oyuncu').split('@')[0];
+
 /** Oyuncuya harita üzerinde yer ver (yoksa) */
 async function ensurePlayerSlot(userId, email) {
   if (WORLD.slotByUser.has(userId)) return WORLD.slotByUser.get(userId);
   const taken = new Set([...WORLD.npcs.keys(), ...WORLD.playerBySlot.keys()]);
   const slot = W.findSpawnSlot(WORLD.slots, taken);
   if (!slot) return null;
-  const name = (email || 'oyuncu').split('@')[0];
+  /*
+    KÖY ADI = slotun kendi Nordic adı.
+    Eskiden buraya e-postanın @ öncesi yazılıyordu; herkesin köyü
+    haritada mail adresiyle görünüyordu. Oyuncu adı ayrı tutuluyor
+    (WORLD.ownerByUser), köy adını oyuncu sonradan değiştirebiliyor.
+  */
+  const name = slot.name;
   WORLD.playerBySlot.set(slot.key, { userId, email, name });
   WORLD.slotByUser.set(userId, slot.key);
   if (!WORLD.slotsByUser.has(userId)) WORLD.slotsByUser.set(userId, new Set());
@@ -1842,10 +1987,16 @@ function worldSnapshot(forUserId, activeSlot = null) {
   // Yakındaki köylerin TARLALARI da gönderilir; harita onları oyuncunun
   // tarlaları gibi (doku + seviye) çizsin. Uzaktakiler için gereksiz veri olur.
   const TILE_RADIUS = 30;
-  const tileMap = (village) => Object.fromEntries(
+  /**
+   * Yakındaki köylerin tarlaları haritaya çizilsin diye gönderilir.
+   * SEVİYE YALNIZ KENDİ köylerimde: yabancının tarla seviyesi keşifsiz
+   * bilinmemeli, yoksa harita bedava istihbarat oluyor. Yabancıya
+   * seviye yerine 0 gidiyor; istemci rozeti çizmiyor.
+   */
+  const tileMap = (village, seviyeGoster) => Object.fromEntries(
     Object.entries(village.productionTiles || {})
       .filter(([, b]) => b.level >= 1)
-      .map(([k, b]) => [k, [b.type, b.level]])
+      .map(([k, b]) => [k, [b.type, seviyeGoster ? b.level : 0]])
   );
 
   const villages = [];
@@ -1859,7 +2010,7 @@ function worldSnapshot(forUserId, activeSlot = null) {
       population: s.population, army: s.army, score: s.score,
       surLevel: s.surLevel, hendekLevel: s.hendekLevel,
       distance: dist,
-      tiles: (dist != null && dist <= TILE_RADIUS) ? tileMap(n.village) : null,
+      tiles: (dist != null && dist <= TILE_RADIUS) ? tileMap(n.village, false) : null,
     });
   }
   for (const [key, p] of WORLD.playerBySlot) {
@@ -1875,12 +2026,15 @@ function worldSnapshot(forUserId, activeSlot = null) {
     villages.push({
       key, q: slot.q, r: slot.r,
       name: p.name || slot.name, tier: slot.tier, tierLabel: 'Oyuncu',
+      // Köyün adı ile SAHİBİNİN adı ayrı; harita ikisini de gösteriyor
+      owner: ownerName(p.userId, p.email),
       kind: p.userId === forUserId ? 'self' : 'player',
       population: v?.population ?? null,
       army: v ? Object.values(v.army || {}).reduce((a, b) => a + b, 0) : null,
       score: null, surLevel: 0, hendekLevel: 0,
       distance: me ? W.distanceBetween(me, slot) : null,
-      tiles: v && me && W.distanceBetween(me, slot) <= TILE_RADIUS ? tileMap(v) : null,
+      tiles: v && me && W.distanceBetween(me, slot) <= TILE_RADIUS
+        ? tileMap(v, p.userId === forUserId) : null,
     });
   }
 
@@ -1962,6 +2116,7 @@ io.on('connection', async socket => {
   if (session) {
     session.socketId = socket.id;
     session.userId = userId;
+    session.userEmail = userEmail;
   } else {
     /**
      * ÇOKLU KÖY: oyuncunun bütün köyleri yüklenir. Hiç kaydı yoksa ilk köy
@@ -2005,6 +2160,8 @@ io.on('connection', async socket => {
       villages, activeSlot: capitalSlot, capitalSlot,
       tickMs: DEFAULT_TICK_MS, socketId: socket.id,
     });
+    // Oyuncu adı verilmemişse e-postanın @ öncesine düşülüyor
+    session.userEmail = userEmail;
     userSessions.set(userId, session);
     if (villages.size > 1) {
       console.log(`[CONNECT] userId=${userId} ${villages.size} köy yüklendi`
@@ -2024,6 +2181,66 @@ io.on('connection', async socket => {
    * olarak yeni köye uygulanıyor. Köylerin hepsi zaten tick alıyor, yani
    * arkadaki köyler çalışmaya devam ediyor.
    */
+  /**
+   * OYUNCU ADINI BELİRLE / DEĞİŞTİR.
+   *
+   * Ad benzersiz (büyük/küçük harf duyarsız) ve veritabanındaki tekil
+   * dizin son sözü söylüyor: iki kişi aynı anda aynı adı isterse biri
+   * `ad_alinmis` alır. Ad değişince haritadaki bütün istemcilerin
+   * gördüğü sahip adı da değişmeli, o yüzden dünya yayını tazeleniyor.
+   */
+  socket.on('set_player_name', async ({ name } = {}) => {
+    const { ad, hata } = adDogrula(name, { enAz: 3, enCok: 18 });
+    if (hata) return socket.emit('name_result', { ok: false, alan: 'oyuncu', message: hata });
+
+    let kayit;
+    try { kayit = await setDisplayName(userId, ad); }
+    catch (err) {
+      console.error('[AD] oyuncu adı:', err.message);
+      return socket.emit('name_result', { ok: false, alan: 'oyuncu', message: 'Kaydedilemedi' });
+    }
+    if (!kayit) {
+      return socket.emit('name_result', {
+        ok: false, alan: 'oyuncu', message: 'Bu ad başka bir oyuncuda' });
+    }
+
+    WORLD.ownerByUser.set(userId, ad);
+    socket.emit('name_result', { ok: true, alan: 'oyuncu', name: ad });
+    io.to(userRoom(userId)).emit('player_name', { name: ad });
+    emitVillage(session, { force: true, statics: true });
+    yayinlaDunya();
+    console.log(`[AD] ${userEmail} → "${ad}"`);
+  });
+
+  /**
+   * KÖY ADINI DEĞİŞTİR. Yalnız oyuncunun KENDİ köyü; slotKey verilmezse
+   * aktif köy. Köy adları benzersiz DEĞİL (iki oyuncunun "Kuzeykale"si
+   * olabilir) — karışıklığı sahip adı çözüyor.
+   */
+  socket.on('rename_village', async ({ slotKey, name } = {}) => {
+    const key = slotKey || session.activeSlot;
+    if (!key || !session.villages.has(key)) {
+      return socket.emit('name_result', { ok: false, alan: 'koy', message: 'Bu köy senin değil' });
+    }
+    const { ad, hata } = adDogrula(name, { enAz: 2, enCok: 22 });
+    if (hata) return socket.emit('name_result', { ok: false, alan: 'koy', message: hata });
+
+    try { await renameVillage(userId, key, ad); }
+    catch (err) {
+      console.error('[AD] köy adı:', err.message);
+      return socket.emit('name_result', { ok: false, alan: 'koy', message: 'Kaydedilemedi' });
+    }
+
+    const kayit = WORLD.playerBySlot.get(key);
+    if (kayit) kayit.name = ad;
+    else WORLD.playerBySlot.set(key, { userId, email: userEmail, name: ad });
+
+    socket.emit('name_result', { ok: true, alan: 'koy', name: ad, slotKey: key });
+    emitVillage(session, { force: true, statics: true });
+    yayinlaDunya();
+    console.log(`[AD] ${userEmail} köy ${key} → "${ad}"`);
+  });
+
   socket.on('switch_village', ({ slotKey } = {}) => {
     if (!slotKey || !session.villages.has(slotKey)) {
       if (IS_DEV_ENTRY) console.warn(`[KÖY DEĞİŞ RED] ${slotKey}: oyuncunun köyü değil`);
@@ -2095,6 +2312,7 @@ io.on('connection', async socket => {
   socket.on('upgrade_production', ({ slotKey, workers }) => {
     const b = v().productionTiles[slotKey];
     if (!b || b.upgrading || workers <= 0 || workers > v().freeWorkers) return;
+    if (workers > MAX_BUILDERS(b.level)) return;
     const def = BUILDING_DEFS[b.type];
     if (!def || b.level >= def.levels.length) return;
     const cost = def.levels[b.level]?.cost;
@@ -2108,6 +2326,7 @@ io.on('connection', async socket => {
 
   socket.on('build_production', ({ slotKey, type, workers }) => {
     if (!canBuildProductionAt(v(), slotKey, type, userId) || !workers || workers < 1 || workers > v().freeWorkers) return;
+    if (workers > MAX_BUILDERS(0)) return;
     const def = BUILDING_DEFS[type];
     const cost = def.levels[0]?.cost || {};
     for (const [res, amt] of Object.entries(cost)) { if ((v().resources[res] || 0) < amt) return; }
@@ -2128,7 +2347,8 @@ io.on('connection', async socket => {
 
   socket.on('build_village', ({ slotKey, buildingType, workers }) => {
     if (!canBuildAt(v(), slotKey, buildingType, session.villages)
-      || !workers || workers < 1 || workers > v().freeWorkers) {
+      || !workers || workers < 1 || workers > v().freeWorkers
+      || workers > MAX_BUILDERS(0)) {
       // Sessiz red oyuncuyu koru bırakıyordu ("saray kuramıyorum, sebep yok").
       socket.emit('build_refused', { slotKey, buildingType,
         reason: buildRefusalReason(v(), slotKey, buildingType, session.villages, workers) });
@@ -2150,6 +2370,7 @@ io.on('connection', async socket => {
     // Tavan: tanımda yoksa DEFAULT_MAX_LEVEL. Eski koşul `def.maxLevel &&`
     // ile başlıyordu, tanımsız olan 18 bina sınırsız yükseliyordu.
     if (!def || b.level >= maxLevelOf(b.type) || !workers || workers < 1 || workers > v().freeWorkers) return;
+    if (workers > MAX_BUILDERS(b.level)) return;
     const upgradeCost = getScaledUpgradeCost(b.type, b.level);
     if (upgradeCost) {
       for (const [res, amt] of Object.entries(upgradeCost)) { if ((v().resources[res] || 0) < amt) return; }
@@ -2309,12 +2530,14 @@ io.on('connection', async socket => {
    * yapıyor. Burada yalnız "bu iş anlamlı mı" denetleniyor.
    */
   /**
-   * GÖREV ÖDÜLÜ AL. Koşul sunucuda yeniden ölçülür; istemciye güvenilmez.
+   * GÖREV ÖDÜLÜ AL. Koşul sunucuda denetlenir; istemciye güvenilmez.
+   * Bir kez tamamlanmış görev `done`'da kalıcı işaretli olduğu için
+   * ödül sonradan da alınabilir — ölçüm o an geri düşmüş olsa bile.
    * Ödül AKTİF köye yazılır (kaynak depoyu aşarsa fazlası kaybolur).
    */
   socket.on('claim_quest', ({ id } = {}) => {
     const def = QUEST_BY_ID[id];
-    const st = questState(session);
+    const st = questSync(session);
     if (!def || !st) return;
     if (st.claimed.includes(id)) return;
     if (!questTamam(def, session)) {
@@ -2875,7 +3098,7 @@ io.on('connection', async socket => {
       session.villages.set(best.key, nv);
       session.dirtySlots.add(best.key);
 
-      const name = (userEmail || 'oyuncu').split('@')[0];
+      const name = best.name;   // köy adı slotun kendi adı (e-posta değil)
       WORLD.playerBySlot.set(best.key, { userId, email: userEmail, name });
       if (!WORLD.slotsByUser.has(userId)) WORLD.slotsByUser.set(userId, new Set());
       WORLD.slotsByUser.get(userId).add(best.key);

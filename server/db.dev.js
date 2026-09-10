@@ -106,7 +106,42 @@ async function findUserByEmail(email) {
 
 async function findUserById(id) {
   const u = db.users.find(x => x.id === Number(id));
-  return u ? { id: u.id, email: u.email } : null;
+  return u ? { id: u.id, email: u.email, display_name: u.display_name || null } : null;
+}
+
+/**
+ * OYUNCU ADI — db.js ile aynı sözleşme: ad başkasındaysa `null` döner.
+ * Karşılaştırma BÜYÜK/küçük harf duyarsız (canlıdaki lower() dizini gibi).
+ */
+async function setDisplayName(userId, name) {
+  const alinan = String(name).toLocaleLowerCase('tr');
+  const carpisma = db.users.some(
+    u => u.id !== Number(userId)
+      && String(u.display_name || '').toLocaleLowerCase('tr') === alinan);
+  if (carpisma) return null;
+  const u = db.users.find(x => x.id === Number(userId));
+  if (!u) return null;
+  u.display_name = name;
+  persist();
+  return { id: u.id, email: u.email, display_name: u.display_name };
+}
+
+/** Bütün oyuncu adları (userId -> display_name) */
+async function loadDisplayNames() {
+  return new Map(db.users.filter(u => u.display_name)
+    .map(u => [u.id, u.display_name]));
+}
+
+/** Tek köyün adını değiştir */
+async function renameVillage(userId, slotKey, name) {
+  const row = db.villages[userId]?.[slotKey];
+  if (!row) return false;
+  row.name = name;
+  const slots = normalizeSlots(db.playerSlots[userId]);
+  const i = slots.findIndex(x => x.slotKey === slotKey);
+  if (i >= 0) { slots[i] = { ...slots[i], name }; db.playerSlots[userId] = slots; }
+  persist();
+  return true;
 }
 
 /**
@@ -223,6 +258,7 @@ async function loadPlayerSlots() {
       out.push({
         userId: Number(userId), slotKey: s.slotKey, name: s.name,
         email: u?.email || '',
+        displayName: u?.display_name || null,
         isCapital: !!db.villages[userId]?.[s.slotKey]?.isCapital,
       });
     }
@@ -261,6 +297,7 @@ const pool = { query: async () => { throw new Error('[DEV DB] dogrudan SQL deste
 
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
+  setDisplayName, loadDisplayNames, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,

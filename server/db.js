@@ -64,6 +64,22 @@ async function initDB() {
   `);
 
   /**
+   * OYUNCU ADI.
+   *
+   * Eskiden herkes haritada ve raporlarda e-postasının @ öncesiyle
+   * görünüyordu. `display_name` boş kaldığı sürece eski davranış sürer;
+   * oyuncu adını verdiği anda her yerde o görünür.
+   *
+   * Benzersizlik BÜYÜK/küçük harf duyarsız: "Ilkan" ile "ilkan" aynı
+   * sayılır, taklit edilemesin diye.
+   */
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_display_name_idx
+      ON users (lower(display_name)) WHERE display_name IS NOT NULL;
+  `);
+
+  /**
    * GÖÇ — tek köyden çoklu köye.
    *
    * Eski şemada `user_id UNIQUE` vardı; adı otomatik üretildiği için
@@ -123,8 +139,47 @@ async function findUserByEmail(email) {
 
 // ID ile kullanıcı bul
 async function findUserById(id) {
-  const res = await pool.query('SELECT id, email FROM users WHERE id = $1', [id]);
+  const res = await pool.query(
+    'SELECT id, email, display_name FROM users WHERE id = $1', [id]);
   return res.rows[0] || null;
+}
+
+/**
+ * OYUNCU ADINI YAZ.
+ *
+ * Benzersizlik veritabanındaki tekil dizinle korunuyor; çakışmada
+ * PostgreSQL 23505 atıyor ve burada `null` dönüyoruz — çağıran taraf
+ * bunu "bu ad alınmış" diye kullanıcıya gösterir. Yarış durumunda
+ * (iki kişi aynı anda aynı adı alırsa) tek doğru koruma budur,
+ * önden SELECT ile bakmak yetmez.
+ */
+async function setDisplayName(userId, name) {
+  try {
+    const res = await pool.query(
+      'UPDATE users SET display_name = $2 WHERE id = $1 RETURNING id, email, display_name',
+      [userId, name]
+    );
+    return res.rows[0] || null;
+  } catch (e) {
+    if (e.code === '23505') return null;   // ad alınmış
+    throw e;
+  }
+}
+
+/** Bütün oyuncu adları (userId -> display_name); dünya haritası için */
+async function loadDisplayNames() {
+  const res = await pool.query(
+    'SELECT id, display_name FROM users WHERE display_name IS NOT NULL');
+  return new Map(res.rows.map(r => [r.id, r.display_name]));
+}
+
+/** Tek köyün adını değiştir */
+async function renameVillage(userId, slotKey, name) {
+  const res = await pool.query(
+    'UPDATE villages SET village_name = $3 WHERE user_id = $1 AND slot_key = $2 RETURNING slot_key',
+    [userId, slotKey, name]
+  );
+  return res.rowCount > 0;
 }
 
 // Köy state'ini yükle
@@ -208,13 +263,14 @@ async function saveNpcVillages(list) {
 /** Oyuncu köylerinin harita konumları */
 async function loadPlayerSlots() {
   const res = await pool.query(
-    `SELECT v.user_id, v.slot_key, v.village_name, u.email
+    `SELECT v.user_id, v.slot_key, v.village_name, u.email, u.display_name
      FROM villages v JOIN users u ON u.id = v.user_id
      WHERE v.slot_key IS NOT NULL`
   );
   return res.rows.map(r => ({
     userId: r.user_id, slotKey: r.slot_key,
     name: r.village_name, email: r.email,
+    displayName: r.display_name || null,
   }));
 }
 
@@ -294,6 +350,7 @@ async function loadAllVillages() {
 
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
+  setDisplayName, loadDisplayNames, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,

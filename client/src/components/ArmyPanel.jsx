@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { C, FONT, panel, label as lbl, num } from '../theme';
+import { useViewport } from '../responsive';
 import { EQ_LABEL } from '../flows';
 import { unitImage } from '../data/unitImages';
 import UnitDetail from './UnitDetail';
@@ -42,6 +43,7 @@ function StatChip({ icon, label, value, color }) {
  */
 export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}, unitStatsNow = {} }) {
   const stOf = (type) => unitStatsNow[type] || unitDefs[type]?.stats || {};
+  const vp = useViewport();
   const [detail, setDetail] = useState(null);
   const entries = Object.entries(army).filter(([, c]) => c > 0);
   const total = entries.reduce((s, [, c]) => s + c, 0);
@@ -65,7 +67,7 @@ export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}
   }, {});
 
   return (
-    <div style={{ padding: '20px 24px 32px' }}>
+    <div style={{ padding: vp.mobile ? '14px 12px 28px' : '20px 24px 32px' }}>
       <div style={{ maxWidth: 1240, margin: '0 auto' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
@@ -127,10 +129,17 @@ export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}
                   </span>
                 </div>
 
-                {/* 4 sütun — bir ekranda 4 üst / 4 alt */}
+                {/*
+                  Masaustunde 4 sutun (degismedi). Telefonda sabit repeat(4)
+                  kartlari ~70 px genisliginde ama 168 px yuksekliginde
+                  seritlere ceviriyor, isim ile sayi rozeti ust uste biniyordu;
+                  orada auto-fill ile 2 sutuna (cok dar ekranda 1) iniyor.
+                */}
                 <div style={{
                   display: 'grid', gap: 10,
-                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                  gridTemplateColumns: vp.mobile
+                    ? 'repeat(auto-fill, minmax(140px, 1fr))'
+                    : 'repeat(4, minmax(0, 1fr))',
                 }}>
                   {units.map(({ type, count, def }) => {
                     const img = unitImage(type);

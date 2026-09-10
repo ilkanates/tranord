@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { C, FONT, RES_COLOR, num, fmtTime } from '../theme';
+import { useViewport } from '../responsive';
 import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon from './Icons';
 import { PanelShell, WorkerNote, Qty, OrderButton, QueueList } from './queueUI';
@@ -14,8 +15,16 @@ export default function EquipmentPanel({
   queue = [], resources = {}, buildingWorkers = 0,
   onQueue, onCancel,
   hourSeconds = 3600, worldSpeed = 1,
-  compact = false,
+  compact: compactProp = false,
 }) {
+  /*
+    KOMPAKT eskiden yalniz bina tipinden geliyordu (ahir icin true).
+    Telefonda silahci/zirhci de ayni darlikta aciliyor ama tek satir
+    duzeni kaliyordu; panel `overflow: hidden` oldugu icin SIPARIS
+    tusu kirpiliyordu. Artik ekran dar oldugunda da kompakt.
+  */
+  const vp = useViewport();
+  const compact = compactProp || vp.mobile;
   const allowed = equipmentByBuilding[buildingType] || [];
   const [qty, setQty] = useState(() => Object.fromEntries(allowed.map(k => [k, 1])));
 
@@ -109,7 +118,7 @@ export default function EquipmentPanel({
                 kendi satırında duruyor.
               */}
               <div style={{
-                display: 'flex', gap: 6,
+                display: 'flex', gap: 6, flexWrap: 'wrap',
                 flexDirection: compact ? 'column' : 'row',
                 alignItems: compact ? 'stretch' : 'center',
               }}>
