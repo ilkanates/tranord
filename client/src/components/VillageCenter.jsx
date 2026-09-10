@@ -919,7 +919,13 @@ export default function VillageCenter({
    * yerinde durmayan bir panel. Artık yükseklik hep kutunun tamamı; içerik
    * azken altta boşluk kalıyor, çokken İÇERİDE kayıyor. Pencere oynamıyor.
    */
-  const fitMaxH = popoverPos?.maxH || prefH;
+  /*
+    Panelin çizim yüksekliği KONUMLANDIRMAYLA aynı sayı olmalı. Eskiden
+    burada `maxH` (kullanılabilir en büyük yükseklik) vardı, konum ise
+    `min(prefH, maxH)`'e göre hesaplanıyordu; aradaki fark kadar panel
+    ekranın altından taşıyordu (bkz. popoverStyle.js).
+  */
+  const fitMaxH = popoverPos?.h || prefH;
 
   function handleSlotClick(slotKey) {
     if (selected === slotKey) { setSelected(null); setShowMenu(false); }

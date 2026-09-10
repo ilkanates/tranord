@@ -36,6 +36,16 @@ export function popoverStyle(pos, overrides = {}) {
 /**
  * Hex'in ekran koordinatına göre popover konumunu hesapla + ekrana sığdır.
  * panelW geniş paneller için zorunlu; sığmazsa otomatik daraltılır.
+ *
+ * DÖNÜŞ: { x, y, w, h, maxH }
+ *
+ * `h` KONUMLANDIRMADA KULLANILAN yükseklik ve paneli çizen taraf da bunu
+ * kullanmalı. Eskiden yalnız `maxH` dönüyordu; VillageCenter paneli
+ * `height: maxH` ile çiziyor ama burası `y`'yi `min(prefH, maxH)`'e göre
+ * ortalıyordu. İki sayı ayrıştığı anda panel alttan taşıyordu — ölçüldü
+ * (1904x962 ekran): konum 800'e göre y=56, çizim 892 px, panel kapsayıcıyı
+ * 35 px aşıyor ve overflow:hidden alt kenarı kesiyor. Kesilen yerde tam da
+ * YÜKSELT düğmesi vardı: 15 noktasından 0'ı tıklanabiliyordu.
  */
 export function computePopoverPos({
   hexScreenX, hexScreenY, hexRadius, viewW, viewH,
@@ -61,7 +71,7 @@ export function computePopoverPos({
     return {
       x: left + (band - w) / 2,
       y: Math.max(margin, (viewH - panelH) / 2),
-      w, maxH,
+      w, h: panelH, maxH,
     };
   }
 
@@ -75,7 +85,7 @@ export function computePopoverPos({
   if (py + panelH > viewH - margin) py = viewH - panelH - margin;
   py = Math.max(margin, py);
 
-  return { x: px, y: py, w, maxH };
+  return { x: px, y: py, w, h: panelH, maxH };
 }
 
 // ── Popover içi ortak parçalar ──────────────────────────────────────
