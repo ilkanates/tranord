@@ -107,8 +107,17 @@ function getProductionMultiplier(slotKey) {
 // tarlanın DÜNYA koordinatına göre hesaplanır.
 /** Depo/ambar tavanları — tick içinde işlemeden önce ve sonra aynı değerler kullanılır */
 function getStorageCaps(village) {
-  const caps = { odun:300, kil:300, tas:300, demir:300, tahil:300, kereste:200, tugla:200, yontmaTas:200, demirKulce:200 };
-  let granaryCap = 150;
+  /*
+    DEPOSUZ TABAN TAVANLARI.
+
+    Eskiden ham 300 / islenmis 200 / ambar 150 idi. Olcum: yeni bir koyde
+    kereste 14. saatte 200'e carpip uretim bosa akiyordu, oyuncu daha ilk
+    tarla yukseltmesini yapamadan. Temel uretim x4'e cikinca bu tavanlar
+    oyunu ilk gunden kilitlerdi. Depo binalari bunun USTUNE ekliyor.
+  */
+  const caps = { odun:1000, kil:1000, tas:1000, demir:1000, tahil:1000,
+                 kereste:800, tugla:800, yontmaTas:800, demirKulce:800 };
+  let granaryCap = 600;
   Object.values(village.villageBuildings).forEach(b => {
     const def = VILLAGE_DEFS[b.type];
     if (!def?.stores || (b.building && b.level === 0)) return;

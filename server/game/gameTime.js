@@ -6,9 +6,14 @@
  * Sonuç: 1 gerçek saniye = 1 oyun saati, yani Travian 1×'in 3600 katı hız.
  *
  * ŞİMDİ: tek sabit — bir oyun saatinin kaç GERÇEK saniye sürdüğü.
- *   TRANORD_HOUR_SECONDS=3600  → Travian 1× (öntanımlı)
+ *   TRANORD_HOUR_SECONDS=3600  → Travian 1×
+ *   TRANORD_HOUR_SECONDS=1200  → Travian 3× (ÖNTANIMLI)
  *   TRANORD_HOUR_SECONDS=60    → 60× hızlı sunucu (geliştirirken test için)
  * Ortam değişkeniyle verilir, kod değiştirmeye gerek yok.
+ *
+ * ÖNTANIMLI NEDEN 3×: 1× ölçüldüğünde yeni bir köy, mükemmel oynansa bile
+ * 72 oyun saatinde yalnız 3 tarla yükseltmesi yapabiliyordu. 3× hem Travian'ın
+ * en yaygın sunucu hızı hem de denge simülasyonunun hedeflendiği hız.
  *
  * BİRİM SÖZLEŞMESİ (bundan sonra her yerde geçerli):
  *   • Üretim/işleme/tüketim oranları  → SAAT başına  (odun/saat, ekmek/saat)
@@ -24,13 +29,13 @@
 const CLOCK_PER_GAME_HOUR = 1000;          // sanal saat birimi (değiştirilemez)
 const CLOCK_PER_GAME_MINUTE = CLOCK_PER_GAME_HOUR / 60;
 
-/** Bir oyun saati kaç gerçek saniye sürer (1× = 3600, yani gerçek zaman) */
-const HOUR_SECONDS = Math.max(1, Number(process.env.TRANORD_HOUR_SECONDS) || 3600);
+/** Bir oyun saati kaç gerçek saniye sürer (3600 = 1×, 1200 = 3×) */
+const HOUR_SECONDS = Math.max(1, Number(process.env.TRANORD_HOUR_SECONDS) || 1200);
 
 /** Gerçek tick aralığı — sunucu saniyede bir tick atar */
 const TICK_REAL_MS = 1000;
 
-/** Bir tick kaç oyun saati ilerletir (1× → 1/3600) */
+/** Bir tick kaç oyun saati ilerletir (3× → 1/1200) */
 const HOURS_PER_TICK = (TICK_REAL_MS / 1000) / HOUR_SECONDS;
 
 /** Bir tick'te sanal saat bu kadar artar */

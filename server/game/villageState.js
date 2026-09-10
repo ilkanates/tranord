@@ -38,10 +38,19 @@ function createVillage(worldQ = 0, worldR = 0) {
     isStarving: false,
     starveCounter: 0,
 
+    /*
+      BASLANGIC STOGU.
+
+      Islenmis mal sifirdi: yeni oyuncu once ham topluyor, sonra isliyor,
+      ilk tarla yukseltmesini ancak saatler sonra yapabiliyordu. Travian'da
+      yeni koy her kaynaktan 750 ile basliyor ve ilk birkac yukseltme aninda
+      geliyor. Burada islenmis maldan 300 veriliyor: ilk 3-4 yukseltme
+      beklemeden yapilabiliyor, sonrasi uretime kaliyor.
+    */
     resources: {
-      odun: 200, kil: 150, tas: 150, demir: 50, tahil: 300,
-      kereste: 0, tugla: 0, yontmaTas: 0, demirKulce: 0,
-      un: 0, ekmek: 0
+      odun: 300, kil: 300, tas: 300, demir: 200, tahil: 400,
+      kereste: 300, tugla: 300, yontmaTas: 300, demirKulce: 300,
+      un: 0, ekmek: 60
     },
 
     equipment: {
