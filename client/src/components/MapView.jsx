@@ -810,6 +810,8 @@ export default function MapView({
   army = {}, unitDefs = {}, unitStatsNow = {}, intel = {}, marchInfo = {},
   onBuild, onUpgrade, onDemolish, onAssignWorkers, onCancelBuild,
   onUpgradeAnaBina, onEnterVillageCenter,
+  // Panel açıkken rehber kartı rozete iner (bkz. QuestGuide.jsx)
+  onPanelChange,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
   const wq = world?.q || 0;
@@ -838,6 +840,20 @@ export default function MapView({
   // Yerleşim seferinde sunucudan dönen ret sebebi
   const [settleErr, setSettleErr] = useState(null);
   const [selVillage, setSelVillage] = useState(null);
+  /*
+    Tarla / boş arazi / köy panellerinden biri açık mı — rehber kartı bu
+    paneller açıkken rozete iniyor (bkz. QuestGuide.jsx).
+  */
+  useEffect(() => {
+    onPanelChange?.(!!(selField || selEmpty || selVillage));
+  }, [selField, selEmpty, selVillage, onPanelChange]);
+  /*
+    Sekme değişince bu bileşen sökülüyor ama panel bayrağı App'te asılı
+    kalıyordu: rehber kartı başka ekranda da rozette takılı kalırdı.
+    Sıfırlamayı bileşenin kendisi yapıyor — App'e sekmeye bağlı ayrı bir
+    efekt koymak yerine (setState-in-effect) sahiplik burada duruyor.
+  */
+  useEffect(() => () => onPanelChange?.(false), [onPanelChange]);
   const [filterTier, setFilterTier] = useState(null);
   const [sendTarget, setSendTarget] = useState(null);   // ordu gönderme ekranı
 

@@ -412,6 +412,14 @@ function Game({ token, onLogout }) {
   // Rehber kartında gösterilecek görev (listeden seçilirse); yoksa sunucunun sırası
   const [questFocus, setQuestFocus] = useState(null);
   /**
+   * EKRANDA PANEL AÇIK MI — rehber kartı buna göre rozete iniyor.
+   *
+   * Kart ekranın sağ-alt köşesine sabitli ve oyunun en sık kullanılan
+   * denetimleri de oraya konuyor; ölçümde YÜKSELT düğmesinin %68'ini,
+   * işçi "+" düğmesinin %100'ünü örtüyordu (telefonda paneli komple).
+   */
+  const [panelAcik, setPanelAcik] = useState(false);
+  /**
    * Yardım sayfasına DERİN BAĞLANTI: bina panelindeki "?" düğmesi buraya
    * 'bina:kisla' gibi bir konu yazıp sekmeyi değiştiriyor. HelpScreen konuyu
    * uyguladıktan sonra geri temizliyor, yoksa sekmeye her dönüşte zıplardı.
@@ -644,6 +652,7 @@ function Game({ token, onLogout }) {
         <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
           {tab === 'harita' && (
             <MapView
+              onPanelChange={setPanelAcik}
               socket={socket}
               world={village.world}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}
@@ -675,6 +684,7 @@ function Game({ token, onLogout }) {
 
           {tab === 'koy' && (
             <VillageCenter
+              onPanelChange={setPanelAcik}
               world={village.world}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}
               worldSpeed={village.worldSpeed || 1}
@@ -908,6 +918,7 @@ function Game({ token, onLogout }) {
         ama görevler arka planda işlemeye devam eder.
       */}
       <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
+        bastir={panelAcik}
         onClaim={(id) => socket?.emit('claim_quest', { id })}
         onToggle={(hidden) => socket?.emit('toggle_quests', { hidden })}
         onGoTab={(t) => t && setTab(t)} />

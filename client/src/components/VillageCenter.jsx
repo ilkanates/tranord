@@ -792,6 +792,8 @@ export default function VillageCenter({
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild,
   onQueueEquipment, onCancelEquipment, onTrainUnit, onCancelUnitOrder,
   onOpenHelp,
+  // Panel açıkken rehber kartı rozete iner (bkz. QuestGuide.jsx)
+  onPanelChange,
   world = null,
   // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
   hourSeconds = 3600, worldSpeed = 1,
@@ -814,6 +816,18 @@ export default function VillageCenter({
 }) {
   const [selected, setSelected] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
+  /*
+    Bina paneli açıldı/kapandı — App bunu rehber kartına iletiyor. Kart
+    panelin sağ-alt denetimlerinin (kadro, YÜKSELT) üstüne oturuyordu.
+  */
+  useEffect(() => { onPanelChange?.(!!selected); }, [selected, onPanelChange]);
+  /*
+    Sekme değişince bu bileşen sökülüyor ama panel bayrağı App'te asılı
+    kalıyordu: rehber kartı başka ekranda da rozette takılı kalırdı.
+    Sıfırlamayı bileşenin kendisi yapıyor — App'e sekmeye bağlı ayrı bir
+    efekt koymak yerine (setState-in-effect) sahiplik burada duruyor.
+  */
+  useEffect(() => () => onPanelChange?.(false), [onPanelChange]);
   const [hovered, setHovered] = useState(null);
   const [viewSize, setViewSize] = useState({ w: 900, h: 720 });
   const containerRef = useRef(null);

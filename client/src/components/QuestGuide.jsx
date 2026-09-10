@@ -107,19 +107,41 @@ export function Spotlight({ anchor, on }) {
 }
 
 /* ── Sağ altta yüzen kart ────────────────────────────────────────── */
-export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mobile = false }) {
+export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mobile = false,
+  bastir = false }) {
   if (!quests || quests.bitti) return null;
   // Oyuncu listeden bir görev seçtiyse kart onu gösterir
   const secili = focus && quests.liste.find(q => q.id === focus && !q.alindi);
   const aktif = secili || quests.liste.find(q => q.id === quests.aktif);
   if (!aktif) return null;
 
-  // Gizliyken küçük rozet: görevler arka planda işlemeye devam eder
-  if (quests.hidden) {
+  /**
+   * ROZETE İN — oyuncu gizlediği için ya da EKRANDA BİR PANEL AÇIK olduğu için.
+   *
+   * Genişletilmiş kart (320x213) ekranın sağ-alt köşesine sabitli; oyunun en
+   * sık kullanılan denetimleri de oraya konuyor. Ölçüldü (1280x600):
+   *   YÜKSELT düğmesi       %68 örtülü, merkezi tıklanamıyor
+   *   işçi "+" düğmesi      %100 örtülü
+   *   KÖYÜME DÖN (harita)   %100 örtülü
+   * Telefonda (375x812) yükselt düğmesinin 15 noktasından SIFIRI tıklanabiliyordu:
+   * kart bina panelini komple yutuyordu. Rozet biçimi (73x31) aynı ölçümde hiçbir
+   * denetimi örtmüyor — o yüzden panel açıkken kart rozete iniyor.
+   *
+   * `bastir` SUNUCU durumuna dokunmuyor: panel kapanınca kart kendiliğinden geri
+   * açılır, oyuncunun gizleme tercihi (quests.hidden) ayrı durur.
+   */
+  if (quests.hidden || bastir) {
     return (
       <button onClick={() => onToggle(false)} title="Rehberi aç"
         style={{
-          position: 'fixed', right: 14, bottom: mobile ? 74 : 14, zIndex: 1200,
+          position: 'fixed', bottom: mobile ? 74 : 52, zIndex: 1200,
+          /*
+            Panel açıkken rozet SOLA geçiyor. Panelin denetimleri kendi sağ-alt
+            köşesinde duruyor; rozet sağda kalınca telefonda YÜKSELT düğmesinin
+            15 noktasından 3'ünü örtmeye devam ediyordu (ölçüldü). Sol-alt köşede
+            yalnızca bina adı var — tıklanabilir bir şey yok.
+          */
+          ...(bastir ? { left: 14 } : { right: 14 }),
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '7px 11px', borderRadius: 20, cursor: 'pointer',
           background: 'rgba(8,15,24,0.92)',
@@ -135,7 +157,7 @@ export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mo
 
   return (
     <div className="tn-rise" style={{
-      position: 'fixed', right: 14, bottom: mobile ? 74 : 14, zIndex: 1200,
+      position: 'fixed', right: 14, bottom: mobile ? 74 : 52, zIndex: 1200,
       width: 'min(320px, 92vw)',
       background: 'rgba(8,15,24,0.95)',
       border: `1px solid ${aktif.tamam ? 'rgba(108,221,163,0.5)' : C.lineBright}`,
