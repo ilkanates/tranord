@@ -189,7 +189,7 @@ export default function DevMenu({
               <div style={{ padding: '0 7px' }}>
                 <input type="range" min={0} max={speedSteps.length - 1} step={1} value={hizIdx}
                   onChange={(e) => setSpeed(Math.round(1000 / speedSteps[Number(e.target.value)]))}
-                  style={{ width: '100%', height: 4 }}
+                  style={{ width: '100%' }}
                   title={`${speedSteps[hizIdx]}× hız`} />
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>

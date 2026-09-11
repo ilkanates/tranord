@@ -698,15 +698,28 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
   return (
     <div style={{ maxWidth: 1240, margin: '0 auto', paddingTop: 12, paddingBottom: 16 }}>
       {/* Filtreler */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+      {/*
+        SARMAYAN TEK SATIRDI: telefonda dört süzgeç düğmesi 415 px'e sığmıyor,
+        SALDIRILARIM'a 90 px gerekirken 77 px kalıyor ve etiket kesiliyordu.
+        Artık satır sarıyor; dar ekranda başlık kendi satırını alıp düğmelere
+        tam genişlik bırakıyor.
+      */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10,
+        flexWrap: 'wrap',
+      }}>
         <Icon name="savas" size={15} color={C.iceDeep} />
-        <span style={lbl({ fontSize: 9, letterSpacing: 1.5, marginRight: 6 })}>Savaş raporları</span>
+        <span style={lbl({
+          fontSize: 9, letterSpacing: 1.5, marginRight: 6,
+          ...(vp.mobile ? { flex: '1 1 auto' } : null),
+        })}>Savaş raporları</span>
         {FILTERS.map(f => {
           const on = filter === f.key;
           return (
             <button key={f.key} onClick={() => { setFilter(f.key); setSelId(null); }}
               style={btn(on ? 'primary' : 'ghost', {
                 padding: '5px 11px', fontSize: 9, letterSpacing: 1.1,
+                whiteSpace: 'nowrap',
               })}>
               {f.label}
               <span style={{ color: on ? C.iceSoft : C.textMute, marginLeft: 5 }}>

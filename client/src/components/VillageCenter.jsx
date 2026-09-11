@@ -1293,7 +1293,14 @@ export default function VillageCenter({
            * SOLUNA alınıyor. Silahçı/zırhçı 2 kart + havuz şeridi olduğu
            * için onlar altta kalıyor.
            */
-          const ahirUstte = hasEquipment && selectedBuilding.type === 'ahir' && !!panelTex;
+          /*
+            DAR EKRANDA AHIR DA NORMAL: ekipman kutusu poster şeridine değil
+            gövdeye giriyor. Şerit telefonda zaten akışa alındı; `ahirUstte`
+            true kalınca gövdedeki `!ahirUstte` koşulu ekipman kutusunu
+            gizliyor ve AHIRDA AT SİPARİŞİ HİÇ GÖRÜNMÜYORDU.
+          */
+          const ahirUstte = hasEquipment && selectedBuilding.type === 'ahir'
+            && !!panelTex && !darEkran;
 
           const ekipmanUretimi = hasEquipment ? (
             <EquipmentPanel

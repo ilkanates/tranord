@@ -97,7 +97,7 @@ function Satir({
         onChange={(e) => onDegistir(Number(e.target.value))}
         // Havuzda olmayan işçiyi atamaya izin verilmiyor: sunucu da reddediyor,
         // kaydırıcının geri sıçraması sinir bozucu olurdu.
-        style={{ flex: dar ? '1 1 120px' : '0 0 96px', height: dar ? 6 : 4 }}
+        style={{ flex: dar ? '1 1 120px' : '0 0 96px' }}
         title={`En çok ${isci + artabilir} atanabilir (havuzda ${bos} boş)`} />
 
       <div style={{ display: 'flex', gap: 3 }}>

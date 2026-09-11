@@ -263,7 +263,13 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {} }) {
 
         <div style={{
           display: 'grid', gap: 14, marginBottom: 14,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          /*
+            ÇIPLAK minmax(320px,…) KAP 320'DEN DARSA TAŞIYOR: 375 px'lik
+            telefonda bu kaba 311 px kalıyor, sütun yine 320 px çiziliyor ve
+            sağ kenar kesiliyordu. `min(320px, 100%)` tabanı kabın genişliğine
+            indiriyor — geniş ekranda davranış aynı.
+          */
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
         }}>
           <SideColumn side="atk" counts={attacker} grouped={grouped}
             onChange={(k, v) => setCount('atk', k, v)}
@@ -305,7 +311,7 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {} }) {
 
             <div style={{
               display: 'grid', gap: 16,
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
             }}>
               <LossBar label="Saldıran kayıp oranı" rate={result.attackerLossRate} color={C.danger} />
               <LossBar label="Savunan kayıp oranı"  rate={result.defenderLossRate} color={C.good} />

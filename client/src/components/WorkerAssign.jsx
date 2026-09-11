@@ -164,7 +164,7 @@ export default function WorkerAssign({
           onChange={(e) => push(Number(e.target.value))}
           onPointerUp={() => push(local, true)}
           disabled={noRoom}
-          style={{ flex: 1, minWidth: 30, height: 4 }} />
+          style={{ flex: 1, minWidth: 30 }} />
         <button type="button" className="tn-step" style={{ ...stepBtn(atTop), ...(compact ? { width: 20, height: 20, fontSize: 12 } : {}) }} disabled={atTop}
           onClick={() => push(local + 1, true)}>+</button>
       </div>

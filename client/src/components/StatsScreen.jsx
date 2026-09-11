@@ -268,7 +268,7 @@ export default function StatsScreen({ socket }) {
       */}
       <div style={{
         display: 'grid', gap: 11,
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
         alignItems: 'start',
       }}>
         {ordered.map(b => <Board key={b.key} b={b} />)}

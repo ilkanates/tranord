@@ -98,7 +98,7 @@ export default function MusicButton() {
           <input type="range" min={0} max={100} step={1}
             value={Math.round(s.volume * 100)}
             onChange={(e) => setVolume(Number(e.target.value) / 100)}
-            style={{ width: '100%', height: 4 }} />
+            style={{ width: '100%' }} />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
             <button type="button" onClick={() => nextTrack()}

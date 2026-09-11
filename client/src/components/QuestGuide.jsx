@@ -311,6 +311,7 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
               style={{
               cursor: q.alindi ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', gap: 10,
+              flexWrap: 'wrap', rowGap: 6,
               padding: '9px 11px', borderRadius: 7,
               background: q.alindi ? 'rgba(78,207,168,0.05)' : 'rgba(8,17,28,0.55)',
               border: `1px solid ${q.alindi ? 'rgba(78,207,168,0.22)'
@@ -320,16 +321,38 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
               <span style={num({ fontSize: 10, color: C.textMute, width: 18 })}>{i + 1}</span>
               <Icon name={q.alindi ? 'bonus' : aktif ? 'bilgi' : 'kilit'} size={13}
                 color={q.alindi ? C.good : aktif ? C.iceSoft : C.textMute} />
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                 <div style={{
                   fontFamily: FONT.ui, fontSize: 11.5, fontWeight: 500,
                   color: q.alindi ? C.textDim : C.frost,
                 }}>{q.title}</div>
                 <div style={{
                   fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint,
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  /*
+                    TEK SATIR + ellipsis TELEFONDA GÖREVİ OKUNAMAZ YAPIYORDU:
+                    415 px'lik ekranda bu sütuna yalnız 131 px kalıyor, ölçüldü —
+                    açıklamanın ilk üç kelimesi dışında hepsi kesiliyordu.
+                    Artık sarıyor; satır yüksekliği de kaçmasın diye 2 satırda
+                    kırpılıyor.
+                  */
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: 2,
+                  overflow: 'hidden',
+                  overflowWrap: 'anywhere',
                 }}>{q.text}</div>
               </div>
+              {/*
+                ÖDÜL · SAYAÇ · DÜĞME TEK GRUP.
+                Ayrı kardeşlerken satır sarmıyordu ve açıklamaya 375 px'lik
+                ekranda yalnız 91 px kalıyordu. Grup halinde, sığmadığı anda
+                tamamı alt satıra iniyor; başlık ve açıklama tam genişliği
+                alıyor. Geniş ekranda davranış değişmiyor — orada sığıyor.
+              */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                marginLeft: 'auto', flex: '0 0 auto',
+              }}>
               <Reward reward={q.reward} size={8.5} />
               <span style={num({ fontSize: 9.5, color: q.tamam ? C.good : C.textMute, width: 46, textAlign: 'right' })}>
                 {q.olculen}/{q.hedef}
@@ -349,6 +372,7 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
                   GÖSTER
                 </button>
               )}
+              </div>
             </div>
           );
         })}

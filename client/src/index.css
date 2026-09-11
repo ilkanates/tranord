@@ -81,6 +81,14 @@ input[type='range'] {
   appearance: none;
   background: transparent;
   cursor: pointer;
+  /*
+    YÜKSEKLİK BURADA VERİLİR, BİLEŞENDE DEĞİL.
+    Kaydırıcılara tek tek `style={{ height: 4 }}` yazılıyordu; satır içi stil
+    aşağıdaki dokunmatik kuralını EZİYORDU, dolayısıyla telefonda dokunma
+    hedefi 4-6 px kalıyordu (ölçüldü: 144x6). Ray yine ince görünür —
+    büyüyen yalnızca parmağın tutabileceği alan.
+  */
+  height: 16px;
 }
 
 /*
@@ -89,7 +97,7 @@ input[type='range'] {
   buyuyen sadece dokunma alani. Tutamak da 13 -> 20 px.
 */
 @media (hover: none) {
-  input[type='range'] { height: 28px; }
+  input[type='range'] { height: 34px; }
   input[type='range']::-webkit-slider-thumb {
     width: 20px; height: 20px; margin-top: -8px;
   }
