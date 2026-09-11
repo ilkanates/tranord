@@ -142,13 +142,29 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
   const infRatio = infAttack / attackTotal;
   const cavRatio = cavAttack / attackTotal;
 
+  const kesif = mode === 'scout';
+
   let defenseRaw = 0;
   for (const [key, count] of Object.entries(defenderClean)) {
     const s = defenderLevels ? unitStats(key, defenderLevels) : UNIT_DEFS[key].stats;
     defenseRaw += count * (infRatio * s.yayaSav + cavRatio * s.atliSav);
   }
 
-  const bonusPct     = wallBonusPct(surLevel, hendekLevel, kulePct);
+  /**
+   * KEŞİFTE YALNIZ KULE BONUSU İŞLER.
+   *
+   * Sur ve hendek ORDUYU durdurmak içindir; gece duvardan atlayan casusu
+   * mazgal vurmaz. Kule başka: içinde okçu var, karanlıkta gözcülük
+   * yapan tek yapı o. Eskiden üçü birden uygulanıyordu ve ölçülmüştü ki
+   * savunanda 5 izci + Lvl 10 sur varken keşfi geçmek 23 izci istiyordu.
+   *
+   * İzcinin kendi değerleri de simetrik (10/10, bkz. militaryDefs), yani
+   * kule yoksa sonucu doğrudan izci SAYISI belirliyor: beş casus iki
+   * casusu yener.
+   */
+  const bonusPct = kesif
+    ? wallBonusPct(0, 0, kulePct)
+    : wallBonusPct(surLevel, hendekLevel, kulePct);
   const defenseTotal = defenseRaw * (1 + bonusPct / 100);
 
   // ── 3. Kazanan ve kayıp oranı ───────────────────────────────────

@@ -396,8 +396,13 @@ function resolveArrival(march, origin, target, opts = {}) {
      * Ölçüm (savunanda 5 izci, sur/hendek 10): kazanmak için 23 izci
      * gerekiyor. Savunmasız köy tek izciyle görülüyor.
      */
+    /*
+      mode 'scout': sur ve hendek işlemiyor, YALNIZ kule bonusu geçerli
+      (bkz. combat.js). İzcinin kendi değerleri simetrik olduğu için
+      kulesiz köyde sonucu doğrudan izci sayısı belirliyor.
+    */
     const res = simulateBattle(march.units, savunanIzciler, {
-      surLevel, hendekLevel, kulePct, mode: 'normal',
+      surLevel, hendekLevel, kulePct, mode: 'scout',
       attackerLevels: origin?.equipmentLevels || null,
       defenderLevels: target?.equipmentLevels || null,
     });
@@ -436,7 +441,8 @@ function resolveArrival(march, origin, target, opts = {}) {
       sent: { ...sentSnapshot }, myLosses: benimKayip, theirLosses: onunKayip,
       loot: {},
       // Raporda savunmanin neden gucu oldugu gorunsun
-      karsiIzci: savunanSayisi, wallBonusPct: res.wallBonusPct,
+      karsiIzci: savunanSayisi, savunanIzci: savunanSayisi,
+      wallBonusPct: res.wallBonusPct,
       attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
       intel,
     });
@@ -452,6 +458,12 @@ function resolveArrival(march, origin, target, opts = {}) {
         winner: res.winner,
         attackerUnits: { ...sentSnapshot },
         myLosses: onunKayip, theirLosses: benimKayip, loot: {},
+        /*
+          Savunan oyuncu "kaç casus geldi, benim kaç izcim vardı" diye
+          soruyor; ikisi de burada yazılı olmazsa rapor yalnız
+          "casusu durdurdun" deyip susuyor.
+        */
+        gelenCasus: totalUnits(sentSnapshot), savunanIzci: savunanSayisi,
         wallBonusPct: res.wallBonusPct,
         attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
       });

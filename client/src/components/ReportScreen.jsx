@@ -19,7 +19,58 @@ import Icon from './Icons';
 const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif', yerlesim: 'Yerleşim' };
 const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita', yerlesim: 'koy' };
 
+/**
+ * SEFER TÜRÜNÜN RENGİ — listede tür bir bakışta okunsun.
+ *
+ * Sonuç rengi (kazandın/kaybettin) ayrı bir eksen; ikisini tek renge
+ * bindirmek "kaybettiğim yağma" ile "kazandığım saldırı"yı ayırt
+ * edilemez yapıyordu. Tür rengi soldaki şeritte ve rozette, sonuç rengi
+ * yazıda duruyor.
+ */
+const MODE_COLOR = {
+  raid: '#e0b357',        // yağma — altın
+  attack: '#e8636f',      // tam saldırı — kan
+  scout: '#8fdcff',       // keşif — buz
+  yerlesim: '#4ecfa8',    // yerleşim — yeşil
+};
+const modeColor = (r) => MODE_COLOR[r?.mode] || C.ice;
+
 const sum = (o) => Object.values(o || {}).reduce((a, b) => a + (b || 0), 0);
+
+/**
+ * YÖN — bu raporu ben mi yazdırdım, bana mı geldi?
+ *
+ * En sık sorulan soruydu: "ben mi saldırmışım bana mı saldırmışlar".
+ * Başlıkta kelimelerle anlatmak yetmiyor; listede de ayrıntıda da
+ * renkli bir rozet var ve ok yönü konuşuyor.
+ */
+function yonBilgisi(r) {
+  return r?.dir === 'in'
+    ? { etiket: 'BANA GELDİ', ikon: 'asagi', renk: '#e8636f' }
+    : { etiket: 'BEN GİTTİM', ikon: 'yukari', renk: '#8fdcff' };
+}
+
+/**
+ * YAĞMACI NE KADAR DOLU DÖNDÜ?
+ *
+ * Sağ kalan askerlerin toplam taşıma kapasitesi ile getirdikleri ganimet
+ * karşılaştırılıyor. Boş dönen sefer, ordunun küçük olmasından değil
+ * hedefin fakir olmasından kaynaklanır — oyuncu bunu görmeden hedef
+ * seçmeyi öğrenemiyor.
+ *
+ * Kapasite SAĞ KALANLARDAN hesaplanıyor: ölen asker yük taşımıyor.
+ */
+function tasimaDurumu(r, unitDefs) {
+  if (r?.dir === 'in' || r?.mode === 'scout') return null;
+  const kalan = r?.survivors || {};
+  let kapasite = 0;
+  for (const [u, n] of Object.entries(kalan)) {
+    kapasite += (n || 0) * (unitDefs?.[u]?.stats?.kapasite || 0);
+  }
+  if (kapasite <= 0) return null;
+  const yuk = sum(r?.loot);
+  return { kapasite, yuk, oran: Math.min(1, yuk / kapasite) };
+}
 
 /**
  * OKUNDU TAKİBİ — okunan raporların ID'leri.
@@ -104,13 +155,22 @@ function verdictOf(r) {
   return { txt: won ? 'kazandın' : 'kaybettin', col: won ? C.good : C.danger, won };
 }
 
+/**
+ * Başlık ÖZNE ile başlıyor: "Kim kime?" sorusu ilk kelimede cevaplanıyor.
+ * Eskiden giden sefer yalnız hedef adıyla yazılıyordu ("Ulvhavn — Yağma")
+ * ve gelen saldırıdan ayırt etmek zordu.
+ */
 function titleOf(r) {
-  if (r.outcome === 'kesfedildim') return `${r.fromName} köyünü keşfetti`;
+  if (r.outcome === 'kesfedildim') return `${r.fromName} seni keşfetti`;
   if (r.outcome === 'kesif_engellendi') return `${r.fromName} keşfe geldi, durduruldu`;
-  if (r.dir === 'in') return `${r.fromName} köyüne saldırdı`;
-  if (r.outcome === 'kesif') return `${r.toName} keşfedildi`;
-  if (r.outcome === 'kesif_basarisiz') return `${r.toName} — keşif başarısız`;
-  return `${r.toName} — ${MODE_LABEL[r.mode] || r.mode}`;
+  if (r.dir === 'in') return `${r.fromName} sana saldırdı`;
+  if (r.outcome === 'kesif') return `${r.toName} köyünü keşfettin`;
+  if (r.outcome === 'kesif_basarisiz') return `${r.toName} — keşfin durduruldu`;
+  if (r.outcome === 'hedef_yok') return `${r.toName} — hedef bulunamadı`;
+  // Yağmalamak belirtme hâli ister (köyÜNÜ), saldırmak yönelme hâli (köyÜNE)
+  return r.mode === 'raid'
+    ? `${r.toName} köyünü yağmaladın`
+    : `${r.toName} köyüne saldırdın`;
 }
 
 /**
@@ -123,7 +183,10 @@ function titleOf(r) {
  */
 function Row({ r, active, unread, onClick }) {
   const v = verdictOf(r);
-  const accent = unread ? v.col : C.line;
+  const mc = modeColor(r);
+  const yon = yonBilgisi(r);
+  // Sol şerit SEFER TÜRÜNÜ gösteriyor; sonuç rengi alt satırdaki yazıda
+  const accent = unread ? mc : C.line;
   return (
     <div onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
@@ -136,8 +199,15 @@ function Row({ r, active, unread, onClick }) {
       opacity: unread || active ? 1 : 0.62,
       transition: 'opacity .14s, background .14s',
     }}>
-      <Icon name={r.dir === 'in' ? 'kalkan' : MODE_ICON[r.mode] || 'kilic'}
-        size={15} color={unread ? v.col : C.textMute} />
+      {/* Yön oku + sefer türü simgesi: kim kime, hangi tür — tek bakışta */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+        flexShrink: 0, width: 17,
+      }}>
+        <Icon name={yon.ikon} size={11} color={unread ? yon.renk : C.textMute} strokeWidth={2.4} />
+        <Icon name={MODE_ICON[r.mode] || 'kilic'} size={13}
+          color={unread ? mc : C.textMute} />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontFamily: FONT.ui, fontSize: 11.5,
@@ -146,14 +216,24 @@ function Row({ r, active, unread, onClick }) {
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{titleOf(r)}</div>
         <div style={{
-          fontFamily: FONT.ui, fontSize: 9.5, marginTop: 1,
-          color: unread ? v.col : C.textMute,
+          display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
+          fontFamily: FONT.ui, fontSize: 9.5, marginTop: 2,
         }}>
-          {v.txt}
+          <span style={{
+            padding: '0px 4px', borderRadius: 3, fontSize: 7.5, letterSpacing: 0.7,
+            fontWeight: 700, color: unread ? yon.renk : C.textMute,
+            background: unread ? `${yon.renk}1f` : 'transparent',
+            border: `1px solid ${unread ? `${yon.renk}55` : C.lineSoft}`,
+          }}>{yon.etiket}</span>
+          <span style={{ color: unread ? v.col : C.textMute }}>{v.txt}</span>
           {r.outcome === 'savas' && (
             <span style={{ color: C.textMute }}>
-              {' · '}kaybım {sum(r.myLosses)}
-              {sum(r.loot) > 0 ? ` · ${r.dir === 'in' ? 'çalınan' : 'ganimet'} ${short(sum(r.loot))}` : ''}
+              {'· kaybım '}{sum(r.myLosses)}
+              {sum(r.loot) > 0 && (
+                <span style={{ color: r.dir === 'in' ? C.danger : C.warn }}>
+                  {' · '}{r.dir === 'in' ? '−' : '+'}{short(sum(r.loot))} kaynak
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -193,14 +273,16 @@ function UnitGrid({ units, unitDefs, color }) {
             padding: '4px 8px 4px 4px', borderRadius: 5,
             background: 'rgba(8,17,28,0.6)', border: `1px solid ${color}33`,
           }}>
-            <div style={{ width: 20, height: 28, borderRadius: 3, overflow: 'hidden', background: '#0b1420' }}>
+            {/* Resim 20×28'di — asker tanınmıyordu. 44×60 ile yüz ve
+                teçhizat seçiliyor, kart hâlâ tek satıra sığıyor. */}
+            <div style={{ width: 44, height: 60, borderRadius: 4, overflow: 'hidden', background: '#0b1420' }}>
               {img && <img src={img} alt="" draggable={false} style={{
-                width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 12%',
+                width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 10%',
               }} />}
             </div>
             <div>
-              <div style={num({ fontSize: 13, color, lineHeight: 1.1 })}>{n}</div>
-              <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute }}>
+              <div style={num({ fontSize: 16, color, lineHeight: 1.1 })}>{n}</div>
+              <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute }}>
                 {unitDefs[u]?.name || u}
               </div>
             </div>
@@ -255,6 +337,10 @@ function Detail({ r, unitDefs }) {
   }
   const v = verdictOf(r);
   const inc = r.dir === 'in';
+  const mc = modeColor(r);
+  const yon = yonBilgisi(r);
+  const tasima = tasimaDurumu(r, unitDefs);
+  const ganimet = sum(r.loot);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
@@ -263,14 +349,34 @@ function Detail({ r, unitDefs }) {
           fontFamily: FONT.head, fontSize: 22, fontWeight: 600, letterSpacing: 0.8,
           color: C.frost, lineHeight: 1.15,
         }}>{titleOf(r)}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6, flexWrap: 'wrap' }}>
+          {/* YÖN en başta: "ben mi saldırdım bana mı saldırdılar" ilk okunan şey */}
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '2px 9px', borderRadius: 4,
+            background: `${yon.renk}1f`, border: `1px solid ${yon.renk}66`,
+            fontFamily: FONT.ui, fontSize: 9.5, letterSpacing: 1.1,
+            color: yon.renk, fontWeight: 700,
+          }}>
+            <Icon name={yon.ikon} size={10} color={yon.renk} strokeWidth={2.6} />
+            {yon.etiket}
+          </span>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '2px 9px', borderRadius: 4,
+            background: `${mc}1a`, border: `1px solid ${mc}55`,
+            fontFamily: FONT.ui, fontSize: 9.5, letterSpacing: 1.1, color: mc, fontWeight: 600,
+          }}>
+            <Icon name={MODE_ICON[r.mode] || 'kilic'} size={10} color={mc} />
+            {(MODE_LABEL[r.mode] || r.mode).toUpperCase()}
+          </span>
           <span style={{
             padding: '2px 9px', borderRadius: 4,
             background: `${v.col}1f`, border: `1px solid ${v.col}55`,
             fontFamily: FONT.ui, fontSize: 9.5, letterSpacing: 1.1, color: v.col, fontWeight: 600,
           }}>{v.txt.toUpperCase()}</span>
           <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute }}>
-            {MODE_LABEL[r.mode] || r.mode} · {fmtWhen(r.at)}
+            {fmtWhen(r.at)}
             {r.toKey ? ` · ${r.toKey}` : r.fromKey ? ` · ${r.fromKey}` : ''}
           </span>
         </div>
@@ -325,9 +431,69 @@ function Detail({ r, unitDefs }) {
             </Section>
           )}
 
-          <Section title={inc ? 'ÇALINAN KAYNAK' : 'GANİMET'}>
+          {/*
+            TOPLAM önce, kalem dökümü sonra. Oyuncunun ilk sorduğu şey
+            "ne kadar aldım/kaybettim"; altı kalemi toplamak zorunda
+            kalmasın diye tek büyük sayı en üstte.
+          */}
+          <Section title={inc ? 'KAYBEDİLEN KAYNAK' : 'ELE GEÇEN KAYNAK'}>
+            <div style={{
+              display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7,
+            }}>
+              <span style={num({
+                fontSize: 26, lineHeight: 1,
+                color: ganimet > 0 ? (inc ? C.danger : C.warn) : C.textMute,
+              })}>
+                {inc && ganimet > 0 ? '−' : ''}{short(ganimet)}
+              </span>
+              <span style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textMute }}>
+                toplam birim{inc ? ' çalındı' : ''}
+              </span>
+            </div>
             <ResGrid res={r.loot} color={inc ? C.danger : C.warn} />
           </Section>
+
+          {/*
+            YAĞMACI NE KADAR DOLU DÖNDÜ — hedef seçmeyi öğreten sayı.
+            Boş dönen sefer ordunun küçüklüğünden değil hedefin
+            fakirliğinden olur; bu satır olmadan oyuncu farkı göremiyor.
+          */}
+          {tasima && (
+            <Section title="DÖNÜŞ YÜKÜ">
+              <div style={panel({ padding: '10px 12px', background: 'rgba(11,23,37,0.7)' })}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 6 }}>
+                  <span style={num({
+                    fontSize: 20, lineHeight: 1,
+                    color: tasima.oran >= 0.95 ? C.good
+                      : tasima.oran >= 0.4 ? C.warn : C.danger,
+                  })}>%{Math.round(tasima.oran * 100)}</span>
+                  <span style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textDim }}>
+                    dolu · {short(tasima.yuk)} / {short(tasima.kapasite)} taşıma
+                  </span>
+                </div>
+                <div style={{
+                  height: 6, borderRadius: 3, overflow: 'hidden',
+                  background: 'rgba(255,255,255,0.07)',
+                }}>
+                  <div style={{
+                    width: `${Math.max(1, tasima.oran * 100)}%`, height: '100%',
+                    background: tasima.oran >= 0.95 ? C.good
+                      : tasima.oran >= 0.4 ? C.warn : C.danger,
+                  }} />
+                </div>
+                <div style={{
+                  fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute,
+                  marginTop: 6, lineHeight: 1.5,
+                }}>
+                  {tasima.oran >= 0.95
+                    ? 'Ordu dolu döndü — hedefte daha fazlası vardı, büyük orduyla daha çok getirirsin.'
+                    : tasima.oran < 0.15
+                      ? 'Neredeyse boş döndü — hedefin deposu boştu, sık yağmalanan bir köy olabilir.'
+                      : 'Kapasitenin bir kısmı boş döndü; hedefte kalan kaynak azdı.'}
+                </div>
+              </div>
+            </Section>
+          )}
 
           {r.lootLost && sum(r.lootLost) > 0 && (
             <div style={panel({
@@ -379,8 +545,63 @@ function Detail({ r, unitDefs }) {
         </>
       )}
 
-      {/* Keşif ÇARPIŞMASI — bilgi gelmedi ya da savunan tarafın raporu */}
+      {/*
+        KEŞİF ÇARPIŞMASI — KAÇ CASUS, KAÇ KAYIP.
+
+        Eskiden yalnız "casusu durdurdun" yazıyordu; kaç casusun geldiği,
+        kaçının öldüğü, kendi kaybının ne olduğu hiçbir yerde yoktu.
+        Savunan oyuncu için bunlar asıl bilgi: gelen sayı karşı tarafın
+        ne kadar ciddi olduğunu, kayıp da bir daha gelirse ne olacağını
+        söylüyor.
+      */}
       {kesifMi(r) && r.outcome !== 'kesif' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>
+                {inc ? 'GELEN CASUS' : 'GÖNDERDİĞİM CASUS'}
+              </div>
+              <div style={num({ fontSize: 18, color: inc ? C.danger : C.frost })}>
+                {(inc ? (r.gelenCasus ?? sum(r.attackerUnits)) : sum(r.sent)) || '—'}
+              </div>
+            </div>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>
+                {inc ? 'SAVUNAN CASUSUM' : 'KARŞI CASUS'}
+              </div>
+              <div style={num({ fontSize: 18, color: C.iceSoft })}>
+                {r.savunanIzci ?? r.karsiIzci ?? '—'}
+              </div>
+            </div>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>KAYBIM</div>
+              <div style={num({ fontSize: 18, color: sum(r.myLosses) ? C.danger : C.textMute })}>
+                {sum(r.myLosses) || 0}
+              </div>
+            </div>
+          </div>
+
+          {inc && r.attackerUnits && sum(r.attackerUnits) > 0 && (
+            <Section title="GELEN CASUSLAR">
+              <UnitGrid units={r.attackerUnits} unitDefs={unitDefs} color={C.danger} />
+            </Section>
+          )}
+          {!inc && r.sent && sum(r.sent) > 0 && (
+            <Section title="GÖNDERDİĞİM CASUSLAR">
+              <UnitGrid units={r.sent} unitDefs={unitDefs} color={C.frost} />
+            </Section>
+          )}
+          {sum(r.myLosses) > 0 && (
+            <Section title="KAYBIM">
+              <UnitGrid units={r.myLosses} unitDefs={unitDefs} color={C.danger} />
+            </Section>
+          )}
+          {sum(r.theirLosses) > 0 && (
+            <Section title={inc ? 'ÖLDÜRDÜĞÜM CASUS' : 'ÖLDÜRDÜĞÜM KARŞI İZCİ'}>
+              <UnitGrid units={r.theirLosses} unitDefs={unitDefs} color={C.good} />
+            </Section>
+          )}
+
         <div style={{
           padding: '9px 11px', borderRadius: 6,
           background: r.outcome === 'kesif_engellendi'
@@ -401,6 +622,7 @@ function Detail({ r, unitDefs }) {
             <>İzcilerin casusu durdurdu — köyün hakkında hiçbir bilgi sızmadı.</>
           )}
         </div>
+        </>
       )}
 
       {r.outcome === 'hedef_yok' && (

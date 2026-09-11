@@ -26,6 +26,51 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-11h',
+    tarih: '11 Eylül 2026',
+    baslik: 'Casusluk ve savaş raporları',
+    notlar: [
+      {
+        id: '20260911-casus-dengesi',
+        tur: 'duzeltme',
+        metin: 'Keşif neredeyse imkânsızdı: izcinin savunması saldırısının üç '
+          + 'katıydı ve üstüne sur + hendek bonusu biniyordu — 5 casus 2 casusa '
+          + 'yeniliyordu. Artık izci 10 saldırı / 10 savunma ve keşifte sur ile '
+          + 'hendek işlemiyor. Sonucu casus SAYISI belirliyor.',
+      },
+      {
+        id: '20260911-kule-casus',
+        tur: 'denge',
+        metin: 'Keşfe karşı yalnız KULE bonus veriyor — içinde okçu olan, gece '
+          + 'gözcülük yapan tek yapı o. Casusa karşı korunmak istiyorsan kule '
+          + 'dik; sur ve hendek orduyu durdurmak içindir.',
+      },
+      {
+        id: '20260911-rapor-yon',
+        tur: 'yenilik',
+        metin: 'Raporlarda "ben mi saldırdım, bana mı saldırdılar" artık ilk '
+          + 'bakışta belli: BEN GİTTİM / BANA GELDİ rozeti ve ok yönü var. '
+          + 'Sefer türü de renkli — yağma altın, tam saldırı kırmızı, keşif '
+          + 'buz mavisi, yerleşim yeşil.',
+      },
+      {
+        id: '20260911-rapor-ganimet',
+        tur: 'yenilik',
+        metin: 'Ele geçen (ya da kaybedilen) toplam hammadde tek büyük sayı '
+          + 'olarak yazıyor; altı kalemi toplaman gerekmiyor. Yağmadan sonra '
+          + 'ordunun ne kadar dolu döndüğü de çubukla gösteriliyor — boş dönen '
+          + 'sefer hedefin fakir olduğunu söyler.',
+      },
+      {
+        id: '20260911-rapor-casus-sayisi',
+        tur: 'duzeltme',
+        metin: 'Keşif raporunda kaç casus geldiği, kaç izcinin savunduğu ve '
+          + 'kayıpların ne olduğu yazmıyordu; yalnız "casusu durdurdun" '
+          + 'diyordu. Üçü de eklendi. Asker resimleri de büyütüldü.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11g',
     tarih: '11 Eylül 2026',
     baslik: 'Telefonda açılış',

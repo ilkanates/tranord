@@ -117,7 +117,13 @@ const UNIT_DEFS = {
     trainedAt: 'ahir',
     minLevel: 1,
     equipment: ['at'],
-    stats: { saldiri: 10, yayaSav: 30, atliSav: 30, hiz: 14, kapasite: 110 }
+    /*
+      SALDIRI = SAVUNMA = 10. Savunma eskiden 30'du, yani izci savunmada
+      saldırısının üç katı güçlüydü; casus düellosunda 5 izci 2 izciye
+      yeniliyordu. İzci bir savaşçı değil: köye ordu geldiğinde de
+      savunmaya ciddi katkı vermemeli.
+    */
+    stats: { saldiri: 10, yayaSav: 10, atliSav: 10, hiz: 14, kapasite: 110 }
   },
   demirAtli: {
     name: 'Demir Atlı',
