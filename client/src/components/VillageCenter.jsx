@@ -850,6 +850,17 @@ export default function VillageCenter({
    * içerikteki satır sayısına bağlı olduğu için sabit bir sayı er geç
    * yanlış kalırdı.
    */
+  /*
+    TELEFONDA DENETİMLER GÖRSELİN ALTINDA.
+
+    Şerit masaüstünde görselin sağ-altına biniyor; orada yeri var.
+    Telefonda (414 px) aynı şerit görselin üçte ikisini kaplıyor: bina
+    görünmüyor, denetimler de dar sütuna sıkışıyor. Dar ekranda şerit
+    akışa giriyor — görsel üstte, denetimler altında, ikisi de tam
+    genişlikte.
+  */
+  const darEkran = viewSize.w > 0 ? viewSize.w < 760 : false;
+
   const [denetimH, setDenetimH] = useState(0);
   const denetimRef = useRef(null);
   useEffect(() => {
@@ -1365,7 +1376,9 @@ export default function VillageCenter({
                   düğmelerinin üstünü örtüyordu (kapatma düğmesi tıklanamaz
                   hâle geliyordu). 49 px sağ üst düğme sırası + boşluklar.
                 */
-                flex: '1 1 auto', minHeight: Math.max(150, denetimH + 49),
+                flex: '1 1 auto',
+                // Dar ekranda şerit akışta; pencerenin onun için uzamasına gerek yok
+                minHeight: darEkran ? 150 : Math.max(150, denetimH + 49),
                 backgroundColor: '#0b1420',
                 overflow: 'hidden',
               }}>
@@ -1455,7 +1468,7 @@ export default function VillageCenter({
                   Panelin gövdesindeydiler; en sık dokunulan iki denetim
                   olmalarına rağmen kaydırmadan görünmüyorlardı.
                 */}
-                {selectedBuilding && (
+                {selectedBuilding && !darEkran && (
                   <div ref={denetimRef} style={{
                     position: 'absolute', right: 12, bottom: 10, zIndex: 3,
                     maxWidth: ahirUstte ? 'min(86%, 560px)' : 'min(70%, 470px)',
@@ -1538,6 +1551,36 @@ export default function VillageCenter({
                 : { flex: '1 1 auto', minHeight: 0 }),
               overflowY: 'auto',
             }}>
+
+            {/*
+              TELEFONDA DENETİMLER BURADA — görselin ÜSTÜNDE değil ALTINDA.
+
+              Masaüstünde şerit görselin sağ-altına biniyor; orada yer var.
+              Telefonda (414 px) aynı şerit görselin üçte ikisini kaplıyor:
+              bina görünmüyor, denetimler de dar sütuna sıkışıyordu. Dar
+              ekranda akışa alınıyor, tam genişlikte ve görselin altında.
+              `order: 0` ile gövdenin en başına geliyor: oyuncunun en sık
+              dokunduğu iki denetim kaydırmadan görünsün.
+            */}
+            {darEkran && selectedBuilding && (
+              <div style={{ padding: '10px 10px 4px', order: 0 }}>
+                <BuildingControls
+                  building={selectedBuilding}
+                  freeWorkers={freeWorkers}
+                  resources={resources}
+                  flows={flows}
+                  hourSeconds={hourSeconds} worldSpeed={worldSpeed}
+                  onAssignVillageWorkers={(w) => onAssignVillageWorkers(selected, w)}
+                  onUpgrade={(w) => {
+                    onUpgrade(selected, w);
+                    setShowMenu(false); setSelected(null);
+                  }}
+                  onCancelBuild={() => {
+                    onCancelBuild?.(selected);
+                    setShowMenu(false); setSelected(null);
+                  }} />
+              </div>
+            )}
 
             {/* SIRA: bina gorseli -> savascilar -> isci/yukseltme + ekipman */}
             {hasExpansion && expansion && (

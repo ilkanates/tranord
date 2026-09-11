@@ -198,8 +198,18 @@ function UnitCard({
           <Stat icon="hiz" value={def.stats?.hiz ?? '—'} color={C.iceDeep} title="Hız" />
         </div>
 
+        {/*
+          EĞİT DÜĞMESİ KAYBOLUYORDU.
+
+          Satır sarmıyordu: adet seçici sabit 72 px, düğme `flex: 1`.
+          Dar kartta (telefonda 84 px'e kadar iniyor) düğmeye yer kalmıyor,
+          sıfır genişliğe çöküp görünmez oluyordu — oyuncu adedi
+          artırabiliyor ama askeri üretemiyordu. Artık satır sarıyor ve
+          düğmenin kendi en az genişliği var: dar kartta alt satıra
+          geçiyor, geniş kartta yanında duruyor.
+        */}
         <div onClick={(e) => e.stopPropagation()}
-          style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
           <Qty value={qty} onChange={setQty} />
           <button onClick={() => onTrain(u, qty)} disabled={!ready}
             title={seviyeKilidi ? `${buildingName} Lvl ${gereken} gerekiyor (şu an ${buildingLevel})`
@@ -210,7 +220,8 @@ function UnitCard({
               : !workerOk ? 'Askere dönüşecek boş işçi yok'
               : 'Eğitim kuyruğuna ekle'}
             style={btn(ready ? 'good' : 'disabled', {
-              flex: 1, padding: '3px 4px', fontSize: 8.5, letterSpacing: 0.8,
+              flex: '1 1 52px', minWidth: 52, minHeight: 26,
+              padding: '4px 4px', fontSize: 9, letterSpacing: 0.8,
             })}>
             {seviyeKilidi ? `LVL ${gereken}` : arastirmaKilidi ? 'RÚN' : 'EĞİT'}
           </button>
@@ -289,7 +300,12 @@ export default function UnitTrainingPanel({
           pencereyi kaplayıp bina görselini eziyordu). 120 px tavanla
           kartlar hep aynı boyda kalıyor.
         */
-        gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 120px))',
+        /*
+          Kart en az 84 px'ti: telefonda üç sütun çıkıyor ve karta adet
+          seçici + EĞİT düğmesi sığmıyordu. 108 px'te telefonda iki,
+          masaüstünde eskisi kadar sütun oluyor.
+        */
+        gridTemplateColumns: 'repeat(auto-fill, minmax(108px, 132px))',
         justifyContent: 'start', gap: 7,
         marginBottom: queue.length > 0 ? 9 : 0,
       }}>

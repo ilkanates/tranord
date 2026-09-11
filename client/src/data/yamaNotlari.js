@@ -31,6 +31,21 @@ export const YAMA_NOTLARI = [
     baslik: 'Telefonda oynanabilirlik',
     notlar: [
       {
+        id: '20260912-egit-dugmesi',
+        tur: 'duzeltme',
+        metin: 'Telefonda asker kartlarında adedi artırabiliyor ama EĞİT '
+          + 'düğmesini göremiyordun — kart dar olduğu için düğme sıfır '
+          + 'genişliğe çöküyordu. Kartlar genişledi, düğme gerektiğinde alt '
+          + 'satıra geçiyor.',
+      },
+      {
+        id: '20260912-bina-paneli-mobil',
+        tur: 'duzeltme',
+        metin: 'Bina panelinde işçi ve yükseltme kutuları telefonda görselin '
+          + 'üçte ikisini kaplıyordu. Artık görselin ALTINDA, tam genişlikte; '
+          + 'bina da görünüyor.',
+      },
+      {
         id: '20260912-rehber-yuzmuyor',
         tur: 'duzeltme',
         metin: 'Rehber kartı telefonda ekranın alt üçte birini kaplıyor ve '
