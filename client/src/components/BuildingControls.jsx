@@ -65,7 +65,15 @@ export default function BuildingControls({
     borderRadius: 6, padding: '6px 7px',
     backdropFilter: 'blur(10px) saturate(1.15)',
     WebkitBackdropFilter: 'blur(10px) saturate(1.15)',
-    width: 168,
+    /*
+      168 px'ti. Kaydırıcı + iki adım düğmesi o genişlikte ancak sığıyordu,
+      0/½/TAM kısayollarına yer kalmıyordu (bu yüzden kompaktta gizliydiler).
+      212 px üçünü de alt satıra sığdırıyor ve maliyet satırındaki sayılar
+      da kısaltmaya uğramıyor.
+    */
+    width: 212,
+    // Dar ekranda kutu sarmalayıcıdan taşmasın (bkz. VillageCenter · şerit)
+    maxWidth: '100%',
   } : { minWidth: 0 };
 
   /**
@@ -76,7 +84,7 @@ export default function BuildingControls({
   if (building.building) {
     return (
       <div style={{
-        display: 'flex', gap: 8, alignItems: 'flex-end',
+        display: 'flex', gap: 8, alignItems: 'flex-end', maxWidth: '100%',
         flexWrap: serit ? 'wrap' : 'nowrap', justifyContent: 'flex-end',
       }}>
         {kadroVar && (
@@ -123,7 +131,7 @@ export default function BuildingControls({
 
   return (
     <div style={{
-      display: 'flex', gap: 8, alignItems: 'flex-end',
+      display: 'flex', gap: 8, alignItems: 'flex-end', maxWidth: '100%',
       flexWrap: serit ? 'wrap' : 'nowrap', justifyContent: 'flex-end',
     }}>
       {/* ── Çalışan kadro ── */}

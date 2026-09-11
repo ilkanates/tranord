@@ -26,6 +26,34 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-11d',
+    tarih: '11 Eylül 2026',
+    baslik: 'Bina panelleri elden geçti',
+    notlar: [
+      {
+        id: '20260911-kapatma-dugmesi',
+        tur: 'duzeltme',
+        metin: 'Ahır gibi alt listesi uzun binalarda panelin sağ üstündeki '
+          + 'kapatma düğmesi denetimlerin altında kalıyor, tıklanamıyordu. '
+          + 'Görsel penceresi artık denetimlere göre uzuyor; düğme her binada '
+          + 'görünür ve tıklanabilir. Kapatma düğmesinin kontrastı da artırıldı.',
+      },
+      {
+        id: '20260911-yukseltme-kisayollari',
+        tur: 'yenilik',
+        metin: 'Bina panelindeki işçi ve inşaatçı kutuları genişledi; 0 · ½ · '
+          + 'TAM kısayolları artık burada da var. Tam kadro vermek için '
+          + 'kaydırıcıyı ucuna kadar sürüklemek gerekmiyor.',
+      },
+      {
+        id: '20260911-dar-ekran-serit',
+        tur: 'duzeltme',
+        metin: 'Dar ekranda denetim şeridi panelin sol kenarından taşıyordu; '
+          + 'artık kutular alt alta diziliyor ve panel içinde kalıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11c',
     tarih: '11 Eylül 2026',
     baslik: 'Pazar açıldı',

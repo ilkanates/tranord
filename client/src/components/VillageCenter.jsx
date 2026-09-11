@@ -835,6 +835,31 @@ export default function VillageCenter({
   const [viewSize, setViewSize] = useState({ w: 900, h: 720 });
   const containerRef = useRef(null);
 
+  /**
+   * DENETİM ŞERİDİNİN YÜKSEKLİĞİ — poster penceresi buna göre uzuyor.
+   *
+   * Şerit görselin sağ alt köşesine mutlak konumla biniyor. Pencere sabit
+   * 150 px taban yüksekliğindeydi; ahırda şerit (üretim kutusu + kadro +
+   * yükseltme) 208 px'e çıkınca pencereden YUKARI taşıyor ve sağ üstteki
+   * kapat düğmesinin üstünü kapatıyordu — panel kapatılamıyordu.
+   *
+   * Yüksekliği tahmin etmek yerine ölçüyoruz: bina cinsine, seviyeye ve
+   * içerikteki satır sayısına bağlı olduğu için sabit bir sayı er geç
+   * yanlış kalırdı.
+   */
+  const [denetimH, setDenetimH] = useState(0);
+  const denetimRef = useRef(null);
+  useEffect(() => {
+    const el = denetimRef.current;
+    if (!el) { setDenetimH(0); return undefined; }
+    const gozlemci = new ResizeObserver(([kayit]) => {
+      setDenetimH(Math.ceil(kayit.contentRect.height));
+    });
+    gozlemci.observe(el);
+    setDenetimH(Math.ceil(el.getBoundingClientRect().height));
+    return () => gozlemci.disconnect();
+  }, [selected, showMenu]);
+
   const W = 860, H = 860;
   const cx = W / 2, cy = H / 2;
   const towerSet = new Set(towerSlots);
@@ -1329,7 +1354,14 @@ export default function VillageCenter({
                   kuyruk uzayınca görsel kırpılıyor — arayüz hiç küçülmüyor.
                   En az 150 px: bina tanınmaz hâle gelmesin.
                 */
-                flex: '1 1 auto', minHeight: 150,
+                /*
+                  EN AZ YÜKSEKLİK denetim şeridine göre hesaplanıyor.
+                  Sabit 150 px'ti: ahırda şerit 208 px'e çıkıyor, pencereye
+                  sığmayıp YUKARI taşıyor ve sağ üstteki kapat/yık/yardım
+                  düğmelerinin üstünü örtüyordu (kapatma düğmesi tıklanamaz
+                  hâle geliyordu). 49 px sağ üst düğme sırası + boşluklar.
+                */
+                flex: '1 1 auto', minHeight: Math.max(150, denetimH + 49),
                 backgroundColor: '#0b1420',
                 overflow: 'hidden',
               }}>
@@ -1358,8 +1390,14 @@ export default function VillageCenter({
                 }} />
 
                 {/* Sağ üst: amblem + yık + kapat */}
+                {/*
+                  z-index 2 idi; denetim şeridi (zIndex 3) bunun üstüne
+                  biniyordu. Şerit artık taşmıyor ama emniyet payı olarak
+                  düğme sırası her hâlükârda en üstte kalsın: kapatamamak
+                  oyuncuyu panelde kilitler.
+                */}
                 <div style={{
-                  position: 'absolute', top: 9, right: 10, zIndex: 2,
+                  position: 'absolute', top: 9, right: 10, zIndex: 6,
                   display: 'flex', alignItems: 'center', gap: 7,
                 }}>
                   {panelEm && (
@@ -1392,13 +1430,19 @@ export default function VillageCenter({
                       <Icon name="bilgi" size={15} color={panelEdge} strokeWidth={1.7} />
                     </button>
                   )}
+                  {/*
+                    KAPAT en yüksek kontrastlı düğme olmalı: yanındaki yık
+                    (kırmızı) ve yardım (bina rengi) renkliyken bu soluk gri
+                    duruyordu ve aydınlık bina görsellerinde kayboluyordu.
+                    Panelden çıkışın tek yolu bu düğme.
+                  */}
                   <button onClick={() => { setShowMenu(false); setSelected(null); }}
                     title="Kapat" style={{
                       display: 'grid', placeItems: 'center', width: 30, height: 30, padding: 0,
                       borderRadius: 15, cursor: 'pointer',
-                      background: 'rgba(8,14,24,0.66)', border: `1px solid ${C.lineBright}`,
+                      background: 'rgba(6,11,19,0.82)', border: `1px solid ${C.lineBright}`,
                     }}>
-                    <Icon name="kapat" size={14} color={C.textDim} strokeWidth={2} />
+                    <Icon name="kapat" size={15} color={C.frost} strokeWidth={2.2} />
                   </button>
                 </div>
 
@@ -1408,9 +1452,9 @@ export default function VillageCenter({
                   olmalarına rağmen kaydırmadan görünmüyorlardı.
                 */}
                 {selectedBuilding && (
-                  <div style={{
+                  <div ref={denetimRef} style={{
                     position: 'absolute', right: 12, bottom: 10, zIndex: 3,
-                    maxWidth: ahirUstte ? 'min(82%, 500px)' : 'min(64%, 400px)',
+                    maxWidth: ahirUstte ? 'min(86%, 560px)' : 'min(70%, 470px)',
                     display: 'flex', alignItems: 'flex-end',
                     justifyContent: 'flex-end', gap: 9,
                   }}>
@@ -1426,7 +1470,18 @@ export default function VillageCenter({
                       üretim kutusuyla arasında boşluk kalmasın (kutu sağa
                       yaslı dursun, ortada asılı kalmasın).
                     */}
-                    <div style={{ flex: '0 0 auto', width: ahirUstte ? 168 : undefined }}>
+                    {/*
+                      flex: '0 0 auto' idi — sarmalayıcı içindeki satırın tam
+                      genişliğini alıyor, DARALAMIYORDU. Dar ekranda iki kutu
+                      (2 × 212 px) yan yana sığmadığı hâlde satır sarmıyor,
+                      şerit panelin SOL kenarından dışarı taşıyordu (375 px'te
+                      ölçüldü: x = −88). Daralabilir olunca flexWrap devreye
+                      giriyor ve kutular alt alta diziliyor.
+                    */}
+                    <div style={{
+                      flex: '0 1 auto', minWidth: 0, maxWidth: '100%',
+                      width: ahirUstte ? 212 : undefined,
+                    }}>
                     <BuildingControls
                       building={selectedBuilding}
                       freeWorkers={freeWorkers}

@@ -22,9 +22,9 @@ const stepBtn = (off) => ({
   fontFamily: FONT.ui, fontSize: 14, lineHeight: 1, padding: 0,
 });
 
-const quick = (active) => ({
-  padding: '2px 7px',
-  fontFamily: FONT.ui, fontSize: 8.5, letterSpacing: 0.5,
+const quick = (active, compact = false) => ({
+  padding: compact ? '1px 5px' : '2px 7px',
+  fontFamily: FONT.ui, fontSize: compact ? 8 : 8.5, letterSpacing: 0.5,
   background: active ? 'rgba(61,159,214,0.24)' : 'rgba(20,34,50,0.55)',
   border: `1px solid ${active ? C.iceDeep : C.lineSoft}`,
   borderRadius: 3,
@@ -37,9 +37,10 @@ export default function WorkerAssign({
   mode = 'assign', title = 'İşçi',
   effect, onChange, disabled = false,
   /**
-   * KOMPAKT — kısayol düğmeleri (0 / ½ / TAM) ve etki satırı gizlenir,
-   * etki başlığın yanına küçük yazıyla girer. Poster görselinin üstündeki
+   * KOMPAKT — her şey bir tık küçük ve alttaki ayrı etki satırı kalkıp
+   * başlığın yanına küçük yazıyla giriyor. Poster görselinin üstündeki
    * şeritte tam boy denetim panelin yarısını kaplıyordu.
+   * Kısayol düğmeleri (0 / ½ / TAM) kompaktta da çiziliyor.
    */
   compact: compactProp = false,
 }) {
@@ -168,21 +169,31 @@ export default function WorkerAssign({
           onClick={() => push(local + 1, true)}>+</button>
       </div>
 
-      {/* Kısayollar + havuz — kompaktta gizli */}
-      {!compact && (
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+      {/*
+        KISAYOLLAR (0 · ½ · TAM) artık KOMPAKTTA DA var.
+        Gizliydi: poster şeridi 168 px genişliğindeydi ve üç düğme sığmıyordu.
+        Şerit genişletilince sığıyor — "tam kadro" gibi en sık yapılan işlem
+        kaydırıcıyı ucuna kadar sürüklemeyi gerektirmesin. Kompaktta düğmeler
+        ve havuz yazısı bir tık küçük; etki satırı zaten başlıkta.
+      */}
+      <div style={{
+        display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+        gap: compact ? 3 : 4, marginTop: compact ? 4 : 6,
+      }}>
         {min === 0 && (
-          <button type="button" style={quick(local === 0)} onClick={() => push(0, true)}>0</button>
+          <button type="button" style={quick(local === 0, compact)} onClick={() => push(0, true)}>0</button>
         )}
-        <button type="button" style={quick(ceiling > 1 && local === Math.ceil(ceiling / 2))}
+        <button type="button" style={quick(ceiling > 1 && local === Math.ceil(ceiling / 2), compact)}
           onClick={() => push(Math.ceil(ceiling / 2), true)}>½</button>
-        <button type="button" style={quick(ceiling > 0 && local === ceiling)}
+        <button type="button" style={quick(ceiling > 0 && local === ceiling, compact)}
           onClick={() => push(ceiling, true)}>TAM {ceiling}</button>
-        <span style={{ marginLeft: 'auto', fontFamily: FONT.ui, fontSize: 9, color: C.textFaint, whiteSpace: 'nowrap' }}>
+        <span style={{
+          marginLeft: 'auto', fontFamily: FONT.ui, fontSize: compact ? 8.5 : 9,
+          color: C.textFaint, whiteSpace: 'nowrap',
+        }}>
           havuz <span style={num({ color: freeWorkers > 0 ? C.iceSoft : C.warn })}>{freeWorkers}</span>
         </span>
       </div>
-      )}
 
       {/* Etki */}
       {!compact && effect && (
