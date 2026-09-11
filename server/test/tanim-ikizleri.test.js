@@ -19,7 +19,6 @@ const assert = require('node:assert');
 const path = require('node:path');
 const url = require('node:url');
 
-const SUNUCU = path.join(__dirname, '..', 'data');
 const ISTEMCI = path.join(__dirname, '..', '..', 'client', 'src', 'data');
 
 /** İstemci dosyaları ESM (client/package.json → type: module) */
@@ -59,18 +58,18 @@ test('köy binası maliyetleri sunucu ve istemcide aynı', async () => {
 
 test('varsayılan yükseltme çarpanı iki tarafta aynı', async () => {
   const istemci = await istemciYukle('villageDefs.js');
-  // Sunucudaki değer server/index.js içinde sabit; kaynağı tek yerde tutmak
-  // için burada AÇIKÇA yazılı — index.js değişirse bu test düşer ve fark edilir.
+  // Beklenen değer burada AÇIKÇA yazılı: iki taraf birlikte değiştirilip
+  // sessizce kayarsa bu sabit yakalasın diye üçüncü bir tanık.
   const SUNUCU_VARSAYILAN = 1.25;
   assert.equal(istemci.UPGRADE_MULT_DEFAULT, SUNUCU_VARSAYILAN,
-    'istemcideki UPGRADE_MULT_DEFAULT server/index.js:283 ile aynı olmalı');
+    'istemcideki UPGRADE_MULT_DEFAULT sunucudakiyle aynı olmalı');
 
-  const fs = require('node:fs');
-  const indexKaynak = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
-  const m = /const UPGRADE_MULT_DEFAULT = ([\d.]+);/.exec(indexKaynak);
-  assert.ok(m, 'server/index.js içinde UPGRADE_MULT_DEFAULT bulunamadı');
-  assert.equal(Number(m[1]), SUNUCU_VARSAYILAN,
-    'server/index.js değişmiş — bu testteki sabiti ve istemciyi de güncelle');
+  // Sunucu tarafı: metin eşleştirmek yerine modülden GERÇEK değeri al.
+  // (Eskiden server/index.js kaynağı okunuyordu; sabit game/koyKurallari.js'e
+  //  taşınınca test düştü ve doğru yeri gösterdi — sistem çalıştı.)
+  const { UPGRADE_MULT_DEFAULT } = require('../game/koyKurallari');
+  assert.equal(UPGRADE_MULT_DEFAULT, SUNUCU_VARSAYILAN,
+    'game/koyKurallari.js değişmiş — bu testteki sabiti ve istemciyi de güncelle');
 });
 
 test('üretim tarlası tanımları sunucu ve istemcide aynı', async () => {

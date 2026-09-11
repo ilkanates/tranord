@@ -55,4 +55,26 @@ const WORLD = {
   speed: 1,
 };
 
-module.exports = { userSessions, WORLD };
+/**
+ * KİRLİ İŞARETLEYİCİLER — "bunu diske yazmayı unutma".
+ *
+ * Durumun yanında duruyorlar çünkü tek yaptıkları o durumu işaretlemek;
+ * index.js'te kalsalardı seferleri tarayan modül onlar için index.js'i
+ * require etmek zorunda kalırdı (döngüsel bağımlılık).
+ */
+function markNpcDirty(slotKey) {
+  if (slotKey) WORLD.dirtyNpcs.add(slotKey);
+}
+
+/**
+ * Oyuncunun bir köyünü kirlet. `slotKey` verilmezse (eski çağrı yerleri)
+ * bütün köyleri işaretlenir — kaydetmek zararsız, kaydetmemek veri kaybı.
+ */
+function markUserDirty(userId, slotKey = null) {
+  const s = userSessions.get(userId);
+  if (!s) return;
+  if (slotKey && s.villages.has(slotKey)) s.dirtySlots.add(slotKey);
+  else for (const k of s.villages.keys()) s.dirtySlots.add(k);
+}
+
+module.exports = { userSessions, WORLD, markNpcDirty, markUserDirty };

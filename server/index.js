@@ -4,11 +4,11 @@ const { Server } = require('socket.io');
 const cors       = require('cors');
 
 const { createVillage, hydrateVillage,
-        TOWER_SLOTS_ARR: TOWER_SLOT_NAMES,
         WALL_SLOTS_ARR: WALL_SLOT_NAMES,
-        DEFENCE_TYPES, civilianCount } = require('./game/villageState');
-const { processTick, getUpgradeSeconds, hexDistanceFromCenter, getProductionMultiplier, getSlotTotalMultiplier, getUnitTrainSeconds, getEquipmentCap, getEquipmentPool, getConsumptionRates, getStorageCaps } = require('./game/tick');
-const { simulateBattle, towerBonusPct } = require('./game/combat');
+        civilianCount } = require('./game/villageState');
+const { processTick, getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier,
+        getEquipmentCap, getEquipmentPool, getConsumptionRates, getStorageCaps } = require('./game/tick');
+const { simulateBattle } = require('./game/combat');
 const ARMY = require('./game/army');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
@@ -18,7 +18,7 @@ const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
 const W = require('./game/world');
 const { getMaxProductionSlots, canBuildAt, buildRefusalReason, canBuildProductionAt }
   = require('./game/insaat');
-const { QUESTS, QUEST_BY_ID } = require('./data/questDefs');
+const { QUEST_BY_ID } = require('./data/questDefs');
 const { questState, questSync, questTamam, questPayload, questFingerprint }
   = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -92,7 +92,12 @@ app.use(express.json());
 app.use('/auth', authRouter);
 
 // Oturumlar (userId -> session) ve dünya durumu tek yerde: durum.js
-const { userSessions, WORLD } = require('./durum');
+const { userSessions, WORLD, markNpcDirty, markUserDirty } = require('./durum');
+const { marchingVillages, gelenSeferSayilari, incomingMarchesFor }
+  = require('./game/seferTakip');
+const { popPerGameHour, getVillageBuildMinutes, getScaledUpgradeCost,
+        refreshExpansionCredits, expansionFree, settlerCapacity,
+        MAX_BUILDERS } = require('./game/koyKurallari');
 
 /**
  * ÇOKLU KÖY OTURUMU.
@@ -159,28 +164,6 @@ function uniqueOwnersOf(session) {
   return out;
 }
 
-/** Arayüzdeki köy değiştirici için hafif liste */
-/**
- * Verilen slotlara YÜRÜMEKTE OLAN düşman sefer sayıları — TEK geçişte.
- *
- * incomingMarchesFor() her çağrıda dünyadaki bütün seferleri tarıyor;
- * köy listesinde köy başına bir kez çağırmak N kat maliyet demekti.
- * Burada bütün seferler bir kez geziliyor, ilgilenilen slotlar sayılıyor.
- */
-function gelenSeferSayilari(slotKeys) {
-  const say = new Map();
-  if (!slotKeys.size) return say;
-  for (const entry of marchingVillages()) {
-    for (const m of entry.village.marches || []) {
-      if (m.phase !== 'outbound' || m.mode === 'yerlesim') continue;
-      if (!slotKeys.has(m.toKey)) continue;
-      // Kendi köyünden kendi köyüne takviye uyarı sayılmaz
-      if (slotKeys.has(m.fromKey)) continue;
-      say.set(m.toKey, (say.get(m.toKey) || 0) + 1);
-    }
-  }
-  return say;
-}
 
 function villageList(session) {
   const out = [];
@@ -224,32 +207,9 @@ function villageList(session) {
 const socketToUser  = new Map();
 
 const DEFAULT_TICK_MS = 1000;
-/** Aç değilken ve tavan altındayken saatte kaç kişi katılır */
-/**
- * NÜFUS ARTIŞ HIZI — ANA BİNA SEVİYESİNE BAĞLI.
- *
- * Eskiden sabit 1 kişi/oyun saatiydi; ana binayı yükseltmenin nüfusa hiçbir
- * etkisi yoktu. Artık hız ana binadan gelir, TAVAN ise evlerden (bkz.
- * maxPopulation). Yani ana bina "ne kadar hızlı büyürüm", ev "ne kadar
- * büyüyebilirim" sorusunu cevaplıyor.
- *
- * Lvl 1'de eski hızın aynısı (1/saat = 24/gün), her seviye +0.6:
- *   lvl 1 → 1.0/sa   lvl 5 → 3.4/sa   lvl 10 → 6.4/sa   lvl 11 → 7.0/sa
- */
-const POP_PER_HOUR_BASE = 1.0;
-/**
- * Seviye başına artış 0,6 → 2. Eski hızda (Lvl 11'de 7 kişi/oyun saati)
- * tahılın besleyebildiği ~9.500 kişilik orduyu kurmak 56 oyun günü sürüyordu.
- * Yeni hızda Lvl 11 = 21, Lvl 20 = 39 kişi/saat; ana binayı yükseltmek de
- * gerçekten değerli oluyor.
- */
-const POP_PER_HOUR_STEP = 2.0;
+// Köy kuralları (nüfus hızı, inşa süresi, yükseltme maliyeti, köy hakkı,
+// inşaatçı tavanı) game/koyKurallari.js'e taşındı.
 
-function popPerGameHour(anaBinaLevel) {
-  const lv = Math.max(0, Math.floor(anaBinaLevel || 0));
-  if (lv < 1) return 0;                       // ana bina yoksa büyüme yok
-  return POP_PER_HOUR_BASE + (lv - 1) * POP_PER_HOUR_STEP;
-}
 /**
  * En küçük tick aralığı = en yüksek hız. 1000/7,8125 = 128× (üst bardaki
  * çubuğun son kademesi). Eskiden 100 ms idi ve çubuk 10×'te sessizce
@@ -258,93 +218,15 @@ function popPerGameHour(anaBinaLevel) {
 const MIN_TICK_MS     = 7;
 const MAX_TICK_MS     = 10000;
 
-/**
- * Köy binası inşa/yükseltme süresi — oyun DAKİKASI.
- * `buildBaseWork` bir "iş" sayısı; işçi sayısına bölünür. Değerler dakika
- * cetveline oturuyor (ana bina lvl1→2: 50 dk / işçi sayısı).
- */
-function getVillageBuildMinutes(type, level, workers) {
-  const def = VILLAGE_DEFS[type];
-  if (!def || workers <= 0) return Infinity;
-  const work = def.buildBaseWork * Math.pow(def.buildMultiplier, level - 1);
-  return work / workers;
-}
 const getVillageBuildSeconds = getVillageBuildMinutes;   // geriye dönük ad
 
-/**
- * YÜKSELTME MALİYETİ — HER SEVİYE İÇİN.
- *
- * Eskiden yalnızca `upgradeCostBase` tanımlı binalar ücret alıyordu ve o alan
- * SADECE anaBina'da vardı: diğer 27 bina Lvl 1'den sonra BEDAVA yükseliyordu.
- * Artık taban yok ise binanın İNŞA maliyeti taban kabul edilir, yani her
- * binanın her seviye artışının bir bedeli var.
- *
- * Maliyet = taban × çarpan^(mevcut seviye - 1). Çarpan bina tanımında
- * verilmezse UPGRADE_MULT_DEFAULT. 1.25 seçildi: Lvl 10'da ~7.5×, Lvl 20'de
- * ~73× taban — depo kapasitesinin (seviye × 500) ulaşabileceği aralıkta kalır.
- * anaBina kendi çarpanını (1.7) korur, dengesi elle ayarlanmış.
- */
-const UPGRADE_MULT_DEFAULT = 1.25;
 
-function getScaledUpgradeCost(type, currentLevel) {
-  const def = VILLAGE_DEFS[type];
-  const base = def?.upgradeCostBase || def?.cost;
-  if (!base) return null;
-  const mult = Math.pow(def.upgradeCostMultiplier || UPGRADE_MULT_DEFAULT,
-    Math.max(0, currentLevel - 1));
-  return Object.fromEntries(
-    Object.entries(base).map(([k, v]) => [k, Math.round(v * mult)])
-  );
-}
 
 // Görev zinciri game/quests.js'e taşındı — ölçüm, ilerleme ve ödül durumu.
 
-/**
- * BU KÖYÜN YERLEŞİM HAKKI.
- *
- * Köşk/sarayın ULAŞTIĞI eşikler hak kazandırır (köşk 10/20, saray
- * 10/15/20). Kazanılan hak yüksek su seviyesi gibi tutulur: bina
- * yıkılsa da düşmez, ama yeni hak için bir sonraki eşiğe çıkmak
- * gerekir. Harcanan hak = bu köyden kurulan köy sayısı.
- */
-function refreshExpansionCredits(village) {
-  let reached = 0;
-  for (const b of Object.values(village.villageBuildings || {})) {
-    const at = VILLAGE_DEFS[b.type]?.expansionAt;
-    if (!Array.isArray(at) || !(b.level >= 1)) continue;
-    for (const lv of at) if (b.level >= lv) reached++;
-  }
-  village.expansionEarned = Math.max(village.expansionEarned || 0, reached);
-  return village.expansionEarned;
-}
 
-/** Kalan hak (kurulabilecek köy sayısı) */
-function expansionFree(village) {
-  return Math.max(0, refreshExpansionCredits(village) - (village.expansionUsed || 0));
-}
 
-/**
- * Göçmen tavanı: her hak 3 göçmen. Mevcut göçmenler, yoldakiler ve
- * kuyruktakiler birlikte sayılır — hak bitince yeni göçmen basılamaz.
- */
-function settlerCapacity(village) {
-  const izin = expansionFree(village) * ARMY.SETTLERS_REQUIRED;
-  let mevcut = village.army?.[ARMY.SETTLER_UNIT] || 0;
-  for (const m of village.marches || []) mevcut += m.units?.[ARMY.SETTLER_UNIT] || 0;
-  for (const q of Object.values(village.unitQueues || {})) {
-    for (const o of q) if (o.type === ARMY.SETTLER_UNIT) mevcut += o.remaining || 0;
-  }
-  return { izin, mevcut, bos: Math.max(0, izin - mevcut) };
-}
 
-/**
- * BİR İNŞAATA KONABİLECEK EN FAZLA İŞÇİ.
- *
- * Eskiden tek sınır boş işçi sayısıydı: 2000 işçiyle her bina anında
- * bitiyordu. Tavan = inşa edilecek SEVİYE + 2 (yeni bina için 3).
- * Yüksek seviye inşaatlar zaten uzun; kural kendi kendini dengeliyor.
- */
-const MAX_BUILDERS = (mevcutSeviye) => Math.max(1, (mevcutSeviye || 0) + 2);
 
 /**
  * SAYISAL GİRDİ SÜZGECİ — istemciden gelen her sayı buradan geçmeli.
@@ -1207,43 +1089,10 @@ function villageAtSlot(slotKey) {
   return null;
 }
 
-/**
- * Sefer taşıyan tüm köyler — oyuncu oturumları + NPC'ler.
- * Ad NOTU: 'allVillages' denemez — bootServer içinde aynı adlı bir yerel
- * değişken var (DB'den yüklenen köy listesi) ve gölgeleme karışıklık yaratır.
- */
-function* marchingVillages() {
-  // ÇOKLU KÖY: her köy kendi seferlerini taşıyor, oyuncunun hepsi gezilir
-  for (const [userId, session] of userSessions) {
-    for (const [slotKey, village] of session.villages) {
-      yield {
-        village, kind: 'player', userId, slotKey,
-        dirty: () => { session.dirtySlots.add(slotKey); },
-      };
-    }
-  }
-  for (const n of WORLD.npcs.values()) {
-    yield {
-      village: n.village, kind: 'npc', userId: null, slotKey: n.slot.key,
-      dirty: () => { markNpcDirty(n.slot.key); },
-    };
-  }
-}
+// Sefer tarama (marchingVillages / incomingMarchesFor) game/seferTakip.js'te,
+// kirli işaretleyiciler durum.js'te.
 
-function markNpcDirty(slotKey) {
-  if (slotKey) WORLD.dirtyNpcs.add(slotKey);
-}
 
-/**
- * Oyuncunun bir köyünü kirlet. `slotKey` verilmezse (eski çağrı yerleri)
- * bütün köyleri işaretlenir — kaydetmek zararsız, kaydetmemek veri kaybı.
- */
-function markUserDirty(userId, slotKey = null) {
-  const s = userSessions.get(userId);
-  if (!s) return;
-  if (slotKey && s.villages.has(slotKey)) s.dirtySlots.add(slotKey);
-  else for (const k of s.villages.keys()) s.dirtySlots.add(k);
-}
 
 /** Eve varışta depoya ne sığar — fazlası çöp olur (bkz. depositLoot) */
 function lootRoom(village) {
@@ -1438,28 +1287,6 @@ function processMarches(hours) {
 // NOT: seferlerin kendi zamanlayıcısı YOK — NPC/dünya döngüsünden ilerletilir,
 // böylece dünya hızıyla tek adımda kalırlar.
 
-/** Bir slota gelmekte olan seferler — oyuncu uyarısı için */
-function incomingMarchesFor(slotKey) {
-  const out = [];
-  if (!slotKey) return out;
-  for (const entry of marchingVillages()) {
-    for (const m of entry.village.marches || []) {
-      if (m.phase !== 'outbound' || m.toKey !== slotKey) continue;
-      out.push({
-        key: `${entry.slotKey}#${m.id}`,
-        mode: m.mode,
-        fromKey: m.fromKey, fromName: m.fromName,
-        // Tam birim dökümü verilmiyor; büyüklük 10'a yuvarlanmış toplam olarak
-        // veriliyor ki oyuncu savunma kararı verebilsin (ileride gözcü kulesi
-        // bunu netleştirebilir).
-        sizeApprox: Math.round(ARMY.totalUnits(m.units) / 10) * 10,
-        timeLeft: GT.clockToRealSeconds(
-          GT.hoursToClock(Math.max(0, m.remainingHours ?? 0)), WORLD.speed),
-      });
-    }
-  }
-  return out.sort((a, b) => a.timeLeft - b.timeLeft);
-}
 
 /** Oyuncu NPC saldırılarına açık mı? */
 function playerRaidable(userId) {

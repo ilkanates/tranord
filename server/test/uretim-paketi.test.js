@@ -59,7 +59,7 @@ test('dev-login.html sunucu adresini yerel adreslerle sınırlıyor', () => {
   // Doğrulama düzeninin kendisini de sına: dosyadan çıkarıp çalıştır
   const m = /const YEREL_ADRES = (\/.*\/);/.exec(html);
   assert.ok(m, 'YEREL_ADRES deseni okunamadı');
-  const desen = eval(m[1]);   // eslint-disable-line no-eval -- kendi dosyamızdan sabit
+  const desen = eval(m[1]);   // dosyadan okunan sabit desen
   for (const iyi of ['http://localhost:3311', 'https://127.0.0.1:3311', 'http://[::1]:5180']) {
     assert.ok(desen.test(iyi), `yerel adres reddedildi: ${iyi}`);
   }
