@@ -854,7 +854,6 @@ export default function MapView({
     efekt koymak yerine (setState-in-effect) sahiplik burada duruyor.
   */
   useEffect(() => () => onPanelChange?.(false), [onPanelChange]);
-  const [filterTier, setFilterTier] = useState(null);
   const [sendTarget, setSendTarget] = useState(null);   // ordu gönderme ekranı
 
   const ref = useRef(null);
@@ -1133,10 +1132,11 @@ export default function MapView({
   /** Üzerinde köy olan hex'ler — bunlara tıklamak yerleşim penceresi açmaz */
   const koyluHexler = useMemo(() => new Set(villages.map(v => v.key)), [villages]);
 
-  const shownVillages = useMemo(() => {
-    if (!filterTier) return villages;
-    return villages.filter(v => v.kind !== 'npc' || v.tier === filterTier);
-  }, [villages, filterTier]);
+  /*
+    Kademe süzgeci alt bardan kaldırıldı (bkz. alt bar yorumu); süzgeci
+    ayakta tutan bir denetim kalmadığı için liste doğrudan geçiyor.
+  */
+  const shownVillages = villages;
 
   /** dünya hex anahtarı → sahibi (kendi köyün hariç) */
   /**
@@ -1761,59 +1761,60 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
         </div>
       )}
 
-      {/* Alt bar */}
+      {/*
+        ALT BAR TEK SATIR.
+
+        Eskiden kademe süzgeçleri (Çiftlik, Kasaba, Kale…) ve "sürükle ·
+        tekerlek zoom" ipucu da buradaydı; bar iki-üç satıra sarıyor ve
+        telefonda haritanın altından ciddi bir pay alıyordu. Süzgeçler
+        kaldırıldı — harita zaten köy cinsini renk ve şekille söylüyor,
+        ipucu da bir kez okunduktan sonra yer kaplamaktan başka iş
+        görmüyordu.
+      */}
       <div style={{
         position: 'absolute', bottom: 10, left: railInset + 10, right: railInset + 10, zIndex: 30,
-        display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap',
-        padding: '6px 11px', borderRadius: 7,
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden',
+        padding: '4px 10px', borderRadius: 7,
         background: 'rgba(9,18,30,0.55)', border: `1px solid ${C.lineSoft}`,
         backdropFilter: 'blur(14px) saturate(1.15)',
         WebkitBackdropFilter: 'blur(14px) saturate(1.15)',
       }}>
-        <Icon name="harita" size={12} color={C.iceDeep} />
-        <span style={lbl({ fontSize: 8 })}>{zoomLabel}</span>
-        <span style={num({ fontSize: 10, color: C.textFaint })}>{scale.toFixed(2)}×</span>
+        <Icon name="harita" size={12} color={C.iceDeep} style={{ flexShrink: 0 }} />
+        <span style={lbl({ fontSize: 8, whiteSpace: 'nowrap', flexShrink: 0 })}>{zoomLabel}</span>
+        <span style={num({ fontSize: 10, color: C.textFaint, flexShrink: 0 })}>{scale.toFixed(2)}×</span>
 
-        <div style={{ width: 1, height: 14, background: C.lineSoft }} />
+        <div style={{ width: 1, height: 14, background: C.lineSoft, flexShrink: 0 }} />
 
-        <span style={lbl({ fontSize: 8 })}>Tarla</span>
-        <span style={num({ fontSize: 12, color: slotsFull ? C.warn : C.frost })}>
+        <span style={lbl({ fontSize: 8, whiteSpace: 'nowrap', flexShrink: 0 })}>Tarla</span>
+        <span style={num({ fontSize: 12, color: slotsFull ? C.warn : C.frost, flexShrink: 0 })}>
           {tileCount}<span style={{ color: C.textMute, fontSize: 9.5 }}>/{maxProductionSlots}</span>
         </span>
 
-        <div style={{ width: 1, height: 14, background: C.lineSoft }} />
+        <div style={{ width: 1, height: 14, background: C.lineSoft, flexShrink: 0 }} />
 
-        <span style={num({ fontSize: 10, color: C.textFaint })}>
-          {villages.length} köy · r{snap?.radius ?? '—'}
-        </span>
+        {/*
+          Köy sayısı TELEFONDA GİZLİ. Bilgi; düğmeler iş. 414 px'de
+          sığmıyor ve "2..." diye kırpılıp çirkin duruyordu; kaldırınca
+          bar tek satırda rahat ediyor. `railInset` telefonda 8, masaüstünde
+          ray genişliği kadar — ayrı bir prop'a gerek yok.
+        */}
+        {railInset > 10 && (
+          <span style={num({
+            fontSize: 10, color: C.textFaint, whiteSpace: 'nowrap', flexShrink: 0,
+          })}>
+            {villages.length} köy · r{snap?.radius ?? '—'}
+          </span>
+        )}
 
-        {(snap?.tiers || []).map(t => {
-          const on = filterTier === t.tier;
-          const count = villages.filter(v => v.kind === 'npc' && v.tier === t.tier).length;
-          return (
-            <button key={t.tier} onClick={() => setFilterTier(on ? null : t.tier)}
-              title={`${t.label} — ${count} köy`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '2px 6px', borderRadius: 4, cursor: 'pointer',
-                fontFamily: FONT.ui, fontSize: 8.5,
-                background: on ? `${TIER_COLOR[t.tier]}26` : 'rgba(12,20,28,0.5)',
-                border: `1px solid ${on ? TIER_COLOR[t.tier] : C.lineSoft}`,
-                color: on ? C.frost : C.textFaint,
-              }}>
-              {t.label}<span style={num({ fontSize: 8, color: C.textMute })}>{count}</span>
-            </button>
-          );
-        })}
-
-        <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint }}>
-          sürükle · tekerlek zoom · ok tuşları
-        </span>
+        <div style={{ flex: 1, minWidth: 4 }} />
         <button onClick={() => setScale(s => Math.max(Z_MIN, s / 1.6))}
-          style={btn('ghost', { padding: '2px 7px', fontSize: 9 })}>UZAKLAŞ</button>
+          style={btn('ghost', {
+            padding: '3px 8px', fontSize: 9, whiteSpace: 'nowrap', flexShrink: 0,
+          })}>UZAKLAŞ</button>
         <button onClick={() => recenter(1.6)}
-          style={btn('ghost', { padding: '2px 8px', fontSize: 8.5 })}>KÖYÜME DÖN</button>
+          style={btn('ghost', {
+            padding: '3px 8px', fontSize: 9, whiteSpace: 'nowrap', flexShrink: 0,
+          })}>KÖYÜME DÖN</button>
       </div>
 
       {/* Paneller */}
