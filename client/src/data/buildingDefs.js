@@ -5,7 +5,7 @@
 const BUILDING_DEFS = {
   odun: {
     name: 'Orman', icon: '🪵', color: '#5a3a1a',
-    baseProductionPerWorker: 28,
+    baseProductionPerWorker: 22,
     levels: [
       { workers:3   ,   cost:{ kereste:12,    tugla:30,    yontmaTas:18,    demirKulce:15    }, sureSaat:5.00    },
       { workers:5   ,   cost:{ kereste:19,    tugla:48,    yontmaTas:29,    demirKulce:24    }, sureSaat:7.00    },
@@ -32,7 +32,7 @@ const BUILDING_DEFS = {
 
   demir: {
     name: 'Demir Madeni', icon: '⛏️', color: '#5a6878',
-    baseProductionPerWorker: 20,
+    baseProductionPerWorker: 14,
     levels: [
       { workers:3   ,   cost:{ kereste:14,    tugla:24,     yontmaTas:27,    demirKulce:9    }, sureSaat:5.50    },
       { workers:5   ,   cost:{ kereste:23,    tugla:38,    yontmaTas:43,   demirKulce:14    }, sureSaat:7.70    },
@@ -59,7 +59,7 @@ const BUILDING_DEFS = {
 
   kil: {
     name: 'Kil Ocağı', icon: '🟫', color: '#9a5030',
-    baseProductionPerWorker: 24,
+    baseProductionPerWorker: 22,
     levels: [
       { workers:3   ,   cost:{ kereste:7,    tugla:45,    yontmaTas:14,    demirKulce:18    }, sureSaat:4.75    },
       { workers:5   ,   cost:{ kereste:11,    tugla:72,    yontmaTas:23,    demirKulce:29    }, sureSaat:6.65    },
@@ -86,7 +86,7 @@ const BUILDING_DEFS = {
 
   tas: {
     name: 'Taş Ocağı', icon: '🪨', color: '#7a7068',
-    baseProductionPerWorker: 24,
+    baseProductionPerWorker: 22,
     levels: [
       { workers:3   ,   cost:{ kereste:10,    tugla:27,     yontmaTas:29,    demirKulce:10    }, sureSaat:5.25    },
       { workers:5   ,   cost:{ kereste:15,    tugla:43,    yontmaTas:46,   demirKulce:17    }, sureSaat:7.35    },
