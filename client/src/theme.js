@@ -49,18 +49,30 @@ export const C = {
 };
 
 // Kaynak zincirlerinin renkleri — ham ve işlenmiş hâli aynı aileden
+/**
+ * KAYNAK RENKLERİ — malın KENDİ rengi, aile rengi değil.
+ *
+ * Eski palette ham madde ile ondan çıkan işlenmiş mal aynı rengin koyu
+ * ve açık tonuydu (odun yeşil, kereste açık yeşil). Aile bağını
+ * gösteriyordu ama asıl işi yapmıyordu: küçük simgede odunla keresteyi
+ * ayırt etmek imkânsızdı, ikisi de yeşil bir leke oluyordu.
+ *
+ * Artık her mal kendi gerçek rengine yakın: kütük kahve, kereste sarımsı
+ * tahta, kil kiremit, tuğla pişmiş kırmızı. Aile bağını simgenin şekli
+ * zaten anlatıyor.
+ */
 export const RES_COLOR = {
-  odun:       '#77d69b',
-  kereste:    '#a6ecc4',
-  kil:        '#f09a70',
-  tugla:      '#f8bb94',
-  tas:        '#a8bcd4',
-  yontmaTas:  '#cbdbec',
-  demir:      '#93bcea',
-  demirKulce: '#bcd8fa',
-  tahil:      '#eed473',
-  un:         '#f7e9ab',
-  ekmek:      '#f0b878',
+  odun:       '#b0794a',   // kütük — koyu kahve
+  kereste:    '#e3b579',   // biçilmiş tahta — sarımsı
+  kil:        '#d9774c',   // ıslak kil — kiremit
+  tugla:      '#c14f33',   // pişmiş tuğla — kırmızı
+  tas:        '#93a2b4',   // ham taş — gri
+  yontmaTas:  '#d2dbe6',   // yontulmuş taş — açık gri
+  demir:      '#6d8db4',   // demir cevheri — koyu çelik
+  demirKulce: '#b8d4f2',   // külçe — parlak gümüş
+  tahil:      '#e6c247',   // başak — altın sarısı
+  un:         '#f2e7c4',   // un — krem
+  ekmek:      '#c98a4b',   // ekmek — fırın kahvesi
 };
 
 export const FONT = {
