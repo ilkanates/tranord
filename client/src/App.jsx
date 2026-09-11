@@ -15,6 +15,8 @@ import { MarchPanel, IncomingAlert } from './components/WarPanel';
 import ReportScreen, { unseenCount } from './components/ReportScreen';
 import QuestScreen, { QuestCard, Spotlight } from './components/QuestGuide';
 import LoginScreen from './components/LoginScreen';
+import YamaNotlari from './components/YamaNotlari';
+import { SON_SURUM } from './data/yamaNotlari';
 import LoginBackdrop from './components/LoginBackdrop';
 import StatsScreen from './components/StatsScreen';
 import ResourceRail    from './components/ResourceRail';
@@ -38,6 +40,8 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL
   || (import.meta.env.DEV ? 'http://localhost:3311' : '');
 
 const TOKEN_KEY = 'tranord_token';
+/** Oyuncunun en son gördüğü yama sürümü (bkz. YamaNotlari) */
+const YAMA_ANAHTAR = 'tranord_yama_surum';
 
 /** Token: URL param → localStorage → yok. Giriş artık oyunun İÇİNDE. */
 function getToken() {
@@ -419,6 +423,26 @@ function Game({ token, onLogout }) {
    * işçi "+" düğmesinin %100'ünü örtüyordu (telefonda paneli komple).
    */
   const [panelAcik, setPanelAcik] = useState(false);
+
+  /**
+   * YAMA NOTLARI — oyuncu bu sürümü daha önce kapattıysa açılmaz.
+   *
+   * Kayıt SÜRÜME bağlı: yeni bir yama eklendiğinde panel bir kez daha
+   * açılır, yoksa ilk kapatmadan sonra oyuncu hiçbir yeniliği göremezdi.
+   * localStorage bazı ortamlarda (gizli sekme, site verisi kapalı) okurken
+   * bile hata atıyor — o yüzden her erişim try/catch içinde ve hata
+   * durumunda panel GÖSTERİLİYOR (bir kez fazla göstermek, hiç
+   * göstermemekten iyi).
+   */
+  const [yamaAcik, setYamaAcik] = useState(() => {
+    if (!SON_SURUM) return false;
+    try { return localStorage.getItem(YAMA_ANAHTAR) !== SON_SURUM; }
+    catch { return true; }
+  });
+  const kapatYama = () => {
+    setYamaAcik(false);
+    try { localStorage.setItem(YAMA_ANAHTAR, SON_SURUM); } catch { /* kalıcılık şart değil */ }
+  };
   /**
    * Yardım sayfasına DERİN BAĞLANTI: bina panelindeki "?" düğmesi buraya
    * 'bina:kisla' gibi bir konu yazıp sekmeyi değiştiriyor. HelpScreen konuyu
@@ -917,8 +941,12 @@ function Game({ token, onLogout }) {
         gidilecek yeri yakıp söndürür. Rehber kapalıyken kart rozete iner
         ama görevler arka planda işlemeye devam eder.
       */}
+      <YamaNotlari acik={yamaAcik} onKapat={kapatYama}
+        mobile={vp.mobile} railW={vp.railW} />
       <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
-        bastir={panelAcik}
+        /* Yama notu acikken rehber karti da rozete iner: ikisi ayni anda
+           yuzerken telefonda ust uste biniyorlardi. */
+        bastir={panelAcik || yamaAcik}
         onClaim={(id) => socket?.emit('claim_quest', { id })}
         onToggle={(hidden) => socket?.emit('toggle_quests', { hidden })}
         onGoTab={(t) => t && setTab(t)} />
