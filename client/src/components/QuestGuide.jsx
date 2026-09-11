@@ -109,6 +109,19 @@ export function Spotlight({ anchor, on }) {
 /* ── Sağ altta yüzen kart ────────────────────────────────────────── */
 export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mobile = false,
   bastir = false }) {
+  /**
+   * TELEFONDA VARSAYILAN ROZET.
+   *
+   * Genişletilmiş kart 320×213 ve ekranın sağ-altına sabitli. 414×896'lık
+   * bir iPhone'da bu, ekranın ALT ÜÇTE BİRİ demek: Ordu, Köylüler,
+   * Raporlar ve İstatistik ekranlarında listelerin altı kartın arkasında
+   * kalıyordu — panel açık olmadığı için `bastir` da devreye girmiyordu.
+   *
+   * Telefonda kart rozetle başlıyor, dokununca açılıyor. Bu YEREL bir
+   * durum: sunucudaki `quests.hidden` tercihine dokunmuyor, yani
+   * masaüstünde oyuncunun gizleme kararı aynen korunuyor.
+   */
+  const [mobilAcik, setMobilAcik] = useState(false);
   if (!quests || quests.bitti) return null;
   // Oyuncu listeden bir görev seçtiyse kart onu gösterir
   const secili = focus && quests.liste.find(q => q.id === focus && !q.alindi);
@@ -130,9 +143,14 @@ export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mo
    * `bastir` SUNUCU durumuna dokunmuyor: panel kapanınca kart kendiliğinden geri
    * açılır, oyuncunun gizleme tercihi (quests.hidden) ayrı durur.
    */
-  if (quests.hidden || bastir) {
+  if (quests.hidden || bastir || (mobile && !mobilAcik)) {
     return (
-      <button onClick={() => onToggle(false)} title="Rehberi aç"
+      <button
+        onClick={() => {
+          if (quests.hidden) onToggle(false);
+          if (mobile) setMobilAcik(true);
+        }}
+        title="Rehberi aç"
         style={{
           position: 'fixed', bottom: mobile ? 74 : 52, zIndex: 1200,
           /*
@@ -170,7 +188,10 @@ export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mo
         <span style={num({ fontSize: 9, color: C.textMute })}>
           {quests.liste.filter(q => q.alindi).length}/{quests.liste.length}
         </span>
-        <button onClick={() => onToggle(true)} title="Rehberi gizle (görevler işlemeye devam eder)"
+        {/* Telefonda kapatmak yalnız kartı toplar; sunucudaki gizleme
+            tercihi masaüstüne ait, onu bozmuyoruz. */}
+        <button onClick={() => (mobile ? setMobilAcik(false) : onToggle(true))}
+          title="Rehberi gizle (görevler işlemeye devam eder)"
           style={{
             width: 20, height: 20, padding: 0, display: 'grid', placeItems: 'center',
             borderRadius: 10, cursor: 'pointer',

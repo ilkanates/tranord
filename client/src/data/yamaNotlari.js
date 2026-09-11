@@ -26,6 +26,38 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-12a',
+    tarih: '12 Eylül 2026',
+    baslik: 'Telefonda oynanabilirlik',
+    notlar: [
+      {
+        id: '20260912-rehber-yuzmuyor',
+        tur: 'duzeltme',
+        metin: 'Rehber kartı telefonda ekranın alt üçte birini kaplıyor ve '
+          + 'listelerin altını örtüyordu; Köylüler ekranında işçi +/- '
+          + 'düğmelerine basılamıyordu. Telefonda kart kalktı, görev durumu '
+          + 'artık Görevler sekmesinin üstündeki sayaçta.',
+      },
+      {
+        id: '20260912-yama-alt-sayfa',
+        tur: 'duzeltme',
+        metin: 'Yama notları telefonda neredeyse tüm ekranı kaplıyordu; '
+          + 'açılışta oyunu görmek için önce onu kapatmak gerekiyordu. Artık '
+          + 'alt yarıya oturuyor, üstte oyun görünür kalıyor.',
+      },
+      {
+        id: '20260912-sekme-seridi',
+        tur: 'duzeltme',
+        metin: 'Telefonda son sekmeler (Raporlar, İstatistik, Simülatör, '
+          + 'Yardım) şeridin dışında kalıyor ve orada bir şey olduğu belli '
+          + 'olmuyordu. Seçili sekme artık kendiliğinden görüş alanına '
+          + 'kayıyor, şeridin sağ kenarındaki solma da devamı olduğunu '
+          + 'söylüyor. Kaynak şeridi de daraldı: altı yerine dokuz kaynak '
+          + 'görünüyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11i',
     tarih: '11 Eylül 2026',
     baslik: 'Oyuncu pazarı açıldı',

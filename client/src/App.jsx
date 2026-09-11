@@ -332,8 +332,23 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
  * TAP (44 px) yuksekliginde.
  */
 export function BottomTabs({ tab, setTab, badges = {} }) {
+  /**
+   * AÇIK SEKME GÖRÜNÜR KALSIN.
+   *
+   * On sekme 414 px'e sığmıyor; şerit yatay kayıyor ama seçili sekme
+   * ekranın dışında kalabiliyordu. Telefonda son dört sekme (Raporlar,
+   * İstatistik, Simülatör, Yardım) hiç görünmüyor, oyuncu oraya
+   * gidebildiğini bilmiyordu. Sekme değişince seçili olan görüş alanına
+   * kaydırılıyor.
+   */
+  const seritRef = useRef(null);
+  useEffect(() => {
+    const el = seritRef.current?.querySelector(`[data-tut="tab-${tab}"]`);
+    el?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [tab]);
+
   return (
-    <nav className="tn-scroll" style={{
+    <nav ref={seritRef} className="tn-scroll" style={{
       flexShrink: 0, display: 'flex', alignItems: 'stretch',
       overflowX: 'auto', overflowY: 'hidden',
       background: 'linear-gradient(0deg, rgba(9,15,21,0.96) 0%, rgba(12,20,28,0.88) 100%)',
@@ -342,6 +357,13 @@ export function BottomTabs({ tab, setTab, badges = {} }) {
       WebkitBackdropFilter: 'blur(16px) saturate(1.15)',
       /* iPhone'da alt cubugun altinda kalmasin */
       paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      /*
+        SAĞ KENARDA SOLMA: şeridin devamı olduğunu söylüyor. Kaydırma
+        çubuğu gizli (tn-scroll), o yüzden başka bir ipucu yok ve oyuncu
+        son dört sekmenin varlığını fark etmiyordu.
+      */
+      maskImage: 'linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%)',
+      WebkitMaskImage: 'linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%)',
     }}>
       {TABS.map(t => {
         const on = tab === t.key;
@@ -718,6 +740,12 @@ function Game({ token, onLogout }) {
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []),
+            /*
+              GÖREV ÖDÜLÜ SEKMEDE. Telefonda yüzen rehber rozeti kaldırıldı;
+              "ödülün hazır" haberi Görevler sekmesinin sayacıyla veriliyor,
+              hiçbir şeyin üstünü örtmeden.
+            */
+            gorevler: (village.quests?.liste || []).filter((q) => q.tamam && !q.alindi).length,
             sefer: (village.marches || []).length + (village.incoming || []).length }}
         hourSeconds={village.marchInfo?.hourSeconds || 3600}
         socket={socket}
@@ -867,6 +895,13 @@ function Game({ token, onLogout }) {
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
+              /*
+                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
+                yüzüyor; boşluk olmadan listenin son satırları onun altında
+                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
+                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
+              */
+              paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <WorkerScreen
                 population={village.population || 0}
@@ -889,6 +924,13 @@ function Game({ token, onLogout }) {
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
+              /*
+                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
+                yüzüyor; boşluk olmadan listenin son satırları onun altında
+                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
+                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
+              */
+              paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <ArmyPanel
                 army={village.army || {}}
@@ -908,6 +950,13 @@ function Game({ token, onLogout }) {
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
+              /*
+                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
+                yüzüyor; boşluk olmadan listenin son satırları onun altında
+                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
+                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
+              */
+              paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <div style={{ maxWidth: 1240, margin: '0 auto', paddingTop: 12 }}>
                 <IncomingAlert incoming={village.incoming || []} />
@@ -924,6 +973,13 @@ function Game({ token, onLogout }) {
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
+              /*
+                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
+                yüzüyor; boşluk olmadan listenin son satırları onun altında
+                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
+                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
+              */
+              paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <QuestScreen quests={village.quests || null} focus={questFocus}
                 onFocus={setQuestFocus}
@@ -937,6 +993,13 @@ function Game({ token, onLogout }) {
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
+              /*
+                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
+                yüzüyor; boşluk olmadan listenin son satırları onun altında
+                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
+                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
+              */
+              paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <ReportScreen
                 reports={village.reports || []}
@@ -948,6 +1011,13 @@ function Game({ token, onLogout }) {
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
+              /*
+                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
+                yüzüyor; boşluk olmadan listenin son satırları onun altında
+                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
+                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
+              */
+              paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <StatsScreen socket={socket} />
             </div>
@@ -974,6 +1044,13 @@ function Game({ token, onLogout }) {
             <div className="tn-scroll" style={{
               height: '100%', overflowY: 'auto',
               paddingLeft: railInset, paddingRight: railInset,
+              /*
+                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
+                yüzüyor; boşluk olmadan listenin son satırları onun altında
+                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
+                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
+              */
+              paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <BattleSimulator socket={socket} unitDefs={village.unitDefs || {}} army={village.army || {}} />
             </div>
@@ -1036,6 +1113,12 @@ function Game({ token, onLogout }) {
       {vp.mobile && (
         <BottomTabs tab={tab} setTab={setTab}
           badges={{ raporlar: unseenCount(village.reports || []),
+            /*
+              GÖREV ÖDÜLÜ SEKMEDE. Telefonda yüzen rehber rozeti kaldırıldı;
+              "ödülün hazır" haberi Görevler sekmesinin sayacıyla veriliyor,
+              hiçbir şeyin üstünü örtmeden.
+            */
+            gorevler: (village.quests?.liste || []).filter((q) => q.tamam && !q.alindi).length,
             sefer: (village.marches || []).length + (village.incoming || []).length }} />
       )}
 
@@ -1046,13 +1129,25 @@ function Game({ token, onLogout }) {
       */}
       <YamaNotlari acik={yamaAcik} onKapat={kapatYama} okunan={yamaOkunan}
         mobile={vp.mobile} railW={vp.railW} />
-      <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
-        /* Yama notu acikken rehber karti da rozete iner: ikisi ayni anda
-           yuzerken telefonda ust uste biniyorlardi. */
-        bastir={panelAcik || yamaAcik}
-        onClaim={(id) => socket?.emit('claim_quest', { id })}
-        onToggle={(hidden) => socket?.emit('toggle_quests', { hidden })}
-        onGoTab={(t) => t && setTab(t)} />
+      {/*
+        TELEFONDA YÜZEN REHBER YOK.
+
+        Rozet ekranın alt köşesinde yüzüyordu; kaydırılan bir listede yüzen
+        her şey er geç bir denetimin üstüne gelir — ölçüldü: Köylüler'de 3,
+        Köy Merkezi'nde 2 denetim örtülüydü, işçi +/- düğmeleri
+        tıklanamıyordu. Alt boşluk da çözmüyor, çünkü örtme listenin
+        ORTASINDA oluyor.
+
+        Telefonda görev durumu Görevler sekmesinin sayacında; kart
+        masaüstünde aynen duruyor.
+      */}
+      {!vp.mobile && (
+        <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
+          bastir={panelAcik || yamaAcik}
+          onClaim={(id) => socket?.emit('claim_quest', { id })}
+          onToggle={(hidden) => socket?.emit('toggle_quests', { hidden })}
+          onGoTab={(t) => t && setTab(t)} />
+      )}
       <Spotlight
         on={!!village.quests && !village.quests.hidden && tab !== 'gorevler'}
         anchor={(() => {

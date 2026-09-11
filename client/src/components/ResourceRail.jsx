@@ -209,7 +209,13 @@ function ResChip({ f, resKey, onPick }) {
   return (
     <button type="button" onClick={() => onPick?.(resKey)}
       style={{
-        flex: '0 0 auto', minWidth: 58, minHeight: TAP - 8,
+        /*
+          DAR ÇİP. 58 px'te 414 px'lik bir ekrana on bir kaynaktan ancak
+          altısı sığıyordu; kalanı şeridin dışında kalıyor ve oyuncu
+          kaydırılabildiğini fark etmiyordu. 44 px'te dokuzu görünüyor,
+          sağdaki solma da devamı olduğunu söylüyor.
+        */
+        flex: '0 0 auto', minWidth: 44, minHeight: TAP - 8,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
         padding: '3px 7px', borderRadius: 5, cursor: 'pointer',
         background: 'rgba(12,20,28,0.5)',
@@ -285,8 +291,11 @@ function ResourceRail({ flows = {}, isStarving = false, mobile = false, railW = 
     return (
       <>
         <div className="tn-scroll" style={{
-          flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+          flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4,
           padding: '5px 7px', overflowX: 'auto', overflowY: 'hidden',
+          // Sağ kenarda solma: şeridin devamı olduğunu söyler
+          maskImage: 'linear-gradient(90deg, #000 0, #000 calc(100% - 20px), transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(90deg, #000 0, #000 calc(100% - 20px), transparent 100%)',
           background: 'rgba(10,17,25,0.72)',
           borderBottom: `1px solid ${C.lineSoft}`,
           backdropFilter: 'blur(14px) saturate(1.2)',

@@ -37,10 +37,16 @@ export default function YamaNotlari({
       style={{
         position: 'fixed',
         left: 8,
-        // Üst bardan sonra başla; telefonda kaynak çipleri de üstte duruyor
-        top: mobile ? 180 : 52,
+        /*
+          TELEFONDA ALT SAYFA. Kart üstten (180 px) başlayıp ekranın
+          %70'ini kaplıyordu: açılışta oyun görünmüyor, oyuncu önce bunu
+          kapatmak zorunda kalıyordu. Artık alt bara oturuyor ve en fazla
+          yarım ekran: üstte oyun görünür kalıyor, kart okunup kapatılıyor.
+        */
+        ...(mobile
+          ? { bottom: 78, maxHeight: '50dvh' }
+          : { top: 52, maxHeight: 'calc(100dvh - 80px)' }),
         width: mobile ? 'calc(100vw - 16px)' : Math.max(280, railW + 110),
-        maxHeight: mobile ? 'calc(100dvh - 260px)' : 'calc(100dvh - 80px)',
         display: 'flex',
         flexDirection: 'column',
         zIndex: 1100,
