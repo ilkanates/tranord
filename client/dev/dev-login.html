@@ -130,12 +130,32 @@
   // Yildizlar SVG'si kaldirildi - arka plan artik video (login_bg.mp4)
 
   const qs = new URLSearchParams(location.search);
-  const SERVER = qs.get('server') || 'http://localhost:3311';
+
+  /**
+   * SUNUCU ADRESİ — YALNIZ YEREL.
+   *
+   * Bu sayfa e-posta ve şifreyi SERVER adresine POST ediyor. Adres eskiden
+   * doğrudan ?server= parametresinden alınıyordu, yani sayfayı açan BAĞLANTI
+   * hedefi belirliyordu:
+   *     .../dev-login.html?server=https://kotu-site
+   * Kurban güvendiği alan adında bir sayfa görüp şifresini saldırganın
+   * sunucusuna yazıyordu. Sayfa artık üretime çıkmıyor (bkz. vite.config.js)
+   * ama savunma tek katmana bırakılmaz — adres burada da doğrulanıyor.
+   */
+  const YEREL_ADRES = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
+  const istenenSunucu = (qs.get('server') || '').trim();
+  const SERVER = YEREL_ADRES.test(istenenSunucu) ? istenenSunucu : 'http://localhost:3311';
+  const sunucuReddedildi = istenenSunucu !== '' && istenenSunucu !== SERVER;
   document.getElementById('srv').textContent = SERVER;
 
   const msg = document.getElementById('msg');
   const go = document.getElementById('go');
   const say = (t, c) => { msg.className = c || ''; msg.textContent = t; };
+
+  if (sunucuReddedildi) {
+    say('Yalnız yerel sunucu adresi kabul edilir — verilen adres yok sayıldı.', 'err');
+    console.warn('[dev-login] reddedilen sunucu adresi:', istenenSunucu);
+  }
 
   async function post(p, body) {
     const res = await fetch(SERVER + p, {

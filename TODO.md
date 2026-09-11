@@ -108,7 +108,7 @@ Bu zincir sırayla ilerlemek zorunda:
 ## 🔵 Arayüz / içerik
 
 - Köy içi görsel: kalan hammadde görselleri (`koy-tahil.png` vb.) istenirse köye özel arazi dokusu olarak eklenebilir.
-- `client/public/` içindeki 5 tasarım önizleme sayfası (`koy-sekil*.html`, `koy-tasarim.html`, `sur-onizleme.html`) — `koy-sekil3.html` referans olarak kalsın, diğerleri silinebilir.
+- ~~`client/public/` içindeki 5 tasarım önizleme sayfası~~ — yapıldı: altı geliştirme sayfası (5 prototip + `dev-login.html`) `client/dev/` altına taşındı ve yalnız `vite dev` sırasında servis ediliyor; üretime çıkmıyorlar. `koy-sekil3.html` referans olarak duruyor, diğer dördü istendiğinde silinebilir.
 - Savaş simülatörüne kule girdisi eklenmedi (şu an `kulePct = 0` ile çalışıyor, yani kulesiz simülasyon).
 
 ---
