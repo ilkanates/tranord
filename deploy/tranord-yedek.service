@@ -1,0 +1,11 @@
+[Unit]
+Description=TraNord veritabani yedegi
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tranord-yedek
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tranord-yedek

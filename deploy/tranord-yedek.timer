@@ -1,0 +1,15 @@
+# Gecelik PostgreSQL yedegi — deploy/yedek.sh (14 gun saklar).
+#
+# Betik kurulumda /usr/local/bin/tranord-yedek olarak kopyalaniyordu ama
+# HICBIR ZAMANLAYICIYA baglanmamisti: yedek script'i vardi, yedek yoktu.
+[Unit]
+Description=TraNord gecelik veritabani yedegi
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=600
+Persistent=true
+Unit=tranord-yedek.service
+
+[Install]
+WantedBy=timers.target

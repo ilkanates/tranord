@@ -1,0 +1,20 @@
+# origin/main'i periyodik kontrol et.
+#
+# 5 dakika: push'tan sonra makul bir bekleme, GitHub'a da yuk degil.
+# Degisiklik yoksa betik hicbir sey yapmadan cikiyor (servise dokunmuyor),
+# yani sik calismasinin maliyeti yalnizca bir `git fetch`.
+#
+# RandomizedDelaySec: ayni anda birden fazla kurulum olursa GitHub'a
+# es zamanli vurmasinlar.
+[Unit]
+Description=TraNord otomatik guncellemeyi periyodik calistir
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+RandomizedDelaySec=60
+Persistent=true
+Unit=tranord-otomatik.service
+
+[Install]
+WantedBy=timers.target

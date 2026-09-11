@@ -1,0 +1,18 @@
+# TraNord otomatik güncelleme — timer tarafından tetiklenir.
+#
+# Type=oneshot: çalışır, biter. Kalıcı bir servis değil.
+# Kök haklarıyla koşuyor çünkü `systemctl restart tranord` gerekiyor;
+# git/npm işleri betiğin içinde `sudo -u tranord` ile yapılıyor.
+[Unit]
+Description=TraNord otomatik guncelleme (origin/main degistiyse)
+After=network-online.target tranord.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tranord-otomatik
+# Guncelleme npm ci + vite build iceriyor; Pi'de birkac dakika surebilir
+TimeoutStartSec=900
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tranord-otomatik
