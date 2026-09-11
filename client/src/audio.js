@@ -40,6 +40,34 @@ export const TRACKS = [
   { src: '/muzik/jarn-skal-tala-2.mp3',    name: 'Járn skal tala II' },
 ];
 
+/**
+ * TELEFONDA TEK PARÇA: Vintersorg.
+ *
+ * Parçalar ~6 MB. Telefonda listenin tamamını dolaşmak her parça değişiminde
+ * yeni bir 6 MB indirmesi demek; mobil bağlantıda bu, oyunun kendi soketiyle
+ * aynı kanalları paylaşan ciddi bir yük (nginx kaydında mobil isteklerin
+ * yarısından fazlası medyaydı). Telefonda tek parça dönüyor: bir kez inip
+ * önbellekte kalıyor, sonrası bedava.
+ *
+ * Masaüstünde liste olduğu gibi duruyor.
+ */
+const MOBIL_PARCALAR = ['/muzik/vintersorg-1.mp3', '/muzik/vintersorg-2.mp3'];
+
+/** Ekran dar mı — responsive.js'teki eşikle aynı (BP.mobile = 760) */
+function darEkran() {
+  try { return window.innerWidth < 760; } catch { return false; }
+}
+
+/** Bu cihazda çalınabilecek parçaların TRACKS içindeki sırası */
+function calinabilirSira() {
+  if (!darEkran()) return TRACKS.map((_, i) => i);
+  const mobil = TRACKS
+    .map((t, i) => (MOBIL_PARCALAR.includes(t.src) ? i : -1))
+    .filter((i) => i >= 0);
+  // Parça adları değişirse listeye düşmeyelim: eşleşme yoksa tam listeye dön
+  return mobil.length ? mobil : TRACKS.map((_, i) => i);
+}
+
 const DEFAULTS = { muted: false, volume: 0.45 };
 
 function read() {
@@ -69,7 +97,7 @@ const notify = () => { for (const fn of listeners) fn(snapshot()); };
 
 /** Sırayı karıştır — her açılışta aynı parça ile başlamasın */
 function shuffle() {
-  order = TRACKS.map((_, i) => i);
+  order = calinabilirSira();
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [order[i], order[j]] = [order[j], order[i]];
@@ -82,7 +110,19 @@ function ensure() {
   if (typeof Audio === 'undefined') return null;
   shuffle();
   el = new Audio();
-  el.preload = 'auto';
+  /*
+    PRELOAD 'none' — 'auto' idi.
+
+    Her parça ~6 MB ve sayfa açılır açılmaz inmeye başlıyordu. Telefonda
+    otomatik oynatma zaten ENGELLİ: dosya iniyor ama çalmıyordu, yani 6 MB
+    boşa gidiyor ve tarayıcının bağlantı kanallarını oyunun kendi soketiyle
+    paylaşıyordu (nginx kaydında mobil isteklerin yarısından fazlası medya).
+
+    'none' ile indirme yalnız play() gerçekten kabul edildiğinde başlıyor.
+    Masaüstünde parça başlarken yarım saniyelik gecikme olabilir; arka plan
+    müziği için kabul edilebilir bir bedel.
+  */
+  el.preload = 'none';
   el.loop = false;                       // sıradaki parçaya geçilecek
   el.volume = state.muted ? 0 : state.volume;
   el.addEventListener('ended', () => ilerle());
@@ -97,7 +137,9 @@ function ensure() {
   let hataArtArda = 0;
   el.addEventListener('error', () => {
     hataArtArda += 1;
-    if (hataArtArda >= TRACKS.length) { hataArtArda = 0; return; }
+    // Sınır ÇALMA SIRASININ uzunluğu: telefonda liste iki parça, TRACKS'in
+    // tamamını beklemek orada gereksiz yere on altı kez denemek olurdu.
+    if (hataArtArda >= Math.max(1, order.length)) { hataArtArda = 0; return; }
     ilerle();
   });
   el.addEventListener('playing', () => { hataArtArda = 0; });
