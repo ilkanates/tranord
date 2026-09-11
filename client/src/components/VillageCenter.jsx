@@ -803,6 +803,7 @@ export default function VillageCenter({
   culture = null, expansion = null, festival = null, festivalDefs = {}, onStartFestival,
   // Pazar: tüccar kapasitesi ve NPC takası (bkz. server/game/pazar.js)
   pazar = null, onPazarTakas,
+  socket, onPazarTeklifAc, onPazarTeklifIptal, onPazarTeklifKabul,
   /**
    * ÇOKLU KÖY: saray oyuncu çapında tek, merkez de saraydan taşınıyor.
    * `uniqueOwners` hangi köyde saray var, `capitalSlot` merkez hangi köy.
@@ -1562,7 +1563,11 @@ export default function VillageCenter({
                 <PazarPanel
                   pazar={pazar}
                   resources={resources}
-                  onTakas={onPazarTakas} />
+                  onTakas={onPazarTakas}
+                  socket={socket}
+                  onTeklifAc={onPazarTeklifAc}
+                  onTeklifIptal={onPazarTeklifIptal}
+                  onTeklifKabul={onPazarTeklifKabul} />
               </div>
             )}
 

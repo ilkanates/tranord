@@ -91,3 +91,39 @@ test('NORMAL savaşta sur hâlâ işliyor — keşif düzeltmesi onu bozmadı', 
   assert.ok(surlu.defenseTotal > susuz.defenseTotal,
     'normal savaşta sur bonusu kaybolmuş');
 });
+
+/**
+ * KEŞİF GİZLİ GELİR — savunan yolda olan casusu GÖRMEMELİ.
+ *
+ * Gelen sefer uyarısı keşifleri de listeliyordu: oyuncu casusun yolda
+ * olduğunu görüp izcilerini toplayabiliyordu. Casusluğun tamamı sürprize
+ * dayanır; yaklaşan casusu görmek onu anlamsız kılar.
+ */
+test('yoldaki casus savunanın uyarı listesinde çıkmaz', () => {
+  const { userSessions, WORLD } = require('../durum');
+  const { incomingMarchesFor, gelenSeferSayilari } = require('../game/seferTakip');
+
+  const koy = {
+    marches: [
+      { id: 'a', phase: 'outbound', mode: 'scout', toKey: '1,1', fromKey: '0,0',
+        fromName: 'Casus Köyü', units: { kuzeyIzcisi: 5 }, remainingHours: 2 },
+      { id: 'b', phase: 'outbound', mode: 'raid', toKey: '1,1', fromKey: '0,0',
+        fromName: 'Yağmacı', units: { fjordvakt: 50 }, remainingHours: 2 },
+      { id: 'c', phase: 'outbound', mode: 'yerlesim', toKey: '1,1', fromKey: '0,0',
+        fromName: 'Göçmen', units: { gocmen: 3 }, remainingHours: 2 },
+    ],
+  };
+  const oturum = { villages: new Map([['0,0', koy]]), dirtySlots: new Set() };
+  userSessions.set(999, oturum);
+  try {
+    const gelen = incomingMarchesFor('1,1');
+    assert.deepEqual(gelen.map((m) => m.mode), ['raid'],
+      'yalnız saldırı görünmeli; casus ve göçmen listede olmamalı');
+
+    const say = gelenSeferSayilari(new Set(['1,1']));
+    assert.equal(say.get('1,1'), 1, 'sayaç da yalnız saldırıyı saymalı');
+  } finally {
+    userSessions.delete(999);
+    WORLD.npcs.clear?.();
+  }
+});

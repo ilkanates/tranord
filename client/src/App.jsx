@@ -656,6 +656,10 @@ function Game({ token, onLogout }) {
   const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
   const startFestival = (kind) => socket.emit('start_festival', { kind });
   const pazarTakas = (p) => socket.emit('pazar_takas', p);
+  /* Oyuncular arası pazar — mal ve tüccar sunucuda ayrılıyor */
+  const pazarTeklifAc = (p) => socket.emit('pazar_teklif_ac', p);
+  const pazarTeklifIptal = (p) => socket.emit('pazar_teklif_iptal', p);
+  const pazarTeklifKabul = (p) => socket.emit('pazar_teklif_kabul', p);
   /**
    * KÖY DEĞİŞTİR. Sunucu yeni köyün payload'unu statiklerle birlikte
    * gönderiyor. Harita sekmesi açıkken de anlık görüntü yenilenmeli —
@@ -810,6 +814,10 @@ function Game({ token, onLogout }) {
               onStartFestival={startFestival}
               pazar={village.pazar || null}
               onPazarTakas={pazarTakas}
+              socket={socket}
+              onPazarTeklifAc={pazarTeklifAc}
+              onPazarTeklifIptal={pazarTeklifIptal}
+              onPazarTeklifKabul={pazarTeklifKabul}
               villages={village.villages || []}
               activeSlot={village.activeSlot || null}
               capitalSlot={village.capitalSlot || null}

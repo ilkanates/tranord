@@ -17,6 +17,7 @@ const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game
 const { QUEST_BY_ID } = require('./data/questDefs');
 const PAZAR = require('./game/pazar');
 const IST = require('./game/istatistik');
+const PAZAR_YOL = require('./game/pazarYol');
 const KUYRUK = require('./game/kuyruk');
 const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
@@ -675,6 +676,7 @@ setInterval(() => {
     } catch (err) { kalkanLog(`NPC ${n.slot.key}`, err); }
   }
   try { processMarches(hours); } catch (err) { kalkanLog('processMarches', err); }
+  try { processPazarGonderileri(hours); } catch (err) { kalkanLog('pazarGonderileri', err); }
 }, NPC_TICK_MS);
 
 /**
@@ -889,6 +891,75 @@ function foundVillageAt(userId, slotKey, origin) {
  * Seferleri `hours` oyun saati ilerlet ve varanları çöz.
  * NPC döngüsünden çağrılır — dünya hızıyla aynı adımı kullanır.
  */
+/**
+ * AÇIK TEKLİFLER — dünyadaki bütün köylerden toplanır.
+ *
+ * Teklifler açan köyün state'inde duruyor (seferlerle aynı desen), o
+ * yüzden "kimler ne satıyor" sorusunun cevabı ancak tarayarak bulunuyor.
+ * Oyuncu sayısı küçük olduğu sürece ucuz; büyüyünce merkezî bir defter
+ * gerekir.
+ *
+ * Kendi tekliflerim de listede ama işaretli: iptal edebilmek için
+ * görmem, kabul edememem gerekiyor.
+ */
+function acikTeklifler(benimSlotlar) {
+  const out = [];
+  for (const entry of marchingVillages()) {
+    for (const t of entry.village.teklifler || []) {
+      out.push({
+        id: t.id, slotKey: entry.slotKey,
+        satici: entry.kind === 'npc'
+          ? (WORLD.slotByKey.get(entry.slotKey)?.name || entry.slotKey)
+          : (WORLD.playerBySlot.get(entry.slotKey)?.name || entry.slotKey),
+        saticiSahip: entry.kind === 'npc' ? null : ownerName(entry.userId,
+          WORLD.playerBySlot.get(entry.slotKey)?.email),
+        veren: t.veren, verenMiktar: t.verenMiktar,
+        alan: t.alan, alanMiktar: t.alanMiktar,
+        tuccar: t.tuccar, at: t.at,
+        benimMi: benimSlotlar.has(entry.slotKey),
+      });
+    }
+  }
+  return out.sort((a, b) => b.at - a.at).slice(0, 80);
+}
+
+/**
+ * PAZAR GÖNDERİLERİ — kabul edilen tekliflerin malı yolda.
+ *
+ * Seferlerle aynı adımda ilerliyor ama ayrı tutuluyor: gönderide savaş
+ * yok, rapor yok, kayıp yok. Varışta mal doğrudan hedefin deposuna
+ * giriyor; sığmayan kısım kayboluyor (yağmadaki kuralın aynısı, depo
+ * yönetmek oyunun parçası).
+ */
+function processPazarGonderileri(hours) {
+  if (!(hours > 0)) return;
+  for (const entry of marchingVillages()) {
+    const v = entry.village;
+    if (!v.gonderiler?.length) continue;
+    const degisti = PAZAR_YOL.ilerlet(v, hours, (hedefSlot, kaynak, miktar) => {
+      const hedef = villageAtSlot(hedefSlot);
+      if (!hedef?.village) return;                 // köy yoksa mal kayboldu
+      const { caps, granaryCap } = getStorageCaps(hedef.village);
+      const gida = kaynak === 'un' || kaynak === 'ekmek';
+      const tavan = gida ? granaryCap : caps?.[kaynak];
+      const mevcut = gida
+        ? (hedef.village.resources.un || 0) + (hedef.village.resources.ekmek || 0)
+        : (hedef.village.resources[kaynak] || 0);
+      const yer = tavan == null ? miktar : Math.max(0, tavan - mevcut);
+      const giren = Math.min(miktar, yer);
+      if (giren > 0) {
+        hedef.village.resources[kaynak] = (hedef.village.resources[kaynak] || 0) + giren;
+      }
+      if (hedef.userId != null) markUserDirty(hedef.userId, hedefSlot);
+      else markNpcDirty(hedefSlot);
+      if (giren < miktar) {
+        console.log(`[PAZAR] ${hedefSlot} deposu doldu, ${Math.round(miktar - giren)} ${kaynak} kayboldu`);
+      }
+    });
+    if (degisti) entry.dirty();
+  }
+}
+
 function processMarches(hours) {
   if (!(hours > 0)) return;
   for (const entry of marchingVillages()) {
@@ -1747,6 +1818,134 @@ io.on('connection', async socket => {
     dirty(); emit();
     socket.emit('pazar_sonuc', { ok: true, veren, alan, ...s });
     console.log(`[PAZAR] ${userEmail}: ${s.harcanan} ${veren} -> ${s.alinan} ${alan}`);
+  });
+
+  /* ════════════════════════════════════════════════════════════════
+     PAZAR — OYUNCULAR ARASI TEKLİFLER
+     ════════════════════════════════════════════════════════════════ */
+
+  /**
+   * AÇIK TEKLİF LİSTESİ — TALEP ÜZERİNE, her tick'te değil.
+   *
+   * Liste bütün köyleri taramayı gerektiriyor ve saniyede bir yapılacak
+   * iş değil; pazar paneli açıkken periyodik tazeleniyor (istatistik
+   * ekranındaki desenin aynısı).
+   */
+  socket.on('pazar_teklifleri', () => {
+    try {
+      const benim = new Set(session.villages.keys());
+      socket.emit('pazar_teklif_listesi', {
+        teklifler: acikTeklifler(benim), at: Date.now(),
+      });
+    } catch (err) {
+      console.error('[PAZAR LİSTE]', err.message);
+      socket.emit('pazar_teklif_listesi', { teklifler: [], at: Date.now() });
+    }
+  });
+
+  /**
+   * TEKLİF AÇ — mal ve tüccar HEMEN ayrılır.
+   *
+   * Ayrılmasaydı aynı 2.000 odunla on teklif açılır, biri kabul edilince
+   * kalan dokuzu karşılıksız kalırdı. Açık teklifteki mal depodan çıkmış
+   * sayılıyor; iptalde geri geliyor.
+   */
+  socket.on('pazar_teklif_ac', ({ veren, alan, verenMiktar, alanMiktar } = {}) => {
+    const village = v();
+    const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
+    const red = (sebep) => socket.emit('build_refused', { reason: sebep });
+
+    if (!PAZAR.pazarBinasi(village)) return red('Önce pazar kurman gerekiyor.');
+    const vm = sayi(verenMiktar, { enAz: 1, enCok: 100000000 });
+    const am = sayi(alanMiktar, { enAz: 1, enCok: 100000000 });
+    const hata = PAZAR.teklifGecerliMi(veren, alan, vm, am);
+    if (hata) {
+      return red(hata === 'ayni_kaynak' ? 'Aynı kaynağı takas edemezsin.'
+        : hata === 'miktar_sifir' ? 'Miktar sıfır olamaz.'
+          : 'Bu kaynak pazarda işlem görmüyor.');
+    }
+    if ((village.resources[veren] || 0) < vm) {
+      return red(`Yetersiz ${KUYRUK.ETIKET[veren] || veren}: ${Math.ceil(vm - (village.resources[veren] || 0))} eksik.`);
+    }
+    const gereken = PAZAR.teklifTuccari(vm);
+    if (PAZAR.tuccarBos(village) < gereken) {
+      return red(`${gereken} tüccar gerekiyor, ${PAZAR.tuccarBos(village)} boşta.`);
+    }
+
+    village.resources[veren] -= vm;
+    (village.teklifler ||= []).push({
+      id: village.nextTeklifId = (village.nextTeklifId || 0) + 1,
+      veren, verenMiktar: vm, alan, alanMiktar: am,
+      tuccar: gereken, slotKey: mySlot, at: Date.now(),
+    });
+    dirty(); emit();
+    console.log(`[PAZAR] ${userEmail} teklif: ${vm} ${veren} -> ${am} ${alan}`);
+  });
+
+  /** Teklifi geri çek — ayrılan mal ve tüccar iade edilir */
+  socket.on('pazar_teklif_iptal', ({ id } = {}) => {
+    const village = v();
+    const liste = village.teklifler || [];
+    const i = liste.findIndex((t) => t.id === id);
+    if (i < 0) return;
+    const t = liste[i];
+    const { caps } = getStorageCaps(village);
+    KUYRUK.iadeEt(village.resources, { [t.veren]: t.verenMiktar }, caps);
+    liste.splice(i, 1);
+    dirty(); emit();
+  });
+
+  /**
+   * TEKLİFİ KABUL ET — iki gönderi birden yola çıkar.
+   *
+   * Kabul eden kendi malını ve kendi tüccarını O AN veriyor; teklif
+   * sahibininki zaten teklif açılırken ayrılmıştı. İki taraf da yolda
+   * olduğu için kimse ödemeden mal alamıyor.
+   */
+  socket.on('pazar_teklif_kabul', ({ slotKey, id } = {}) => {
+    const village = v();
+    const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
+    const red = (sebep) => socket.emit('build_refused', { reason: sebep });
+
+    if (!PAZAR.pazarBinasi(village)) return red('Önce pazar kurman gerekiyor.');
+    if (slotKey === mySlot) return red('Kendi teklifini kabul edemezsin.');
+
+    const hedef = villageAtSlot(slotKey);
+    if (!hedef?.village) return red('Teklif sahibi bulunamadı.');
+    const liste = hedef.village.teklifler || [];
+    const t = liste.find((x) => x.id === id);
+    if (!t) return red('Teklif artık geçerli değil.');
+
+    if ((village.resources[t.alan] || 0) < t.alanMiktar) {
+      return red(`Yetersiz ${KUYRUK.ETIKET[t.alan] || t.alan}: ${Math.ceil(t.alanMiktar - (village.resources[t.alan] || 0))} eksik.`);
+    }
+    const gereken = PAZAR.teklifTuccari(t.alanMiktar);
+    if (PAZAR.tuccarBos(village) < gereken) {
+      return red(`${gereken} tüccar gerekiyor, ${PAZAR.tuccarBos(village)} boşta.`);
+    }
+
+    const benimSlot = WORLD.slotByKey.get(mySlot);
+    const onunSlot = WORLD.slotByKey.get(slotKey);
+    const mesafe = (benimSlot && onunSlot) ? W.distanceBetween(benimSlot, onunSlot) : 10;
+    const saat = PAZAR_YOL.saat(mesafe);
+
+    // Kabul edenin malı çıkıyor, tüccarı yola giriyor
+    village.resources[t.alan] -= t.alanMiktar;
+    (village.gonderiler ||= []).push(PAZAR_YOL.gonderi({
+      hedefSlot: slotKey, hedefAd: hedef.name,
+      kaynak: t.alan, miktar: t.alanMiktar, tuccar: gereken, saat, mesafe,
+    }));
+
+    // Teklif sahibinin malı (zaten ayrılmıştı) kabul edene yola çıkıyor
+    (hedef.village.gonderiler ||= []).push(PAZAR_YOL.gonderi({
+      hedefSlot: mySlot, hedefAd: WORLD.playerBySlot.get(mySlot)?.name || mySlot,
+      kaynak: t.veren, miktar: t.verenMiktar, tuccar: t.tuccar, saat, mesafe,
+    }));
+    liste.splice(liste.indexOf(t), 1);
+
+    if (hedef.userId != null) markUserDirty(hedef.userId, slotKey);
+    dirty(); emit();
+    console.log(`[PAZAR] ${userEmail} kabul: ${t.verenMiktar} ${t.veren} <-> ${t.alanMiktar} ${t.alan} (${mesafe} hex)`);
   });
 
   socket.on('start_festival', ({ kind } = {}) => {

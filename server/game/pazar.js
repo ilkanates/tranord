@@ -152,8 +152,40 @@ function pazarOzeti(village, caps, granaryCap) {
   };
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   OYUNCULAR ARASI TEKLİFLER
+   ══════════════════════════════════════════════════════════════════
+
+   TEKLİF AÇILIRKEN MAL ve TÜCCAR AYRILIR.
+
+   Yoksa aynı 2.000 odunla on teklif açılır, biri kabul edilince
+   diğer dokuzu karşılıksız kalırdı. Açık teklifte duran mal köyün
+   deposundan çıkmış sayılıyor; iptalde geri geliyor.
+
+   TEKLİF SAHİBİNİN TÜCCARI da baştan ayrılıyor: kabul anında "tüccarım
+   yokmuş" demek, karşı tarafın malını yolladıktan sonra sözü bozmak olurdu.
+
+   KABUL EDEN kendi malını ve kendi tüccarını o an veriyor. İki gönderi
+   birden yola çıkıyor; ikisi de mesafeye göre sürüyor.
+*/
+
+/** Bir teklifin taşınması için gereken tüccar (iki yön ayrı hesaplanır) */
+function teklifTuccari(miktar) {
+  return gerekenTuccar(miktar);
+}
+
+/** Teklif geçerli mi — oran serbest, ama kaynaklar takasa girebilmeli */
+function teklifGecerliMi(veren, alan, verenMiktar, alanMiktar) {
+  if (!TAKAS_KAYNAKLARI.includes(veren)) return 'gecersiz_kaynak';
+  if (!TAKAS_KAYNAKLARI.includes(alan)) return 'gecersiz_kaynak';
+  if (veren === alan) return 'ayni_kaynak';
+  if (!(verenMiktar > 0) || !(alanMiktar > 0)) return 'miktar_sifir';
+  return null;
+}
+
 module.exports = {
   HAM, ISLENMIS, TAKAS_KAYNAKLARI, TUCCAR_KAPASITESI,
   takasOrani, pazarBinasi, tuccarKapasitesi, tuccarMesgul, tuccarBos,
   gerekenTuccar, npcTakas, bosYerler, pazarOzeti,
+  teklifTuccari, teklifGecerliMi,
 };

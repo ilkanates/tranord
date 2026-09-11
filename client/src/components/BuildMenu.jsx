@@ -431,7 +431,7 @@ export default function BuildMenu({
                   <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                     {Object.entries(refund).map(([r, a]) => (
                       <span key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                        <Icon name={r} size={10} color={RES_COLOR[r]} />
+                        <Icon name={r} size={14} color={RES_COLOR[r]} />
                         <span style={num({ fontSize: 9, color: C.goldSoft })}>{a}</span>
                       </span>
                     ))}

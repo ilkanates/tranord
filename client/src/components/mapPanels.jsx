@@ -118,7 +118,7 @@ export function CostRow({ cost, resources = {}, flows = {}, hourSeconds = 3600, 
                 background: ok ? 'rgba(108,221,163,0.09)' : 'rgba(255,111,120,0.1)',
                 border: `1px solid ${ok ? 'rgba(108,221,163,0.3)' : 'rgba(255,111,120,0.32)'}`,
               }}>
-              <Icon name={res} size={11} color={RES_COLOR[res] || C.textDim} />
+              <Icon name={res} size={14} color={RES_COLOR[res] || C.textDim} />
               <span style={num({ fontSize: 9.5, color: ok ? C.good : C.danger })}>{amt}</span>
             </div>
           );

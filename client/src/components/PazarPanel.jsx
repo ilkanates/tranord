@@ -15,7 +15,9 @@
 import { useState } from 'react';
 import { C, FONT, btn, label as lbl, num } from '../theme';
 import { RES_LABEL } from '../flows';
+import { RES_COLOR } from '../theme';
 import Icon from './Icons';
+import PazarTeklifler from './PazarTeklifler';
 
 const HAM = ['odun', 'kil', 'tas', 'demir', 'tahil'];
 const ISLENMIS = ['kereste', 'tugla', 'yontmaTas', 'demirKulce', 'un', 'ekmek'];
@@ -35,21 +37,23 @@ function KaynakSecici({ deger, onSec, baslik, resources }) {
   return (
     <div style={{ minWidth: 0, flex: 1 }}>
       <div style={lbl({ fontSize: 8, marginBottom: 4 })}>{baslik}</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {[...HAM, ...ISLENMIS].map((r) => {
           const secili = deger === r;
           return (
             <button key={r} onClick={() => onSec(r)}
               title={`${RES_LABEL[r] || r}${resources ? ` · elinde ${Math.floor(resources[r] || 0)}` : ''}`}
               style={{
-                display: 'flex', alignItems: 'center', gap: 3,
-                padding: '3px 5px', borderRadius: 4, cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                padding: '5px 6px', borderRadius: 5, cursor: 'pointer',
                 background: secili ? 'rgba(143,220,255,0.14)' : 'rgba(8,14,24,0.5)',
                 border: `1px solid ${secili ? C.lineBright : C.line}`,
               }}>
-              <Icon name={r} size={11} />
+              {/* Pazarda mal seçmek asıl iş: simge 11 px'ti, hangi kaynak
+                  olduğu seçilmiyordu. 22 px'te bir bakışta okunuyor. */}
+              <Icon name={r} size={22} color={RES_COLOR[r]} />
               {resources && (
-                <span style={num({ fontSize: 8.5, color: secili ? C.frost : C.textMute })}>
+                <span style={num({ fontSize: 9, color: secili ? C.frost : C.textMute })}>
                   {Math.floor(resources[r] || 0)}
                 </span>
               )}
@@ -61,10 +65,19 @@ function KaynakSecici({ deger, onSec, baslik, resources }) {
   );
 }
 
-export default function PazarPanel({ pazar = null, resources = {}, onTakas }) {
+export default function PazarPanel({
+  pazar = null, resources = {}, onTakas,
+  socket, onTeklifAc, onTeklifIptal, onTeklifKabul,
+}) {
   const [veren, setVeren] = useState('odun');
   const [alan, setAlan] = useState('kil');
   const [miktar, setMiktar] = useState(1000);
+  /*
+    İKİ AYRI İŞ, İKİ SEKME. NPC takası anlık ve sabit oranlı; oyuncu
+    teklifleri pazarlıklı ve yolda süren bir iş. Alt alta koymak paneli
+    iki katına çıkarıyor ve ikisi birbirine karışıyordu.
+  */
+  const [sekme, setSekme] = useState('takas');
 
   if (!pazar || !pazar.seviye) return null;
 
@@ -110,8 +123,30 @@ export default function PazarPanel({ pazar = null, resources = {}, onTakas }) {
         </span> — pazar her seviyede bir tüccar ekler.
       </div>
 
+      {/* ── Sekmeler ── */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
+        {[['takas', 'NPC TAKASI'], ['teklif', 'OYUNCU PAZARI']].map(([k, ad]) => {
+          const acik = sekme === k;
+          return (
+            <button key={k} type="button" onClick={() => setSekme(k)}
+              style={{
+                padding: '4px 11px', borderRadius: 4, cursor: 'pointer',
+                fontFamily: FONT.ui, fontSize: 9, letterSpacing: 1, fontWeight: 600,
+                color: acik ? C.frost : C.textMute,
+                background: acik ? 'rgba(143,220,255,0.14)' : 'rgba(8,14,24,0.5)',
+                border: `1px solid ${acik ? C.lineBright : C.line}`,
+              }}>{ad}</button>
+          );
+        })}
+      </div>
+
+      {sekme === 'teklif' ? (
+        <PazarTeklifler
+          socket={socket} pazar={pazar} resources={resources}
+          onAc={onTeklifAc} onIptal={onTeklifIptal} onKabul={onTeklifKabul} />
+      ) : (
+      <>
       {/* ── Takas ── */}
-      <div style={lbl({ fontSize: 8, marginBottom: 7 })}>Takas</div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 9 }}>
         <KaynakSecici baslik="Veririm" deger={veren} onSec={setVeren} resources={resources} />
         <KaynakSecici baslik="Alırım" deger={alan} onSec={setAlan} />
@@ -148,11 +183,11 @@ export default function PazarPanel({ pazar = null, resources = {}, onTakas }) {
             padding: '7px 9px', borderRadius: 5, marginBottom: 8,
             background: 'rgba(143,220,255,0.06)', border: `1px solid ${C.line}`,
           }}>
-            <Icon name={veren} size={13} />
-            <span style={num({ fontSize: 11, color: C.frost })}>{harcanacak.toLocaleString('tr-TR')}</span>
-            <Icon name="artis" size={10} color={C.textMute} style={{ transform: 'rotate(90deg)' }} />
-            <Icon name={alan} size={13} />
-            <span style={num({ fontSize: 11, color: C.good })}>{alinacak.toLocaleString('tr-TR')}</span>
+            <Icon name={veren} size={24} color={RES_COLOR[veren]} />
+            <span style={num({ fontSize: 13, color: C.frost })}>{harcanacak.toLocaleString('tr-TR')}</span>
+            <Icon name="artis" size={11} color={C.textMute} style={{ transform: 'rotate(90deg)' }} />
+            <Icon name={alan} size={24} color={RES_COLOR[alan]} />
+            <span style={num({ fontSize: 13, color: C.good })}>{alinacak.toLocaleString('tr-TR')}</span>
             <span style={{ flex: 1 }} />
             <span style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>{o} : 1</span>
           </div>
@@ -166,6 +201,8 @@ export default function PazarPanel({ pazar = null, resources = {}, onTakas }) {
                   : 'Takas et'}
           </button>
         </>
+      )}
+      </>
       )}
     </div>
   );

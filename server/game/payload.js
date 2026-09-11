@@ -21,6 +21,7 @@ const { equipmentUpgradeCost, equipmentUpgradeMinutes, EQUIPMENT_MAX_LEVEL, EQUI
 const { WORLD } = require('../durum');
 const { incomingMarchesFor } = require('./seferTakip');
 const PAZAR = require('./pazar');
+const PAZAR_YOL = require('./pazarYol');
 const { getMaxProductionSlots } = require('./insaat');
 const { popPerGameHour, getVillageBuildMinutes, getScaledUpgradeCost, refreshExpansionCredits, expansionFree, settlerCapacity } = require('./koyKurallari');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('../sabitler');
@@ -290,7 +291,15 @@ function buildPayload(village, tickMs, opts = {}) {
       PAZAR — tüccar kapasitesi ve takasa girebilen kaynaklar. Oranları
       istemci kendi hesaplamıyor; sunucu ne derse o (bkz. game/pazar.js).
     */
-    pazar: PAZAR.pazarOzeti(village, depotCapacities, granaryCapacity),
+    pazar: {
+      ...PAZAR.pazarOzeti(village, depotCapacities, granaryCapacity),
+      // Kendi açtığım teklifler ve yoldaki gönderilerim
+      teklifler: (village.teklifler || []).map((t) => ({
+        id: t.id, veren: t.veren, verenMiktar: t.verenMiktar,
+        alan: t.alan, alanMiktar: t.alanMiktar, tuccar: t.tuccar, at: t.at,
+      })),
+      gonderiler: PAZAR_YOL.ozet(village, speed),
+    },
     isStarving: !!village.isStarving, starveCounter: village.starveCounter || 0,
     consumption, tickMs, tickMsRange: { min: MIN_TICK_MS, max: MAX_TICK_MS, default: DEFAULT_TICK_MS },
     // İstemci kaynakları iki yayın ARASINDA kendisi ilerletiyor; bunun için

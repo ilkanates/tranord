@@ -14,6 +14,20 @@ const ARMY = require('./army');
 const GT = require('./gameTime');
 
 /**
+ * KEŞİF GİZLİ GELİR — savunana HABER VERİLMEZ.
+ *
+ * Gelen sefer uyarısı keşifleri de gösteriyordu: oyuncu casusun yolda
+ * olduğunu görüp izcilerini toplayabiliyordu. Casusluğun tamamı sürprize
+ * dayanıyor; yaklaşan bir casusu görmek onu anlamsız kılar.
+ *
+ * Savunan ancak İŞ BİTTİKTEN SONRA, o da izcisi varsa haber alıyor
+ * (bkz. game/army.js — 'gorundu'). İzcisi yoksa hiçbir şey öğrenmiyor.
+ *
+ * Yerleşim de listede değil: o bir saldırı değil, boş slota göç.
+ */
+const GIZLI_MODLAR = new Set(['scout', 'yerlesim']);
+
+/**
  * Sefer taşıyan tüm köyler — oyuncu oturumları + NPC'ler.
  * Ad NOTU: 'allVillages' denemez — bootServer içinde aynı adlı bir yerel
  * değişken var (DB'den yüklenen köy listesi) ve gölgeleme karışıklık yaratır.
@@ -49,7 +63,7 @@ function gelenSeferSayilari(slotKeys) {
   if (!slotKeys.size) return say;
   for (const entry of marchingVillages()) {
     for (const m of entry.village.marches || []) {
-      if (m.phase !== 'outbound' || m.mode === 'yerlesim') continue;
+      if (m.phase !== 'outbound' || GIZLI_MODLAR.has(m.mode)) continue;
       if (!slotKeys.has(m.toKey)) continue;
       // Kendi köyünden kendi köyüne takviye uyarı sayılmaz
       if (slotKeys.has(m.fromKey)) continue;
@@ -66,6 +80,7 @@ function incomingMarchesFor(slotKey) {
   for (const entry of marchingVillages()) {
     for (const m of entry.village.marches || []) {
       if (m.phase !== 'outbound' || m.toKey !== slotKey) continue;
+      if (GIZLI_MODLAR.has(m.mode)) continue;      // casus gizli gelir
       out.push({
         key: `${entry.slotKey}#${m.id}`,
         mode: m.mode,

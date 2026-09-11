@@ -26,6 +26,44 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-11i',
+    tarih: '11 Eylül 2026',
+    baslik: 'Oyuncu pazarı açıldı',
+    notlar: [
+      {
+        id: '20260911-oyuncu-pazari',
+        tur: 'yenilik',
+        metin: 'Pazarda artık diğer oyuncularla ticaret var. Fiyatı sen '
+          + 'koyuyorsun: "2.000 odun veririm, 6.000 kereste isterim" diye '
+          + 'satışa çıkarırsın, beğenen kabul eder. NPC takasının sabit oranı '
+          + 'burada geçerli değil — pazarlık senin.',
+      },
+      {
+        id: '20260911-pazar-tuccar-ayrim',
+        tur: 'yenilik',
+        metin: 'Teklif açarken mal ve tüccar hemen ayrılıyor; aynı malla on '
+          + 'teklif açılamıyor. Kabul edince iki kervan birden yola çıkıyor — '
+          + 'senden 1 tüccar, karşıdan 3 (her tüccar 2.000 taşır). Tüccarlar '
+          + 'malı bırakıp döndüklerinde serbest kalıyor. Teklifi geri çekersen '
+          + 'mal da tüccar da iade.',
+      },
+      {
+        id: '20260911-casus-gizli-gelir',
+        tur: 'duzeltme',
+        metin: 'Yoldaki casus savunanın "gelen saldırı" listesinde görünüyordu; '
+          + 'oyuncu casusu görüp izcilerini toplayabiliyordu. Casus artık gizli '
+          + 'geliyor — ancak iş bittikten sonra, o da izcin varsa haber alırsın.',
+      },
+      {
+        id: '20260911-kaynak-simgeleri',
+        tur: 'yenilik',
+        metin: 'Kaynak simgeleri büyütüldü ve her kaynak kendi renginde: bina '
+          + 'maliyetlerinde, pazarda ve tekliflerde hangi malın konuşulduğu bir '
+          + 'bakışta belli.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11h',
     tarih: '11 Eylül 2026',
     baslik: 'Casusluk ve savaş raporları',
