@@ -16,7 +16,8 @@ import ReportScreen, { unseenCount } from './components/ReportScreen';
 import QuestScreen, { QuestCard, Spotlight } from './components/QuestGuide';
 import LoginScreen from './components/LoginScreen';
 import YamaNotlari from './components/YamaNotlari';
-import { SON_SURUM } from './data/yamaNotlari';
+import { okunanlariYukle, okunanlariKaydet, gosterilecekBolumler }
+  from './data/yamaNotlari';
 import LoginBackdrop from './components/LoginBackdrop';
 import StatsScreen from './components/StatsScreen';
 import ResourceRail    from './components/ResourceRail';
@@ -40,8 +41,6 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL
   || (import.meta.env.DEV ? 'http://localhost:3311' : '');
 
 const TOKEN_KEY = 'tranord_token';
-/** Oyuncunun en son gördüğü yama sürümü (bkz. YamaNotlari) */
-const YAMA_ANAHTAR = 'tranord_yama_surum';
 
 /** Token: URL param → localStorage → yok. Giriş artık oyunun İÇİNDE. */
 function getToken() {
@@ -434,14 +433,22 @@ function Game({ token, onLogout }) {
    * durumunda panel GÖSTERİLİYOR (bir kez fazla göstermek, hiç
    * göstermemekten iyi).
    */
-  const [yamaAcik, setYamaAcik] = useState(() => {
-    if (!SON_SURUM) return false;
-    try { return localStorage.getItem(YAMA_ANAHTAR) !== SON_SURUM; }
-    catch { return true; }
-  });
+  const [yamaOkunan, setYamaOkunan] = useState(okunanlariYukle);
+  const [yamaAcik, setYamaAcik] = useState(
+    () => gosterilecekBolumler(okunanlariYukle()).length > 0);
+
+  /**
+   * Çarpıya basınca O AN EKRANDA DURAN notlar okundu sayılır ve bir daha
+   * gösterilmez. Ekranda olmayanı işaretlemiyoruz: oyuncu okumadığı bir notu
+   * kaçırmasın.
+   */
   const kapatYama = () => {
+    const goruluyor = gosterilecekBolumler(yamaOkunan)
+      .flatMap((b) => b.notlar.map((n) => n.id));
+    const yeni = new Set([...yamaOkunan, ...goruluyor]);
+    setYamaOkunan(yeni);
+    okunanlariKaydet(yeni);
     setYamaAcik(false);
-    try { localStorage.setItem(YAMA_ANAHTAR, SON_SURUM); } catch { /* kalıcılık şart değil */ }
   };
   /**
    * Yardım sayfasına DERİN BAĞLANTI: bina panelindeki "?" düğmesi buraya
@@ -941,7 +948,7 @@ function Game({ token, onLogout }) {
         gidilecek yeri yakıp söndürür. Rehber kapalıyken kart rozete iner
         ama görevler arka planda işlemeye devam eder.
       */}
-      <YamaNotlari acik={yamaAcik} onKapat={kapatYama}
+      <YamaNotlari acik={yamaAcik} onKapat={kapatYama} okunan={yamaOkunan}
         mobile={vp.mobile} railW={vp.railW} />
       <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
         /* Yama notu acikken rehber karti da rozete iner: ikisi ayni anda
