@@ -18,10 +18,14 @@
 
 export const YAMA_NOTLARI = [
   {
-    surum: '2026-09-11',
+    surum: '2026-09-11b',
     tarih: '11 Eylül 2026',
     baslik: 'Kereste dengesi ve çökme düzeltmeleri',
     notlar: [
+      {
+        tur: 'denge',
+        metin: 'MUHAMMED ÇOK GÜÇLENDİ ASKERLERİ ÖLDÜRÜLÜYOR',
+      },
       {
         tur: 'denge',
         metin: 'Kereste darboğazı giderildi. Binaların maliyeti dört işlenmiş '
