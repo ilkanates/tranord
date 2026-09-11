@@ -53,9 +53,18 @@ export const TRACKS = [
  */
 const MOBIL_PARCALAR = ['/muzik/vintersorg-1.mp3', '/muzik/vintersorg-2.mp3'];
 
-/** Ekran dar mı — responsive.js'teki eşikle aynı (BP.mobile = 760) */
+/**
+ * Telefon/tablet mi — dar ekran YA DA dokunmatik cihaz.
+ *
+ * Yalnız genişliğe bakmak yetmiyordu: telefon yatay çevrilince ~844 px'e
+ * çıkıp tam listeye geri dönüyordu. Fare olmayan cihazda liste her hâlükârda
+ * tek parça kalsın.
+ */
 function darEkran() {
-  try { return window.innerWidth < 760; } catch { return false; }
+  try {
+    if (window.innerWidth < 760) return true;
+    return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  } catch { return false; }
 }
 
 /** Bu cihazda çalınabilecek parçaların TRACKS içindeki sırası */
