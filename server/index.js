@@ -15,6 +15,7 @@ const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
 const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
 const { QUEST_BY_ID } = require('./data/questDefs');
+const PAZAR = require('./game/pazar');
 const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
         MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('./sabitler');
@@ -1703,6 +1704,27 @@ io.on('connection', async socket => {
    * puanı şişirmeyi engelliyor, ayrıca oyuncu ne kazanacağını baştan
    * biliyor.
    */
+  /**
+   * NPC TAKASI — anında kaynak dönüşümü.
+   *
+   * Tüccar harcamıyor ve süre almıyor; bedeli ORANIN KENDİSİ (her takas
+   * kaybettirir, bkz. game/pazar.js). Oranları istemci değil sunucu
+   * uyguluyor — istemcideki panel yalnızca önizleme gösteriyor.
+   */
+  socket.on('pazar_takas', ({ veren, alan, miktar } = {}) => {
+    const village = v();
+    const { caps, granaryCap } = getStorageCaps(village);
+    const istenen = sayi(miktar, { enAz: 0, enCok: 100000000 });
+    const s = PAZAR.npcTakas(village, veren, alan, istenen, caps, granaryCap);
+    if (!s.ok) {
+      socket.emit('pazar_sonuc', { ok: false, sebep: s.sebep, sigan: s.sigan });
+      return;
+    }
+    dirty(); emit();
+    socket.emit('pazar_sonuc', { ok: true, veren, alan, ...s });
+    console.log(`[PAZAR] ${userEmail}: ${s.harcanan} ${veren} -> ${s.alinan} ${alan}`);
+  });
+
   socket.on('start_festival', ({ kind } = {}) => {
     const village = v();
     const f = CULTURE.FESTIVALS[kind];

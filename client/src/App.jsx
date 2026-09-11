@@ -492,16 +492,36 @@ function Game({ token, onLogout }) {
       clearTimeout(zaman);
       zaman = setTimeout(() => setRefusal(null), 7000);
     };
+    /*
+      Takas reddi de aynı şeride düşüyor. Sunucu kısa bir kod yolluyor
+      (`depo_dolu` gibi); oyuncunun okuyacağı cümleye burada çevriliyor.
+      Sebebi göstermezsek düğmeye basmak hiçbir şey yapmıyormuş gibi olur.
+    */
+    const PAZAR_SEBEP = {
+      depo_dolu: 'Alacağın kaynak depoya sığmıyor.',
+      kaynak_yetersiz: 'Verecek kadar kaynağın yok.',
+      miktar_az: 'Miktar takas oranının altında.',
+      pazar_yok: 'Önce pazar kurman gerekiyor.',
+      gecersiz_yon: 'Bu takas yönü kapalı.',
+    };
+    const onPazar = (r) => {
+      if (r?.ok) return;                       // başarılıysa kaynaklar zaten değişti
+      const ek = r?.sebep === 'depo_dolu' && r.sigan != null
+        ? ` Yalnızca ${Math.floor(r.sigan)} birim yer var.` : '';
+      onRefused({ reason: (PAZAR_SEBEP[r?.sebep] || 'Takas reddedildi.') + ek });
+    };
     socket.on('village_update', onUpdate);
     socket.on('connect', onConn);
     socket.on('disconnect', onDisc);
     socket.on('build_refused', onRefused);
+    socket.on('pazar_sonuc', onPazar);
     return () => {
       clearTimeout(zaman);
       socket.off('village_update', onUpdate);
       socket.off('connect', onConn);
       socket.off('disconnect', onDisc);
       socket.off('build_refused', onRefused);
+      socket.off('pazar_sonuc', onPazar);
     };
   }, []);
 
@@ -572,6 +592,7 @@ function Game({ token, onLogout }) {
     socket.emit('cancel_equipment_upgrade', { buildingType, orderId });
   const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
   const startFestival = (kind) => socket.emit('start_festival', { kind });
+  const pazarTakas = (p) => socket.emit('pazar_takas', p);
   /**
    * KÖY DEĞİŞTİR. Sunucu yeni köyün payload'unu statiklerle birlikte
    * gönderiyor. Harita sekmesi açıkken de anlık görüntü yenilenmeli —
@@ -724,6 +745,8 @@ function Game({ token, onLogout }) {
               festival={village.festival || null}
               festivalDefs={village.festivalDefs || {}}
               onStartFestival={startFestival}
+              pazar={village.pazar || null}
+              onPazarTakas={pazarTakas}
               villages={village.villages || []}
               activeSlot={village.activeSlot || null}
               capitalSlot={village.capitalSlot || null}

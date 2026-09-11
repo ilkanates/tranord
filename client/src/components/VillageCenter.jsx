@@ -7,6 +7,7 @@ import BuildingControls from './BuildingControls';
 import UnitTrainingPanel from './UnitTrainingPanel';
 import ResearchPanel from './ResearchPanel';
 import FestivalPanel from './FestivalPanel';
+import PazarPanel from './PazarPanel';
 import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/villageDefs';
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
@@ -798,6 +799,8 @@ export default function VillageCenter({
   // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
   hourSeconds = 3600, worldSpeed = 1,
   culture = null, expansion = null, festival = null, festivalDefs = {}, onStartFestival,
+  // Pazar: tüccar kapasitesi ve NPC takası (bkz. server/game/pazar.js)
+  pazar = null, onPazarTakas,
   /**
    * ÇOKLU KÖY: saray oyuncu çapında tek, merkez de saraydan taşınıyor.
    * `uniqueOwners` hangi köyde saray var, `capitalSlot` merkez hangi köy.
@@ -1224,6 +1227,7 @@ export default function VillageCenter({
             && (unitsByBuilding[selectedBuilding.type] || []).length > 0;
           // Taverna: şölen paneli (kültür puanı üretimi)
           const hasFestival = selectedBuilding?.type === 'taverna';
+          const hasPazar    = selectedBuilding?.type === 'pazar';
           // Saray: merkez taşıma denetimi burada
           const hasCapital  = selectedBuilding?.type === 'saray';
           // Köşk ve saray: bu köyün yerleşim hakkı ve kurduğu köyler
@@ -1492,6 +1496,15 @@ export default function VillageCenter({
                   capitalName={villages.find(v => v.slotKey === capitalSlot)?.name || null}
                   villageName={villages.find(v => v.slotKey === activeSlot)?.name || 'bu köy'}
                   onSetCapital={() => onSetCapital?.(activeSlot)} />
+              </div>
+            )}
+
+            {hasPazar && (
+              <div style={{ padding: '0 12px 10px', order: 1 }}>
+                <PazarPanel
+                  pazar={pazar}
+                  resources={resources}
+                  onTakas={onPazarTakas} />
               </div>
             )}
 

@@ -26,6 +26,35 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-11c',
+    tarih: '11 Eylül 2026',
+    baslik: 'Pazar açıldı',
+    notlar: [
+      {
+        id: '20260911-pazar-npc-takas',
+        tur: 'yenilik',
+        metin: 'Pazar artık çalışıyor. Elindeki kaynağı anında başka bir kaynağa '
+          + 'çevirebilirsin: ham maddeler arasında 2 verip 1 alırsın, ham verip '
+          + 'işlenmiş mal alacaksan 4’e 1, işlenmiş verip işlenmiş alacaksan '
+          + 'yine 2’ye 1. Takas her zaman kaybettirir — acil ihtiyaç içindir, '
+          + 'üretimin yerine geçmez. İşlenmiş maldan ham maddeye dönüş yok.',
+      },
+      {
+        id: '20260911-pazar-tuccar',
+        tur: 'yenilik',
+        metin: 'Pazarın her seviyesi bir tüccar veriyor ve her tüccar 2.000 '
+          + 'kaynak taşıyor. Lvl 5 pazar = 5 tüccar = 10.000 taşıma. Tüccarlar '
+          + 'oyuncular arası alışverişte kullanılacak; o kısım yolda.',
+      },
+      {
+        id: '20260911-takas-reddi',
+        tur: 'duzeltme',
+        metin: 'Sunucu bir takası reddettiğinde sebebi ekranda yazıyor, düğme de '
+          + 'depoya sığmayan takas için baştan kapanıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11b',
     tarih: '11 Eylül 2026',
     baslik: 'Kereste dengesi ve çökme düzeltmeleri',

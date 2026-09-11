@@ -20,6 +20,7 @@ const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_
 const { equipmentUpgradeCost, equipmentUpgradeMinutes, EQUIPMENT_MAX_LEVEL, EQUIPMENT_UPGRADE_STEP, UPGRADABLE_EQUIPMENT, unitStats } = require('../data/militaryDefs');
 const { WORLD } = require('../durum');
 const { incomingMarchesFor } = require('./seferTakip');
+const PAZAR = require('./pazar');
 const { getMaxProductionSlots } = require('./insaat');
 const { popPerGameHour, getVillageBuildMinutes, getScaledUpgradeCost, refreshExpansionCredits, expansionFree, settlerCapacity } = require('./koyKurallari');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('../sabitler');
@@ -285,6 +286,11 @@ function buildPayload(village, tickMs, opts = {}) {
       }
       : null,
     festivalDefs: CULTURE.FESTIVALS,
+    /*
+      PAZAR — tüccar kapasitesi ve takasa girebilen kaynaklar. Oranları
+      istemci kendi hesaplamıyor; sunucu ne derse o (bkz. game/pazar.js).
+    */
+    pazar: PAZAR.pazarOzeti(village, depotCapacities, granaryCapacity),
     isStarving: !!village.isStarving, starveCounter: village.starveCounter || 0,
     consumption, tickMs, tickMsRange: { min: MIN_TICK_MS, max: MAX_TICK_MS, default: DEFAULT_TICK_MS },
     // İstemci kaynakları iki yayın ARASINDA kendisi ilerletiyor; bunun için
