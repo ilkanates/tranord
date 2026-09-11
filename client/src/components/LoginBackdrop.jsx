@@ -8,12 +8,27 @@
  * iki kopya tutmamak için public/ altından URL ile veriliyor.
  */
 import { useEffect, useRef } from 'react';
+import { useViewport } from '../responsive';
 
 const IMG = '/login_bg.jpg';
 const VID = '/login_bg.mp4';
 
+/**
+ * TELEFONDA VİDEO YOK — yalnız poster.
+ *
+ * 752 KB'lik arka plan videosu telefonda ağır bir bedeldi: nginx kaydında
+ * tek bir iPhone oturumunda login_bg.mp4 için 208 aralık isteği ve 58 tam
+ * indirme göründü (mobil isteklerin %53'ü .mp4). Safari'nin host başına
+ * bağlantı sınırı dolduğu için socket.io bu isteklerle yarışıyor ve ilk
+ * köy paketi gecikiyordu — "fiyorda bağlanıyor…" ekranında takılı kalmanın
+ * sebeplerinden biri bu.
+ *
+ * Poster zaten aynı kareyi gösteriyor; telefonda hareketli arka planın
+ * bedeli faydasından büyük.
+ */
 export default function LoginBackdrop({ dimMid = 0.30, dimEdge = 0.86 }) {
   const ref = useRef(null);
+  const { mobile } = useViewport();
 
   useEffect(() => {
     const v = ref.current;
@@ -46,18 +61,27 @@ export default function LoginBackdrop({ dimMid = 0.30, dimEdge = 0.86 }) {
 
   return (
     <>
-      <video
-        ref={ref}
-        src={VID} poster={IMG}
-        autoPlay muted loop playsInline preload="auto"
-        style={{
+      {mobile ? (
+        <div style={{
           position: 'absolute', inset: 0, zIndex: 0,
-          width: '100%', height: '100%', objectFit: 'cover',
           backgroundImage: `url(${IMG})`,
           backgroundSize: 'cover', backgroundPosition: 'center',
           pointerEvents: 'none',
-        }}
-      />
+        }} />
+      ) : (
+        <video
+          ref={ref}
+          src={VID} poster={IMG}
+          autoPlay muted loop playsInline preload="auto"
+          style={{
+            position: 'absolute', inset: 0, zIndex: 0,
+            width: '100%', height: '100%', objectFit: 'cover',
+            backgroundImage: `url(${IMG})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
         background:

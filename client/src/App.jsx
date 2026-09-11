@@ -377,6 +377,81 @@ export function BottomTabs({ tab, setTab, badges = {} }) {
   );
 }
 
+/**
+ * BAĞLANIYOR EKRANI — birkaç saniye sonra NE OLDUĞUNU söyler.
+ *
+ * Eskiden yalnız "fiyorda bağlanıyor…" yazıp susuyordu. Telefondan bu
+ * ekranda takılı kalan bir oyuncunun elinde hiçbir bilgi olmuyor, bizim
+ * elimizde de: sunucu kaydından bağlantının kurulduğu görülüyor ama
+ * ekranın neden boş kaldığı anlaşılmıyordu.
+ *
+ * Altı saniye sonra bağlantının gerçek durumu yazılıyor: soket bağlı mı,
+ * hangi taşıyıcıyı kullanıyor, kaç kez denedi, son hata ne. Bu satırların
+ * ekran görüntüsü sorunu tahmin etmeden çözmeye yetiyor.
+ */
+function BaglaniyorEkrani({ socket, onLogout }) {
+  const [gecen, setGecen] = useState(0);
+  const [sonHata, setSonHata] = useState(null);
+
+  useEffect(() => {
+    const t0 = Date.now();
+    const iv = setInterval(() => setGecen(Math.round((Date.now() - t0) / 1000)), 1000);
+    const onErr = (e) => setSonHata(e?.message || String(e));
+    socket?.on('connect_error', onErr);
+    return () => { clearInterval(iv); socket?.off('connect_error', onErr); };
+  }, [socket]);
+
+  const gecikti = gecen >= 6;
+  const durum = gecikti ? {
+    bagli: socket?.connected ? 'evet' : 'hayır',
+    tasiyici: socket?.io?.engine?.transport?.name || '—',
+    deneme: socket?.io?.backoff?.attempts ?? 0,
+    hata: sonHata || '—',
+  } : null;
+
+  return (
+    <div style={{ position: 'relative', height: '100dvh', background: C.abyss }}>
+      {/* Giris ekraniyla ayni arka plan - gecis sirasinda goruntu atlamasin */}
+      <LoginBackdrop />
+      <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', placeItems: 'center' }}>
+        <div style={{ textAlign: 'center', padding: 16, maxWidth: 420 }}>
+          <div style={{
+            fontFamily: FONT.head, fontSize: 34, fontWeight: 700,
+            letterSpacing: 9, color: C.frost,
+          }}>TRANORD</div>
+          <div className="tn-pulse" style={{
+            fontFamily: FONT.ui, fontSize: 11, letterSpacing: 3,
+            color: C.iceDeep, marginTop: 10, textTransform: 'uppercase',
+          }}>fiyorda bağlanıyor… {gecen > 2 ? `${gecen} sn` : ''}</div>
+
+          {durum && (
+            <div style={{
+              marginTop: 18, padding: '10px 12px', borderRadius: 6, textAlign: 'left',
+              background: 'rgba(8,15,24,0.72)', border: `1px solid ${C.lineSoft}`,
+              fontFamily: FONT.ui, fontSize: 10, color: C.textDim, lineHeight: 1.7,
+            }}>
+              <div style={{ color: C.warn, marginBottom: 4 }}>
+                Beklenenden uzun sürdü — durum:
+              </div>
+              <div>soket bağlı: <span style={{ color: C.frost }}>{durum.bagli}</span></div>
+              <div>taşıyıcı: <span style={{ color: C.frost }}>{durum.tasiyici}</span></div>
+              <div>deneme: <span style={{ color: C.frost }}>{durum.deneme}</span></div>
+              <div>son hata: <span style={{ color: C.frost }}>{durum.hata}</span></div>
+              <div style={{
+                display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap',
+              }}>
+                <button onClick={() => window.location.reload()}
+                  style={btn('primary', { fontSize: 10 })}>Yeniden dene</button>
+                <button onClick={onLogout} style={btn('ghost', { fontSize: 10 })}>Çıkış yap</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Oyun ──────────────────────────────────────────────────────────────
 function Game({ token, onLogout }) {
   /**
@@ -543,24 +618,7 @@ function Game({ token, onLogout }) {
   const flows = useMemo(() => (village ? computeFlows(village) : {}), [village]);
 
   if (!village) {
-    return (
-      <div style={{ position: 'relative', height: '100dvh', background: C.abyss }}>
-        {/* Giris ekraniyla ayni arka plan - gecis sirasinda goruntu atlamasin */}
-        <LoginBackdrop />
-        <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', placeItems: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontFamily: FONT.head, fontSize: 34, fontWeight: 700,
-              letterSpacing: 9, color: C.frost,
-            }}>TRANORD</div>
-            <div className="tn-pulse" style={{
-              fontFamily: FONT.ui, fontSize: 11, letterSpacing: 3,
-              color: C.iceDeep, marginTop: 10, textTransform: 'uppercase',
-            }}>fiyorda bağlanıyor…</div>
-          </div>
-        </div>
-      </div>
-    );
+    return <BaglaniyorEkrani socket={socket} onLogout={handleLogout} />;
   }
 
   const buildProduction         = (slotKey, type, workers) => socket.emit('build_production',          { slotKey, type, workers });

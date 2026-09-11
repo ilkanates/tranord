@@ -26,6 +26,28 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-11g',
+    tarih: '11 Eylül 2026',
+    baslik: 'Telefonda açılış',
+    notlar: [
+      {
+        id: '20260911-mobil-arkaplan',
+        tur: 'duzeltme',
+        metin: 'Telefonda giriş ekranının arka plan videosu kaldırıldı, yerine '
+          + 'aynı karenin fotoğrafı kondu. 752 KB’lık video her açılışta '
+          + 'yeniden iniyor ve tarayıcının bağlantı kanallarını doldurup oyunun '
+          + 'kendi bağlantısını geciktiriyordu.',
+      },
+      {
+        id: '20260911-baglaniyor-teshis',
+        tur: 'yenilik',
+        metin: '"Fiyorda bağlanıyor" ekranı altı saniye sonra artık ne olduğunu '
+          + 'yazıyor: bağlantı kurulmuş mu, hangi yoldan, kaç kez denenmiş ve '
+          + 'son hata ne. Yeniden dene ve çıkış düğmeleri de orada.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11f',
     tarih: '11 Eylül 2026',
     baslik: 'Sıralamalar ve ordu gizliliği',
