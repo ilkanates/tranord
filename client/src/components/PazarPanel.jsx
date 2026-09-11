@@ -43,15 +43,20 @@ function KaynakSecici({ deger, onSec, baslik, resources }) {
           return (
             <button key={r} onClick={() => onSec(r)}
               title={`${RES_LABEL[r] || r}${resources ? ` · elinde ${Math.floor(resources[r] || 0)}` : ''}`}
+              /*
+                ÇERÇEVE YOK. Her simgenin etrafındaki kutu on bir kaynağı
+                ızgaraya çeviriyor ve simgeler kafeste gibi duruyordu;
+                seçim yalnız zeminle belli oluyor.
+              */
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
-                padding: '5px 6px', borderRadius: 5, cursor: 'pointer',
-                background: secili ? 'rgba(143,220,255,0.14)' : 'rgba(8,14,24,0.5)',
-                border: `1px solid ${secili ? C.lineBright : C.line}`,
+                padding: '4px 5px', borderRadius: 5, cursor: 'pointer',
+                background: secili ? 'rgba(143,220,255,0.16)' : 'transparent',
+                border: 'none',
               }}>
               {/* Pazarda mal seçmek asıl iş: simge 11 px'ti, hangi kaynak
                   olduğu seçilmiyordu. 22 px'te bir bakışta okunuyor. */}
-              <Icon name={r} size={22} color={RES_COLOR[r]} />
+              <Icon name={r} size={30} color={RES_COLOR[r]} />
               {resources && (
                 <span style={num({ fontSize: 9, color: secili ? C.frost : C.textMute })}>
                   {Math.floor(resources[r] || 0)}

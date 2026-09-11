@@ -21,7 +21,7 @@ import Icon from './Icons';
 const YENILE_MS = 12000;
 
 /** Kaynak seçici — simgeler BÜYÜK, pazarda mal seçmek asıl iş */
-function MalSecici({ deger, onSec, kaynaklar, resources, boyut = 22 }) {
+function MalSecici({ deger, onSec, kaynaklar, resources, boyut = 30 }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
       {kaynaklar.map((r) => {
@@ -32,12 +32,12 @@ function MalSecici({ deger, onSec, kaynaklar, resources, boyut = 22 }) {
             title={`${RES_LABEL[r] || r}${elde != null ? ` · elinde ${elde}` : ''}`}
             style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
-              padding: '5px 6px', borderRadius: 5, cursor: 'pointer',
-              background: secili ? 'rgba(143,220,255,0.16)' : 'rgba(8,14,24,0.5)',
-              border: `1px solid ${secili ? C.lineBright : C.line}`,
+              padding: '4px 5px', borderRadius: 5, cursor: 'pointer',
+              background: secili ? 'rgba(143,220,255,0.16)' : 'transparent',
+              border: 'none',
             }}>
             <Icon name={r} size={boyut} color={RES_COLOR[r] || C.iceSoft}
-              style={{ opacity: secili ? 1 : 0.72 }} />
+              style={{ opacity: secili ? 0.95 : 0.55 }} />
             {elde != null && (
               <span style={num({ fontSize: 8.5, color: secili ? C.frost : C.textMute })}>
                 {short(elde)}

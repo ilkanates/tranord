@@ -533,7 +533,56 @@ const FILLED = {
   loncaDemirAmblem: 'M0.04 6.24L0.02 6.51L0.55 7.20L1.50 8.07L2.43 8.70L4.76 9.67L6.06 9.91L7.18 9.95L8.47 10.74L9.16 11.72L9.30 12.87L8.88 14.05L7.97 15.04L6.91 15.57L5.92 15.71L4.76 16.84L4.74 18.36L4.86 18.47L8.92 18.47L9.22 17.76L9.61 17.31L10.11 17.01L10.68 16.89L14.66 16.95L15.16 17.17L15.59 17.55L16.01 18.47L20.17 18.43L20.19 16.84L19.03 15.71L18.04 15.57L17.11 15.12L16.09 14.07L15.67 12.91L15.81 11.68L16.42 10.70L17.53 9.93L21.63 8.03L23.82 8.03L24.00 7.86L24.00 5.70L23.82 5.53L7.26 5.53L7.05 5.74L7.03 7.09L6.63 7.07L6.63 6.14L0.20 6.14Z',
 };
 
+/**
+ * KAYNAK SİMGELERİ — çizilmiş siluetler, SVG değil.
+ *
+ * Odun, kil, taş… için elle çizilmiş PNG siluetler kullanılıyor
+ * (client/public/kaynak/). Çizgi ikonlar bu on bir malı birbirinden
+ * ayırmaya yetmiyordu: küçük boyda kereste ile odun, tuğla ile yontma
+ * taş aynı görünüyordu.
+ *
+ * RENKLENDİRME CSS MASK İLE. Siluet PNG'sinde siyah kısım opak, beyaz
+ * zemin saydam; maske olarak kullanılınca rengi altındaki
+ * `backgroundColor` veriyor. Böylece tek dosya her renkte kullanılıyor
+ * ve RES_COLOR paleti aynen işliyor — her kaynak için ayrı renkli dosya
+ * tutmak gerekmiyor.
+ *
+ * Dosyalar 128×128 ve toplam ~116 KB: özgünleri 1232×1232 ve 9,6 MB'dı,
+ * tarayıcıda kırpılıp küçültüldü (mobil yükü bu projede bir kez canımızı
+ * yaktı, bkz. LoginBackdrop).
+ */
+const KAYNAK_PNG = new Set([
+  'odun', 'kil', 'tas', 'demir', 'tahil',
+  'kereste', 'tugla', 'yontmaTas', 'demirKulce', 'un', 'ekmek',
+]);
+
+function KaynakSimgesi({ name, size, color, style, title, className }) {
+  const url = `url(/kaynak/${name}.png)`;
+  return (
+    /*
+      KONTRAST KISIK. Siluetler yoğun; tam güçte renkle koyu zeminde
+      çok sert duruyor ve şeklin içindeki ince beyaz çizgiler kayboluyor.
+      0.82 opaklık kenarları yumuşatıyor, simge okunur kalıyor.
+    */
+    <span title={title} className={className} style={{
+      display: 'inline-block', width: size, height: size, flexShrink: 0,
+      backgroundColor: color === 'currentColor' ? 'currentColor' : color,
+      opacity: 0.82,
+      maskImage: url, WebkitMaskImage: url,
+      maskSize: 'contain', WebkitMaskSize: 'contain',
+      maskRepeat: 'no-repeat', WebkitMaskRepeat: 'no-repeat',
+      maskPosition: 'center', WebkitMaskPosition: 'center',
+      verticalAlign: 'middle',
+      ...style,
+    }} />
+  );
+}
+
 export default function Icon({ name, size = 18, color = 'currentColor', strokeWidth = 1.6, style, title, className }) {
+  if (KAYNAK_PNG.has(name)) {
+    return <KaynakSimgesi name={name} size={size} color={color}
+      style={style} title={title} className={className} />;
+  }
   if (FILLED[name]) {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" style={style} className={className}>
