@@ -567,7 +567,10 @@ export function ForeignVillagePanel({
           göstermek yanlış bilgi olurdu, onun yerine niye yok yazıyor.
         */}
         {v.kind === 'player' && !intel && (
-          <Row k="Sur / hendek" v="bilinmiyor" c={C.textMute} />
+          <>
+            <Row k="Ordu" v="bilinmiyor" c={C.textMute} />
+            <Row k="Sur / hendek" v="bilinmiyor" c={C.textMute} />
+          </>
         )}
 
         {ratio != null && (

@@ -1468,8 +1468,16 @@ export default function MapView({
           ...(v.kind === 'player' && v.owner ? [['Sahibi', v.owner, PLAYER_COL.line]] : []),
           ['Mesafe', v.distance != null ? `${v.distance} hex` : '—', C.iceSoft],
           ['Nüfus', v.population != null ? short(v.population) : '—'],
-          ['Ordu', v.army != null ? short(v.army) : '—',
-            ratio == null ? C.frost : ratio > 1.2 ? C.danger : ratio < 0.7 ? C.good : C.warn, true],
+          /*
+            ORDU SATIRI: oyuncu köyünde sunucu artık asker sayısı
+            yollamıyor (bkz. server/index.js · worldSnapshot) — fare
+            gezdirerek bütün dünyanın ordusu okunuyordu. NPC'de duruyor:
+            PvE hedefi seçmek keşif gerektirmesin.
+          */
+          ['Ordu', v.army != null ? short(v.army) : 'bilinmiyor',
+            v.army == null ? C.textMute
+              : ratio == null ? C.frost
+                : ratio > 1.2 ? C.danger : ratio < 0.7 ? C.good : C.warn, true],
         ],
         note: 'Detay için tıkla.',
       };

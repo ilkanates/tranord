@@ -26,6 +26,36 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-11f',
+    tarih: '11 Eylül 2026',
+    baslik: 'Sıralamalar ve ordu gizliliği',
+    notlar: [
+      {
+        id: '20260911-sira-oyuncuya-gore',
+        tur: 'yenilik',
+        metin: 'Dünya sıralamaları artık OYUNCUYA göre: bütün köylerin tek '
+          + 'satırda toplanıyor. Tablolar sırayla en büyük nüfus, en iyi '
+          + 'saldıran, en iyi savunan, en çok yağma, en büyük alan ve en '
+          + 'büyük köy. Çevrimdışı oyuncular da listede — sıralama kimin o an '
+          + 'bağlı olduğuna göre değişmiyor.',
+      },
+      {
+        id: '20260911-ordu-gizli',
+        tur: 'yenilik',
+        metin: 'Asker sayısı artık bedava bilgi değil. Sıralamadaki ordu, '
+          + 'saldırı gücü ve savunma gücü tabloları kaldırıldı; haritada da '
+          + 'başka oyuncunun ordusu "bilinmiyor" yazıyor. Öğrenmenin yolu '
+          + 'izci göndermek — sur ve hendekte olduğu gibi.',
+      },
+      {
+        id: '20260911-adsiz-oyuncu',
+        tur: 'duzeltme',
+        metin: 'Adını henüz koymamış oyuncuların hepsi haritada ve sıralamada '
+          + '"oyuncu" diye görünüyor, birbirinden ayırt edilemiyordu.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11e',
     tarih: '11 Eylül 2026',
     baslik: 'Üretim kuyruğu yeniden yazıldı',

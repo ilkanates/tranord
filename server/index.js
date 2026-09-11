@@ -16,6 +16,7 @@ const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
 const { QUEST_BY_ID } = require('./data/questDefs');
 const PAZAR = require('./game/pazar');
+const IST = require('./game/istatistik');
 const KUYRUK = require('./game/kuyruk');
 const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
@@ -1011,87 +1012,91 @@ function maybeNpcRaid(n) {
 // ═══════════════════════════════════════════════════════════════════
 //  İSTATİSTİK — dünya sıralamaları
 // ═══════════════════════════════════════════════════════════════════
+/*
+  Sıralamanın kuralları game/istatistik.js'in başında yazılı: satırlar
+  OYUNCU başına (köy başına değil) ve ordu bilgisi tabloya hiç girmiyor.
+  Burada yalnız VERİ TOPLANIYOR.
+*/
+
 /**
- * Bir köyün sıralamaya giren bütün ölçüleri. Nüfus/ordu/toprak anlık
- * durumdan, savaş kalemleri kalıcı sayaçlardan (village.stats) gelir.
+ * ÇEVRİMDIŞI OYUNCULAR DA SIRALAMAYA GİRER.
+ *
+ * Eskiden yalnız `userSessions` taranıyordu: çevrimdışı oyuncunun köyü
+ * bellekte olmadığı için listeden düşüyordu. Sıralama kimin o an bağlı
+ * olduğuna göre değişiyordu — bir tablo için kabul edilemez.
+ *
+ * Çevrimdışı veriler veritabanından geliyor ve 60 sn önbellekleniyor:
+ * tam tablo taraması her istekte yapılacak iş değil, sıralama da o
+ * sürede anlamlı biçimde değişmiyor. Bağlı oyuncunun köyü bellekten
+ * ALINIR ve DB kopyasının üstüne yazılır — bellek her zaman daha taze.
  */
-function villageMetrics(village) {
-  const st = village.stats || {};
-  const army = ARMY.totalUnits(village.army);
-  const buildLevels = Object.values(village.villageBuildings || {})
-    .reduce((sum, b) => sum + (b.level || 0), 0)
-    + Object.values(village.productionTiles || {})
-      .reduce((sum, b) => sum + (b.level || 0), 0);
-  return {
-    population: village.population || 0,
-    army,
-    attack:  Math.round(ARMY.armyAttack(village.army)),
-    defense: Math.round(ARMY.armyDefense(village.army)),
-    land: Object.keys(village.productionTiles || {}).length,
-    score: buildLevels * 10 + (village.population || 0) + army * 3,
-    killsOffense: st.killsOffense || 0,
-    killsDefense: st.killsDefense || 0,
-    lootTotal: st.lootTotal || 0,
-    attacksWon: st.attacksWon || 0,
-    defensesWon: st.defensesWon || 0,
-    attacksSent: st.attacksSent || 0,
-    defensesTotal: st.defensesTotal || 0,
-  };
+const STATS_DB_TTL = 60000;
+let statsDbCache = { at: 0, rows: [] };
+
+async function statsKoyleriDbden() {
+  if (Date.now() - statsDbCache.at < STATS_DB_TTL) return statsDbCache.rows;
+  const rows = await loadAllVillages();
+  statsDbCache = { at: Date.now(), rows };
+  return rows;
 }
 
-const STAT_BOARDS = [
-  { key: 'score',        label: 'En güçlü köy',      icon: 'bonus',  unit: 'puan',  desc: 'Bina seviyeleri + nüfus + ordu' },
-  { key: 'population',   label: 'En çok nüfus',      icon: 'nufus',  unit: 'kişi',  desc: 'Köyde yaşayan toplam kişi' },
-  { key: 'killsOffense', label: 'En iyi saldıran',   icon: 'kilic',  unit: 'asker', desc: 'Saldırılarında öldürdüğü asker' },
-  { key: 'killsDefense', label: 'En iyi savunan',    icon: 'kalkan', unit: 'asker', desc: 'Köyünü savunurken öldürdüğü asker' },
-  { key: 'lootTotal',    label: 'En iyi yağmacı',    icon: 'depo',   unit: 'kaynak', desc: 'Seferlerden getirdiği toplam ganimet' },
-  { key: 'army',         label: 'En büyük ordu',     icon: 'ordu',   unit: 'asker', desc: 'Köyde bekleyen asker sayısı' },
-  { key: 'attack',       label: 'En yüksek saldırı', icon: 'savas',  unit: 'güç',   desc: 'Ordusunun toplam saldırı gücü' },
-  { key: 'defense',      label: 'En yüksek savunma', icon: 'sur',    unit: 'güç',   desc: 'Ordusunun toplam savunma gücü' },
-  { key: 'land',         label: 'En çok toprak',     icon: 'harita', unit: 'tarla', desc: 'Sahip olduğu üretim tarlası' },
-];
-
-const STATS_TOP_N = 10;
-
-/** Bütün köyleri tara, her ölçü için ilk N + oyuncunun kendi sırası */
-function buildStats(forUserId) {
-  const rows = [];
-  for (const n of WORLD.npcs.values()) {
-    rows.push({
-      key: n.slot.key, name: n.slot.name, kind: 'npc',
-      tier: n.slot.tier, tierLabel: n.slot.tierLabel,
-      m: villageMetrics(n.village),
-    });
+/**
+ * Bu oyuncunun sıralamada görünecek adı.
+ *
+ * `ownerName` e-posta yoksa herkese "oyuncu" diyor; sıralamada bu dört
+ * satırın da aynı isimle görünmesi demek — kimin kim olduğu okunmuyor.
+ * Burada son çare olarak kullanıcı numarası ekleniyor: çirkin ama
+ * ayırt edici. Oyuncu adını belirleyince zaten o görünüyor.
+ */
+function statsOyuncuAdi(userId) {
+  const ad = WORLD.ownerByUser.get(userId);
+  if (ad) return ad;
+  for (const p of WORLD.playerBySlot.values()) {
+    if (p.userId === userId && p.email) return ownerName(userId, p.email);
   }
-  for (const [slotKey, p] of WORLD.playerBySlot) {
-    const session = userSessions.get(p.userId);
-    if (!session) continue;             // çevrimdışı oyuncunun köyü bellekte yok
-    // ÇOKLU KÖY: satır o SLOTUN köyünden, aktif köyden değil
-    const v = session.villages.get(slotKey);
-    if (!v) continue;
-    rows.push({
-      key: slotKey, name: p.name, kind: p.userId === forUserId ? 'self' : 'player',
-      tier: WORLD.slotByKey.get(slotKey)?.tier ?? null, tierLabel: 'Oyuncu',
-      m: villageMetrics(v),
-    });
+  return ownerName(userId, userSessions.get(userId)?.userEmail);
+}
+
+async function buildStats(forUserId) {
+  /** userId -> { name, koyler: [{ v, slotKey, adi }] } */
+  const oyuncular = new Map();
+  const al = (userId) => {
+    let o = oyuncular.get(userId);
+    if (!o) { o = { name: statsOyuncuAdi(userId), koyler: [] }; oyuncular.set(userId, o); }
+    return o;
+  };
+
+  // 1) Veritabanı — çevrimdışı oyuncular dahil herkes
+  let dbHata = null;
+  try {
+    for (const row of await statsKoyleriDbden()) {
+      al(row.userId).koyler.push({
+        v: row.state, slotKey: row.slotKey,
+        adi: row.name || WORLD.slotByKey.get(row.slotKey)?.name || row.slotKey,
+      });
+    }
+  } catch (err) {
+    dbHata = err.message;                      // bellekteki oyuncularla devam
   }
 
-  const boards = STAT_BOARDS.map(b => {
-    const sorted = [...rows].sort((x, y) => y.m[b.key] - x.m[b.key]);
-    const top = sorted.slice(0, STATS_TOP_N).map((r, i) => ({
-      rank: i + 1, key: r.key, name: r.name, kind: r.kind,
-      tierLabel: r.tierLabel, value: r.m[b.key],
-    }));
-    // Oyuncu ilk N'de değilse kendi satırını ayrıca ekle
-    const myIdx = sorted.findIndex(r => r.kind === 'self');
-    const me = myIdx >= 0 ? {
-      rank: myIdx + 1, key: sorted[myIdx].key, name: sorted[myIdx].name,
-      kind: 'self', tierLabel: 'Oyuncu', value: sorted[myIdx].m[b.key],
-    } : null;
-    return { ...b, rows: top, me, inTop: myIdx >= 0 && myIdx < STATS_TOP_N };
-  });
+  // 2) Bellek — bağlı oyuncunun köyü DB kopyasının üstüne yazılır
+  for (const [userId, sess] of userSessions) {
+    const o = al(userId);
+    for (const [slotKey, v] of sess.villages) {
+      const adi = WORLD.playerBySlot.get(slotKey)?.name
+        || WORLD.slotByKey.get(slotKey)?.name || slotKey;
+      const idx = o.koyler.findIndex((k) => k.slotKey === slotKey);
+      const kayit = { v, slotKey, adi };
+      if (idx >= 0) o.koyler[idx] = kayit; else o.koyler.push(kayit);
+    }
+  }
 
-  return { updatedAt: Date.now(), villageCount: rows.length, boards };
+  const boards = IST.tablolariKur(oyuncular, forUserId);
+  const koySayisi = [...oyuncular.values()].reduce((t, o) => t + o.koyler.length, 0);
+  return {
+    updatedAt: Date.now(), villageCount: koySayisi,
+    playerCount: oyuncular.size, dbHata, boards,
+  };
 }
 
 /**
@@ -1129,9 +1134,16 @@ function yayinlaDunya() {
   }
 }
 
-/** Bu oyuncunun görünen adı — verilmemişse e-postanın @ öncesi */
+/**
+ * Bu oyuncunun görünen adı: seçtiği ad → e-postanın @ öncesi → kullanıcı no.
+ *
+ * Son çare eskiden düz "oyuncu"ydu; adını henüz koymamış dört oyuncu
+ * haritada ve sıralamada AYNI isimle görünüyor, kimin kim olduğu
+ * okunmuyordu. Numara çirkin ama ayırt edici.
+ */
 const ownerName = (userId, email) =>
-  WORLD.ownerByUser.get(userId) || String(email || 'oyuncu').split('@')[0];
+  WORLD.ownerByUser.get(userId)
+  || (email ? String(email).split('@')[0] : `oyuncu#${userId}`);
 
 /** Oyuncuya harita üzerinde yer ver (yoksa) */
 async function ensurePlayerSlot(userId, email) {
@@ -1255,7 +1267,18 @@ function worldSnapshot(forUserId, activeSlot = null) {
       owner: ownerName(p.userId, p.email),
       kind: p.userId === forUserId ? 'self' : 'player',
       population: v?.population ?? null,
-      army: v ? Object.values(v.army || {}).reduce((a, b) => a + b, 0) : null,
+      /**
+       * ORDU YALNIZ KENDİ KÖYÜMDE.
+       *
+       * Harita başkasının asker sayısını yazıyordu: hedef seçmek için
+       * kimseyle savaşmaya, izci göndermeye, hiçbir şey yapmaya gerek
+       * kalmıyordu — bütün dünyanın ordusu tek bakışta okunuyordu.
+       * İzci birimi de bu yüzden anlamsızdı. Artık sur/hendek gibi
+       * ordu da keşifle öğreniliyor (bkz. mapPanels · ForeignVillagePanel).
+       */
+      army: (v && p.userId === forUserId)
+        ? Object.values(v.army || {}).reduce((a, b) => a + b, 0)
+        : null,
       score: null, surLevel: 0, hendekLevel: 0,
       distance: me ? W.distanceBetween(me, slot) : null,
       tiles: v && me && W.distanceBetween(me, slot) <= TILE_RADIUS
@@ -2210,12 +2233,13 @@ io.on('connection', async socket => {
     }
   });
 
-  socket.on('request_stats', () => {
+  socket.on('request_stats', async () => {
     try {
       const t0 = Date.now();
-      const snap = buildStats(userId);
+      const snap = await buildStats(userId);
       socket.emit('stats_snapshot', snap);
-      console.log(`[İSTATİSTİK] ${userEmail} · ${snap.villageCount} köy · ${Date.now() - t0} ms`);
+      console.log(`[İSTATİSTİK] ${userEmail} · ${snap.playerCount} oyuncu`
+        + ` · ${snap.villageCount} köy · ${Date.now() - t0} ms`);
     }
     catch (err) {
       console.error('[STATS]', err.message);

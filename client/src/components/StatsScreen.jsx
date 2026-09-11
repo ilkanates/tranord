@@ -60,6 +60,14 @@ function Row({ r, unit, best, separated }) {
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {r.name}
+          {/*
+            ALT YAZI: oyuncu tablolarında kaç köyü olduğu, "En büyük köy"
+            tablosunda köyün sahibi. Sunucu hangisi uygunsa onu yolluyor
+            (bkz. server/game/istatistik.js).
+          */}
+          {r.sub && (
+            <span style={{ color: C.textMute, fontSize: 9 }}> · {r.sub}</span>
+          )}
           {isSelf && <span style={{ color: '#a8d97a', fontSize: 9 }}> · sen</span>}
         </div>
         <div style={{
@@ -86,12 +94,9 @@ function Board({ b }) {
   const empty = b.rows.every(r => !r.value);
 
   return (
-    <div style={panel({
-      padding: 12,
-      // Sütun düzeninde kart ORTADAN BÖLÜNMESİN
-      breakInside: 'avoid', WebkitColumnBreakInside: 'avoid', pageBreakInside: 'avoid',
-      marginBottom: 11,
-    })}>
+    /* Izgara düzeninde kart bölünmüyor; marginBottom da ızgara boşluğuyla
+       çakışmasın diye kalktı (bkz. aşağıda gridTemplateColumns). */
+    <div style={panel({ padding: 12 })}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
         <Icon name={b.icon} size={15} color={C.iceDeep} />
         <span style={{
@@ -252,7 +257,20 @@ export default function StatsScreen({ socket }) {
         * komşusunun boyuna uzayıp kocaman boşluk bırakıyordu. Sütun düzeninde
         * her kart kendi boyunda kalır ve bir sonraki kart hemen altına yapışır.
         */}
-      <div style={{ columnWidth: 340, columnGap: 11 }}>
+      {/*
+        IZGARA, SÜTUN DEĞİL.
+
+        `columnWidth` CSS sütunları kullanıyordu: kartlar önce SOL sütunu
+        doldurup sağa geçiyor, yani 1-2-3 solda, 4-5-6 sağda diziliyordu.
+        Tablolar sıralı (1 nüfus … 6 en büyük köy) ve oyuncu soldan sağa
+        okuyor; sütun düzeninde 2. sırada gördüğü kart aslında 4. tabloydu.
+        Izgara satır satır dolduğu için okuma sırası tablo sırasıyla aynı.
+      */}
+      <div style={{
+        display: 'grid', gap: 11,
+        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        alignItems: 'start',
+      }}>
         {ordered.map(b => <Board key={b.key} b={b} />)}
       </div>
 
