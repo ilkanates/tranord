@@ -26,6 +26,42 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-11e',
+    tarih: '11 Eylül 2026',
+    baslik: 'Üretim kuyruğu yeniden yazıldı',
+    notlar: [
+      {
+        id: '20260911-kuyruk-pesin',
+        tur: 'yenilik',
+        metin: 'Asker ve ekipman siparişlerinin bedeli artık SİPARİŞ ANINDA '
+          + 'ödeniyor. Malzemen yetmiyorsa sipariş kuyruğa hiç girmiyor ve '
+          + 'neyin eksik olduğu yazılıyor. Yetiyorsa malzeme hemen ayrılıyor: '
+          + 'kuyrukta bekleyen her işin malzemesi hazır demek.',
+      },
+      {
+        id: '20260911-kuyruk-kilitlenme',
+        tur: 'duzeltme',
+        metin: 'Malzemesi olmayan bir sipariş kuyruğun başında takılıp '
+          + 'arkasındaki hazır siparişleri de kilitliyordu. 50 kılıç sipariş '
+          + 'edip kaynağın bitince kuyruğun tamamı duruyordu. Bitti.',
+      },
+      {
+        id: '20260911-kuyruk-siralama',
+        tur: 'yenilik',
+        metin: 'Kuyruktaki işleri yukarı/aşağı taşıyabiliyorsun — hangisinin '
+          + 'önce biteceğine sen karar veriyorsun. Üretimi süren iş sırada ilk '
+          + 'kalıyor; yerini değiştirmek onu baştan başlatmak olurdu.',
+      },
+      {
+        id: '20260911-kuyruk-iade',
+        tur: 'yenilik',
+        metin: 'Sipariş iptalinde üretilmemiş parçaların bedeli tam iade '
+          + 'ediliyor: asker için ekipman ve işçi, ekipman için kaynak. '
+          + 'İade depo tavanını aşamaz, taşan kısım kaybolur.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-11d',
     tarih: '11 Eylül 2026',
     baslik: 'Bina panelleri elden geçti',

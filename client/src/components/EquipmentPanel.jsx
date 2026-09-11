@@ -13,7 +13,7 @@ export default function EquipmentPanel({
   equipmentByBuilding = {}, equipmentDefs = {},
   equipment = {}, equipmentCaps = {}, equipmentPool = { capacity: 0, used: 0, free: 0 },
   queue = [], resources = {}, buildingWorkers = 0,
-  onQueue, onCancel,
+  onQueue, onCancel, onReorder,
   hourSeconds = 3600, worldSpeed = 1,
   compact: compactProp = false,
 }) {
@@ -158,7 +158,8 @@ export default function EquipmentPanel({
           iconOf={(o) => o.type}
           boxHeight={compact ? 68 : undefined}
           compact={compact}
-          onCancel={onCancel} />
+          onCancel={onCancel}
+          onReorder={onReorder} />
       </div>
     </PanelShell>
   );

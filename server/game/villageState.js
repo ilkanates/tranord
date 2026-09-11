@@ -365,9 +365,19 @@ function clampWorkersToCapacity(v) {
 function repairWorkerAccounting(v) {
   const tiles = Object.values(v.productionTiles || {});
   const bldgs = Object.values(v.villageBuildings || {});
+  /*
+    Peşin ödenen siparişte işçi ASKER SAYISI kadar ayrılıyor (10 asker =
+    10 işçi), eski siparişte yalnız o an üretilen tek asker için biri.
+    Burada 1 saymak, 10'luk bir sipariş duran köyde 9 işçiyi "kayıp"
+    gösterip onarımın nüfusu yanlış yerden çekmesine yol açardı.
+  */
   let kuyruk = 0;
   for (const q of Object.values(v.unitQueues || {})) {
-    for (const o of q || []) if (o && o.workerReserved) kuyruk++;
+    for (const o of q || []) {
+      if (!o) continue;
+      if (o.odendi) kuyruk += Math.max(0, o.remaining || 0);
+      else if (o.workerReserved) kuyruk++;
+    }
   }
   let seferde = 0;
   for (const m of v.marches || []) {

@@ -792,6 +792,8 @@ export default function VillageCenter({
   unitQueues = {}, unitsByBuilding = {}, unitDefs = {},
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild,
   onQueueEquipment, onCancelEquipment, onTrainUnit, onCancelUnitOrder,
+  // Kuyruk sırası — hangi iş önce bitsin (bkz. server/game/kuyruk.js)
+  onReorderUnitOrder, onReorderEquipment,
   onOpenHelp,
   // Panel açıkken rehber kartı rozete iner (bkz. QuestGuide.jsx)
   onPanelChange,
@@ -1295,6 +1297,7 @@ export default function VillageCenter({
               hourSeconds={hourSeconds} worldSpeed={worldSpeed}
               onQueue={(type, qty) => onQueueEquipment(selectedBuilding.type, type, qty)}
               onCancel={(orderId) => onCancelEquipment(selectedBuilding.type, orderId)}
+              onReorder={(orderId, yon) => onReorderEquipment?.(selectedBuilding.type, orderId, yon)}
               compact={ahirUstte}
             />
           ) : null;
@@ -1617,6 +1620,7 @@ export default function VillageCenter({
                   hourSeconds={hourSeconds} worldSpeed={worldSpeed}
                   onTrain={(type, qty) => onTrainUnit(selectedBuilding.type, type, qty)}
                   onCancel={(orderId) => onCancelUnitOrder(selectedBuilding.type, orderId)}
+                  onReorder={(orderId, yon) => onReorderUnitOrder?.(selectedBuilding.type, orderId, yon)}
                 />
               </div>
             )}

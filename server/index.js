@@ -16,6 +16,7 @@ const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
 const { QUEST_BY_ID } = require('./data/questDefs');
 const PAZAR = require('./game/pazar');
+const KUYRUK = require('./game/kuyruk');
 const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
         MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('./sabitler');
@@ -28,7 +29,7 @@ const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/np
 const WORKER_ASSIGNABLE_MILITARY = new Set(['silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu',
   // Göçmen köşk/sarayda eğitiliyor; eğitmen yoksa kuyruk ilerlemez
   'kosk', 'saray']);
-const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_BY_BUILDING, UNIT_DEFS,
+const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_BY_BUILDING, EQUIPMENT_DEFS, UNIT_DEFS,
         maxPopulationOf, maxLevelOf } = require('./data');
 const { equipmentUpgradeCost, EQUIPMENT_MAX_LEVEL } = require('./data/militaryDefs');
 
@@ -1763,21 +1764,65 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
+  /**
+   * EKİPMAN SİPARİŞİ — bedel PEŞİN.
+   *
+   * Eskiden sipariş bedelsiz kuyruğa giriyor, her parça sırası gelince
+   * ödeniyordu; kaynak yetmezse iş kuyruğun başında takılıp arkasındaki
+   * her şeyi kilitliyordu. Artık yetmiyorsa sipariş HİÇ girmiyor ve
+   * oyuncuya neyin eksik olduğu yazılıyor (bkz. game/kuyruk.js).
+   */
   socket.on('queue_equipment', ({ buildingType, equipmentType, quantity } = {}) => {
     const allowed = EQUIPMENT_BY_BUILDING[buildingType];
     if (!allowed?.includes(equipmentType)) return;
     const b = Object.values(v().villageBuildings).find(vb => vb.type === buildingType);
     if (!b || b.level < 1) return;
+    const def = EQUIPMENT_DEFS[equipmentType];
+    if (!def) return;
     const q = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
-    (v().equipmentQueues[buildingType] ||= []).push({ id: v().nextOrderId++, type: equipmentType, total: q, remaining: q, waiting: true, startTime: null, endTime: null });
+
+    const village = v();
+    const bedel = KUYRUK.carp(def.cost, q);
+    const eksik = KUYRUK.eksikler(village.resources, bedel);
+    if (Object.keys(eksik).length) {
+      socket.emit('build_refused', {
+        reason: `${def.name} ×${q} için yetersiz: ${KUYRUK.eksikMetni(eksik)}`,
+      });
+      return;
+    }
+    KUYRUK.dus(village.resources, bedel);
+    (village.equipmentQueues[buildingType] ||= []).push({
+      id: village.nextOrderId++, type: equipmentType, total: q, remaining: q,
+      waiting: true, startTime: null, endTime: null,
+      odendi: true,                       // bedel sipariş anında düşüldü
+    });
     dirty(); emit();
   });
 
+  /**
+   * EKİPMAN İPTALİ — üretilmemiş parçaların bedeli TAM iade.
+   *
+   * Devam eden parça da üretilmemiş sayılıyor: yarım kılıç diye bir şey
+   * yok, oyuncu eline hiçbir şey geçmediği bir işin bedelini ödemesin.
+   * İade depo tavanını aşmıyor (bkz. kuyruk.js · iadeEt).
+   */
   socket.on('cancel_equipment_order', ({ buildingType, orderId } = {}) => {
-    const queue = v().equipmentQueues?.[buildingType];
+    const village = v();
+    const queue = village.equipmentQueues?.[buildingType];
     if (!queue) return;
     const idx = queue.findIndex(o => o.id === orderId);
-    if (idx >= 0) { queue.splice(idx, 1); dirty(); emit(); }
+    if (idx < 0) return;
+    const order = queue[idx];
+    if (order.odendi) {
+      const def = EQUIPMENT_DEFS[order.type];
+      const kalan = Math.max(0, order.remaining || 0);
+      if (def && kalan > 0) {
+        const { caps } = getStorageCaps(village);
+        KUYRUK.iadeEt(village.resources, KUYRUK.carp(def.cost, kalan), caps);
+      }
+    }
+    queue.splice(idx, 1);
+    dirty(); emit();
   });
 
   socket.on('train_unit', ({ buildingType, unitType, quantity } = {}) => {
@@ -1829,7 +1874,49 @@ io.on('connection', async socket => {
       }
     }
     const q = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
-    (v().unitQueues[buildingType] ||= []).push({ id: v().nextUnitOrderId++, type: unitType, total: q, remaining: q, waiting: true, startTime: null, endTime: null, workerReserved: false });
+
+    /**
+     * BEDEL PEŞİN — ekipman, kaynak ve İŞÇİ birlikte.
+     *
+     * Bir asker üç şey tüketiyor: ekipmanı (kılıç/zırh/at), varsa kaynak
+     * bedeli ve bir boş işçi (asker olan kişi). Üçü de sipariş anında
+     * ayrılıyor. Yetmiyorsa sipariş kuyruğa hiç girmiyor: eskiden girip
+     * kuyruğun başında takılıyor ve arkasındaki hazır siparişleri de
+     * bekletiyordu.
+     *
+     * İşçi bir "kaynak" gibi ayrılıyor ama nüfustan düşmüyor — kişi hâlâ
+     * köyde, sadece artık başka işe verilemiyor. Asker olunca havuza geri
+     * dönmüyor; iptalde dönüyor.
+     */
+    const village = v();
+    const ekBedel = KUYRUK.carp(KUYRUK.ekipmanBedeli(UNIT_DEFS[unitType]), q);
+    const kayBedel = UNIT_DEFS[unitType]?.cost ? KUYRUK.carp(UNIT_DEFS[unitType].cost, q) : {};
+    const eksik = {
+      ...KUYRUK.eksikler(village.equipment, ekBedel),
+      ...KUYRUK.eksikler(village.resources, kayBedel),
+    };
+    const isciEksik = Math.max(0, q - (village.freeWorkers || 0));
+    const parcalar = [];
+    if (Object.keys(eksik).length) parcalar.push(KUYRUK.eksikMetni(eksik));
+    if (isciEksik) parcalar.push(`${isciEksik} boş işçi`);
+    if (parcalar.length) {
+      socket.emit('build_refused', {
+        reason: `${UNIT_DEFS[unitType]?.name || unitType} ×${q} için yetersiz: ${parcalar.join(', ')}`,
+      });
+      return;
+    }
+
+    KUYRUK.dus(village.equipment, ekBedel);
+    KUYRUK.dus(village.resources, kayBedel);
+    village.freeWorkers -= q;
+
+    village.unitQueues[buildingType] ||= [];
+    village.unitQueues[buildingType].push({
+      id: village.nextUnitOrderId++, type: unitType, total: q, remaining: q,
+      waiting: true, startTime: null, endTime: null,
+      odendi: true,          // ekipman + kaynak + işçi sipariş anında ayrıldı
+      workerReserved: true,  // eski alan: işçi muhasebesi bunu okuyor
+    });
     dirty(); emit();
   });
 
@@ -2003,15 +2090,62 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
+  /**
+   * BİRİM İPTALİ — eğitilmemiş askerlerin bedeli iade.
+   *
+   * Peşin ödenen siparişte kalan her asker için ekipman, kaynak ve işçi
+   * geri veriliyor. `odendi` alanı olmayan ESKİ siparişler kayıtlı
+   * oyunlarda durabilir; onlarda yalnız o an rezerve edilmiş tek parça
+   * iade ediliyor (eski davranış).
+   */
+  /**
+   * KUYRUK SIRASI — bir siparişi bir basamak yukarı/aşağı taşı.
+   *
+   * ÇALIŞAN İŞ KİLİTLİ: başta duran siparişin sayacı işliyor; yerini
+   * değiştirmek onu baştan başlatmak olurdu. Bu yüzden çalışan bir işin
+   * önüne geçilemiyor (bkz. game/kuyruk.js · tasi).
+   *
+   * Sıralama artık anlamlı: peşin ödeme sayesinde kuyrukta bekleyen her
+   * iş hazır, yani sırayı değiştirmek gerçekten hangi işin önce biteceğini
+   * belirliyor.
+   */
+  const siraDegistir = (kuyruklar, ad) => ({ buildingType, orderId, yon } = {}) => {
+    if (yon !== 'yukari' && yon !== 'asagi') return;
+    const queue = kuyruklar()?.[buildingType];
+    if (!queue) return;
+    const s = KUYRUK.tasi(queue, orderId, yon);
+    if (!s.ok) {
+      if (s.sebep === 'calisan_is') {
+        socket.emit('build_refused', { reason: 'Üretimi süren iş sırada ilk kalır.' });
+      }
+      return;
+    }
+    dirty(); emit();
+    if (IS_DEV_ENTRY) console.log(`[KUYRUK] ${ad}/${buildingType}: #${orderId} ${yon}`);
+  };
+  socket.on('reorder_equipment_order', siraDegistir(() => v().equipmentQueues, 'ekipman'));
+  socket.on('reorder_unit_order', siraDegistir(() => v().unitQueues, 'birim'));
+
   socket.on('cancel_unit_order', ({ buildingType, orderId } = {}) => {
-    const queue = v().unitQueues?.[buildingType];
+    const village = v();
+    const queue = village.unitQueues?.[buildingType];
     if (!queue) return;
     const idx = queue.findIndex(o => o.id === orderId);
     if (idx < 0) return;
     const order = queue[idx];
-    if (order.workerReserved && !order.waiting) {
-      v().freeWorkers += 1;
-      (UNIT_DEFS[order.type]?.equipment || []).forEach(eq => { v().equipment[eq] = (v().equipment[eq] || 0) + 1; });
+    const def = UNIT_DEFS[order.type];
+
+    if (order.odendi) {
+      const kalan = Math.max(0, order.remaining || 0);
+      if (kalan > 0) {
+        const { caps } = getStorageCaps(village);
+        KUYRUK.iadeEt(village.equipment, KUYRUK.carp(KUYRUK.ekipmanBedeli(def), kalan), null);
+        if (def?.cost) KUYRUK.iadeEt(village.resources, KUYRUK.carp(def.cost, kalan), caps);
+        village.freeWorkers += kalan;
+      }
+    } else if (order.workerReserved && !order.waiting) {
+      village.freeWorkers += 1;
+      (def?.equipment || []).forEach(eq => { village.equipment[eq] = (village.equipment[eq] || 0) + 1; });
     }
     queue.splice(idx, 1);
     dirty(); emit();

@@ -41,16 +41,22 @@ function UnitCard({
   guncelStats = null,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
+  /*
+    MALZEME ADET KADAR ARANIYOR — 1 tane değil.
+
+    Sunucu bedeli SİPARİŞ ANINDA topluca düşüyor (bkz. server/index.js ·
+    train_unit): 10 asker için 10 takım ekipman ve 10 boş işçi gerekiyor.
+    Burada 1'e bakmak, düğmeyi açık gösterip sunucuya reddettirirdi —
+    oyuncu "neden olmuyor" diye bakardı.
+  */
+  const adet = Math.max(1, qty || 1);
   const eqList = def.equipment || [];
-  const eqOk = eqList.every(e => (equipment[e] || 0) >= 1);
-  /**
-   * KAYNAK BEDELİ — ekipmansız birimler (göçmen) doğrudan kaynakla ödenir.
-   * Sunucu bedeli iş BAŞLARKEN düşüyor (tick.js processUnitQueues); burada
-   * yalnız düğmeyi kapatmak ve eksiği göstermek için bakılıyor.
-   */
+  const eqIhtiyac = {};
+  for (const e of eqList) eqIhtiyac[e] = (eqIhtiyac[e] || 0) + adet;
+  const eqOk = Object.entries(eqIhtiyac).every(([e, n]) => (equipment[e] || 0) >= n);
   const costList = Object.entries(def.cost || {});
-  const costOk = costList.every(([r, a]) => (resources[r] || 0) >= a);
-  const workerOk = freeWorkers >= 1;
+  const costOk = costList.every(([r, a]) => (resources[r] || 0) >= a * adet);
+  const workerOk = freeWorkers >= adet;
   const trainerOk = trainerWorkers >= 1;
   /**
    * SEVİYE KİLİDİ — iyi asker iyi kışla ister. Kilitli birim listeden
@@ -219,7 +225,7 @@ export default function UnitTrainingPanel({
   unitsByBuilding = {}, unitDefs = {}, equipmentDefs = {},
   equipment = {}, resources = {}, queue = [], freeWorkers = 0, trainerWorkers = 0,
   research = {}, unitStatsNow = {},
-  onTrain, onCancel,
+  onTrain, onCancel, onReorder,
   hourSeconds = 3600, worldSpeed = 1,
 }) {
   // Kilit sırasına göre diz: açık birimler önce, sıradaki hedef hemen arkada
@@ -311,7 +317,8 @@ export default function UnitTrainingPanel({
         <QueueList queue={queue}
           nameOf={(o) => unitDefs[o.type]?.name || o.type}
           iconOf={(o) => (unitDefs[o.type]?.category === 'suvari' ? 'at' : 'kalkan')}
-          onCancel={onCancel} />
+          onCancel={onCancel}
+          onReorder={onReorder} />
       )}
 
       {detail && (

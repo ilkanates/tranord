@@ -109,8 +109,28 @@ export function OrderButton({ children, disabled, title, onClick }) {
  */
 const QUEUE_BOX_H = 116;
 
+/** Sıra düğmesi — yukarı/aşağı taşı */
+function SiraDugmesi({ yon, kapali, onClick, compact }) {
+  const b = compact ? 15 : 19;
+  return (
+    <button type="button" disabled={kapali} onClick={onClick}
+      title={kapali
+        ? (yon === 'yukari' ? 'Zaten en üstte ya da üretim sürüyor' : 'Zaten en altta')
+        : (yon === 'yukari' ? 'Sırada yukarı al' : 'Sırada aşağı al')}
+      style={{
+        width: b, height: Math.round(b * 0.72), flexShrink: 0, padding: 0,
+        display: 'grid', placeItems: 'center', borderRadius: 3,
+        cursor: kapali ? 'default' : 'pointer',
+        opacity: kapali ? 0.28 : 1,
+        background: 'rgba(20,34,50,0.7)', border: `1px solid ${C.lineSoft}`,
+      }}>
+      <Icon name={yon} size={compact ? 8 : 9} color={C.iceSoft} strokeWidth={2.2} />
+    </button>
+  );
+}
+
 export function QueueList({
-  queue, nameOf, iconOf, onCancel,
+  queue, nameOf, iconOf, onCancel, onReorder,
   emptyText = 'kuyruk boş', boxHeight = QUEUE_BOX_H, compact = false,
 }) {
   return (
@@ -137,6 +157,8 @@ export function QueueList({
         }}>
           {queue.map((o, i) => {
             const active = i === 0 && !o.waiting;
+            // Baştaki iş gerçekten üretimde mi — sıra düğmelerinin kilidi buna bakıyor
+            const ilkCalisiyor = !!queue[0] && !queue[0].waiting;
             return (
               <div key={o.id} style={{
                 display: 'flex', alignItems: 'center', gap: compact ? 4 : 7, flexShrink: 0,
@@ -172,6 +194,27 @@ export function QueueList({
                   <span style={num({ fontSize: compact ? 9.5 : 11, color: C.good, flexShrink: 0 })}>
                     {fmtTime(o.timeLeft)}
                   </span>
+                )}
+
+                {/*
+                  SIRA DÜĞMELERİ — hangi işin önce biteceğini oyuncu seçsin.
+                  Peşin ödeme geldikten sonra anlamlı oldu: kuyrukta bekleyen
+                  her iş hazır, sırayı değiştirmek gerçekten sonucu değiştiriyor.
+
+                  ÜRETİMİ SÜREN İŞ KİLİTLİ: sayacı işliyor, yerini değiştirmek
+                  onu baştan başlatmak olurdu. Sunucu da aynı kuralı uyguluyor
+                  (bkz. server/game/kuyruk.js · tasi) — buradaki kapalı düğme
+                  yalnız görsel bir kolaylık.
+                */}
+                {onReorder && queue.length > 1 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+                    <SiraDugmesi yon="yukari" compact={compact}
+                      kapali={i === 0 || (i === 1 && ilkCalisiyor)}
+                      onClick={() => onReorder(o.id, 'yukari')} />
+                    <SiraDugmesi yon="asagi" compact={compact}
+                      kapali={i === queue.length - 1 || (i === 0 && ilkCalisiyor)}
+                      onClick={() => onReorder(o.id, 'asagi')} />
+                  </div>
                 )}
 
                 <button onClick={() => onCancel(o.id)} title="İptal"

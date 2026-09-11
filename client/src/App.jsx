@@ -579,6 +579,11 @@ function Game({ token, onLogout }) {
   const cancelEquipment = (buildingType, orderId) => socket.emit('cancel_equipment_order', { buildingType, orderId });
   const trainUnit       = (buildingType, unitType, quantity) => socket.emit('train_unit', { buildingType, unitType, quantity });
   const cancelUnitOrder = (buildingType, orderId) => socket.emit('cancel_unit_order', { buildingType, orderId });
+  /* Kuyruk sırası — sunucu çalışan işi baştan kaldırtmıyor (game/kuyruk.js) */
+  const reorderUnitOrder = (buildingType, orderId, yon) =>
+    socket.emit('reorder_unit_order', { buildingType, orderId, yon });
+  const reorderEquipmentOrder = (buildingType, orderId, yon) =>
+    socket.emit('reorder_equipment_order', { buildingType, orderId, yon });
   /**
    * ARAŞTIRMA — Rún Salonu. Kaynak sıraya alırken değil, iş başlarken
    * düşülüyor (sunucu tarafı), o yüzden burada kontrol yok: reddedilirse
@@ -787,6 +792,8 @@ function Game({ token, onLogout }) {
               onCancelEquipment={cancelEquipment}
               onTrainUnit={trainUnit}
               onCancelUnitOrder={cancelUnitOrder}
+              onReorderUnitOrder={reorderUnitOrder}
+              onReorderEquipment={reorderEquipmentOrder}
             />
           )}
 

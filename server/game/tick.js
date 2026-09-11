@@ -429,18 +429,25 @@ function processEquipmentQueues(village, now) {
         order.waitingReason = order.type === 'at' ? 'ahir_dolu' : 'cephane_dolu';
         return;
       }
-      // 3) Kaynak yeterli mi?
-      const affordable = Object.entries(def.cost).every(([res, amt]) =>
-        (village.resources[res] || 0) >= amt
-      );
-      if (!affordable) {
-        order.waiting      = true;
-        order.waitingReason = 'kaynak_yok';
-        return;
-      }
-      // Başlat: kaynak harca, süre = productionHours / workers (min 1sn)
-      for (const [res, amt] of Object.entries(def.cost)) {
-        village.resources[res] -= amt;
+      /*
+        3) Kaynak — PEŞİN ÖDENEN siparişte burada bir şey yapılmıyor.
+        Bedel sipariş anında düşüldü (bkz. index.js · queue_equipment),
+        yani kuyrukta duran her iş ödenmiş demek: kaynak yüzünden takılmaz.
+        `odendi` alanı olmayan siparişler kayıtlı oyunlardan gelen ESKİ
+        kayıtlar; onlar eski yoldan, parça parça ödemeye devam ediyor.
+      */
+      if (!order.odendi) {
+        const affordable = Object.entries(def.cost).every(([res, amt]) =>
+          (village.resources[res] || 0) >= amt
+        );
+        if (!affordable) {
+          order.waiting      = true;
+          order.waitingReason = 'kaynak_yok';
+          return;
+        }
+        for (const [res, amt] of Object.entries(def.cost)) {
+          village.resources[res] -= amt;
+        }
       }
       // productionHours GERÇEKTEN saat: işçiye bölünür, en az MIN_PRODUCTION_MINUTES
       const mins = Math.max(MIN_PRODUCTION_MINUTES, (def.productionHours * 60) / workers);
@@ -666,47 +673,49 @@ function processUnitQueues(village, now) {
         return;
       }
 
-      // Ekipman ve boş işçi (askere dönüşecek) mevcut mu?
-      const eqList = unitDef.equipment || [];
-      const eqAffordable = eqList.every(eq => (village.equipment[eq] || 0) >= 1);
-      const workerAvailable = village.freeWorkers >= 1;
+      /*
+        EKİPMAN · KAYNAK · İŞÇİ — peşin ödenen siparişte burada denetim yok.
+        Üçü de sipariş anında ayrıldı (bkz. index.js · train_unit), yani
+        kuyrukta bekleyen asker yalnız EĞİTMEN bekliyor olabilir. Eskiden
+        malzemesi olmayan sipariş kuyruğun başında takılıp arkasındaki
+        hazır siparişleri de kilitliyordu.
 
-      /**
-       * KAYNAK BEDELİ — ekipmansız birimler (göçmen) için.
-       * Ekipmanlı birimlerde bedel zaten ekipmanın kendisi; burada
-       * `def.cost` varsa kaynak da iş BAŞLARKEN düşülür.
-       */
-      const resCost = unitDef.cost || null;
-      if (resCost) {
-        const yeter = Object.entries(resCost)
-          .every(([r, a]) => (village.resources[r] || 0) >= a);
-        if (!yeter) {
+        `odendi` alanı olmayanlar kayıtlı oyunlardan gelen ESKİ siparişler;
+        onlar eski yoldan, asker asker ödemeye devam ediyor.
+      */
+      if (!order.odendi) {
+        const eqList = unitDef.equipment || [];
+        const eqAffordable = eqList.every(eq => (village.equipment[eq] || 0) >= 1);
+        const workerAvailable = village.freeWorkers >= 1;
+        const resCost = unitDef.cost || null;
+        if (resCost) {
+          const yeter = Object.entries(resCost)
+            .every(([r, a]) => (village.resources[r] || 0) >= a);
+          if (!yeter) {
+            order.waiting       = true;
+            order.waitingReason = 'kaynak_yok';
+            return;
+          }
+        }
+        if (!eqAffordable) {
           order.waiting       = true;
-          order.waitingReason = 'kaynak_yok';
+          order.waitingReason = 'ekipman_yok';
           return;
         }
-      }
-
-      if (!eqAffordable) {
-        order.waiting       = true;
-        order.waitingReason = 'ekipman_yok';
-        return;
-      }
-      if (!workerAvailable) {
-        order.waiting       = true;
-        order.waitingReason = 'asker_icin_isci_yok';
-        return;
-      }
-
-      // Düş/rezerve et
-      if (resCost) {
-        for (const [r, a] of Object.entries(resCost)) {
-          village.resources[r] = (village.resources[r] || 0) - a;
+        if (!workerAvailable) {
+          order.waiting       = true;
+          order.waitingReason = 'asker_icin_isci_yok';
+          return;
         }
+        if (resCost) {
+          for (const [r, a] of Object.entries(resCost)) {
+            village.resources[r] = (village.resources[r] || 0) - a;
+          }
+        }
+        eqList.forEach(eq => { village.equipment[eq] = (village.equipment[eq] || 0) - 1; });
+        village.freeWorkers -= 1;
+        order.workerReserved = true;
       }
-      eqList.forEach(eq => { village.equipment[eq] = (village.equipment[eq] || 0) - 1; });
-      village.freeWorkers -= 1;
-      order.workerReserved = true;
 
       // Süre: temel DAKİKA / eğitmen sayısı, en az MIN_PRODUCTION_MINUTES
       const mins = Math.max(MIN_PRODUCTION_MINUTES,
@@ -730,12 +739,17 @@ function processUnitQueues(village, now) {
       if (order.remaining <= 0) {
         queue.shift();
       } else {
-        // Sıradaki adet için yeniden rezerve gerekli
         order.startTime      = null;
         order.endTime        = null;
         order.waiting        = true;
         order.waitingReason  = null;
-        order.workerReserved = false;
+        /*
+          Peşin ödenen siparişte kalan askerlerin malzemesi HÂLÂ ayrılmış
+          durumda; bayrağı düşürmek işçi muhasebesine "bu kuyrukta kimse
+          tutulmuyor" dedirtirdi. Eski siparişlerde her asker için yeniden
+          rezerve gerekiyor, orada bayrak düşüyor.
+        */
+        if (!order.odendi) order.workerReserved = false;
       }
     }
   });
