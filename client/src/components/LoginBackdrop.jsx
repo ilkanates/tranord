@@ -8,7 +8,7 @@
  * iki kopya tutmamak için public/ altından URL ile veriliyor.
  */
 import { useEffect, useRef } from 'react';
-import { useViewport } from '../responsive';
+import { agirMedyaYok } from '../responsive';
 
 const IMG = '/login_bg.jpg';
 const VID = '/login_bg.mp4';
@@ -26,26 +26,9 @@ const VID = '/login_bg.mp4';
  * Poster zaten aynı kareyi gösteriyor; telefonda hareketli arka planın
  * bedeli faydasından büyük.
  */
-/**
- * DOKUNMATİK CİHAZ MI — genişlikten bağımsız.
- *
- * Ölçüt yalnız genişlikti (760 px) ve telefonu YATAY çevirince ~844 px'e
- * çıkıp videoyu geri getiriyordu; canlı kayıtta bir iPhone'un 752 KB'lik
- * videoyu yeniden indirdiği görüldü. İndirme kararı cihazla ilgili, ekran
- * kaç piksel geldiğiyle değil: fare olmayan, kaba işaretçili cihazda video
- * yok. Genişlik ölçütü de duruyor — dar bir masaüstü penceresinde de
- * gereksiz.
- */
-function dokunmatikCihaz() {
-  try {
-    return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  } catch { return false; }
-}
-
 export default function LoginBackdrop({ dimMid = 0.30, dimEdge = 0.86 }) {
   const ref = useRef(null);
-  const { mobile } = useViewport();
-  const videoYok = mobile || dokunmatikCihaz();
+  const videoYok = agirMedyaYok();
 
   useEffect(() => {
     const v = ref.current;

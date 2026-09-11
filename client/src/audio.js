@@ -10,6 +10,8 @@
  * kurduğu için bileşen içinde audio yaratmak iki müzik çalıyordu.
  */
 
+import { agirMedyaYok } from './responsive';
+
 const STORE_KEY = 'tn.audio';
 
 /**
@@ -53,19 +55,8 @@ export const TRACKS = [
  */
 const MOBIL_PARCALAR = ['/muzik/vintersorg-1.mp3', '/muzik/vintersorg-2.mp3'];
 
-/**
- * Telefon/tablet mi — dar ekran YA DA dokunmatik cihaz.
- *
- * Yalnız genişliğe bakmak yetmiyordu: telefon yatay çevrilince ~844 px'e
- * çıkıp tam listeye geri dönüyordu. Fare olmayan cihazda liste her hâlükârda
- * tek parça kalsın.
- */
-function darEkran() {
-  try {
-    if (window.innerWidth < 760) return true;
-    return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  } catch { return false; }
-}
+/* Telefon/tablet mi — ölçüt responsive.js'te tek yerde (bkz. agirMedyaYok) */
+const darEkran = agirMedyaYok;
 
 /** Bu cihazda çalınabilecek parçaların TRACKS içindeki sırası */
 function calinabilirSira() {

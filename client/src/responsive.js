@@ -75,5 +75,28 @@ export function useHoverable() {
   return can;
 }
 
+/**
+ * AĞIR MEDYA YÜKLENMESİN Mİ — telefon/tablet mi?
+ *
+ * Arka plan videoları 752 KB, müzik parçaları ~6 MB. Telefonda bunlar
+ * oyunun kendi soketiyle aynı bağlantı kanallarını paylaşıyor ve ilk köy
+ * paketini geciktiriyor (canlı nginx kaydında mobil isteklerin yarısından
+ * fazlası medyaydı).
+ *
+ * ÖLÇÜT GENİŞLİK DEĞİL CİHAZ. Önce yalnız genişliğe (760 px) bakılıyordu;
+ * telefon YATAY çevrilince ~844 px'e çıkıp videoyu geri getiriyordu.
+ * Fare olmayan, kaba işaretçili cihazda ağır medya yok — ekran kaç piksel
+ * gelirse gelsin. Dar masaüstü penceresi de kapsansın diye genişlik ölçütü
+ * duruyor.
+ *
+ * Hook değil: React ağacı dışından (audio.js) da çağrılıyor.
+ */
+export function agirMedyaYok() {
+  try {
+    if (window.innerWidth < BP.mobile) return true;
+    return window.matchMedia?.('(hover: none) and (pointer: coarse)').matches ?? false;
+  } catch { return false; }
+}
+
 /** Dokunmatikte en küçük dokunma hedefi (Apple/Google kılavuzu: 44 px). */
 export const TAP = 44;

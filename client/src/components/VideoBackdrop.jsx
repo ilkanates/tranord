@@ -14,6 +14,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { C } from '../theme';
+import { agirMedyaYok } from '../responsive';
 
 export default function VideoBackdrop({
   src = '/login_bg.mp4', poster = '/login_bg.jpg',
@@ -46,11 +47,31 @@ export default function VideoBackdrop({
 
   if (!src) return null;
 
+  /*
+    TELEFONDA VİDEO YOK — poster yeter.
+
+    Bu, giriş ekranıyla AYNI 752 KB'lik dosya ve Köy Merkezi sekmesinin
+    arkasında dönüyor. Canlı kayıtta telefon oyuna girdikten 3 saniye sonra
+    dosyanın indiği görüldü: giriş ekranını kurtarmak yetmiyormuş, asıl
+    yük buradaydı.
+  */
+  const videoYok = agirMedyaYok();
+
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 0,
       overflow: 'hidden', background: C.abyss,
     }}>
+      {videoYok ? (
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: `url(${poster})`,
+          backgroundSize: 'cover', backgroundPosition: 'center',
+          filter: blur > 0 ? `blur(${blur}px)` : 'none',
+          transform: blur > 0 ? `scale(${1 + blur / 60})` : 'none',
+          pointerEvents: 'none',
+        }} />
+      ) : (
       <video ref={ref} src={src} poster={poster}
         autoPlay muted loop playsInline preload="auto"
         style={{
@@ -62,6 +83,7 @@ export default function VideoBackdrop({
           transform: blur > 0 ? `scale(${1 + blur / 60})` : 'none',
           pointerEvents: 'none',
         }} />
+      )}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: `linear-gradient(180deg, rgba(5,10,18,${dim + 0.14}) 0%,`
