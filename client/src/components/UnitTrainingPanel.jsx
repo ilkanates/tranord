@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
-import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds } from '../flows';
+import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds, QTY_TAVAN } from '../flows';
 import { unitImage } from '../data/unitImages';
 import UnitDetail from './UnitDetail';
 import Icon from './Icons';
@@ -73,6 +73,23 @@ function UnitCard({
   const arastirmaKilidi = !!def.research && !arastirildi;
   const kilitli = seviyeKilidi || arastirmaKilidi;
   const ready = !kilitli && eqOk && costOk && workerOk && trainerOk;
+  /*
+    EN ÇOK KAÇ TANE — MAKS düğmesi bunu yazar.
+
+    Bir asker üç şey tüketiyor: ekipman takımı, varsa kaynak bedeli ve bir
+    boş işçi. Üçü de sipariş anında peşin düşülüyor (server/index.js ·
+    train_unit), dolayısıyla üretilebilecek adet bu üç orandan EN KÜÇÜĞÜ.
+    Eğitmen işçi adede göre ölçeklenmiyor — yalnız en az 1 gerekiyor,
+    o yüzden bölen değil kapı.
+  */
+  const birimEq = {};
+  for (const e of eqList) birimEq[e] = (birimEq[e] || 0) + 1;
+  const sinirlar = [freeWorkers];
+  for (const [e, n] of Object.entries(birimEq)) sinirlar.push(Math.floor((equipment[e] || 0) / n));
+  for (const [r, a] of costList) if (a > 0) sinirlar.push(Math.floor((resources[r] || 0) / a));
+  const enCok = (kilitli || !trainerOk)
+    ? 0
+    : Math.max(0, Math.min(QTY_TAVAN, ...sinirlar));
   const secs = gameMinutesToRealSeconds(effMinutes(def, trainerWorkers), hourSeconds, worldSpeed);
   /**
    * Kartta YÜKSELTİLMİŞ değer gösteriliyor: oyuncu silahçıya yatırım yapınca
@@ -210,7 +227,7 @@ function UnitCard({
         */}
         <div onClick={(e) => e.stopPropagation()}
           style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-          <Qty value={qty} onChange={setQty} />
+          <Qty value={qty} onChange={setQty} enCok={enCok} />
           <button onClick={() => onTrain(u, qty)} disabled={!ready}
             title={seviyeKilidi ? `${buildingName} Lvl ${gereken} gerekiyor (şu an ${buildingLevel})`
               : arastirmaKilidi ? `Önce Rún Salonu'nda araştırılmalı (salon Lvl ${def.research.level})`

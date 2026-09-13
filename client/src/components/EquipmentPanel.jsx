@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { C, FONT, RES_COLOR, num, fmtTime } from '../theme';
 import { useViewport } from '../responsive';
-import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds } from '../flows';
+import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds, QTY_TAVAN } from '../flows';
 import Icon from './Icons';
 import { PanelShell, WorkerNote, Qty, OrderButton, QueueList } from './queueUI';
 
@@ -83,6 +83,21 @@ export default function EquipmentPanel({
           const mins = Math.max(1, (def.productionHours * 60) / workers);
           const secs = gameMinutesToRealSeconds(mins, hourSeconds, worldSpeed);
           const ready = afford && !full;
+          /*
+            EN ÇOK KAÇ TANE — MAKS düğmesi bunu yazar.
+
+            İki ayrı tavan var: kaynak (bedel peşin düşülüyor) ve DEPO.
+            At ahıra, diğer ekipman cephanelik havuzuna giriyor; boş yer
+            kalmamışsa üretim anlamsız, o yüzden boş yer de bölen değil
+            doğrudan üst sınır.
+          */
+          const eqSinir = Object.entries(def.cost)
+            .filter(([, a]) => a > 0)
+            .map(([r, a]) => Math.floor((resources[r] || 0) / a));
+          const yerSiniri = isHorse
+            ? (cap > 0 ? Math.max(0, cap - stock) : QTY_TAVAN)
+            : (equipmentPool.capacity ? poolFree : QTY_TAVAN);
+          const enCok = Math.max(0, Math.min(QTY_TAVAN, yerSiniri, ...(eqSinir.length ? eqSinir : [QTY_TAVAN])));
 
           return (
             /*
@@ -137,8 +152,12 @@ export default function EquipmentPanel({
                     );
                   })}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                  <Qty value={q} onChange={(n) => setQty(s => ({ ...s, [eq]: n }))} />
+                {/* MAKS artık ayrı bir düğme — dar sütunda sarabilsin */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  justifyContent: 'flex-end', flexWrap: 'wrap',
+                }}>
+                  <Qty value={q} onChange={(n) => setQty(s => ({ ...s, [eq]: n }))} enCok={enCok} />
                   <OrderButton disabled={!ready} onClick={() => onQueue(eq, q)}
                     title={full
                       ? (isHorse ? 'Ahır dolu — yükselt' : 'Ekipman havuzu dolu — cephaneliği yükselt ya da asker eğit')

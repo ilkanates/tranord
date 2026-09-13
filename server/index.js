@@ -19,6 +19,21 @@ const PAZAR = require('./game/pazar');
 const IST = require('./game/istatistik');
 const PAZAR_YOL = require('./game/pazarYol');
 const KUYRUK = require('./game/kuyruk');
+
+/**
+ * SİPARİŞ ADEDİ TAVANI — oyun dengesi değil, saçma girdi kapısı.
+ *
+ * 50'ydi ve gerçek bir sınır gibi davranıyordu: deposu dolu oyuncu bile
+ * bir seferde 50'den fazlasını sipariş edemiyordu. Oysa asıl sınır zaten
+ * kaynak/ekipman/boş işçi — bedel sipariş anında peşin düşülüyor ve
+ * yetmezse sipariş HİÇ girmiyor (bkz. game/kuyruk.js · eksikler).
+ *
+ * Bu yüzden tavan yalnız uç girdilere karşı duruyor: istemci 1e9 yollarsa
+ * `carp` devasa bir bedel üretir, zaten reddedilir — ama kuyrukta tek
+ * kalemde milyonluk bir iş oluşup kuyruğun başını sonsuza kilitlemesin.
+ * İstemcideki QTY_TAVAN ile AYNI kalmalı (client/src/components/queueUI.jsx).
+ */
+const ADET_TAVANI = 10000;
 const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
         MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('./sabitler');
@@ -2001,7 +2016,7 @@ io.on('connection', async socket => {
     if (!b || b.level < 1) return;
     const def = EQUIPMENT_DEFS[equipmentType];
     if (!def) return;
-    const q = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
+    const q = Math.max(1, Math.min(ADET_TAVANI, parseInt(quantity, 10) || 1));
 
     const village = v();
     const bedel = KUYRUK.carp(def.cost, q);
@@ -2095,7 +2110,7 @@ io.on('connection', async socket => {
         return;
       }
     }
-    const q = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
+    const q = Math.max(1, Math.min(ADET_TAVANI, parseInt(quantity, 10) || 1));
 
     /**
      * BEDEL PEŞİN — ekipman, kaynak ve İŞÇİ birlikte.

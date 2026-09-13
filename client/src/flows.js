@@ -9,6 +9,18 @@
  * Buradaki hesap tamamen client tarafında; sunucuya dokunmaz.
  */
 
+/**
+ * SİPARİŞ ADEDİ TAVANI — oyun dengesi değil, saçma girdi kapısı.
+ *
+ * Eskiden 50'ydi ve gerçek bir sınır gibi davranıyordu: deposu dolu oyuncu
+ * bile bir seferde 50'den fazla asker/ekipman sipariş edemiyordu. Oysa asıl
+ * sınır zaten kaynak, ekipman ve boş işçi — sunucu bedeli sipariş anında
+ * peşin düşüyor, yetmezse siparişi hiç almıyor.
+ *
+ * Sunucudaki ADET_TAVANI ile AYNI kalmalı (server/index.js).
+ */
+export const QTY_TAVAN = 10000;
+
 // Ham → işlenmiş zincirler. Rail'de birlikte gösterilir.
 export const CHAINS = [
   { id: 'odun',  steps: ['odun', 'kereste'] },

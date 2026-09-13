@@ -2,6 +2,7 @@
  * Ekipman ve birim kuyruğu panellerinin paylaştığı parçalar (nordic).
  */
 import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
+import { QTY_TAVAN } from '../flows';
 import Icon from './Icons';
 
 export const WAIT_LABEL = {
@@ -64,17 +65,23 @@ export function WorkerNote({ workers, ok, warn }) {
   );
 }
 
-export function Qty({ value, onChange, max = 50 }) {
+/**
+ * @param enCok  Şu anda gerçekten üretilebilecek adet. Verilirse MAKS
+ *               düğmesi çıkar. `null` → düğme yok (sınır bilinmiyor).
+ */
+export function Qty({ value, onChange, max = QTY_TAVAN, enCok = null }) {
   const set = (n) => onChange(Math.max(1, Math.min(max, n)));
-  return (
+  const maksVar = Number.isFinite(enCok) && enCok >= 1;
+  const kare = {
+    width: 20, height: 22, border: 'none', background: 'rgba(28,51,73,0.6)',
+    color: C.iceSoft, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0,
+  };
+  const grup = (
     <div style={{
       display: 'flex', alignItems: 'center', flexShrink: 0,
       border: `1px solid ${C.lineSoft}`, borderRadius: 4, overflow: 'hidden',
     }}>
-      <button onClick={() => set(value - 1)} className="tn-step" style={{
-        width: 20, height: 22, border: 'none', background: 'rgba(28,51,73,0.6)',
-        color: C.iceSoft, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0,
-      }}>−</button>
+      <button onClick={() => set(value - 1)} className="tn-step" style={kare}>−</button>
       <input type="number" min={1} max={max} value={value}
         onChange={(e) => set(+e.target.value || 1)}
         style={{
@@ -82,11 +89,37 @@ export function Qty({ value, onChange, max = 50 }) {
           background: 'rgba(8,17,28,0.8)', color: C.frost,
           fontFamily: FONT.num, fontSize: 11, MozAppearance: 'textfield',
         }} />
-      <button onClick={() => set(value + 1)} className="tn-step" style={{
-        width: 20, height: 22, border: 'none', background: 'rgba(28,51,73,0.6)',
-        color: C.iceSoft, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0,
-      }}>+</button>
+      <button onClick={() => set(value + 1)} className="tn-step" style={kare}>+</button>
     </div>
+  );
+
+  /*
+    MAKS GRUBUN İÇİNDE DEĞİL, YANINDA.
+
+    Önce çerçevenin içine konmuştu ve telefonda GÖRÜNMÜYORDU: dokunmatikte
+    `button.tn-step { min-width: 44px }` kuralı işliyor, grup 44+32+44+44 =
+    164 px'e çıkıyor, birim kartı ise 120 px — `overflow: hidden` MAKS'ı
+    kesiyordu (EĞİT düğmesinin eski hatasının aynısı).
+
+    Ayrı kardeş olunca üst satırın `flexWrap`'i devreye giriyor: dar kartta
+    alt satıra iniyor, geniş ekranda yanında duruyor.
+  */
+  if (!maksVar) return grup;
+  return (
+    <>
+      {grup}
+      <button onClick={() => set(enCok)}
+        title={`Şu an en çok ${enCok} tane üretebilirsin`}
+        /*
+          `minHeight` YOK: index.css'te dokunmatik için `button { min-height:
+          44px }` var ve satır içi bir değer onu ezer — düğme telefonda
+          22 px'lik bir hedefe düşerdi.
+        */
+        style={btn(value === enCok ? 'primary' : 'ghost', {
+          flexShrink: 0, padding: '4px 7px', fontSize: 8.5, letterSpacing: 0.8,
+          lineHeight: 1,
+        })}>MAKS</button>
+    </>
   );
 }
 
