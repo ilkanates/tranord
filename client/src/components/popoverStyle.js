@@ -19,7 +19,17 @@ export const POPOVER_BASE = {
   WebkitBackdropFilter: 'blur(22px) saturate(1.25)',
   zIndex: 60,
   fontSize: 11,
-  overflow: 'hidden',
+  /*
+    DİKEYDE KAYABİLİR. `overflow: hidden` idi: tavana dayanan panel
+    içeriğini sessizce kesiyordu — en altta duran YÜKSELT düğmesi
+    tıklanamaz hâle geliyordu. Yatayda hâlâ kırpılır (panel genişliği
+    zaten banda sığdırılıyor).
+
+    VillageCenter kendi `overflow: 'hidden'`ini geçiriyor ve o kazanıyor;
+    onun gövdesi zaten kendi içinde kayıyor.
+  */
+  overflowX: 'hidden',
+  overflowY: 'auto',
 };
 
 export function popoverStyle(pos, overrides = {}) {
@@ -85,7 +95,26 @@ export function computePopoverPos({
   if (py + panelH > viewH - margin) py = viewH - panelH - margin;
   py = Math.max(margin, py);
 
-  return { x: px, y: py, w, h: panelH, maxH };
+  /*
+    TAVAN, PANELİN DURDUĞU YERDEN ÖLÇÜLÜR.
+
+    `maxH` bütün kabın yüksekliğiydi (viewH - 2*margin) ve panelin nereye
+    konduğunu hiç hesaba katmıyordu. Konum `prefH` varsayımına göre
+    hesaplanıyor; panel içeriğiyle ondan uzun çıkarsa aradaki fark kabın
+    DIŞINDA kalıyor ve `overflow: hidden` orayı kesiyor.
+
+    Ölçüldü (414×896, harita · tarla paneli): prefH 350 varsayılmış, panel
+    gerçekte 551 px; kap 92–845, panel 327–878 → 33 px dışarıda ve kesilen
+    yerde tam da YÜKSELT düğmesi vardı. Yukarıdaki notta anlatılan hatanın
+    aynısı, bu kez haritada.
+
+    Artık tavan "bu noktadan kabın altına kalan yer" — içerik ne olursa
+    olsun panel dışarı taşamaz. Sığmayan içerik panelin kendi içinde kayar
+    (bkz. POPOVER_BASE · overflowY).
+  */
+  const yerindeMaxH = Math.max(160, viewH - py - margin);
+
+  return { x: px, y: py, w, h: panelH, maxH: yerindeMaxH };
 }
 
 // ── Popover içi ortak parçalar ──────────────────────────────────────

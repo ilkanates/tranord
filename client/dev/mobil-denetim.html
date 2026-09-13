@@ -298,6 +298,35 @@ async function boyutuGez(cerceve, boyut, secenekler) {
 
   if (secenekler.hizli) return sonuc;
 
+  /*
+    HARİTADAKİ TARLA PANELLERİ — kapsama boşluğuydu.
+
+    Tarama yalnız sekmeleri ve `bina-*` slotlarını geziyordu; haritadaki
+    `tarla-*` panelleri hiç açılmıyordu. Bu yüzden tarla panelinin
+    YÜKSELT düğmesinin ekran dışında kaldığını araç göremedi, kullanıcı
+    bildirdi. Aracın göremediği yer = kullanıcının bulduğu hata.
+  */
+  const harita = belge.querySelector('[data-tut="tab-harita"]');
+  if (harita) {
+    tikla(harita);
+    await bekle(900);
+    const tarlalar = [...belge.querySelectorAll('[data-tut^="tarla-"]')]
+      .map(e => e.getAttribute('data-tut').slice(6));
+    // Her tür bir kez yeter — aynı panel tekrar tekrar açılmasın
+    for (const tur of new Set(tarlalar)) {
+      if (iptal) return sonuc;
+      const kapat = [...belge.querySelectorAll('.tn-rise button')]
+        .find(b => b.textContent.trim() === '×');
+      if (kapat) { tikla(kapat); await bekle(220); }
+      const hedef = belge.querySelector(`[data-tut="tarla-${tur}"]`);
+      if (!hedef) continue;
+      tikla(hedef);
+      await bekle(850);
+      if (!belge.querySelector('.tn-rise')) continue;
+      derle('tarla:' + tur, tara(pencere));
+    }
+  }
+
   // Köy Merkezi'ne dön, kurulu her binayı tek tek aç
   const koy = belge.querySelector('[data-tut="tab-koy"]');
   if (koy) { tikla(koy); await bekle(800); }

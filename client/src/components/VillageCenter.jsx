@@ -870,9 +870,22 @@ export default function VillageCenter({
     YÜKSELT düğmesi hiç görünmüyordu (ölçüldü).
 
     Şerit postere ancak hem genişlik hem YÜKSEKLİK varsa biner.
+
+    ÖLÇÜLEN GENİŞLİK KAPSAYICININ DEĞİL, PANELİN OLMALI.
+
+    Kapsayıcıya bakan sürüm 768×1024 tablette çöküyordu: ekran 768 px,
+    yani "760'tan geniş" → masaüstü şeridi. Ama şerit PANELİN içinde
+    yaşıyor ve raylar iki yandan 300 px yediği için panel yalnızca
+    448 px kalıyor. Şerit kutuları 212 px'lik iki kutu bekliyor;
+    448'e sıkışınca kutular 74 PX'e düşüyor, kaydırıcılar eziliyor ve
+    "+" düğmeleri kutularının dışına taşıyordu (ölçüldü).
+
+    Eşik 470: iki kutu (2×212) + aralık + kenar boşlukları. Altına
+    düşünce şerit akışa geçer ve kutular tam genişlik olur.
   */
+  const bandW = Math.max(0, viewSize.w - 2 * railInset - 20);
   const darEkran = viewSize.w > 0
-    ? (viewSize.w < 760 || viewSize.h < 520)
+    ? (bandW < 470 || viewSize.h < 520)
     : false;
 
   const [denetimH, setDenetimH] = useState(0);

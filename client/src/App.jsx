@@ -1169,7 +1169,26 @@ function Game({ token, onLogout }) {
         SAVAŞ düğmelerinin üstünü kapatıyordu (denetim taramasıyla
         ölçüldü). Kısa ekranda yüzen karta yer yok.
       */}
-      {!vp.mobile && vp.h >= 520 && (
+      {/*
+        GÖREVLER SEKMESİNDEYKEN KART GEREKSİZ — ve zararlı.
+        Aynı görevler zaten tam ekran listede; yüzen kart üstüne biniyor
+        ve 768×1024 tablette listedeki ÖDÜL ile GÖSTER düğmelerinin
+        üstünü kapatıyordu (denetim taramasıyla ölçüldü).
+      */}
+      {/*
+        ÖLÇÜT EKRAN GENİŞLİĞİ DEĞİL, İÇERİĞE KALAN BANT.
+
+        `!vp.mobile` 768×1024 tablette doğru dönüyor ve kart geri geliyor;
+        ama raylar iki yandan 300 px yediği için içerik sütunu 468 px'e
+        düşüyor, denetimler kartın yüzdüğü sağ-alt köşeye kadar uzanıyor
+        ve kart onları örtüyor — Köylüler'de kaydırıcılar, Simülatör'de
+        sayı kutuları (denetim taramasıyla ölçüldü). Yukarıdaki yorumun
+        anlattığı sorunun aynısı, bu kez tablette.
+
+        Kart ancak yanında GERÇEKTEN boş yer varken yüzer.
+      */}
+      {!vp.mobile && vp.h >= 520 && tab !== 'gorevler'
+        && (vp.w - 2 * (vp.railW || 0)) >= 700 && (
         <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
           bastir={panelAcik || yamaAcik}
           onClaim={(id) => socket?.emit('claim_quest', { id })}
