@@ -334,11 +334,19 @@ function ResourceRail({ flows = {}, isStarving = false, mobile = false, railW = 
   // ── MASAÜSTÜ: sol sütun ───────────────────────────────────────────
   return (
     <>
-      <div style={{
+      <div className="tn-scroll" style={{
         width: railW, flexShrink: 0, zIndex: 5,
         display: 'flex', flexDirection: 'column', gap: 5,
         padding: '7px 5px 7px 7px',
-        overflow: 'hidden',           // scroll yok — her şey sığar
+        /*
+          "HER ŞEY SIĞAR" VARSAYIMI YATAY TELEFONDA ÇÖKÜYOR.
+          896x414'te raya 364 px kalıyor ama zincirler 425 px tutuyor;
+          `overflow: hidden` ile alttaki zincir tamamen kayboluyor ve
+          erişilemiyordu (ölçüldü: ch 364 / sh 425). Sığdığında kaydırma
+          çubuğu çıkmaz — masaüstünde hiçbir şey değişmez.
+        */
+        overflowY: 'auto',
+        overflowX: 'hidden',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 3px 1px' }}>
           <Icon name="depo" size={11} color={C.iceDeep} />
