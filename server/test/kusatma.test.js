@@ -281,21 +281,60 @@ test('savaş olmadığında (saldırı gücü 0) makineler yine de dönüyor', (
   assert.equal(r.attackerSurvivors.kaleKiran, 5, 'makine yok olmamalı');
 });
 
-test('kuşatma makinesi YALNIZ tam saldırıda yola çıkıyor', () => {
+test('kuşatma makinesi TAM SALDIRI ve TAKVİYEDE yola çıkıyor, yağmada çıkmıyor', () => {
+  /*
+    TAKVİYE AÇILDI (İlkan'ın kararı): makineyi müttefikin ya da kendi
+    sınır köyüne yığıp saldırıyı oradan başlatmak meşru bir hamle ve
+    makine yavaş olduğu için asıl kazancı da bu. YAĞMA kapalı kalıyor:
+    yağma "vur-kaç"tır, kuşatma fazı zaten yalnız tam saldırıda işliyor.
+  */
   const A = require('../game/army');
   const { createVillage } = require('../game/villageState');
-  const dene = (mode) => {
+  const dene = (mode, units = { fjordvakt: 50, kaleKiran: 3 }) => {
     const v = createVillage(0, 0);
     v.army = { fjordvakt: 50, kaleKiran: 3 };
     return A.createMarch(v, {
-      mode, units: { fjordvakt: 50, kaleKiran: 3 }, distance: 3,
+      mode, units, distance: 3,
       fromKey: '0,0', fromName: 'B', toKey: '3,0', toName: 'H', toKind: 'npc',
     });
   };
   assert.equal(dene('attack').ok, true, 'tam saldırıda serbest');
-  for (const mode of ['raid', 'takviye']) {
-    const r = dene(mode);
-    assert.equal(r.ok, false, `${mode} modunda reddedilmeli`);
-    assert.equal(r.reason, 'kusatma_yalniz_saldiri');
+  assert.equal(dene('takviye').ok, true, 'takviyede de serbest');
+
+  const yagma = dene('raid');
+  assert.equal(yagma.ok, false, 'yağmada reddedilmeli');
+  assert.equal(yagma.reason, 'kusatma_yalniz_saldiri');
+
+  /*
+    YALNIZ MAKİNE takviyesi de geçiyor: makinenin savunması yok ama
+    amaç savunmak değil, makineyi oraya taşımak. "Savunmaya katkısı
+    olsun" şartı bu seferi engelleseydi özellik yarım kalırdı.
+  */
+  assert.equal(dene('takviye', { kaleKiran: 3 }).ok, true,
+    'sadece makine taşıyan takviye de kabul edilmeli');
+});
+
+test('kahraman TEK BAŞINA sefere çıkabiliyor', () => {
+  /*
+    Askersiz sefer normalde reddediliyor (asker_secilmedi / saldiri_gucu_yok).
+    Kahraman başlı başına bir savaşçı: `kahramanVar` o denetimleri
+    gevşetiyor ama kaldırmıyor — kahraman da yoksa sefer yine reddediliyor.
+  */
+  const A = require('../game/army');
+  const { createVillage } = require('../game/villageState');
+  const dene = (mode, kahramanVar) => {
+    const v = createVillage(0, 0);
+    v.army = {};
+    return A.createMarch(v, {
+      mode, units: {}, distance: 3, kahramanVar,
+      fromKey: '0,0', fromName: 'B', toKey: '3,0', toName: 'H', toKind: 'npc',
+    });
+  };
+  for (const mode of ['attack', 'raid', 'takviye']) {
+    assert.equal(dene(mode, true).ok, true, `${mode}: kahraman tek başına gidebilmeli`);
+    assert.equal(dene(mode, false).ok, false, `${mode}: kahramansız boş sefer reddedilmeli`);
   }
+  // Kahramanın hızı sabit: tek başına yürürken askerlere bağlı değil
+  assert.ok(A.KAHRAMAN_HIZ > 0);
+  assert.equal(A.marchGameHours({}, 14, true), 14 / A.KAHRAMAN_HIZ);
 });

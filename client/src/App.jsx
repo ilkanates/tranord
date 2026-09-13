@@ -29,7 +29,7 @@ import StatusRail      from './components/StatusRail';
 import NordicBackdrop  from './components/NordicBackdrop';
 import VideoBackdrop   from './components/VideoBackdrop';
 import Icon            from './components/Icons';
-import { computeFlows, extrapolate } from './flows';
+import { computeFlows, extrapolate, RES_LABEL } from './flows';
 import { useViewport, TAP } from './responsive';
 import { C, FONT, btn, label as lbl, num } from './theme';
 
@@ -701,6 +701,21 @@ function Game({ token, onLogout }) {
       skil_yok: 'Böyle bir skil yok.',
       gecersiz_adet: 'Geçersiz puan miktarı.',
       yetersiz_kaynak: 'Sıfırlama bedeli için kaynağın yetmiyor.',
+      // Macera ve kuşam
+      macera_yok: 'Biriken macera hakkın yok.',
+      can_dusuk: 'Kahramanın canı çok düşük — önce iyileşmesini bekle.',
+      baygin: 'Kahramanın baygın.',
+      mesgul: 'Kahraman şu an seferde ya da macerada.',
+      konak_yok: 'Önce Kahraman Konağı kurman gerekiyor.',
+      gecersiz_tip: 'Böyle bir macera yok.',
+      esya_yok: 'O eşya çantanda değil.',
+      olu: 'Kahramanın ölü — önce diriltmen gerekiyor.',
+      olu_degil: 'Kahramanın zaten yaşıyor.',
+      takviyede_degil: 'Kahramanın takviyede değil.',
+      kusanilmaz: 'Bu eşya kuşanılmaz, kullanılır.',
+      kullanilamaz: 'Bu eşya kullanılabilir değil.',
+      slot_yok: 'Böyle bir kuşam slotu yok.',
+      slot_bos: 'O slotta zaten eşya yok.',
     };
     const onKahramanHata = (r) => {
       const metin = KAHRAMAN_SEBEP[r?.reason] || 'Kahraman işlemi reddedildi.';
@@ -1180,7 +1195,29 @@ function Game({ token, onLogout }) {
               <HeroPanel
                 kahraman={village.kahraman}
                 villages={village.villages || []}
+                hourSeconds={village.marchInfo?.hourSeconds || 3600}
+                worldSpeed={village.worldSpeed || 1}
                 onGoTab={setTab}
+                onMacera={(tip) => socket.emit('macera_baslat', { tip })}
+                onKusan={(indeks) => socket.emit('kusam_kusan', { indeks })}
+                onCikar={(slot) => socket.emit('kusam_cikar', { slot })}
+                onAt={(indeks) => socket.emit('kusam_at', { indeks })}
+                onGeriCagir={() => socket.emit('kahraman_geri_cagir')}
+                onDirilt={(yol) => {
+                  /*
+                    HAMMADDEYLE DİRİLTME GERİ ALINAMAZ bir harcama ve bedel
+                    seviyeyle büyüyor — onay şart. İksir yolu da tek ve
+                    nadir bir eşyayı tüketiyor, o da sorulmalı.
+                  */
+                  const k = village.kahraman;
+                  const metin = yol === 'iksir'
+                    ? ['Diriltme İksiri kullanılsın mı?', '',
+                      'İksir tükenir, geri gelmez.'].join('\n')
+                    : ['Kahramanın hammadde ödenerek diriltilsin mi?', '', 'Bedel: '].join('\n')
+                      + Object.entries(k?.dirilmeBedeli || {})
+                        .map(([kk, n]) => `${n} ${RES_LABEL[kk] || kk}`).join(', ');
+                  if (window.confirm(metin)) socket.emit('kahraman_dirilt', { yol });
+                }}
                 onPuan={(skil, adet) => socket.emit('kahraman_puan', { skil, adet })}
                 onSifirla={() => {
                   /*

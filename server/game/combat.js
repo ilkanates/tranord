@@ -118,7 +118,31 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
      * hiçbir şey katmıyor" gibi görünmez bir tavan etkisi doğardı.
      */
     kahramanSaldiriGucu = 0, kahramanSaldiriYuzde = 0, kahramanSavunmaYuzde = 0,
+    /**
+     * KAHRAMAN EŞYALARININ BİRİM BONUSU — İlkan'ın özel isteği:
+     * *"itemler tek tek birimlerin saldırı ve def puanlarını arttırabilsin"*.
+     *
+     * Biçim: { piyade:{saldiri,savunma}, suvari:{saldiri,savunma} } — YÜZDE.
+     * Düz sayı olsaydı 10 askerlik orduda devasa, 1000 askerlik orduda
+     * görünmez olurdu.
+     *
+     * EKİPMAN HAVUZUNDAN AYRI uygulanıyor (unitStats'e karışmıyor): aynı
+     * yerden geçseydi kılıç/kalkan seviyelerinin dengesi bozulur ve oyuncu
+     * hangi sistemin ne yaptığını ayırt edemezdi.
+     *
+     * SALDIRAN kendi eşyasının saldırı bonusunu, SAVUNAN kendi eşyasının
+     * savunma bonusunu kullanıyor — kahraman tek yerde olabildiği için
+     * ikisi aynı anda tek bir oyuncuya işlemiyor.
+     */
+    kahramanBirimSaldiri = null, kahramanBirimSavunma = null,
   } = options;
+
+  /** Birim sınıfına göre yüzde çarpanı (bonus yoksa 1) */
+  const sinifCarpani = (bonus, key, tur) => {
+    const sinif = UNIT_DEFS[key]?.category;
+    const yuzde = bonus?.[sinif]?.[tur] || 0;
+    return 1 + Math.max(0, yuzde) / 100;
+  };
 
   // ── 1. Saldırgan tarafını topla ──────────────────────────────────
   let attackTotal = 0;
@@ -137,7 +161,9 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
     const count = Math.max(0, Math.floor(Number(rawCount) || 0));
     if (count <= 0) continue;
     const def = UNIT_DEFS[key];
-    const atk = count * (attackerLevels ? unitStats(key, attackerLevels).saldiri : def.stats.saldiri);
+    const atk = count
+      * (attackerLevels ? unitStats(key, attackerLevels).saldiri : def.stats.saldiri)
+      * sinifCarpani(kahramanBirimSaldiri, key, 'saldiri');
     attackTotal += atk;
     if (def.category === 'piyade') infAttack += atk;
     else if (def.category === 'suvari') cavAttack += atk;
@@ -193,7 +219,8 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
   let defenseRaw = 0;
   for (const [key, count] of Object.entries(defenderClean)) {
     const s = defenderLevels ? unitStats(key, defenderLevels) : UNIT_DEFS[key].stats;
-    defenseRaw += count * (infRatio * s.yayaSav + cavRatio * s.atliSav);
+    defenseRaw += count * (infRatio * s.yayaSav + cavRatio * s.atliSav)
+      * sinifCarpani(kahramanBirimSavunma, key, 'savunma');
   }
 
   /**

@@ -12,6 +12,7 @@
  *    katmıyor" gibi görünmez bir etki doğardı.
  * 4) Kahramansız savaş ESKİSİYLE BİREBİR aynı — alan verilmezse hesap
  *    hiç değişmemeli.
+ * 5) Canı biten kahraman ÖLÜR; kaydı silinmez, diriltilir.
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -118,13 +119,14 @@ test('kaybedilen savaş bile XP veriyor', () => {
   assert.equal(r.hasar, HERO.SAVAS_HASAR_TAVANI);
 });
 
-test('tam hasar alan kahraman BAYILIR, ölmez', () => {
+test('tam hasar alan kahraman ÖLÜR — ama kaydı silinmez', () => {
   const k = HERO.yeniKahraman('0,0');
   k.can = 10;
   const r = HERO.savasSonucu(50, 1);
   const h = HERO.hasarVer(k, r.hasar);
-  assert.equal(h.bayildi, true);
-  assert.equal(k.var, true, 'kahraman silinmemeli — ölüm kalıcı olsaydı '
-    + 'kimse kahramanı riske atmazdı');
-  assert.ok(k.baygunKalanSaat > 0);
+  assert.equal(h.oldu, true);
+  assert.equal(k.olu, true);
+  assert.equal(k.var, true,
+    'kahraman KAYDI silinmemeli — hammadde ya da iksirle diriltilebilmeli');
+  assert.ok(HERO.dirilt(k).ok, 'ölü kahraman diriltilebilmeli');
 });

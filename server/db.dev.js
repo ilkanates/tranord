@@ -238,6 +238,19 @@ async function deleteVillage(userId, slotKey) {
   persist();
 }
 
+/**
+ * HESABI TAMAMEN SİL — son köyü de düşen oyuncu oyundan çıkar.
+ * Üretimdeki db.js ile aynı sözleşme (bkz. oradaki gerekçe).
+ */
+async function deleteUser(userId) {
+  delete db.villages[userId];
+  delete db.playerSlots[userId];
+  db.users = (db.users || []).filter(u => u.id !== Number(userId));
+  db.messages = (db.messages || []).filter(
+    m => m.from_user_id !== Number(userId) && m.to_user_id !== Number(userId));
+  persist();
+}
+
 /** Tüm oyuncu köyleri — köy başına bir kayıt */
 async function loadAllVillages() {
   const out = [];
@@ -417,6 +430,6 @@ module.exports = {
   mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
   setDisplayName, loadDisplayNames, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
-  setCapital, deleteVillage,
+  setCapital, deleteVillage, deleteUser,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
 };

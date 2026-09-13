@@ -361,6 +361,33 @@ async function deleteVillage(userId, slotKey) {
   );
 }
 
+/**
+ * HESABI TAMAMEN SİL — son köyü de düşen oyuncu oyundan çıkar.
+ *
+ * İlkan'ın kararı: *"köyleri haritadan silinen oyuncu oyundan tamamen
+ * silinir"*. Yumuşatmak (boş kabuk köy bırakmak) düşünülmüştü ama
+ * reddedildi: kuşatmanın nihai bedeli olmadan köy yıkımı yarım bir
+ * mekanik olurdu.
+ *
+ * KÖYLER ÖNCE siliniyor: villages.user_id yabancı anahtar; ters sırada
+ * silme kısıtlamaya takılırdı. Mesajlar da öyle.
+ */
+async function deleteUser(userId) {
+  await pool.query('DELETE FROM villages WHERE user_id = $1', [userId]);
+  /*
+    Mesajlar SESSİZCE geçiliyor: tablo şemaya sonradan eklendi ve eski
+    kurulumlarda olmayabilir. Hesabın silinmesi, mesaj tablosu yok diye
+    yarıda kalmamalı.
+  */
+  try {
+    await pool.query(
+      'DELETE FROM messages WHERE from_user_id = $1 OR to_user_id = $1', [userId]);
+  } catch (err) {
+    console.error('[HESAP SİL] mesajlar silinemedi:', err.message);
+  }
+  await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+}
+
 // Köy state'ini kaydet / güncelle
 /**
  * Bir köyü kaydet. Çoklu köyde `slotKey` ZORUNLU: hangi köy olduğunu o
@@ -522,6 +549,6 @@ module.exports = {
   mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
   setDisplayName, loadDisplayNames, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
-  setCapital, deleteVillage,
+  setCapital, deleteVillage, deleteUser,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
 };

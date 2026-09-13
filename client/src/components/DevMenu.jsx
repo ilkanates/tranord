@@ -55,6 +55,23 @@ const ITEMS = [
       },
     }],
   },
+  /*
+    KAHRAMAN KISAYOLU. Eşya uzun maceraların ancak beşte birinde düşüyor;
+    kuşam ekranını bir kez görmek için yedi macera beklemek gerekiyordu
+    (ölçüldü). Bu satır o beklemeyi kaldırıyor.
+  */
+  {
+    key: 'kahramanEsya',
+    label: 'Kahramana eşya ver',
+    note: '4 rastgele eşya + macera hakkı dolu + 500 XP',
+    emit: ['dev_kahraman', { esya: 4, macera: true, xp: 500 }],
+  },
+  {
+    key: 'kahramanOldur',
+    label: 'Kahramanı öldür',
+    note: 'diriltme ekranını denemek için — savaşta ölmeyi kurmak zor',
+    emit: ['dev_kahraman', { oldur: true }],
+  },
   {
     key: 'surluHedef',
     label: 'Surlu hedef köy',

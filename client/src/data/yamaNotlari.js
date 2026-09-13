@@ -26,6 +26,74 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14e',
+    tarih: '14 Eylül 2026',
+    baslik: 'Maceralar, eşyalar ve köyün sonu',
+    notlar: [
+      {
+        id: '20260914-macera',
+        tur: 'yenilik',
+        metin: 'Kahraman artık MACERAYA çıkıyor. Kahraman Konağında zamanla '
+          + 'macera hakkı birikiyor (konak seviyesi hem tavanı hem hızı '
+          + 'büyütüyor). Kısa macera az deneyim az risk, uzun macera çok '
+          + 'deneyim ciddi yıpranma — kahramanın canına göre seçiyorsun. '
+          + 'Deneyim HER ZAMAN geliyor; değişen şey yanında ne geldiği: '
+          + 'hammadde, asker ya da EŞYA. Sonuç raporlara düşüyor.',
+      },
+      {
+        id: '20260914-esya',
+        tur: 'yenilik',
+        metin: 'EŞYA SİSTEMİ geldi. Dokuz kuşam slotu var: miğfer, silah, '
+          + 'kalkan, zırh, pantolon, ayakkabı, bileklik, kolye ve at. '
+          + 'Eşyanın dört nadirlik kademesi var (sıradan · iyi · nadir · '
+          + 'efsane) ve nadirlik bonusu ÖLÇEKLİYOR — efsane kılıç sıradan '
+          + 'kılıcın 3,5 katı. Çantadan slota sürükle ya da üstüne tıkla.',
+      },
+      {
+        id: '20260914-esya-birim-bonusu',
+        tur: 'yenilik',
+        metin: 'Eşyalar iki ayrı şeyi büyütüyor: KAHRAMANI (saldırı, can, '
+          + 'iyileşme, macera hızı) ve ORDUYU — tek tek birim sınıflarının '
+          + 'saldırı ve savunmasını. "Kule Kalkanı: piyade savunması +%7" '
+          + 'gibi. Bu bonus ekipman havuzundan (kılıç/kalkan seviyeleri) '
+          + 'AYRI işliyor, ordunun dengesini o taraftan bozmuyor.',
+      },
+      {
+        id: '20260914-kahraman-lvl1-puan',
+        tur: 'denge',
+        metin: 'Kahraman artık Lvl 1 de DÖRT skil puanıyla doğuyor. Konağı '
+          + 'kurar kurmaz ilk kararını verebiliyorsun.',
+      },
+      {
+        id: '20260914-kahraman-tek-basina',
+        tur: 'yenilik',
+        metin: 'Kahramanı TEK BAŞINA yollayabiliyorsun — yanında asker '
+          + 'olmadan saldırıya, yağmaya ya da TAKVİYEYE. Takviyeye '
+          + 'gönderdiğinde gittiği köyde kalıyor ve savunma bonusunu ORAYA '
+          + 'veriyor; Kahraman ekranından geri çağırana kadar orada. Geri '
+          + 'çağırınca bonus HEMEN bitiyor ve kahraman yola çıkıyor — '
+          + 'ışınlanmıyor.',
+      },
+      {
+        id: '20260914-kusatma-takviye',
+        tur: 'yenilik',
+        metin: 'Koçbaşı ve mancınık artık TAKVİYE olarak da gönderilebiliyor. '
+          + 'Makineyi müttefikinin ya da kendi sınır köyünün yanına yığıp '
+          + 'saldırıyı oradan başlatabilirsin — makine yavaş olduğu için '
+          + 'asıl kazanç bu. Orada savunmaya katılmıyorlar, park hâlinde '
+          + 'duruyorlar. Yağmada hâlâ yasak.',
+      },
+      {
+        id: '20260914-koy-yikimi-sonu',
+        tur: 'denge',
+        metin: 'KÖYLERİNİN HEPSİ YIKILIRSA OYUNDAN DÜŞERSİN. Eskiden son köy '
+          + 'boş bir kabuk olarak kalıyordu; artık kuşatmanın nihai bir '
+          + 'bedeli var. Bir köyün yıkılması için yine de o köydeki BÜTÜN '
+          + 'binaların düşmesi gerekiyor — tek dalgada olmuyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14d',
     tarih: '14 Eylül 2026',
     baslik: 'Kahraman geldi',
@@ -58,12 +126,13 @@ export const YAMA_NOTLARI = [
           + 'savaş bile deneyim veriyor — yoksa riskli savaş hiç denenmezdi.',
       },
       {
-        id: '20260914-kahraman-bayilma',
+        id: '20260914-kahraman-olum',
         tur: 'denge',
-        metin: 'Kahraman ÖLMEZ, BAYILIR. Canı biterse bir süre ne sefere '
-          + 'katılabiliyor ne de bonus veriyor; sonra üssünde iyileşiyor. '
-          + 'Baygınken hiçbir bonus vermiyor — bayılmanın canı yakmalı ki '
-          + 'onu savaşa sokmak gerçek bir karar olsun.',
+        metin: 'Kahraman ÖLEBİLİR. Canı biterse ölür ve kendiliğinden geri '
+          + 'gelmez: ya HAMMADDE ödeyip diriltirsin ya da maceradan düşen '
+          + 'DİRİLTME İKSİRİNİ kullanırsın. Hammadde bedeli her seviyede '
+          + 'artıyor — ölüm bir gecikme değil, bir bedel. Seviyesi ve '
+          + 'eşyaları kaybolmuyor; yarım canla ayağa kalkıyor.',
       },
       {
         id: '20260914-kahraman-rapor',

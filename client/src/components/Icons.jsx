@@ -578,6 +578,17 @@ const P = {
     </>
   ),
   /*
+    İKSİR — boyunlu şişe. Miğferle karışmasın diye dar boyun + geniş
+    gövde silueti; içindeki sıvı çizgisi 16 pikselde de okunuyor.
+  */
+  kupa: (
+    <>
+      <path d="M10 3h4" />
+      <path d="M10.5 3v4.2L7 12.4A3.4 3.4 0 0 0 9.8 21h4.4A3.4 3.4 0 0 0 17 12.4l-3.5-5.2V3" />
+      <path d="M7.6 14.5h8.8" />
+    </>
+  ),
+  /*
     KAHRAMAN — miğfer. 16 pikselde okunması gereken tek şey silueti:
     yanaklıkların arasındaki T yarığı ve tepe tarağı. Kılıç/kalkan
     ikonlarıyla karışmasın diye silah kullanılmadı.

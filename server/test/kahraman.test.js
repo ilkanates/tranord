@@ -8,8 +8,9 @@
  *    sessiz bir hata olurdu.
  * 2) Yüzde bonusların TAVANI var: kahraman orduyu güçlendirir, ordunun
  *    yerine geçmez.
- * 3) Kahraman ÖLMEZ, BAYILIR — ve baygınken HİÇBİR bonus vermez.
- * 4) Bayılma ile iyileşme AYNI ANDA işlemez: önce baygınlık biter.
+ * 3) Kahraman ÖLÜR ama DİRİLTİLEBİLİR (hammadde ya da iksir). Ölüyken
+ *    HİÇBİR bonus vermez ve kendiliğinden iyileşmez.
+ * 4) Kahraman Lvl 1'de 4 dağıtılabilir puanla DOĞAR.
  * 5) XP eğrisi macera ödülüne göre ölçeklendi; sabitler denge kapısı.
  */
 const test = require('node:test');
@@ -36,25 +37,36 @@ test('seviye eğrisi artan ve makul ölçekte', () => {
   assert.ok(K.seviyeIcinToplamXp(100) < 500000, 'Lvl 100 ulaşılabilir kalmalı');
 });
 
-test('seviye atlayınca 4 puan gelir, atlamayınca gelmez', () => {
+test('kahraman Lvl 1 de 4 puanla DOĞAR', () => {
+  /*
+    İlkan'ın kararı. Sıfır puanla doğsaydı kahraman ekranı ilk açıldığında
+    yapılacak hiçbir şey olmaz, sistem "sonra bir şeyler olacak" gibi
+    görünürdü.
+  */
+  assert.equal(yeni().harcanmamisPuan, K.PUAN_PER_SEVIYE);
+});
+
+test('seviye atlayınca 4 puan daha gelir, atlamayınca gelmez', () => {
   const k = yeni();
+  const baslangic = k.harcanmamisPuan;
   const a = K.xpEkle(k, K.seviyeIcinToplamXp(2));
   assert.equal(a.seviye, 2);
   assert.equal(a.kazanilanPuan, K.PUAN_PER_SEVIYE);
-  assert.equal(k.harcanmamisPuan, 4);
+  assert.equal(k.harcanmamisPuan, baslangic + K.PUAN_PER_SEVIYE);
 
   const b = K.xpEkle(k, 1);          // aynı seviyede kaldı
   assert.equal(b.kazanilanPuan, 0);
-  assert.equal(k.harcanmamisPuan, 4, 'puan artmamalı');
+  assert.equal(k.harcanmamisPuan, baslangic + K.PUAN_PER_SEVIYE, 'puan artmamalı');
 });
 
 test('çok seviye birden atlanınca puanlar BİRİKİR', () => {
   // Oyuncu çevrimdışıyken seviye atlarsa puanı kaybetmemeli
   const k = yeni();
+  const baslangic = k.harcanmamisPuan;
   const r = K.xpEkle(k, K.seviyeIcinToplamXp(6));
   assert.equal(r.seviye, 6);
   assert.equal(r.kazanilanPuan, 5 * K.PUAN_PER_SEVIYE);
-  assert.equal(k.harcanmamisPuan, 20);
+  assert.equal(k.harcanmamisPuan, baslangic + 5 * K.PUAN_PER_SEVIYE);
 });
 
 test('seviye atlayınca can TAVANI büyür ve fark hediye edilir', () => {
@@ -69,6 +81,7 @@ test('seviye atlayınca can TAVANI büyür ve fark hediye edilir', () => {
 
 test('puan dağıtımı KISMÎ uygulanmaz', () => {
   const k = yeni();
+  k.harcanmamisPuan = 0;                  // ölçüm net olsun
   K.xpEkle(k, K.seviyeIcinToplamXp(3));   // 8 puan
   assert.equal(k.harcanmamisPuan, 8);
 
@@ -109,7 +122,7 @@ test('yüzde bonusların TAVANI var — kahraman ordunun yerine geçmez', () => 
     'tavan %25 üstüne çıkarsa ordu anlamsızlaşır — bilinçli değişiklik gerekir');
 });
 
-test('baygın kahraman HİÇBİR bonus vermez', () => {
+test('ÖLÜ kahraman HİÇBİR bonus vermez', () => {
   const k = yeni();
   k.harcanmamisPuan = 400;
   K.puanDagit(k, 'saldiriPuani', 50);
@@ -118,28 +131,63 @@ test('baygın kahraman HİÇBİR bonus vermez', () => {
   assert.ok(once.saldiriGucu > 0 && once.uretimSaatlik > 0);
 
   const h = K.hasarVer(k, 99999);
-  assert.equal(h.bayildi, true);
-  assert.equal(k.baygunKalanSaat, K.BAYGIN_SAAT);
+  assert.equal(h.oldu, true);
+  assert.equal(k.olu, true);
   const sonra = K.bonuslar(k);
-  assert.deepEqual(sonra,
-    { saldiriGucu: 0, saldiriYuzde: 0, savunmaYuzde: 0, uretimSaatlik: 0 },
-    'bayılmanın canı yakmalı; yarım bonus bayılmayı sıradanlaştırırdı');
+  assert.equal(sonra.saldiriGucu, 0);
+  assert.equal(sonra.saldiriYuzde, 0);
+  assert.equal(sonra.savunmaYuzde, 0);
+  assert.equal(sonra.uretimSaatlik, 0);
+  assert.deepEqual(sonra.birim.piyade, { saldiri: 0, savunma: 0 },
+    'ölümün canı yakmalı; yarım bonus ölümü sıradanlaştırırdı');
 });
 
-test('bayılma ve iyileşme AYNI ANDA işlemez', () => {
+test('ÖLÜ kahraman zamanla İYİLEŞMEZ — diriltilmesi gerekir', () => {
+  /*
+    Kendiliğinden geri gelseydi diriltme bedeli bir seçenek değil,
+    yalnız sabırsızlık vergisi olurdu.
+  */
   const k = yeni();
   K.hasarVer(k, 99999);
+  assert.equal(k.olu, true);
   assert.equal(k.can, 0);
 
-  // Baygınlığın tam yarısı kadar zaman: hâlâ baygın, can HÂLÂ 0
-  K.ilerlet(k, K.BAYGIN_SAAT / 2, 10);
-  assert.ok(k.baygunKalanSaat > 0, 'yarı sürede uyanmamalı');
-  assert.equal(k.can, 0, 'baygınken iyileşmemeli');
+  K.ilerlet(k, 1000, 20);
+  assert.equal(k.can, 0, 'ölü kahraman zamanla iyileşmemeli');
+  assert.equal(k.olu, true);
+});
 
-  // Baygınlık dolunca çeyrek canla ayağa kalkar
-  K.ilerlet(k, K.BAYGIN_SAAT / 2, 10);
-  assert.equal(k.baygunKalanSaat, 0);
-  assert.ok(k.can > 0, 'sıfır canla kalkarsa sonraki savaşta anında bayılır');
+test('diriltme: bedel seviyeyle büyür, kahraman YARI canla kalkar', () => {
+  const k = yeni();
+  const ucuz = K.dirilmeBedeli(k);
+  K.xpEkle(k, K.seviyeIcinToplamXp(15));
+  const pahali = K.dirilmeBedeli(k);
+  for (const key of Object.keys(ucuz)) {
+    assert.ok(pahali[key] > ucuz[key],
+      `${key}: bedel seviyeyle büyümeli — sabit olsaydı yüksek seviyede ölüm bedava olurdu`);
+  }
+
+  K.hasarVer(k, 99999);
+  const r = K.dirilt(k);
+  assert.equal(r.ok, true);
+  assert.equal(k.olu, false);
+  const tavan = K.canTavani(K.xpSeviyesi(k.xp));
+  assert.ok(k.can > 0 && k.can < tavan,
+    'tam canla kalkarsa ölüm yalnız bir fatura, sıfır canla kalkarsa anında yeniden ölür');
+  assert.equal(K.dirilt(k).sebep, 'olu_degil', 'yaşayan kahraman diriltilemez');
+});
+
+test('ölüm seviyeyi ve eşyayı SİLMİYOR', () => {
+  // Aylarca biriktirilen yatırımı tek savaşta yok etmek, ölümü ceza
+  // değil oyundan kopma sebebi yapardı; ceza bedelin kendisi.
+  const k = yeni();
+  K.xpEkle(k, K.seviyeIcinToplamXp(8));
+  k.kusanilan = { sagEl: { key: 'fjordKilici', nadirlik: 'efsane' } };
+  const xp = k.xp;
+  K.hasarVer(k, 99999);
+  assert.equal(k.xp, xp, 'deneyim kaybolmamalı');
+  assert.ok(k.kusanilan.sagEl, 'eşya kaybolmamalı');
+  assert.equal(k.olumSayisi, 1);
 });
 
 test('iyileşme oyun saatiyle ve konak seviyesiyle hızlanır', () => {
@@ -198,13 +246,54 @@ test('dört skilin tamamı tanımlı ve seviye tavanıyla tutarlı', () => {
     'kazanılan puan skil tavanlarının toplamını aşmamalı — aşarsa puan çöpe gider');
 });
 
+test('kahraman TAKVİYEDE başka köyü savunabiliyor', () => {
+  /*
+    İlkan'ın kararı: "kahramanı tek başına saldırıya YA DA SAVUNMAYA
+    yollayabilirim". Takviyedeki kahraman gittiği köyde duruyor ve
+    savunma bonusunu ORAYA veriyor.
+  */
+  const k = yeni();
+  k.harcanmamisPuan = 100;
+  K.puanDagit(k, 'savunmaBonus', 50);
+  k.nerede = 'takviye';
+  k.misafirSlot = '5,5';
+
+  const o = K.ozet(k, 5);
+  assert.equal(o.nerede, 'takviye');
+  assert.equal(o.misafirSlot, '5,5');
+  assert.ok(K.bonuslar(k).savunmaYuzde > 0,
+    'takviyedeki kahraman bonus vermeye devam etmeli — savunmaya gitti');
+});
+
+test('takviyedeki kahraman ÜSSÜNDE iyileşmiyor', () => {
+  // İyileşme üssüne bağlı: başka köyde savunurken de iyileşseydi
+  // kahramanı orada bırakmanın hiçbir bedeli kalmazdı
+  const k = yeni();
+  k.can = 10; k.nerede = 'takviye'; k.misafirSlot = '5,5';
+  K.ilerlet(k, 50, 20);
+  assert.equal(k.can, 10);
+});
+
+test('ÖLÜM misafirliği de bitiriyor', () => {
+  const k = yeni();
+  k.nerede = 'takviye'; k.misafirSlot = '5,5'; k.donusKalanSaat = 3;
+  K.hasarVer(k, 99999);
+  assert.equal(k.olu, true);
+  assert.equal(k.misafirSlot, null,
+    'ölen kahraman ev sahibinin köyünde asılı kalmamalı');
+  assert.equal(k.donusKalanSaat, 0);
+  assert.equal(k.nerede, 'koy');
+});
+
 test('özet istemciye gereken her şeyi veriyor', () => {
   const k = yeni();
   K.xpEkle(k, 1000);
   const o = K.ozet(k, 5);
   for (const alan of ['var', 'seviye', 'xp', 'xpSimdiki', 'xpGereken', 'can',
     'canTavan', 'skiller', 'harcanmamisPuan', 'bonuslar', 'nerede',
-    'kusanilan', 'envanter', 'sifirlamaBedeli', 'iyilesmeSaatlik']) {
+    'kusanilan', 'envanter', 'sifirlamaBedeli', 'iyilesmeSaatlik',
+    'olu', 'dirilmeBedeli', 'maceraSayisi', 'maceraTavan', 'slotlar',
+    'misafirSlot', 'donusKalanSaat']) {
     assert.ok(alan in o, `özette ${alan} eksik`);
   }
   assert.equal(K.ozet(null).var, false, 'konağı olmayan oyuncunun kahramanı yok');

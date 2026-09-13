@@ -188,6 +188,16 @@ export default function SendArmyPanel({
     daralıyor ve varsayılan takviye oluyor, yoksa oyuncu "YAĞMAYA GÖNDER"
     düğmesini görüp sunucudan hata yiyordu.
   */
+  /*
+    KAHRAMAN HANGİ MODLARDA? Sunucudaki KAHRAMAN_MODLARI ile aynı liste
+    (index.js). Saldırı ve yağmada savaşır, takviyede gittiği köyü savunur.
+  */
+  const KAHRAMAN_MODLARI = new Set(['attack', 'raid', 'takviye']);
+  const NEREDE_ENGEL = {
+    sefer: 'Zaten seferde', macera: 'Macerada',
+    takviye: 'Başka köyde takviyede', donuyor: 'Eve dönüş yolunda',
+  };
+
   const yalnizTakviye = target?.kind === 'self';
   const moduller = useMemo(
     () => (yalnizTakviye ? MODES.filter(m => m.key === 'takviye') : MODES),
@@ -338,10 +348,9 @@ export default function SendArmyPanel({
     söylemek için; kutuyu gizlemek bir denetim değildir.
   */
   const kahramanEngeli = !kahraman?.var ? 'Kahramanın yok'
-    : (kahraman.baygunKalanSaat || 0) > 0
-      ? `Baygın · ${kahraman.baygunKalanSaat} oyun sa`
+    : kahraman.olu ? 'Ölü — önce diriltmen gerekiyor'
       : (kahraman.nerede && kahraman.nerede !== 'koy')
-        ? (kahraman.nerede === 'sefer' ? 'Zaten seferde' : 'Macerada')
+        ? NEREDE_ENGEL[kahraman.nerede] || 'Şu an başka bir işte'
         : (activeSlot && kahraman.usSlot && kahraman.usSlot !== activeSlot)
           ? 'Başka köyde — konağının olduğu köyden yollanır'
           : null;
@@ -446,17 +455,17 @@ export default function SendArmyPanel({
             </div>
 
             {/*
-              KAHRAMAN — yalnız SALDIRI ve YAĞMADA.
+              KAHRAMAN — saldırı, yağma ve TAKVİYE.
 
-              Keşif izcinin, yerleşim göçmenin işi; takviyede kahramanı
-              başka köyde bırakmak onu oradaki savaşta bayıltır ve oyuncu
-              kahramanını geri alamazdı.
+              Takviyede kahraman gittiği köyde kalıyor ve savunma bonusunu
+              ORAYA veriyor; sahibi istediğinde geri çağırıyor (Kahraman
+              ekranından). Keşif izcinin, yerleşim göçmenin işi.
 
-              Baygın ya da başka bir köyde duruyorsa kutu KAPALI ama
-              GÖRÜNÜR: nedenini yazmazsak oyuncu kahramanın neden
-              gelmediğini bilemezdi.
+              Ölü ya da başka bir köyde duruyorsa kutu KAPALI ama GÖRÜNÜR:
+              nedenini yazmazsak oyuncu kahramanın neden gelmediğini
+              bilemezdi.
             */}
-            {kahraman?.var && (mode === 'attack' || mode === 'raid') && (
+            {kahraman?.var && KAHRAMAN_MODLARI.has(mode) && (
               <label style={{
                 ...box, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 9,
                 cursor: kahramanUygun ? 'pointer' : 'default',
@@ -472,9 +481,13 @@ export default function SendArmyPanel({
                     Kahramanı da götür
                   </div>
                   <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>
-                    {kahramanEngeli || `Lvl ${kahraman.seviye} · +${Math.round(kahraman.bonuslar?.saldiriGucu || 0)} güç`
-                      + ((kahraman.bonuslar?.saldiriYuzde || 0) > 0
-                        ? ` · orduya +%${kahraman.bonuslar.saldiriYuzde}` : '')}
+                    {kahramanEngeli || (mode === 'takviye'
+                      ? `Lvl ${kahraman.seviye} · o köye savunma +%${
+                        kahraman.bonuslar?.savunmaYuzde || 0} · geri çağırana kadar orada kalır`
+                      : `Lvl ${kahraman.seviye} · +${
+                        Math.round(kahraman.bonuslar?.saldiriGucu || 0)} güç`
+                        + ((kahraman.bonuslar?.saldiriYuzde || 0) > 0
+                          ? ` · orduya +%${kahraman.bonuslar.saldiriYuzde}` : ''))}
                   </div>
                 </div>
               </label>

@@ -9,11 +9,15 @@ const { simulateBattle } = require('./game/combat');
 const ARMY = require('./game/army');
 const KUSATMA = require('./game/kusatma');
 const HERO = require('./game/kahraman');
+const MACERA = require('./game/macera');
+const { HERO_ITEMS } = require('./data/heroItemDefs');
+const KUSAM = require('./game/kusam');
 /** Görev zinciri ve kahraman KÖYE değil HESABA ait — merkez değişince taşınır */
 const { hesapKaydiniTasi } = require('./game/hesapKaydi');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVillage,
+  deleteUser,
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
         setDisplayName, loadDisplayNames, renameVillage,
         findUserById, findUserByDisplayName,
@@ -355,7 +359,10 @@ function kahramanFingerprint(session) {
   if (!k) return 'K-';
   return `K${Math.round(k.xp || 0)}:${Math.round(k.can || 0)}`
     + `:${k.harcanmamisPuan || 0}:${k.nerede || 'koy'}`
-    + `:${Math.round((k.baygunKalanSaat || 0) * 10)}`
+    + `:${k.olu ? 'O' : '-'}:${k.maceraSayisi || 0}`
+    + `:${k.macera ? Math.round((k.macera.kalanSaat || 0) * 10) : '-'}`
+    + `:${(k.envanter || []).length}`
+    + `:${Object.keys(k.kusanilan || {}).length}`
     + `:${k.usSlot || '-'}`;
 }
 
@@ -550,12 +557,35 @@ function runTickForUser(userId, session) {
   }
 
   /*
+    OTURUM BU TİKTE SİLİNMİŞ OLABİLİR: son köyün yıkımı oyuncuyu oyundan
+    düşürüyor (bkz. oyuncuyuSil) ve bu, döngünün içinden tetikleniyor.
+    Devam edersek olmayan bir köyü yayınlamaya çalışırız.
+  */
+  if (session.silindi || session.villages.size === 0) return;
+
+  /*
     KAHRAMAN köylerden SONRA ilerliyor. Önce ilerleseydi bu tikte
     tamamlanan konak yükseltmesi iyileşme hızına ancak bir sonraki
     tikte yansırdı — görünür bir gecikme değil ama sebepsiz bir tutarsızlık.
   */
   const { kahraman, konak } = kahramaniSenkronla(session);
-  if (kahraman) HERO.ilerlet(kahraman, gameHours, konak?.level || 0);
+  if (kahraman) {
+    HERO.ilerlet(kahraman, gameHours, konak?.level || 0);
+    MACERA.maceraBiriktir(kahraman, gameHours, konak?.level || 0);
+    maceraIlerlet(session, kahraman, gameHours, konak);
+    /*
+      EVE DÖNÜŞ. Takviyeden geri çağrılan kahraman ışınlanmıyor: gidiş
+      kadar yol var. Anında dönseydi "saldırı gelince kahramanı çek"
+      risksiz bir hamle olurdu.
+    */
+    if (kahraman.nerede === 'donuyor') {
+      kahraman.donusKalanSaat = Math.max(0, (kahraman.donusKalanSaat || 0) - gameHours);
+      if (kahraman.donusKalanSaat <= 0) {
+        kahraman.nerede = 'koy';
+        kahraman.misafirSlot = null;
+      }
+    }
+  }
 
   /*
     ÜRETİM SKİLİ yalnız kahramanın DURDUĞU köye işliyor — tek kahraman,
@@ -913,6 +943,96 @@ function takviyelerimiBul(userId) {
   return [...gruplar.values()];
 }
 
+/**
+ * YOLDAKİ MACERAYI İLERLET, dolunca ÇÖZ.
+ *
+ * Ödüller kahramanın ÜSSÜNE düşüyor — aktif köye değil. Oyuncu macera
+ * dönerken başka bir köye bakıyor olabilir; ganimetin nereye gittiği
+ * ekranda hangi köyün açık olduğuna bağlı olmamalı.
+ *
+ * Depo taşması BİLEREK yok sayılıyor: ödül zaten seyrek ve küçük,
+ * "ganimetin geldi ama sığmadı" demek maceranın tek somut kazancını
+ * görünmez bir kurala kurban etmek olurdu. Tavan yine de uygulanıyor
+ * (depoya sığan kadarı) — sonsuz kaynak birikmesin.
+ */
+function maceraIlerlet(session, kahraman, gameHours, konak) {
+  const m = kahraman.macera;
+  if (!m) return;
+  m.kalanSaat = Math.max(0, (m.kalanSaat || 0) - gameHours);
+  if (m.kalanSaat > 0) return;
+
+  const sonuc = MACERA.maceraSonucu(m.tip);
+  kahraman.macera = null;
+  kahraman.nerede = 'koy';
+
+  HERO.xpEkle(kahraman, sonuc.xp);
+  const hasar = HERO.hasarVer(kahraman, sonuc.can);
+
+  const usKoy = session.villages.get(kahraman.usSlot)
+    || session.villages.get(konak?.slotKey)
+    || session.villages.values().next().value;
+
+  const kazanilan = [];
+  for (const odul of sonuc.oduller) {
+    if (odul.tur === 'hammadde' && usKoy) {
+      const { caps } = getStorageCaps(usKoy);
+      const tavan = caps?.[odul.res];
+      const yeni = (usKoy.resources[odul.res] || 0) + odul.adet;
+      usKoy.resources[odul.res] = tavan > 0 ? Math.min(tavan, yeni) : yeni;
+      kazanilan.push({ tur: 'hammadde', res: odul.res, adet: odul.adet });
+    } else if (odul.tur === 'asker' && usKoy) {
+      /*
+        Bulunan asker NÜFUS TÜKETMİYOR: eğitilmedi, katıldı. Nüfustan
+        düşseydik ekmek dar boğazındaki oyuncu için ödül bir cezaya
+        dönerdi — "ordunu büyüttüm ama köyünü aç bıraktım".
+      */
+      usKoy.army[odul.birim] = (usKoy.army[odul.birim] || 0) + odul.adet;
+      kazanilan.push({ tur: 'asker', birim: odul.birim, adet: odul.adet });
+    } else if (odul.tur === 'esya') {
+      (kahraman.envanter ||= []).push({ key: odul.key, nadirlik: odul.nadirlik });
+      kazanilan.push({
+        tur: 'esya', key: odul.key, nadirlik: odul.nadirlik,
+        ad: MACERA.esyaAdi(odul.key, odul.nadirlik),
+        slot: HERO_ITEMS[odul.key]?.slot || null,
+      });
+    }
+  }
+
+  /*
+    RAPOR — maceranın sonucu raporlar ekranında dursun. Yalnız kahraman
+    ekranında gösterseydik oyuncu çevrimdışıyken dönen maceranın ne
+    getirdiğini hiç göremezdi.
+  */
+  if (usKoy) {
+    ARMY.pushReport(usKoy, {
+      id: `mac-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      at: Date.now(), dir: 'in', mode: 'macera',
+      outcome: 'macera', winner: 'none',
+      fromName: MACERA.MACERA_TIPLERI[m.tip]?.ad || 'Macera',
+      toName: usKoy.name, toKey: kahraman.usSlot,
+      macera: {
+        tip: m.tip, xp: sonuc.xp, can: sonuc.can,
+        oldu: hasar.oldu, oduller: kazanilan,
+      },
+      myLosses: {}, theirLosses: {}, loot: {},
+    });
+    session.dirtySlots.add(kahraman.usSlot);
+  }
+  console.log(`[MACERA] userId=${session.userId} ${m.tip} bitti — ${sonuc.xp} XP, ${kazanilan.length} ödül`);
+}
+
+/**
+ * KAHRAMAN HANGİ SEFERLERE KATILABİLİR?
+ *
+ * Saldırı ve yağma: savaşır. TAKVİYE: gittiği köyde savunma bonusunu
+ * ORAYA verir ve sahibi geri çağırana kadar orada kalır (İlkan'ın
+ * kararı: "kahramanı tek başına saldırıya ya da savunmaya yollayabilirim").
+ *
+ * Keşif ve yerleşim DIŞARIDA: keşif izcinin işi (kahraman gizlenmez),
+ * yerleşim göçmenin.
+ */
+const KAHRAMAN_MODLARI = new Set(['attack', 'raid', 'takviye']);
+
 /** Köyün son binası da gitti mi? Kural kusatma.js'te (bkz. koyBosMu). */
 const koyBosMu = KUSATMA.koyBosMu;
 
@@ -933,7 +1053,12 @@ function kahramanDurumu(session, { yarat = false } = {}) {
     || session.villages.values().next().value;
   if (!merkez) return null;
   if (!merkez.kahraman && yarat) merkez.kahraman = HERO.yeniKahraman(null);
-  return merkez.kahraman || null;
+  /*
+    KAYITTAN GELEN ŞEKLİ DÜZELT. Kahraman sistemi geliştirilirken alanların
+    şekli değişti (envanter sözlükten diziye, bayılma sayacı `olu`
+    bayrağına). Eski kayıt olduğu gibi kullanılınca sunucu çöküyordu.
+  */
+  return merkez.kahraman ? HERO.duzelt(merkez.kahraman) : null;
 }
 
 /** Kahramanın üssü — Kahraman Konağı'nın bulunduğu köy. */
@@ -965,19 +1090,69 @@ function kahramaniSenkronla(session) {
 }
 
 /**
+ * OYUNCUYU OYUNDAN SİL — son köyü de düşmüş demektir.
+ *
+ * İlkan'ın kararı: *"köyleri haritadan silinen oyuncu oyundan tamamen
+ * silinir"*. Önce boş kabuk köy bırakmak düşünülmüştü; reddedildi —
+ * kuşatmanın nihai bir bedeli olmadan köy yıkımı yarım bir mekanik
+ * olurdu.
+ *
+ * OTURUM ÖNCE KAPATILIYOR: bağlı soketler atılmadan kayıt silinirse
+ * bir sonraki tick yok olmuş bir hesabı kaydetmeye çalışır ve köy geri
+ * gelir.
+ */
+async function oyuncuyuSil(ownerUserId, sebep) {
+  const s = userSessions.get(ownerUserId);
+  const ad = WORLD.ownerByUser.get(ownerUserId) || `#${ownerUserId}`;
+
+  for (const k of (WORLD.slotsByUser.get(ownerUserId) || [])) {
+    WORLD.playerBySlot.delete(k);
+  }
+  WORLD.slotsByUser.delete(ownerUserId);
+  WORLD.ownerByUser.delete(ownerUserId);
+  if (s) { s.villages.clear(); s.dirtySlots.clear(); s.silindi = true; }
+  userSessions.delete(ownerUserId);
+
+  /*
+    Oyuncuya NE OLDUĞUNU söyleyip bağlantısını kes. Sessizce atsaydık
+    oyuncu donmuş bir ekranla kalır ve yenileyince "hesabınız yok"
+    diye giriş ekranına düşerdi — sebebini hiç öğrenemezdi.
+  */
+  io.to(userRoom(ownerUserId)).emit('hesap_silindi', {
+    sebep: 'Bütün köylerin yıkıldı. Krallığın sona erdi.',
+  });
+  for (const sock of io.sockets.adapter.rooms.get(userRoom(ownerUserId)) || []) {
+    io.sockets.sockets.get(sock)?.disconnect(true);
+  }
+
+  try { await deleteUser(ownerUserId); }
+  catch (err) { console.error('[OYUNCU SİL] kayıt silinemedi:', err.message); }
+  console.log(`[OYUNCU SİL] ${ad} (userId=${ownerUserId}) oyundan silindi (${sebep})`);
+  yayinlaDunya();
+}
+
+/**
  * KÖYÜ YOK ET — son binası da düşen köy haritadan silinir.
  *
- * Sahibinin SON köyüyse yok edilmiyor: hesabın oyundan tamamen düşmesi,
- * satılan bir oyunda geri dönüşü olmayan bir ceza olurdu. O durumda köy
- * boş bir kabuk olarak kalıyor — oyuncu yeniden inşa edebilir; kaybettiği
- * şey zaten her şeyi.
+ * SON KÖY DE SİLİNİYOR ve o zaman OYUNCU DA oyundan düşüyor (bkz.
+ * oyuncuyuSil). Kuşatmanın nihai bedeli bu; boş kabuk köy bırakmak
+ * mekaniği yarım bırakırdı.
  *
  * @returns {boolean} köy gerçekten silindi mi
  */
 async function koyuYokEt(ownerUserId, slotKey, sebep) {
   const s = userSessions.get(ownerUserId);
   if (!s || !s.villages.has(slotKey)) return false;
-  if (s.villages.size <= 1) return false;          // son köy silinmez
+
+  /*
+    SON KÖY: köyü tek tek silmeye çalışmak yerine bütün hesabı
+    kaldırıyoruz. Önce köyü silip sonra "hesapta köy kalmadı" demek,
+    arada bir tick geçerse köysüz bir oturum bırakırdı.
+  */
+  if (s.villages.size <= 1) {
+    await oyuncuyuSil(ownerUserId, sebep);
+    return true;
+  }
 
   const yikilan = s.villages.get(slotKey);
   s.villages.delete(slotKey);
@@ -1288,22 +1463,67 @@ function processMarches(hours) {
           Bütün köylere birden bonus verseydi, çok köylü oyuncu tek bir
           kahramanla bütün imparatorluğunu güçlendirirdi.
         */
+        /*
+          SAVUNAN KAHRAMAN — köyde DURAN kahraman kim?
+
+          İki olasılık: ev sahibinin kendi kahramanı üssünde duruyordur,
+          ya da BAŞKA bir oyuncunun kahramanı buraya takviyeye gelmiştir.
+          İkincisi olmadan "kahramanı savunmaya yolla" hiçbir şey yapmazdı.
+
+          Kahraman TEK olduğu için ikisi aynı anda olamıyor; misafir
+          kahraman önce bakılıyor çünkü ev sahibi kendi kahramanını başka
+          yere yollamış olabilir.
+        */
         let savunanKahYuzde = 0;
-        if (tgt?.userId) {
+        let savunanKahBirim = null;
+        const savunanKahramani = () => {
+          const misafir = tgt?.village?.misafirKahraman?.userId;
+          if (misafir) {
+            const ms = userSessions.get(misafir);
+            const mk = ms ? kahramanDurumu(ms) : null;
+            if (mk && mk.misafirSlot === m.toKey && !mk.olu) return mk;
+          }
+          if (!tgt?.userId) return null;
           const ts = userSessions.get(tgt.userId);
           const tk = ts ? kahramanDurumu(ts) : null;
-          if (tk && tk.usSlot === m.toKey && (tk.nerede || 'koy') === 'koy') {
-            savunanKahYuzde = HERO.bonuslar(tk).savunmaYuzde;
-          }
+          return (tk && tk.usSlot === m.toKey && (tk.nerede || 'koy') === 'koy')
+            ? tk : null;
+        };
+        const savKah = savunanKahramani();
+        if (savKah) {
+          const b = HERO.bonuslar(savKah);
+          savunanKahYuzde = b.savunmaYuzde;
+          savunanKahBirim = b.birim || null;
         }
         ARMY.resolveArrival(m, v, tgt?.village || null, {
           targetName: tgt?.name,
           ownerUserId: m.ownerUserId ?? null,
           kahramanSavunmaYuzde: savunanKahYuzde,
+          kahramanBirimSavunma: savunanKahBirim,
         });
         entry.dirty();
         if (tgt?.userId) markUserDirty(tgt.userId, m.toKey);
         else if (tgt?.kind === 'npc') markNpcDirty(m.toKey);
+
+        /*
+          KAHRAMAN TAKVİYEYE VARDI — ev sahibi köye YERLEŞİYOR.
+
+          Kayıt ev sahibinin köyünde (`misafirKahraman`) tutuluyor: savunma
+          bonusunu ararken bütün oturumları taramak zorunda kalmayalım ve
+          ev sahibi çevrimdışıyken de bonus işlesin.
+        */
+        if (m.mode === 'takviye' && m.kahramanUserId && tgt?.village) {
+          const ks = userSessions.get(m.kahramanUserId);
+          const kk = ks ? kahramanDurumu(ks) : null;
+          if (kk && !kk.olu) {
+            kk.nerede = 'takviye';
+            kk.misafirSlot = m.toKey;
+            tgt.village.misafirKahraman = { userId: m.kahramanUserId };
+            if (ks) markUserDirty(m.kahramanUserId, ks.capitalSlot);
+          }
+          m.kahramanSonuc = null;     // takviye savaş değil
+          m.kahramanUserId = null;    // aşağıdaki dönüş hesabına girmesin
+        }
 
         /*
           SEFERDEKİ KAHRAMANIN HESABI. XP ve hasar savaş çözülürken
@@ -2173,6 +2393,125 @@ io.on('connection', async socket => {
     for (const [k2, n] of Object.entries(bedel)) village.resources[k2] -= n;
     HERO.skilleriSifirla(kah);
     dirty(); emit();
+  });
+
+  /**
+   * MACERAYA ÇIK.
+   *
+   * Koşulların tamamı SUNUCUDA ölçülüyor (bkz. macera.js · maceraUygunMu):
+   * baygın değil, başka işte değil, macera hakkı var, canı eşiğin üstünde.
+   * İstemcinin düğmeyi gizlemesi bir denetim değildir.
+   */
+  socket.on('macera_baslat', ({ tip = 'kisa' } = {}) => {
+    const kah = kahramanDurumu(session);
+    const konak = kahramanKonagi(session);
+    const canTavan = kah ? HERO.canTavani(HERO.xpSeviyesi(kah.xp || 0)) : 0;
+    const uygun = MACERA.maceraUygunMu(kah, tip, canTavan);
+    if (!uygun.ok) return socket.emit('kahraman_error', { reason: uygun.sebep });
+    if (!konak) return socket.emit('kahraman_error', { reason: 'konak_yok' });
+
+    kah.maceraSayisi -= 1;
+    kah.nerede = 'macera';
+    kah.macera = { tip, kalanSaat: MACERA.MACERA_TIPLERI[tip].saat };
+    dirty(); emit();
+    console.log(`[MACERA] ${userEmail} ${tip} maceraya çıktı`);
+  });
+
+  /**
+   * EŞYA KUŞAN / ÇIKAR / AT.
+   *
+   * Üçü de tek yerden: istemcideki sürükle-bırak yalnız bir görünüm,
+   * karar sunucuda. Kuşanma SEFERDE ya da MACERADAYKEN kapalı — eşyayı
+   * yolda değiştirip savaş gücünü büyütmek mümkün olmamalı (sefer gücü
+   * zaten çıkarken donduruluyor, bu ikinci kapı).
+   */
+  const kusamIslemi = (fn) => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
+    if ((kah.nerede || 'koy') !== 'koy') {
+      return socket.emit('kahraman_error', { reason: 'mesgul' });
+    }
+    const r = fn(kah);
+    if (!r.ok) return socket.emit('kahraman_error', { reason: r.sebep });
+    dirty(); emit();
+  };
+
+  socket.on('kusam_kusan', ({ indeks } = {}) =>
+    kusamIslemi(kah => KUSAM.kusan(kah, Number(indeks))));
+  socket.on('kusam_cikar', ({ slot } = {}) =>
+    kusamIslemi(kah => KUSAM.cikar(kah, String(slot || ''))));
+  socket.on('kusam_at', ({ indeks } = {}) =>
+    kusamIslemi(kah => KUSAM.at(kah, Number(indeks))));
+
+  /**
+   * KAHRAMANI DİRİLT — iki yol: HAMMADDE ya da DİRİLTME İKSİRİ.
+   *
+   * İki yol olması bilinçli (İlkan'ın kararı): kaynak biriktiren oyuncu
+   * ödeyerek, macera oynayan oyuncu iksirle geri alır. Tek yol olsaydı
+   * oynama tarzlarından biri ölüm karşısında çaresiz kalırdı.
+   *
+   * İKSİR VARSA DA HAMMADDE SEÇİLEBİLİR: iksir nadir, oyuncu onu saklamak
+   * isteyebilir. Kararı sunucu vermiyor, oyuncu veriyor.
+   */
+  socket.on('kahraman_dirilt', ({ yol = 'kaynak' } = {}) => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
+    if (!kah.olu) return socket.emit('kahraman_error', { reason: 'olu_degil' });
+
+    if (yol === 'iksir') {
+      const r = KUSAM.kullan(kah, 'diriltmeIksiri');
+      if (!r.ok) return socket.emit('kahraman_error', { reason: r.sebep });
+    } else {
+      /*
+        Bedel ÜSSÜN köyünden alınıyor, aktif köyden değil. Oyuncu
+        diriltirken başka bir köye bakıyor olabilir; hangi köyün
+        deposunun boşalacağı ekranda ne açık olduğuna bağlı olmamalı.
+      */
+      const usKoy = session.villages.get(kah.usSlot) || v();
+      const bedel = HERO.dirilmeBedeli(kah);
+      const eksik = KUYRUK.eksikler(usKoy.resources, bedel);
+      if (Object.keys(eksik).length) {
+        return socket.emit('kahraman_error', {
+          reason: 'yetersiz_kaynak', metin: KUYRUK.eksikMetni(eksik) });
+      }
+      for (const [k2, n] of Object.entries(bedel)) usKoy.resources[k2] -= n;
+    }
+
+    const r = HERO.dirilt(kah);
+    if (!r.ok) return socket.emit('kahraman_error', { reason: r.sebep });
+    dirty(); emit();
+    console.log(`[KAHRAMAN] ${userEmail} kahramanını diriltti (${yol})`);
+  });
+
+  /**
+   * KAHRAMANI TAKVİYEDEN GERİ ÇAĞIR.
+   *
+   * Yol süresi gidişle aynı hesaptan: kahraman ışınlanmıyor. Ev sahibinin
+   * kaydı ANINDA siliniyor ama kahraman yolda — yani çağırdığın anda
+   * savunma bonusunu kaybediyorsun. Tersi olsaydı bonus iki köyde birden
+   * sayılırdı.
+   */
+  socket.on('kahraman_geri_cagir', () => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
+    if (kah.nerede !== 'takviye' || !kah.misafirSlot) {
+      return socket.emit('kahraman_error', { reason: 'takviyede_degil' });
+    }
+
+    // Ev sahibinin köyündeki misafir kaydını sil
+    const hedef = villageAtSlot(kah.misafirSlot);
+    if (hedef?.village?.misafirKahraman?.userId === userId) {
+      delete hedef.village.misafirKahraman;
+      if (hedef.userId) markUserDirty(hedef.userId, kah.misafirSlot);
+    }
+
+    const me = WORLD.slotByKey.get(kah.usSlot);
+    const oradan = WORLD.slotByKey.get(kah.misafirSlot);
+    const dist = (me && oradan) ? W.distanceBetween(me, oradan) : 1;
+    kah.nerede = 'donuyor';
+    kah.donusKalanSaat = ARMY.marchGameHours({}, dist, true);
+    dirty(); emit();
+    console.log(`[KAHRAMAN] ${userEmail} kahramanını geri çağırdı (${kah.misafirSlot})`);
   });
 
   socket.on('set_capital', ({ slotKey } = {}) => {
@@ -3105,11 +3444,23 @@ io.on('connection', async socket => {
 
     const dist = W.distanceBetween(me, tgtSlot);
 
+    /*
+      KAHRAMAN TEK BAŞINA GİDEBİLİR (İlkan'ın kararı). createMarch askersiz
+      seferi normalde reddediyor; kahraman varsa o denetimler gevşiyor.
+      Uygunluğu ÖNCEDEN ölçüyoruz, çünkü sonuç seferin kurulabilmesini
+      belirliyor — sonradan bakarsak askersiz sefer boşuna reddedilirdi.
+    */
+    const kahAday = (kahramaniGotur && KAHRAMAN_MODLARI.has(mode))
+      ? kahramanDurumu(session) : null;
+    const kahHazir = !!(kahAday && kahramanKonagi(session)
+      && kahAday.usSlot === mySlot
+      && (kahAday.nerede || 'koy') === 'koy' && !kahAday.olu);
+
     const res = ARMY.createMarch(village, {
       mode, units, distance: dist,
       fromKey: mySlot, fromName: WORLD.playerBySlot.get(mySlot)?.name || 'Köyün',
       toKey: targetKey, toName: tgtName, toKind: tgtKind,
-      ownerKind: 'player',
+      ownerKind: 'player', kahramanVar: kahHazir,
     });
     if (!res.ok) return fail(res.reason);
     // Varışta misafir girdisine sahibini yazabilmek için sefere iliştir
@@ -3126,21 +3477,26 @@ io.on('connection', async socket => {
       takviyede kahramanı başka köyde bırakmak onu oradaki savaşta
       bayıltabilirdi ve oyuncu kahramanını geri alamazdı.
     */
-    if (kahramaniGotur && (mode === 'attack' || mode === 'raid')) {
+    if (kahramaniGotur && KAHRAMAN_MODLARI.has(mode)) {
       const kah = kahramanDurumu(session);
       const konak = kahramanKonagi(session);
       const uygun = kah && konak
         && kah.usSlot === mySlot                 // kahraman BU köyde
         && (kah.nerede || 'koy') === 'koy'       // seferde/macerada değil
-        && (kah.baygunKalanSaat || 0) <= 0;      // baygın değil
+        && !kah.olu;                             // ölü değil
       if (uygun) {
         const b = HERO.bonuslar(kah);
-        res.march.kahraman = { gucu: b.saldiriGucu, saldiriYuzde: b.saldiriYuzde };
+        res.march.kahraman = {
+          gucu: b.saldiriGucu, saldiriYuzde: b.saldiriYuzde,
+          // Eşyaların birim bonusu da DONDURULUYOR — yolda eşya
+          // değiştirip saldırıyı büyütmek mümkün olmasın
+          birim: b.birim || null,
+        };
         res.march.kahramanUserId = userId;
         kah.nerede = 'sefer';
       }
       // Uygun değilse sefer yine gidiyor, yalnız kahramansız. Reddetmek,
-      // bayılmış kahraman yüzünden saldırıyı tamamen iptal etmek olurdu.
+      // ölü kahraman yüzünden saldırıyı tamamen iptal etmek olurdu.
     }
     /*
       MANCINIK HEDEFI — istemci bina TIPI gonderiyor (slot degil): saldiran
@@ -3591,6 +3947,49 @@ io.on('connection', async socket => {
      * Ordusuna dokunulmuyor: kuşatma yalnız saldıran KAZANIRSA işliyor,
      * yani hedefin savunmasını yapay olarak sıfırlamak testi yalanlar.
      */
+    /**
+     * DEV: KAHRAMAN KISAYOLU — eşya, macera hakkı ve deneyim.
+     *
+     * Kahramanı ekranda denemek RASTGELELİĞE bağlıydı: eşya uzun
+     * maceraların ancak beşte birinde düşüyor, yani kuşam ekranını bir
+     * kez görmek için yedi macera beklemek gerekiyordu (ölçüldü). Bu
+     * kısayol o beklemeyi kaldırıyor.
+     *
+     * Üretimde YOK: bütün dev kısayolları gibi TRANORD_DEV_CHEATS=1
+     * kapısının arkasında ve o değişken Pi'ye asla eklenmiyor.
+     */
+    socket.on('dev_kahraman', ({ esya = 4, macera = true, xp = 0, oldur = false } = {}) => {
+      const kah = kahramanDurumu(session, { yarat: true });
+      if (!kah) return;
+      const konak = kahramanKonagi(session);
+      if (konak) kah.usSlot = konak.slotKey;
+
+      /*
+        ÖLDÜR: diriltme akışını denemek için. Savaşta ölmek defalarca
+        kurgulanması zor bir durum (savunması olan bir hedef gerekiyor),
+        oysa diriltme ekranı her sürümde çalışmalı.
+      */
+      if (oldur) {
+        HERO.hasarVer(kah, 99999);
+        dirty(); emit();
+        console.log(`[DEV] ${userEmail} kahramanı öldürüldü`);
+        return;
+      }
+
+      const anahtarlar = Object.keys(HERO_ITEMS);
+      const nadirlikler = ['siradan', 'iyi', 'nadir', 'efsane'];
+      for (let i = 0; i < Math.max(0, Math.min(20, esya)); i++) {
+        (kah.envanter ||= []).push({
+          key: anahtarlar[Math.floor(Math.random() * anahtarlar.length)],
+          nadirlik: nadirlikler[Math.floor(Math.random() * nadirlikler.length)],
+        });
+      }
+      if (macera) kah.maceraSayisi = MACERA.maceraTavani(konak?.level || 1);
+      if (xp > 0) HERO.xpEkle(kah, xp);
+      dirty(); emit();
+      console.log(`[DEV] ${userEmail} kahraman: +${esya} eşya, +${xp} XP`);
+    });
+
     socket.on('dev_surlu_hedef', ({ sur = 10, hendek = 5 } = {}) => {
       const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
       const me = WORLD.slotByKey.get(mySlot);

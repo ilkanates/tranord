@@ -17,7 +17,7 @@ import VILLAGE_DEFS from '../data/villageDefs';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
-const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif', yerlesim: 'Yerleşim', takviye: 'Takviye' };
+const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif', yerlesim: 'Yerleşim', takviye: 'Takviye', macera: 'Macera' };
 const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita', yerlesim: 'koy', takviye: 'kalkan' };
 
 /**
@@ -174,6 +174,16 @@ function verdictOf(r) {
   if (r.outcome === 'kesfedildim') return { txt: 'köyün keşfedildi', col: C.warn, won: false };
   if (r.outcome === 'kesif_engellendi') return { txt: 'casusu durdurdun', col: C.good, won: true };
   if (r.outcome === 'hedef_yok') return { txt: 'hedef bulunamadı', col: C.textMute, won: null };
+  /*
+    MACERA bir savaş değil — kazanan/kaybeden ekseni burada da anlamsız.
+    Bayılma ayrı yazılıyor: oyuncu kahramanının neden kullanılamadığını
+    rapor listesinde görebilmeli.
+  */
+  if (r.outcome === 'macera') {
+    return r.macera?.bayildi
+      ? { txt: 'kahraman bayıldı', col: C.danger, won: false }
+      : { txt: 'macera tamam', col: C.good, won: null };
+  }
   const won = r.dir === 'in' ? r.winner === 'defender' : r.winner === 'attacker';
   return { txt: won ? 'kazandın' : 'kaybettin', col: won ? C.good : C.danger, won };
 }
@@ -190,6 +200,7 @@ function titleOf(r) {
       : `${r.toName} köyünü destekledin`;
   }
   if (r.outcome === 'takviye_geri_yollandi') return `${r.fromName} takviyeni geri yolladı`;
+  if (r.outcome === 'macera') return `Kahramanın maceradan döndü — ${r.fromName}`;
   if (r.outcome === 'takviye_savasti') return `${r.toName} köyündeki takviyen savaştı`;
   if (r.outcome === 'kesfedildim') return `${r.fromName} seni keşfetti`;
   if (r.outcome === 'kesif_engellendi') return `${r.fromName} keşfe geldi, durduruldu`;
@@ -256,7 +267,9 @@ function Row({ r, active, unread, onClick }) {
             border: `1px solid ${unread ? `${yon.renk}55` : C.lineSoft}`,
           }}>{yon.etiket}</span>
           <span style={{ color: unread ? v.col : C.textMute }}>{v.txt}</span>
-          {r.outcome === 'savas' && (
+
+
+      {r.outcome === 'savas' && (
             <span style={{ color: C.textMute }}>
               {'· kaybım '}{sum(r.myLosses)}
               {sum(r.loot) > 0 && (
@@ -421,6 +434,69 @@ function Detail({ r, unitDefs }) {
           </span>
         </div>
       </div>
+
+      {r.outcome === 'macera' && r.macera && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>DENEYİM</div>
+              <div style={num({ fontSize: 18, color: C.good })}>+{r.macera.xp}</div>
+            </div>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>CAN KAYBI</div>
+              <div style={num({ fontSize: 18, color: C.danger })}>−{r.macera.can}</div>
+            </div>
+          </div>
+
+          {r.macera.bayildi && (
+            <div style={{
+              padding: '9px 13px', marginTop: 8, borderRadius: 6,
+              background: 'rgba(74,29,36,0.4)', border: `1px solid ${C.dangerDim}`,
+              fontFamily: FONT.ui, fontSize: 11, color: '#f0b8bd',
+            }}>
+              Kahramanın maceradan BAYGIN döndü. Bir süre ne sefere katılabilir
+              ne de bonus verir.
+            </div>
+          )}
+
+          <Section title="GETİRDİKLERİ">
+            {r.macera.oduller?.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {r.macera.oduller.map((o, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 9,
+                    padding: '7px 10px', borderRadius: 5,
+                    background: 'rgba(8,17,28,0.55)',
+                    border: `1px solid ${o.tur === 'esya' ? `${C.warn}55` : C.lineSoft}`,
+                  }}>
+                    <Icon name={o.tur === 'esya' ? 'migfer' : o.tur === 'asker' ? 'kilic' : 'depo'}
+                      size={14} color={o.tur === 'esya' ? C.warn : C.iceSoft} strokeWidth={1.5} />
+                    <span style={{ fontFamily: FONT.ui, fontSize: 11, color: C.frost }}>
+                      {o.tur === 'esya' ? o.ad
+                        : o.tur === 'asker' ? (unitDefs?.[o.birim]?.name || o.birim)
+                          : (RES_LABEL[o.res] || o.res)}
+                    </span>
+                    {o.tur !== 'esya' && (
+                      <span style={num({ fontSize: 12, color: C.good, marginLeft: 'auto' })}>
+                        +{o.adet}
+                      </span>
+                    )}
+                    {o.tur === 'esya' && (
+                      <span style={{
+                        marginLeft: 'auto', fontFamily: FONT.ui, fontSize: 9, color: C.textMute,
+                      }}>çantana düştü</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textMute }}>
+                Bu seferinde eli boş döndü — deneyim yine de kazandı.
+              </div>
+            )}
+          </Section>
+        </>
+      )}
 
       {r.outcome === 'savas' && (
         <>

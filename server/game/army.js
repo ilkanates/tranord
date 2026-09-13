@@ -112,9 +112,20 @@ function slowestSpeed(units) {
   return Number.isFinite(min) ? min : 10;
 }
 
-/** Tek yön yürüyüş süresi — OYUN SAATİ */
-function marchGameHours(units, distance) {
-  const hiz = slowestSpeed(units);
+/**
+ * KAHRAMANIN HIZI — tek başına yürürken.
+ *
+ * Süvariden hızlı, çünkü tek atlı bir yolcu; ama ışınlanmıyor. Sabit
+ * olması bilinçli: kahramanın hızını eşyaya bağlamak, "at" slotunu
+ * zorunlu kılardı.
+ */
+const KAHRAMAN_HIZ = 14;
+
+/** Tek yön yürüyüş süresi — OYUN SAATİ (en yavaş birime göre) */
+function marchGameHours(units, distance, kahramanVar = false) {
+  // Askersiz sefer = kahraman tek başına; hız onun hızı
+  const hiz = (kahramanVar && totalUnits(units) <= 0)
+    ? KAHRAMAN_HIZ : slowestSpeed(units);
   return Math.max(MIN_MARCH_MINUTES / 60, distance / hiz);
 }
 /** Tek yön yürüyüş süresi — GERÇEK saniye */
@@ -367,8 +378,16 @@ function depositLoot(village, loot, caps = null, foodRoom = null) {
 /**
  * @returns {{ ok: true, march: object } | { ok: false, reason: string }}
  */
+/**
+ * @param {boolean} kahramanVar  Kahraman bu seferde yürüyor mu?
+ *   Kahraman TEK BAŞINA gönderilebiliyor (İlkan'ın kararı): askersiz sefer
+ *   normalde reddediliyor ("asker_secilmedi", "saldiri_gucu_yok"), ama
+ *   kahraman başlı başına bir savaşçı. Bu bayrak o üç denetimi gevşetiyor
+ *   — kaldırmıyor: kahraman da yoksa sefer yine reddediliyor.
+ */
 function createMarch(village, {
   mode, units, distance, fromKey, fromName, toKey, toName, toKind, ownerKind = 'player',
+  kahramanVar = false,
 }) {
   if (!MODES.has(mode)) return { ok: false, reason: 'gecersiz_mod' };
   if (!(distance > 0)) return { ok: false, reason: 'gecersiz_hedef' };
@@ -383,7 +402,9 @@ function createMarch(village, {
     if (n > have) return { ok: false, reason: 'yetersiz_asker' };
     clean[k] = n;
   }
-  if (totalUnits(clean) <= 0) return { ok: false, reason: 'asker_secilmedi' };
+  if (totalUnits(clean) <= 0 && !kahramanVar) {
+    return { ok: false, reason: 'asker_secilmedi' };
+  }
 
   if (mode === 'yerlesim') {
     // Yalnız göçmen, tam sayıda: yanına asker takılamaz
@@ -402,21 +423,35 @@ function createMarch(village, {
       savunmaya bir katkısının olması: göçmenin savunması 0, taşınması
       anlamsız ve yerleşim hakkını kaçırmaya yol açar.
     */
-    if (armyDefense(clean) <= 0) return { ok: false, reason: 'savunma_gucu_yok' };
-  } else if (armyAttack(clean) <= 0) {
+    /*
+      KUŞATMA MAKİNESİ TAKVİYEDE DE GİDEBİLİYOR (İlkan'ın kararı):
+      müttefikin köyüne mancınık yığıp oradan saldırmak meşru bir hamle.
+      Makinenin savunması yok, o yüzden "savunmaya katkısı olsun" şartı
+      makine taşıyan seferlerde aranmıyor.
+    */
+    const makineVar = Object.keys(clean)
+      .some(k => UNIT_DEFS[k]?.category === 'kusatma');
+    if (armyDefense(clean) <= 0 && !makineVar && !kahramanVar) {
+      return { ok: false, reason: 'savunma_gucu_yok' };
+    }
+  } else if (armyAttack(clean) <= 0 && !kahramanVar) {
     return { ok: false, reason: 'saldiri_gucu_yok' };
   }
 
   /*
-    KUŞATMA MAKİNESİ YALNIZ TAM SALDIRIDA.
+    KUŞATMA MAKİNESİ: TAM SALDIRI ya da TAKVİYE.
 
     Yağmada işi yok (kuşatma fazı yalnız savaş kazanılınca işliyor ama
-    yağma "vur-kaç"tır, sur yıkmak amacı değil), keşifte zaten izci
-    şartı var, takviyede savunmaya katkısı yok, yerleşimde yeri yok.
-    Makine yavaş (hız 3-4) ve pahalı: yanlış modda göndermek orduyu
-    boşuna yavaşlatıp makineyi riske atıyordu.
+    yağma "vur-kaç"tır), keşifte zaten izci şartı var, yerleşimde yeri
+    yok. TAKVİYE ise İlkan'ın kararıyla AÇIK: makineyi müttefikin (ya da
+    kendi sınır) köyüne yığıp saldırıyı oradan başlatmak meşru bir hamle
+    ve makine yavaş olduğu için asıl kazancı da bu.
+
+    Takviyedeki makine SAVUNMAYA KATILMIYOR — savaş hesabı kuşatma
+    birimlerini zaten dışarıda tutuyor. Orada park hâlinde duruyor ve
+    sahibi istediğinde geri çağırıyor.
   */
-  if (mode !== 'attack') {
+  if (mode !== 'attack' && mode !== 'takviye') {
     const makine = Object.keys(clean)
       .find(k => UNIT_DEFS[k]?.category === 'kusatma');
     if (makine) return { ok: false, reason: 'kusatma_yalniz_saldiri' };
@@ -428,7 +463,7 @@ function createMarch(village, {
     if (village.army[k] <= 0) delete village.army[k];
   }
 
-  const legHours = marchGameHours(clean, distance);
+  const legHours = marchGameHours(clean, distance, kahramanVar);
   if (!village.nextMarchId) village.nextMarchId = 1;
   const march = {
     id: village.nextMarchId++,
@@ -672,7 +707,9 @@ function resolveArrival(march, origin, target, opts = {}) {
     defenderLevels: target?.equipmentLevels || null,
     kahramanSaldiriGucu: kahSald?.gucu || 0,
     kahramanSaldiriYuzde: kahSald?.saldiriYuzde || 0,
+    kahramanBirimSaldiri: kahSald?.birim || null,
     kahramanSavunmaYuzde: opts.kahramanSavunmaYuzde || 0,
+    kahramanBirimSavunma: opts.kahramanBirimSavunma || null,
   });
 
   /*
@@ -1006,7 +1043,7 @@ module.exports = {
   RAID_LOOT_SHARE, LOOTABLE, SCOUT_UNITS, MAX_REPORTS, MIN_MARCH_MINUTES,
   marchSeconds, marchGameHours, slowestSpeed, carryCapacity, armyAttack, armyDefense,
   totalUnits, buildingLevel, applyLossesToVillage, takeLoot, depositLoot,
-  createMarch, resolveArrival, resolveReturn, pushReport,
+  createMarch, resolveArrival, resolveReturn, pushReport, KAHRAMAN_HIZ,
   takviyeBirlikleri, savunanBirlikler, savunmaKayiplariniPayEt, takviyeGeriCagir,
   seferGeriCagir, geriCagirmaKalan, GERI_CAGIRMA_SANIYE,
   SETTLER_UNIT, SETTLERS_REQUIRED,

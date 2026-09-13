@@ -66,7 +66,7 @@ tasarımın kaydı olarak duruyor.
 - Yüzde bonuslara **tavan** konmalı — yoksa yüksek seviyeli kahraman tek
   başına savaşı belirler ve ordu anlamsızlaşır.
 
-#### Aşama 3 — Maceralar — SIRADAKİ İŞ
+#### Aşama 3 — Maceralar — ~~YAPILDI~~
 - Konakta biriken **macera listesi**: haritada bir noktaya gider, bir süre
   sonra döner, sonuç raporu gelir.
 - **Kısa / uzun macera**: kısa az XP az ödül, uzun çok XP çok ödül + daha
@@ -76,7 +76,7 @@ tasarımın kaydı olarak duruyor.
   kılardı.
 - Macera sırasında kahraman savunmada ve seferde YOK.
 
-#### Aşama 4 — Eşya sistemi
+#### Aşama 4 — Eşya sistemi — ~~YAPILDI~~
 - **Slotlar:** miğfer · zırh · pantolon · ayakkabı · sağ el (silah) ·
   sol el (kalkan) · bileklik · kolye · at. Her slota tek eşya.
 - **Sürükle-bırak** ile kuşanma (İlkan'ın isteği); envanterden slota.
@@ -209,6 +209,22 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Kahraman: maceralar, eşyalar, ölüm ve diriltme (14 Eylül 2026)
+- **MACERA** (`game/macera.js`): Kahraman Konağında zamanla macera hakkı birikiyor — konak seviyesi hem tavanı (Lvl 1'de 3, Lvl 20'de 12) hem birikme hızını (6 → 2 oyun saati) büyütüyor. Tavan doluyken ilerleme **saklanmıyor**: saklansaydı bir hafta girmeyen oyuncu onlarca macerayı tek seferde patlatırdı.
+- **Kısa / uzun macera.** Uzun macera kısanın ~3 katı XP veriyor ama ~4 katı can götürüyor — oran bilerek aleyhte; "her zaman daha iyi" olsaydı seçim diye bir şey kalmazdı. Ödül kurası: hammadde ~%60, asker ~%28, eşya ~%12 (4.000 ödül üzerinde ölçüldü). **XP garanti**, ödül kura: boş dönen macera "zamanımı boşa harcadım" dedirtirdi.
+- **Can eşiği**: canı tavanın %30'unun altındaki kahraman maceraya gönderilemiyor. Sınır olmasaydı oyuncu kahramanı her seferinde ölene kadar sürer, ölüm bir risk değil rutin olurdu.
+- **EŞYA SİSTEMİ** (`data/heroItemDefs.js` + `game/kusam.js`): dokuz slot (miğfer · silah · kalkan · zırh · pantolon · ayakkabı · bileklik · kolye · at), 18 eşya, dört nadirlik (sıradan 1× · iyi 1,6× · nadir 2,4× · efsane 3,5×). **Nadirlik ÖLÇEKLER, yeni etki eklemez** — farklı bir etki olsaydı her nadirlik ayrı bir eşya gibi öğrenilmek zorunda kalırdı.
+- **İKİ BONUS KANALI** (İlkan'ın özel isteği): eşya hem KAHRAMANI (saldırı, can, iyileşme, macera hızı, ganimet) hem **ORDUYU** büyütüyor — birim SINIFLARININ saldırı/savunma yüzdesini. Ordu bonusu ekipman havuzundan **AYRI** hesaplanıyor; aynı yerden geçseydi kılıç/kalkan dengesi bozulur ve oyuncu hangi sistemin ne yaptığını ayırt edemezdi.
+- **Eşyanın saldırısı HAM GÜÇ**, skil yüzde tavanına girmiyor: girseydi tam yatırımlı kahramanda efsane kılıç hiçbir şey katmaz, oyuncu topladığı eşyanın işe yaramadığını görürdü.
+- **KAHRAMAN ÖLÜR** (İlkan'ın kararı; önceki "bayılır" kuralı kaldırıldı). Canı bitince ölüyor ve kendiliğinden geri gelmiyor: ya **hammadde** ödeniyor (bedel seviyeyle büyüyor — sabit olsaydı yüksek seviyede ölüm bedava olurdu) ya da maceradan düşen **Diriltme İksiri** kullanılıyor. İki yol da bilinçli: biriktiren oyuncu kaynağını korur, macera oynayan iksirle geri alır. Diriltilen kahraman **yarı canla** kalkıyor; seviye ve eşya kaybolmuyor.
+- **Kahraman Lvl 1 de dört puanla doğuyor** (İlkan'ın kararı): sıfır puanla doğsaydı ekran ilk açıldığında yapacak hiçbir şey olmazdı.
+- **Kahraman TEK BAŞINA gidebiliyor** — saldırı, yağma ve **TAKVİYE**. Takviyedeki kahraman gittiği köyde kalıyor ve savunma bonusunu ORAYA veriyor; kayıt ev sahibinin köyünde (`misafirKahraman`) tutuluyor ki ev sahibi çevrimdışıyken de işlesin. Geri çağırınca bonus HEMEN bitiyor ve kahraman yola çıkıyor (ışınlanmıyor) — tersi olsaydı bonus iki köyde birden sayılırdı.
+- **Kuşatma makineleri TAKVİYE ile de gönderilebiliyor**: makineyi müttefikin ya da kendi sınır köyünün yanına yığıp saldırıyı oradan başlatmak meşru bir hamle ve makine yavaş olduğu için asıl kazanç bu. Yağmada hâlâ yasak.
+- **Arayüz:** Kahraman sekmesi üç segmente ayrıldı — *Kuşam ve Çanta* (yan yana, sürükle-bırak için ikisi de ekranda), *Skiller* (2×2 kompakt kart), *Maceralar*. Çantada **slota göre süzgeç** var; boş bir kuşam slotuna tıklamak da süzüyor. Eşyanın üstüne gelince bonuslarını yazan **kart** çıkıyor (tarayıcının title özniteliği bir saniye gecikmeli ve tek satır düz metin — iki eşyayı karşılaştırmak imkânsızdı).
+- **Kuşam özeti SKİL + EŞYA toplamını** gösteriyor. Eskiden yalnız eşya bonusu vardı ve skil puanı dağıtan oyuncu sayının değişmediğini görüp sistemin çalışmadığını sanıyordu (İlkan bildirdi).
+- **Dev kısayolları:** "Kahramana eşya ver" ve "Kahramanı öldür" — eşya uzun maceraların ancak beşte birinde düşüyor, kuşam ekranını bir kez görmek için yedi macera beklemek gerekiyordu (ölçüldü). Üretimde yok (`TRANORD_DEV_CHEATS` kapısı).
+- Ölçüldü: 7 uzun macera → Lvl 1'den Lvl 4'e, +13 asker, 1 eşya; dev kısayolu ile 5 eşya → Efsane Amber Kolye kuşanıldı, can tavanı 140 → 262,5; kahraman öldürüldü → iksirle diriltildi, can 131/262,5, iksir tükendi. 40 yeni test.
+
 ### Kahraman: temel, skiller ve savaş (14 Eylül 2026)
 - **Kahraman Konağı** (yeni bina, askerî, unique, Lvl 20): kahraman burada doğuyor, iyileşiyor, eşyalarını burada tutacak. Konak yıkılırsa kahraman **silinmiyor** — yalnız üssünü kaybediyor; bir mancınık dalgası oyuncunun aylarca biriktirdiği kahramanı sıfırlayamamalı.
 - **Kahraman KÖYE değil OYUNCUYA ait.** Kayıt merkez köyün state'inde (görev zinciriyle aynı yerde, ayrı tablo açmamak için). Köy bazında olsaydı beş köylü oyuncunun beş kahramanı olurdu.
@@ -224,6 +240,11 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - Görev zincirine iki **YAN HEDEF**: *Kahramanın Evi* (konağı kur) ve *İlk Zaferler* (Lvl 3). Ana hat değil — kahraman güçlü ama oyunu oynamak için şart değil.
 - **Yol açarken bulunan hata:** merkez köy YIKILINCA görev zinciri ve kahraman kaydı yıkılan köyle birlikte siliniyordu (`set_capital` taşıyordu, `koyuYokEt` taşımıyordu). Ortak `game/hesapKaydi.js` yazıldı, iki yol da oradan geçiyor, test kilitledi.
 - Ölçüldü: konak kuruldu → kahraman doğdu (Lvl 1, can 100/100, +3,5/sa), sefer panelinde "Kahramanı da götür" kutusu çıktı, sefere iliştirildi, savaştan sonra raporda kahraman bloğu göründü ve kahraman üssüne döndü. 25 yeni test.
+
+### Son köyü de düşen oyuncu OYUNDAN SİLİNİR (14 Eylül 2026)
+- İlkan'ın kararı: *"köyleri haritadan silinen oyuncu oyundan tamamen silinir"*. Önceki "son köy boş kabuk olarak kalır" kararı geri alındı — kuşatmanın nihai bir bedeli olmadan köy yıkımı yarım bir mekanik kalıyordu.
+- `oyuncuyuSil()`: oturum ÖNCE kapatılıyor, sonra kayıt siliniyor. Ters sırada bir sonraki tick yok olmuş bir hesabı kaydetmeye çalışır ve köy geri gelirdi. Oyuncuya `hesap_silindi` olayı gidip bağlantısı kesiliyor — sessizce atsaydık donmuş bir ekranla kalır, sebebini hiç öğrenemezdi.
+- `db.js` / `db.dev.js` · `deleteUser`: köyler ve mesajlar ÖNCE siliniyor (yabancı anahtar), mesaj tablosu yoksa hesap silme yarıda kalmıyor.
 
 ### Köy yıkımı: bütün binalar düşünce köy haritadan silinir (14 Eylül 2026)
 - Eskiden ana binanın altında `ANA_BINA_TABAN = 1` tabanı vardı: mancınık bir yerden sonra hiçbir şey değiştiremiyor, kuşatma anlamsızlaşıyordu. Taban **0** yapıldı.

@@ -14,10 +14,14 @@
  *    (Kahraman Konağı'nın bulunduğu köy); üs taşınabilir, kahraman
  *    taşınmaz.
  *
- * 2) KAHRAMAN ÖLMEZ, BAYILIR.
- *    Canı 0'a inince belli bir süre kullanılamaz, sonra üssünde
- *    iyileşir. Kalıcı ölüm olsaydı kimse kahramanı riske atmazdı ve
- *    sistem "yatırım yap ama asla kullanma"ya dönerdi.
+ * 2) KAHRAMAN ÖLÜR — ama DİRİLTİLEBİLİR (İlkan'ın kararı).
+ *    Canı 0'a inince ölür ve kendiliğinden geri gelmez: oyuncu ya
+ *    HAMMADDE ödeyip diriltir ya da maceradan düşen DİRİLTİCİ İKSİRİ
+ *    kullanır. Bedel seviyeyle büyüyor, çünkü kaybedilen de seviyeyle
+ *    büyüyor: ölüm bir gecikme değil bir bedel olmalı.
+ *
+ *    SEVİYE VE EŞYA KAYBOLMUYOR. Onları da silmek, aylarca biriktirilen
+ *    bir yatırımı tek savaşta yok etmek olurdu; ceza bedelin kendisi.
  *
  * 3) SKİL PUANI GERİ ALINABİLİR — AMA BEDELLİ.
  *    Geri alınamaz olsaydı yeni oyuncu ilk yanlış dağıtımda kalıcı ceza
@@ -27,6 +31,19 @@
  *    Tavansız bir kahraman tek başına savaşı belirler ve ordu
  *    anlamsızlaşır. Kahraman orduyu GÜÇLENDİRİR, orduNUN YERİNE GEÇMEZ.
  */
+
+/*
+  MACERA kendi dosyasında (game/macera.js): birikme, tipler, ödül kurası.
+  Burada yalnız özet paketine giren alanlar için kullanılıyor — kahramanın
+  KİM olduğu ile NE YAPTIĞI ayrı dosyalarda dursun.
+*/
+const MACERA = require('./macera');
+/*
+  KUŞAM ayrı dosyada: eşyanın ne YAPTIĞI (bonus toplamı) ile kahramanın
+  KİM olduğu (seviye, skil, can) ayrı kalsın. Buradaki her fonksiyon
+  kuşamı hesaba katarken o dosyaya soruyor.
+*/
+const KUSAM = require('./kusam');
 
 // ── Deneyim ve seviye ──────────────────────────────────────────────
 
@@ -76,11 +93,12 @@ function seviyeIlerlemesi(xp) {
  * DÖRT SKİL — İlkan'ın tarifi: "def bonusu, saldırı bonusu, saldırı puanı
  * ve hammadde üretimi, aynı Travian'daki gibi".
  *
- * Her seviye 4 PUAN veriyor; her skil en çok SKIL_PUAN_TAVANI puan alıyor.
- * Tavan 100 ve seviye tavanı da 100 olduğu için 100. seviyedeki oyuncu
- * tam olarak dört skili de doldurabiliyor — yani uzun vadede "her şeyi
- * alırsın", kısa vadede "ne önce" sorusu var. Bu bilerek: geri alınamaz
- * bir uzmanlaşma, oyuncuyu ilk saatte verdiği kararla aylarca cezalandırır.
+ * Her seviye 4 PUAN veriyor ve kahraman DOĞARKEN de 4 puanla geliyor;
+ * her skil en çok SKIL_PUAN_TAVANI puan alıyor. Tavan 100 ve seviye
+ * tavanı da 100 olduğu için 100. seviyedeki oyuncu tam olarak dört skili
+ * de doldurabiliyor — uzun vadede "her şeyi alırsın", kısa vadede "ne
+ * önce" sorusu var. Bu bilerek: geri alınamaz bir uzmanlaşma, oyuncuyu
+ * ilk saatte verdiği kararla aylarca cezalandırırdı.
  */
 const PUAN_PER_SEVIYE = 4;
 const SKIL_PUAN_TAVANI = 100;
@@ -127,8 +145,8 @@ const SKIL_ANAHTARLARI = Object.keys(SKILLER);
 const CAN_TABAN = 100;
 const CAN_PER_SEVIYE = 10;
 
-function canTavani(seviye) {
-  return CAN_TABAN + CAN_PER_SEVIYE * Math.max(0, seviye - 1);
+function canTavani(seviye, kusamCan = 0) {
+  return CAN_TABAN + CAN_PER_SEVIYE * Math.max(0, seviye - 1) + Math.max(0, kusamCan);
 }
 
 /**
@@ -139,16 +157,27 @@ function canTavani(seviye) {
 const IYILESME_TABAN_SAATLIK = 2;      // can / oyun saati, konak yokken
 const IYILESME_KONAK_SAATLIK = 1.5;    // konak seviyesi başına ek
 
-function iyilesmeHizi(konakSeviyesi = 0) {
-  return IYILESME_TABAN_SAATLIK + IYILESME_KONAK_SAATLIK * Math.max(0, konakSeviyesi);
+function iyilesmeHizi(konakSeviyesi = 0, kusamIyilesme = 0) {
+  return IYILESME_TABAN_SAATLIK + IYILESME_KONAK_SAATLIK * Math.max(0, konakSeviyesi)
+    + Math.max(0, kusamIyilesme);
 }
 
 /**
- * BAYILMA: can 0'a inince kahraman bu kadar oyun saati kullanılamaz.
- * Sıfır olsaydı bayılmak yalnız bir can kaybı olurdu; çok uzun olsaydı
- * tek kötü savaş oyuncuyu günlerce kahramansız bırakırdı.
+ * DİRİLTME BEDELİ — seviyeyle büyür.
+ *
+ * Taban + seviye başına ek. Lvl 1'de ucuz (yeni oyuncu ilk ölümünde
+ * oyundan kopmasın), Lvl 30'da ciddi bir yatırım. Sabit olsaydı yüksek
+ * seviyeli oyuncu için ölüm bedava, düşük seviyeli için ezici olurdu.
  */
-const BAYGIN_SAAT = 12;
+const DIRILTME_TABAN = { tahil: 300, demirKulce: 200 };
+const DIRILTME_PER_SEVIYE = { tahil: 90, demirKulce: 60 };
+
+/**
+ * Diriltilen kahraman can tavanının bu oranıyla kalkar. Tam canla
+ * kalksaydı ölüm yalnız bir fatura olurdu; sıfır canla kalksaydı bir
+ * sonraki savaşta anında yeniden ölürdü.
+ */
+const DIRILME_CAN_ORANI = 0.5;
 
 // ── Durum ──────────────────────────────────────────────────────────
 
@@ -163,16 +192,74 @@ function yeniKahraman(usKoyu = null) {
     usSlot: usKoyu,
     xp: 0,
     can: CAN_TABAN,
-    baygunKalanSaat: 0,
+    /** Ölü mü — diriltilene kadar hiçbir şey yapamaz, bonus da vermez */
+    olu: false,
+    /** Kaç kez öldü — bilgi amaçlı, bedele girmiyor */
+    olumSayisi: 0,
     skiller: { saldiriPuani: 0, saldiriBonus: 0, savunmaBonus: 0, uretim: 0 },
-    harcanmamisPuan: 0,
+    /*
+      LVL 1 DE 4 PUANLA GELİYOR (İlkan'ın kararı). Sıfır puanla doğsaydı
+      kahraman ekranı ilk açıldığında yapılacak hiçbir şey olmaz, sistem
+      "sonra bir şeyler olacak" gibi görünürdü. Dört puan, oyuncunun daha
+      ilk bakışta bir karar vermesini sağlıyor.
+    */
+    harcanmamisPuan: PUAN_PER_SEVIYE,
     sifirlamaSayisi: 0,
-    /** Kuşanılmış eşyalar — slot → eşya kimliği (Aşama 4) */
+    /** Kuşanılmış eşyalar — slot → { key, nadirlik } */
     kusanilan: {},
-    /** Envanter — eşya kimliği → adet (Aşama 4) */
-    envanter: {},
-    nerede: 'koy',   // koy | sefer | macera
+    /**
+     * Envanter — eşya listesi. DİZİ, sözlük değil: aynı eşyanın farklı
+     * nadirlikleri ayrı ayrı durabilmeli ve oyuncu hangisini kuşanacağına
+     * karar verebilmeli.
+     */
+    envanter: [],
+    /** Biriken macera hakkı ve bir sonrakine kalan ilerleme */
+    maceraSayisi: 0,
+    maceraIlerleme: 0,
+    /** Yoldaki macera — { tip, kalanSaat } ya da null */
+    macera: null,
+    /**
+     * TAKVİYEDE DURDUĞU KÖY. Kahraman başka bir köye savunmaya
+     * gönderilebiliyor (İlkan'ın kararı); orada savunma bonusunu O KÖYE
+     * veriyor ve sahibi geri çağırana kadar orada kalıyor.
+     */
+    misafirSlot: null,
+    /** Eve dönüş yolundaysa kalan oyun saati */
+    donusKalanSaat: 0,
+    nerede: 'koy',   // koy | sefer | macera | takviye | donuyor
   };
+}
+
+/**
+ * ESKİ KAYITLARI DÜZELT.
+ *
+ * Kahraman sistemi geliştirilirken alanların şekli değişti: envanter
+ * sözlükten DİZİYE döndü, bayılma sayacı yerini `olu` bayrağına bıraktı,
+ * macera alanları sonradan eklendi. Kayıttaki eski şekil olduğu gibi
+ * kullanılırsa sunucu çöküyor (`envanter.map is not a function`).
+ *
+ * Göç BURADA, tek yerde: her okuma noktasında ayrı ayrı savunma yazmak
+ * hem tekrar hem de er geç unutulan bir yer demekti.
+ */
+function duzelt(k) {
+  if (!k || !k.var) return k;
+  if (!Array.isArray(k.envanter)) k.envanter = [];
+  if (!k.kusanilan || typeof k.kusanilan !== 'object') k.kusanilan = {};
+  if (typeof k.olu !== 'boolean') {
+    // Eski kayıtta bayılma sayacı vardı: baygınsa artık ÖLÜ sayılıyor
+    k.olu = (k.baygunKalanSaat || 0) > 0 || (k.can || 0) <= 0;
+  }
+  delete k.baygunKalanSaat;
+  if (typeof k.olumSayisi !== 'number') k.olumSayisi = 0;
+  if (typeof k.maceraSayisi !== 'number') k.maceraSayisi = 0;
+  if (typeof k.maceraIlerleme !== 'number') k.maceraIlerleme = 0;
+  if (k.macera && typeof k.macera !== 'object') k.macera = null;
+  if (typeof k.misafirSlot !== 'string') k.misafirSlot = k.misafirSlot || null;
+  if (typeof k.donusKalanSaat !== 'number') k.donusKalanSaat = 0;
+  if (!k.skiller || typeof k.skiller !== 'object') {
+    k.skiller = { saldiriPuani: 0, saldiriBonus: 0, savunmaBonus: 0, uretim: 0 };
+  }
+  return k;
 }
 
 /**
@@ -244,25 +331,48 @@ function skilleriSifirla(k) {
 /**
  * Kahramanın dünyaya yansıyan etkileri.
  *
- * BAYGIN KAHRAMAN HİÇBİR BONUS VERMEZ. Vermeseydi bile "biraz verse"
- * demek, bayılmayı yalnız bir sayı düşüşü yapardı; bayılmanın canı
- * yakmalı ki savaşa sokma kararı bir risk olsun.
+ * ÖLÜ KAHRAMAN HİÇBİR BONUS VERMEZ. "Biraz verse" demek, ölümü yalnız
+ * bir sayı düşüşü yapardı; ölümün canı yakmalı ki kahramanı savaşa
+ * sokma kararı gerçek bir risk olsun.
  *
  * CAN ORANI bonusları ölçeklemiyor — yaralı kahraman tam bonus veriyor.
  * Ölçekleseydi savaş hesabı "kahramanın canı" gibi görünmez bir değişkene
  * bağlanır, oyuncu savaş öncesi gücünü kestiremezdi.
  */
 function bonuslar(k) {
-  const bos = { saldiriGucu: 0, saldiriYuzde: 0, savunmaYuzde: 0, uretimSaatlik: 0 };
-  if (!k || !k.var || (k.baygunKalanSaat || 0) > 0) return bos;
+  const bos = {
+    saldiriGucu: 0, saldiriYuzde: 0, savunmaYuzde: 0, uretimSaatlik: 0,
+    birim: { piyade: { saldiri: 0, savunma: 0 }, suvari: { saldiri: 0, savunma: 0 } },
+  };
+  /*
+    ÖLÜ KAHRAMAN HİÇBİR BONUS VERMEZ. "Biraz versin" demek, ölümü yalnız
+    bir sayı düşüşü yapardı; ölümün canı yakmalı ki kahramanı savaşa
+    sokma kararı gerçek bir risk olsun.
+  */
+  if (!k || !k.var || k.olu) return bos;
   const s = k.skiller || {};
   const yuzdeKap = (puan, def) =>
     Math.min(def.tavanYuzde, (puan || 0) * def.puanBasina);
+  /*
+    EŞYA BONUSU SKİL TAVANINA GİRMİYOR — ayrı kanal.
+
+    Eşyanın saldırı katkısı HAM GÜÇ olarak ekleniyor, yüzde tavanına
+    değil. Tavana girseydi tam yatırımlı bir kahramanda eşya hiçbir şey
+    katmaz, oyuncu topladığı efsane kılıcın işe yaramadığını görürdü.
+  */
+  const kusam = KUSAM.kusamBonuslari(k);
   return {
-    saldiriGucu: (s.saldiriPuani || 0) * SKILLER.saldiriPuani.puanBasina,
+    saldiriGucu: (s.saldiriPuani || 0) * SKILLER.saldiriPuani.puanBasina
+      + (kusam.kahraman.saldiri || 0),
     saldiriYuzde: yuzdeKap(s.saldiriBonus, SKILLER.saldiriBonus),
     savunmaYuzde: yuzdeKap(s.savunmaBonus, SKILLER.savunmaBonus),
     uretimSaatlik: (s.uretim || 0) * SKILLER.uretim.puanBasina,
+    /*
+      BİRİM BONUSU — İlkan'ın özel isteği: eşya tek tek birim
+      sınıflarının saldırı ve savunmasını büyütüyor. Yüzde olarak
+      uygulanıyor ve ekipman havuzundan AYRI hesaplanıyor.
+    */
+    birim: kusam.birim,
   };
 }
 
@@ -275,21 +385,17 @@ function bonuslar(k) {
  */
 function ilerlet(k, oyunSaati, konakSeviyesi = 0) {
   if (!k || !k.var || !(oyunSaati > 0)) return k;
-  let kalan = oyunSaati;
-  if ((k.baygunKalanSaat || 0) > 0) {
-    const dusen = Math.min(k.baygunKalanSaat, kalan);
-    k.baygunKalanSaat -= dusen;
-    kalan -= dusen;
-    if (k.baygunKalanSaat <= 0) {
-      k.baygunKalanSaat = 0;
-      // Bayılmadan çıkan kahraman canının dörtte biriyle ayağa kalkar —
-      // sıfır canla kalkarsa bir sonraki savaşta anında yeniden bayılır.
-      k.can = Math.max(k.can || 0, Math.round(canTavani(xpSeviyesi(k.xp)) * 0.25));
-    }
-  }
+  /*
+    ÖLÜ KAHRAMAN ZAMANLA İYİLEŞMEZ. Kendiliğinden geri gelseydi diriltme
+    bedeli bir seçenek değil, yalnız sabırsızlık vergisi olurdu.
+  */
+  if (k.olu) return k;
+  const kusam = KUSAM.kusamBonuslari(k).kahraman;
+  const kalan = oyunSaati;
   if (kalan > 0 && k.nerede === 'koy') {
-    const tavan = canTavani(xpSeviyesi(k.xp));
-    k.can = Math.min(tavan, (k.can || 0) + iyilesmeHizi(konakSeviyesi) * kalan);
+    const tavan = canTavani(xpSeviyesi(k.xp), kusam.can);
+    k.can = Math.min(tavan,
+      (k.can || 0) + iyilesmeHizi(konakSeviyesi, kusam.iyilesme) * kalan);
   }
   return k;
 }
@@ -317,16 +423,56 @@ function savasSonucu(oldurulenBirim = 0, kayipOrani = 0) {
   };
 }
 
-/** Hasar uygula; can biterse kahraman bayılır. */
+/**
+ * Hasar uygula; can biterse kahraman ÖLÜR.
+ *
+ * Ölüm kalıcı DEĞİL ama kendiliğinden de geçmiyor: oyuncu diriltmeli
+ * (bkz. dirilt / dirilmeBedeli). Seviye ve eşya duruyor.
+ */
 function hasarVer(k, hasar) {
-  if (!k || !k.var) return { bayildi: false, can: 0 };
+  if (!k || !k.var || k.olu) return { oldu: false, can: 0 };
   k.can = Math.max(0, (k.can || 0) - Math.max(0, hasar));
-  if (k.can <= 0 && (k.baygunKalanSaat || 0) <= 0) {
-    k.baygunKalanSaat = BAYGIN_SAAT;
+  if (k.can <= 0) {
+    k.olu = true;
+    k.can = 0;
+    k.olumSayisi = (k.olumSayisi || 0) + 1;
+    /*
+      Ölen kahraman ÜSSÜNE döner: cesedi seferde ya da macerada bırakmak,
+      oyuncunun diriltmek için orduyu geri beklemesi demek olurdu.
+      Yoldaki sefer askerlerle devam ediyor, kahraman ona dahil değil.
+    */
     k.nerede = 'koy';
-    return { bayildi: true, can: 0 };
+    k.macera = null;
+    k.misafirSlot = null;
+    k.donusKalanSaat = 0;
+    return { oldu: true, can: 0 };
   }
-  return { bayildi: false, can: k.can };
+  return { oldu: false, can: k.can };
+}
+
+/** Diriltme bedeli — seviyeyle büyüyor. */
+function dirilmeBedeli(k) {
+  const seviye = xpSeviyesi(k?.xp || 0);
+  const out = {};
+  for (const [key, taban] of Object.entries(DIRILTME_TABAN)) {
+    out[key] = Math.round(taban + (DIRILTME_PER_SEVIYE[key] || 0) * (seviye - 1));
+  }
+  return out;
+}
+
+/**
+ * DİRİLT. Bedeli ÇAĞIRAN tahsil eder (kaynak ya da iksir burada yok) —
+ * bu dosya kaynakları görmüyor, karar index.js'in.
+ */
+function dirilt(k) {
+  if (!k || !k.var) return { ok: false, sebep: 'kahraman_yok' };
+  if (!k.olu) return { ok: false, sebep: 'olu_degil' };
+  k.olu = false;
+  const kusam = KUSAM.kusamBonuslari(k).kahraman;
+  k.can = Math.max(1, Math.round(
+    canTavani(xpSeviyesi(k.xp), kusam.can) * DIRILME_CAN_ORANI));
+  k.nerede = 'koy';
+  return { ok: true, can: k.can };
 }
 
 /** İstemciye gidecek özet. */
@@ -341,23 +487,46 @@ function ozet(k, konakSeviyesi = 0) {
     xpSimdiki: Math.round(ilerleme.simdiki),
     xpGereken: Math.round(ilerleme.gereken),
     can: Math.round(k.can || 0),
-    canTavan: canTavani(ilerleme.seviye),
-    baygunKalanSaat: Math.round((k.baygunKalanSaat || 0) * 10) / 10,
-    iyilesmeSaatlik: iyilesmeHizi(konakSeviyesi),
+    canTavan: canTavani(ilerleme.seviye, KUSAM.kusamBonuslari(k).kahraman.can),
+    olu: !!k.olu,
+    olumSayisi: k.olumSayisi || 0,
+    dirilmeBedeli: dirilmeBedeli(k),
+    iyilesmeSaatlik: Math.round(
+      iyilesmeHizi(konakSeviyesi, KUSAM.kusamBonuslari(k).kahraman.iyilesme) * 10) / 10,
     skiller: { ...k.skiller },
     harcanmamisPuan: k.harcanmamisPuan || 0,
     sifirlamaBedeli: sifirlamaBedeli(k),
     bonuslar: bonuslar(k),
     nerede: k.nerede || 'koy',
-    kusanilan: { ...(k.kusanilan || {}) },
-    envanter: { ...(k.envanter || {}) },
+    kusanilan: KUSAM.kusanilanOzeti(k),
+    envanter: KUSAM.envanterOzeti(k),
+    kusamBonuslari: KUSAM.kusamBonuslari(k),
+    slotlar: KUSAM.HERO_SLOTS,
+    /*
+      MACERA DURUMU. `maceraKalanSaat` OYUN SAATİ — istemci bunu dünya
+      hızına göre gerçek süreye çeviriyor. Gerçek saniye yollasaydık hız
+      değişince ekrandaki geri sayım yanlış kalırdı.
+    */
+    maceraSayisi: k.maceraSayisi || 0,
+    maceraTavan: MACERA.maceraTavani(konakSeviyesi),
+    maceraIlerleme: Math.round((k.maceraIlerleme || 0) * 100) / 100,
+    maceraGereken: MACERA.maceraSaati(konakSeviyesi),
+    macera: k.macera
+      ? { tip: k.macera.tip, kalanSaat: Math.round((k.macera.kalanSaat || 0) * 100) / 100 }
+      : null,
+    misafirSlot: k.misafirSlot || null,
+    donusKalanSaat: Math.round((k.donusKalanSaat || 0) * 100) / 100,
+    maceraTipleri: MACERA.MACERA_TIPLERI,
+    maceraCanEsigi: MACERA.MACERA_CAN_ESIGI,
   };
 }
 
 module.exports = {
   SKILLER, SKIL_ANAHTARLARI, PUAN_PER_SEVIYE, SKIL_PUAN_TAVANI,
-  EN_YUKSEK_SEVIYE, CAN_TABAN, CAN_PER_SEVIYE, BAYGIN_SAAT,
-  SIFIRLAMA_TABAN, SIFIRLAMA_CARPANI,
+  EN_YUKSEK_SEVIYE, CAN_TABAN, CAN_PER_SEVIYE,
+  DIRILTME_TABAN, DIRILTME_PER_SEVIYE, DIRILME_CAN_ORANI,
+  dirilmeBedeli, dirilt,
+  SIFIRLAMA_TABAN, SIFIRLAMA_CARPANI, duzelt,
   XP_OLDURULEN_BASINA, SAVAS_HASAR_TAVANI, savasSonucu,
   seviyeIcinToplamXp, xpSeviyesi, seviyeIlerlemesi,
   canTavani, iyilesmeHizi,
