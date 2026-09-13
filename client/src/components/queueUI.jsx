@@ -35,9 +35,17 @@ export function PanelShell({ icon, title, children, note, status, compact = fals
       {status}
       {/* Ürün listesi | kuyruk — yan yana, dikey scroll'a gerek kalmasın */}
       <div style={{
-        /* compact: kuyruk sütunu dar — kutu içeriği kadar yer kaplasın */
         display: 'grid',
-        gridTemplateColumns: compact ? 'minmax(0,1fr) 118px' : '1.15fr 1fr',
+        /*
+          TELEFONDA KUYRUK YAN DEĞİL ALT.
+
+          Dar panelde kuyruk sütunu sabit 118 px alıyor ve çoğu zaman
+          boş duruyor ("kuyruk boş"); kalan yer ürün satırına yetmeyince
+          SİPARİŞ düğmesi alt satıra kayıyor ve yanında büyük bir boşluk
+          kalıyordu. Alt alta konunca ürün satırı panelin tam genişliğini
+          alıyor. Geniş ekranda yan yana düzen aynen duruyor.
+        */
+        gridTemplateColumns: compact ? '1fr' : '1.15fr 1fr',
         gap: compact ? 8 : 10, alignItems: 'start',
       }}>
         {children}

@@ -333,7 +333,18 @@ export default function UnitTrainingPanel({
           masaüstünde eskisi kadar sütun oluyor.
         */
         gridTemplateColumns: 'repeat(auto-fill, minmax(108px, 132px))',
-        justifyContent: 'start', gap: 7,
+        /*
+          ÇOK DAR EKRANDA SÜTUNLAR ORTADA.
+
+          320 px'de ızgaraya 236 px kalıyor ama iki 132'lik sütun sığmıyor;
+          tek sütun çıkıp sağda 104 px boşluk bırakıyordu ve ekran bozuk
+          görünüyordu. İki sütuna zorlamak ÇÖZÜM DEĞİL: kart 106 px'e
+          düşer, dokunmatikte adet kutusu 120 px olduğu için taşar —
+          yeni düzelttiğimiz kırpılma hatasının aynısı. Kartların 9/16
+          oranı yüzünden tek kartı genişletmek de olmuyor (220 px genişlik
+          = 390 px yükseklik). Boşluk kalıyor ama iki yana bölünüyor.
+        */
+        justifyContent: 'center', gap: 7,
         marginBottom: queue.length > 0 ? 9 : 0,
       }}>
         {allowed.map(u => {

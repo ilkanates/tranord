@@ -1729,8 +1729,14 @@ export default function VillageCenter({
                 İki sütun YALNIZ ekipman binalarında anlamlı (üretim |
                 yükseltme). Boş arazide sağ sütun boş kalıyor, inşa listesi
                 pencerenin solunda dar bir şeride sıkışıyordu.
+
+                DAR EKRANDA TEK SÜTUN. 414 px'de panel 376 px; iki sütun
+                her birine 188 px bırakıyor, ekipman kutusunun içindeki
+                kuyruk sütunu da sabit 118 px alınca "At" kartına 26 px
+                kalıyordu (ölçüldü) — kart eziliyor, yanında da boş alan
+                duruyordu. Telefonda alt alta koymak hem okunur hem geniş.
               */
-              gridTemplateColumns: hasEquipment ? '1fr 1fr' : '1fr',
+              gridTemplateColumns: (hasEquipment && !darEkran) ? '1fr 1fr' : '1fr',
               alignItems: 'start',
             }}>
             <div style={{ minWidth: 0, display: buildMenuBos ? 'none' : 'block' }}>
