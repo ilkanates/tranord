@@ -61,6 +61,7 @@ const ERR = {
   gecersiz_koy: 'Hedef köy bulunamadı.',
   savunma_gucu_yok: 'Seçtiğin birimlerin savunma gücü yok — takviye olamaz.',
   takviye_yalniz_oyuncuya: 'NPC köyüne takviye gönderilmez.',
+  kusatma_yalniz_saldiri: 'Koçbaşı ve mancınık yalnız TAM SALDIRIDA kullanılır.',
   takviye_yok: 'Bu takviye artık orada değil.',
   senin_degil: 'Bu takviye senin değil.',
 };
@@ -229,12 +230,21 @@ export default function SendArmyPanel({
     () => Object.entries(army).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]),
     [army]);
 
-  // Mod değişince uygun olmayan seçimleri temizle
+  /*
+    Mod değişince uygun olmayan seçimleri temizle.
+
+    Kuşatma da burada düşüyor: "tam saldırı"da mancınık seçip yağmaya
+    geçen oyuncunun seçimi ekranda duruyor ama geçersiz — gönderirken
+    sunucudan hata yiyordu.
+  */
   useEffect(() => {
-    setSel(s => Object.fromEntries(Object.entries(s).filter(
-      ([k]) => (mode === 'scout' ? scoutSet.has(k) : true))));
+    setSel(s => Object.fromEntries(Object.entries(s).filter(([k]) => {
+      if (mode === 'scout') return scoutSet.has(k);
+      if (mode !== 'attack' && unitDefs[k]?.category === 'kusatma') return false;
+      return true;
+    })));
     setPred(null);
-  }, [mode, scoutSet]);
+  }, [mode, scoutSet]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const chosen = useMemo(
     () => Object.fromEntries(Object.entries(sel).filter(([, n]) => n > 0)),
@@ -258,6 +268,14 @@ export default function SendArmyPanel({
     SALDIRANIN köyüne ait, panelin haritadan aldığı hedef bilgisinde yok.
     Karar yine sunucuda; buradaki kontrol yalnız kutuyu göstermek için.
   */
+  /*
+    KUŞATMA YALNIZ TAM SALDIRIDA. Sunucu da reddediyor; buradaki kilit
+    oyuncuyu boşuna seçtirip sonra hata yedirmemek için. Sınıf birimin
+    KENDİ tanımından okunuyor, elle liste tutulmuyor.
+  */
+  const kusatmaKapali = mode !== 'attack';
+  const kusatmaBirimi = (u) => unitDefs[u]?.category === 'kusatma';
+
   const minAtolye = marchInfo?.ikiHedefMinAtolye ?? 10;
   const ikiHedefAcik = (marchInfo?.atolyeSeviye ?? 0) >= minAtolye;
 
@@ -506,11 +524,13 @@ export default function SendArmyPanel({
                   ].map(({ k, etiket, sec }) => (
                     <button key={k} onClick={() => setSel(
                       Object.fromEntries(available
-                        .filter(([u]) => savasci(unitDefs[u], scoutSet, u) && sec(unitDefs[u]))
+                        .filter(([u]) => savasci(unitDefs[u], scoutSet, u) && sec(unitDefs[u])
+                          && !(kusatmaKapali && kusatmaBirimi(u)))
                         .map(([u, have]) => [u, have])))}
                       style={btn('ghost', {
                         flex: '1 1 auto', padding: '5px 8px', fontSize: 9, letterSpacing: 0.8,
-                      })}>
+                      })}
+                      title={kusatmaKapali ? 'Kuşatma makineleri bu modda seçilmez' : undefined}>
                       {etiket}
                     </button>
                   ))}
@@ -540,11 +560,14 @@ export default function SendArmyPanel({
                 }}>
                   {available.map(([u, have]) => {
                     const scoutOnly = mode === 'scout' && !scoutSet.has(u);
+                    const makineKapali = kusatmaKapali && kusatmaBirimi(u);
                     return (
                       <UnitRow key={u} u={u} def={unitDefs[u]}
                         st={unitStatsNow[u] || unitDefs[u]?.stats} have={have}
-                        value={sel[u] || 0} disabled={scoutOnly}
-                        reason="Keşfe yalnızca izci gidebilir"
+                        value={sel[u] || 0} disabled={scoutOnly || makineKapali}
+                        reason={makineKapali
+                          ? 'Kuşatma makinesi yalnız TAM SALDIRIDA'
+                          : 'Keşfe yalnızca izci gidebilir'}
                         onChange={(n) => setSel(s => ({ ...s, [u]: n }))} />
                     );
                   })}

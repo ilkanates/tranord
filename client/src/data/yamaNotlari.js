@@ -26,6 +26,38 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13g',
+    tarih: '13 Eylül 2026',
+    baslik: 'Kuşatma düzeltmeleri',
+    notlar: [
+      {
+        id: '20260913-makine-donmuyordu',
+        tur: 'duzeltme',
+        metin: 'Mancınık ve koçbaşı saldırıya gidiyor ama GERİ DÖNMÜYORDU. '
+          + 'Savaş hesabı bu birimleri (gücü sayılmasın diye) dışarıda '
+          + 'bırakırken sağ kalanlar listesinden de düşürüyordu: makineler '
+          + 'savaş biter bitmez yok oluyordu. Artık savaştan sağ çıkıp eve '
+          + 'dönüyorlar — ama ordunun kaybettiği oranda onlar da ölüyor.',
+      },
+      {
+        id: '20260913-kusatma-raporda',
+        tur: 'duzeltme',
+        metin: 'Aynı hatanın ikinci yüzü: kuşatma fazı SAĞ KALAN makinelere '
+          + 'baktığı için hiçbir şey yıkmıyor, raporda da hiçbir şey '
+          + 'yazmıyordu. Artık savaş raporunda "Kuşatma" kutusu çıkıyor: '
+          + 'sur kaç seviye indi, hangi bina kaçtan kaça düştü.',
+      },
+      {
+        id: '20260913-kusatma-sadece-saldiri',
+        tur: 'denge',
+        metin: 'Koçbaşı ve mancınık artık yalnız TAM SALDIRIDA '
+          + 'gönderilebiliyor. Yağma vur-kaçtır, keşif izci işidir, '
+          + 'takviyede makinenin savunmaya katkısı yok — üstelik makine '
+          + 'yavaş olduğu için bütün orduyu boşuna yavaşlatıyordu.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13f',
     tarih: '13 Eylül 2026',
     baslik: 'Seferi geri çağır, kuşatma ayarları',

@@ -40,14 +40,26 @@ const ITEMS = [
   {
     key: 'ordu',
     label: 'Ordu ver',
-    note: '200 piyade · 60 süvari · 5 kuşatma',
+    note: '200 piyade · 60 süvari · 5 koçbaşı · 5 mancınık',
+    /*
+      SIRA ÖNEMLİ — sunucu nüfus BÜTÇESİ kadar veriyor ve listeyi baştan
+      tüketiyor. Kuşatma sonda olduğu için nüfusu dolu bir köyde hiç
+      gelmiyordu: tam da test edilmek istenen birim düşüyordu. Denenecek
+      olan önce yazılıyor.
+    */
     emit: ['dev_grant', {
       army: {
-        fjordvakt: 100, skjoldvakt: 60, spydvakt: 40,
+        kaleKiran: 5, 'alevMancınıgı': 5,
         demirAtli: 40, skjoldreiter: 20,
-        kaleKiran: 5,
+        fjordvakt: 100, skjoldvakt: 60, spydvakt: 40,
       },
     }],
+  },
+  {
+    key: 'surluHedef',
+    label: 'Surlu hedef köy',
+    note: 'en yakın NPC: sur Lvl 10, hendek Lvl 5 + binalar',
+    emit: ['dev_surlu_hedef', { sur: 10, hendek: 5 }],
   },
 ];
 

@@ -202,3 +202,54 @@ test('koç başı Rún Salonu araştırması istiyor, atölye şartı Lvl 1 kal�
   assert.ok(RESEARCHABLE.includes('kaleKiran'), 'araştırma listesinde olmalı');
   assert.ok(needsResearch('alevMancınıgı'), 'mancınık zaten istiyordu');
 });
+
+/**
+ * KUŞATMA MAKİNELERİ SAVAŞTAN SAĞ ÇIKMALI.
+ *
+ * `simulateBattle` savaşmayan birimleri hesaba katmıyordu — doğru; ama
+ * onları `attackerSurvivors`a da koymuyordu. `march.units = survivors`
+ * satırıyla mancınıklar savaş biter bitmez YOK oluyordu: eve dönmüyorlar
+ * ve kuşatma fazı (sağ kalanlara bakıyor) hiçbir şey yıkmıyordu.
+ */
+test('savaşta kuşatma makinesi hesaba girmiyor ama sağ kalanlarda DURUYOR', () => {
+  const { simulateBattle } = require('../game/combat');
+  const tek = simulateBattle({ fjordvakt: 100 }, { fjordvakt: 20 }, {});
+  const ile = simulateBattle(
+    { fjordvakt: 100, kaleKiran: 10, 'alevMancınıgı': 10 }, { fjordvakt: 20 }, {});
+
+  assert.equal(ile.attackTotal, tek.attackTotal,
+    'makine saldırı gücüne EKLENMEMELİ');
+  assert.ok(ile.attackerSurvivors.kaleKiran > 0, 'koç başı sağ kalanlarda olmalı');
+  assert.ok(ile.attackerSurvivors['alevMancınıgı'] > 0, 'mancınık sağ kalanlarda olmalı');
+  assert.ok((ile.attackerLosses.kaleKiran || 0) > 0,
+    'makine de ordunun kaybettiği oranda ölmeli — risksiz taşınamaz');
+  assert.equal(
+    ile.attackerSurvivors.kaleKiran + ile.attackerLosses.kaleKiran, 10,
+    'sağ kalan + kayıp = gönderilen');
+});
+
+test('savaş olmadığında (saldırı gücü 0) makineler yine de dönüyor', () => {
+  const { simulateBattle } = require('../game/combat');
+  const r = simulateBattle({ kaleKiran: 5 }, { fjordvakt: 10 }, {});
+  assert.equal(r.winner, 'none');
+  assert.equal(r.attackerSurvivors.kaleKiran, 5, 'makine yok olmamalı');
+});
+
+test('kuşatma makinesi YALNIZ tam saldırıda yola çıkıyor', () => {
+  const A = require('../game/army');
+  const { createVillage } = require('../game/villageState');
+  const dene = (mode) => {
+    const v = createVillage(0, 0);
+    v.army = { fjordvakt: 50, kaleKiran: 3 };
+    return A.createMarch(v, {
+      mode, units: { fjordvakt: 50, kaleKiran: 3 }, distance: 3,
+      fromKey: '0,0', fromName: 'B', toKey: '3,0', toName: 'H', toKind: 'npc',
+    });
+  };
+  assert.equal(dene('attack').ok, true, 'tam saldırıda serbest');
+  for (const mode of ['raid', 'takviye']) {
+    const r = dene(mode);
+    assert.equal(r.ok, false, `${mode} modunda reddedilmeli`);
+    assert.equal(r.reason, 'kusatma_yalniz_saldiri');
+  }
+});

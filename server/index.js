@@ -3001,6 +3001,54 @@ io.on('connection', async socket => {
      * Yer: merkez köye EN YAKIN boş dünya slotu. Slotlar zaten aralıklı
      * üretildiği için ayrıca mesafe kontrolü gerekmiyor.
      */
+    /**
+     * TEST — SURLU HEDEF KÖY.
+     *
+     * Kuşatmayı denemenin önünde iki engel vardı: yakında surlu bir NPC
+     * bulmak ve mancınığın vuracağı binaların var olması. İkisi de rastgele
+     * tohumlamaya kalıyordu. Bu kısayol EN YAKIN NPC köyüne sur/hendek ve
+     * birkaç bina dikiyor — koç başının SURU indirip HENDEĞE dokunmadığı
+     * tek saldırıda görülebilsin diye ikisi FARKLI seviyede veriliyor.
+     *
+     * Ordusuna dokunulmuyor: kuşatma yalnız saldıran KAZANIRSA işliyor,
+     * yani hedefin savunmasını yapay olarak sıfırlamak testi yalanlar.
+     */
+    socket.on('dev_surlu_hedef', ({ sur = 10, hendek = 5 } = {}) => {
+      const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
+      const me = WORLD.slotByKey.get(mySlot);
+      let best = null, bestD = Infinity;
+      for (const n of WORLD.npcs.values()) {
+        const d = me ? W.distanceBetween(me, n.slot) : n.slot.ring;
+        if (d < bestD) { bestD = d; best = n; }
+      }
+      if (!best) {
+        socket.emit('dev_result', { ok: false, message: 'Yakında NPC köyü yok' });
+        return;
+      }
+
+      const hv = best.village;
+      const surLv = Math.max(1, Math.min(20, Math.floor(Number(sur) || 10)));
+      const henLv = Math.max(0, Math.min(20, Math.floor(Number(hendek) || 5)));
+      const koy = (slotKey, type, level) => {
+        if (level <= 0) return;
+        const b = hv.villageBuildings[slotKey];
+        if (b && b.type === type) { b.level = Math.max(b.level || 0, level); }
+        else hv.villageBuildings[slotKey] = { type, level, workers: 0 };
+      };
+      koy('sur', 'sur', surLv);
+      koy('hendek', 'hendek', henLv);
+      // Mancınığın vurabileceği birkaç hedef — hepsi farklı tip
+      const hedefler = [['1,0', 'kisla'], ['1,-1', 'hammaddeDepo'], ['0,-1', 'anaBina']];
+      for (const [slotKey, type] of hedefler) koy(slotKey, type, 10);
+
+      markNpcDirty(best.slot.key);
+      try { socket.emit('world_snapshot', worldSnapshot(userId, session.activeSlot)); }
+      catch { /* harita yenilenmezse oyuncu kendisi açar */ }
+      socket.emit('dev_result', { ok: true,
+        message: `${best.slot.name} (${best.slot.key}, ${bestD} hex) — sur Lvl ${surLv}, hendek Lvl ${henLv}` });
+      console.log(`[DEV] ${userEmail} surlu hedef: ${best.slot.key} sur ${surLv} / hendek ${henLv}`);
+    });
+
     socket.on('dev_new_village', async () => {
       const cap = WORLD.slotByKey.get(session.capitalSlot);
       const taken = new Set([...WORLD.npcs.keys(), ...WORLD.playerBySlot.keys()]);

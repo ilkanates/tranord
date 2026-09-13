@@ -72,6 +72,7 @@ test('eksik ya da bozuk yük gönderen komutlar sunucuyu düşürmez', async (t)
     ['demolish_village', undefined],
     ['cancel_demolish_village', undefined],
     ['sefer_geri_cagir', undefined],
+    ['dev_surlu_hedef', undefined],
     ['build_village', null],
     ['upgrade_production', undefined],
     ['assign_village_workers', null],

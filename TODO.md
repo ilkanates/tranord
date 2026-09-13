@@ -143,7 +143,11 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - **Koç başı artık YALNIZ suru indiriyor.** Eskiden artan puan hendeğe geçiyordu; tek sefer iki savunma yapısını birden siliyor, hendeğe yatırımı anlamsız kılıyordu. Artan puan artık boşa gidiyor — "kaç koç başı göndereyim" gerçek bir hesap.
 - **Kuşatma stoğu sağ rayda.** Koç başı/mancınık hiçbir ekranda görünmüyordu: kaç makinen var, atölye doldu mu bilinmiyordu. Cephanelik havuzuna karıştırılmadı — atölyenin kendi kapasitesi, at gibi ayrı blok.
 - **Koç başı artık Rún Salonu araştırması istiyor** (Lvl 2). Araştırma `minLevel`den türüyor ve koç başınınki 1 olduğu için hiç kapı yoktu. `minLevel` bilerek değiştirilmedi: onu yükseltmek atölye şartını da yükseltirdi, tek istek için iki kapı olurdu.
-- **14 yeni test** (kuşatma 6, geri çağırma 6, payload 4).
+- **Koç başı artık Rún Salonu araştırması istiyor** (Lvl 2).
+- **MAKİNELER SAVAŞTAN SAĞ ÇIKMIYORDU (kök hata).** `simulateBattle` savaşmayan birimleri (kuşatma, göçmen) güce katmıyordu — doğru — ama `attackerSurvivors`a da koymuyordu. `march.units = survivors` satırıyla mancınıklar savaş biter bitmez YOK oluyordu. İki ayrı arıza olarak görünüyordu: makineler eve dönmüyor VE kuşatma fazı (sağ kalanlara bakıyor) hiçbir şey yıkmadığı için raporda kuşatma kutusu hiç çıkmıyordu. Artık taşınıyorlar ve ordunun kayıp oranında ölüyorlar — kayıpsız taşınsalardı "bir asker + yirmi mancınık" risksiz kuşatma olurdu.
+- **Kuşatma yalnız TAM SALDIRIDA.** Yağma vur-kaç, keşif izci işi, takviyede katkısı yok; üstelik makine yavaş olduğu için orduyu boşuna yavaşlatıyordu. Sunucu reddediyor, panel de seçtirmiyor ve mod değişince seçimi düşürüyor.
+- **Dev kısayolları:** "Surlu hedef köy" (en yakın NPC'ye sur Lvl 10 + hendek Lvl 5 + binalar) ve "Ordu ver" artık mancınık da veriyor. Kuşatma birimleri listede ÖNE alındı: sunucu nüfus bütçesi kadar veriyor ve listeyi baştan tüketiyor, sonda kalınca tam da test edilecek birim düşüyordu.
+- **17 yeni test** (kuşatma 9, geri çağırma 6, payload 4).
 
 ### Takviye raporları + yıkımın süresi (13 Eylül 2026)
 - **"Destek yolladım, rapor 'saldırdın ve kaybettin' diyordu."** Takviye raporunun `outcome`'u (`takviye_vardi`) rapor ekranında hiç tanınmıyordu: kazanan/kaybeden testine düşüyor, `winner: 'none'` olduğu için herkes kaybediyordu. Artık giden "X köyünü destekledin", gelen "X sana destek gönderdi"; rozet de kırmızı değil savunma yeşili.

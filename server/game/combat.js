@@ -25,7 +25,19 @@ const TOWER_ARCHERS_PER_LEVEL = VILLAGE_DEFS.kule?.workersPerLevel || 4;
 const K_LOSS_EXPONENT = 1.5;     // Kirilloid sabiti
 const RAID_LOSS_MULT  = 0.5;     // Yağma modu kayıpları yarıya düşürür
 
-/** Göçmen ve kuşatma birimleri savaş hesabına girmez */
+/**
+ * Göçmen ve kuşatma birimleri savaş HESABINA girmez — ama orduyla
+ * YÜRÜRLER ve ölürler.
+ *
+ * Eskiden bu birimler hesaba girmedikleri gibi `attackerSurvivors`a da
+ * konmuyordu: `march.units = survivors` satırıyla mancınıklar savaş
+ * biter bitmez YOK oluyordu. Sonuç iki ayrı arıza olarak görünüyordu —
+ * makineler eve dönmüyordu ve kuşatma fazı (sağ kalanlara bakıyor)
+ * hiçbir şey yıkmıyordu.
+ *
+ * Doğru davranış: güce katkı yok, kayıpta pay VAR. Kayıpsız taşınsalardı
+ * "bir asker + yirmi mancınık" risksiz bir kuşatma olurdu.
+ */
 const NON_COMBAT = new Set(['kusatma', 'gocmen']);
 function isCombatUnit(key) {
   const def = UNIT_DEFS[key];
@@ -97,9 +109,15 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
   let infAttack   = 0;
   let cavAttack   = 0;
   const attackerClean = {};
+  // Savaşmayan ama orduyla yürüyen birimler (kuşatma makineleri, göçmen)
+  const attackerCarried = {};
 
   for (const [key, rawCount] of Object.entries(attackerUnits)) {
-    if (!isCombatUnit(key)) continue;
+    const count0 = Math.max(0, Math.floor(Number(rawCount) || 0));
+    if (!isCombatUnit(key)) {
+      if (count0 > 0 && UNIT_DEFS[key]) attackerCarried[key] = count0;
+      continue;
+    }
     const count = Math.max(0, Math.floor(Number(rawCount) || 0));
     if (count <= 0) continue;
     const def = UNIT_DEFS[key];
@@ -134,7 +152,8 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
       defenderLossRate: 0,
       attackerLosses: {},
       defenderLosses: {},
-      attackerSurvivors: attackerClean,
+      // Savaş olmadı: taşınan makineler de sağ döner
+      attackerSurvivors: { ...attackerClean, ...attackerCarried },
       defenderSurvivors: defenderClean
     };
   }
@@ -207,6 +226,15 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
 
   const atk = applyRate(attackerClean, attackerLossRate);
   const def = applyRate(defenderClean, defenderLossRate);
+
+  /*
+    TAŞINAN BİRİMLER ordunun kaybettiği ORANDA ölür. Gücü hesaba
+    katılmadı ama riski paylaşıyorlar: ölen mancınık kuşatma yapmaz
+    (bkz. game/kusatma.js) ve eve dönmez.
+  */
+  const tasinan = applyRate(attackerCarried, attackerLossRate);
+  Object.assign(atk.losses, tasinan.losses);
+  Object.assign(atk.survivors, tasinan.survivors);
 
   return {
     mode,

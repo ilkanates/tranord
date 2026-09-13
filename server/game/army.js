@@ -406,6 +406,21 @@ function createMarch(village, {
     return { ok: false, reason: 'saldiri_gucu_yok' };
   }
 
+  /*
+    KUŞATMA MAKİNESİ YALNIZ TAM SALDIRIDA.
+
+    Yağmada işi yok (kuşatma fazı yalnız savaş kazanılınca işliyor ama
+    yağma "vur-kaç"tır, sur yıkmak amacı değil), keşifte zaten izci
+    şartı var, takviyede savunmaya katkısı yok, yerleşimde yeri yok.
+    Makine yavaş (hız 3-4) ve pahalı: yanlış modda göndermek orduyu
+    boşuna yavaşlatıp makineyi riske atıyordu.
+  */
+  if (mode !== 'attack') {
+    const makine = Object.keys(clean)
+      .find(k => UNIT_DEFS[k]?.category === 'kusatma');
+    if (makine) return { ok: false, reason: 'kusatma_yalniz_saldiri' };
+  }
+
   // Askerleri köyden çıkar — yoldayken savunmaya katılmazlar
   for (const [k, n] of Object.entries(clean)) {
     village.army[k] -= n;
