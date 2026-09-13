@@ -80,31 +80,6 @@ Bu zincir sırayla ilerlemek zorunda:
 
 ## 🟢 Oyun mekaniği
 
-### Kuşatma birimleri (Koç Başı, Mancınık)
-Birimler **zaten tanımlı**, ama şu an üretilmeleri İMKÂNSIZ:
-
-- `kaleKiran` ("Kale Kıran", atölye Lvl 1) → `koc_basi` ekipmanı istiyor
-- `alevMancınıgı` ("Alev Mancınığı", atölye Lvl 10, Rún araştırması var)
-  → `mancinik` ekipmanı istiyor
-- **İkisi de `EQUIPMENT_DEFS`'te yok** ve `EQUIPMENT_BY_BUILDING` yalnızca
-  `silahci: [kilic, mizrak]`, `zirh: [kalkan, zirh]`, `ahir: [at]` veriyor.
-  Yani ekipman denetimi her zaman başarısız — birim kuyruğa hiç girmiyor.
-
-Yapılacaklar:
-1. `koc_basi` ve `mancinik` ekipmanlarını tanımla; hangi bina üretecek?
-   (Atölyenin kendisi mi üretsin — şu an ekipman üreten bina listesinde yok.)
-2. Savaş hesabına kat: normal savaştan **sonra** çalışan ayrı faz.
-   - Koç Başı: saldırgan kazanırsa `saldırı × sayı` oranında sur + hendek
-     seviyesi düşer.
-   - Mancınık: saldırgan hedef bina seçer, seviyesi düşürülür.
-3. Sefer gönderme ekranında hedef bina seçimi (mancınık için).
-4. Savaş raporunda "yıkılan yapı" satırı.
-5. Simülatöre kuşatma girdisi (şu an seçilemiyorlar).
-
-**Karar gerekiyor:** ekipman maliyeti ve üretim süresi; mancınık ana binayı
-ya da depoyu vurabilsin mi (Travian'da ana bina Lvl 0'a inince köy yıkılır —
-bu oyunda köy yıkımı istiyor muyuz?).
-
 ### Sağlık çadırı
 - `saglikCadiri` binası tanımlı, mekaniği yok.
 - Savaş sonrası **savunanın** kayıplarının bir kısmı iyileştirilir.
@@ -159,6 +134,24 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Kuşatma birimleri — Koç Başı ve Mancınık (13 Eylül 2026)
+- **Asıl eksik ekipmandı.** `kaleKiran` ve `alevMancınıgı` baştan tanımlıydı ama istedikleri `koc_basi`/`mancinik` ekipmanları HİÇ tanımlı değildi. Üstelik `birimler.js` bu yüzden konmuş bir yamayla kuşatma sınıfını listeden dışlıyordu — yani eksikliği gizliyordu. İkisi de kaldırıldı: artık tek ölçüt "ekipmanı tanımlı mı".
+- Ekipmanlar **atölyede** üretiliyor, cephanelik havuzunu paylaşmıyorlar: makine, kişisel teçhizat değil. Atölyenin kendi kapasitesi (`siegeCapPerLevel: 5`, ikisi ortak) — atın ahırda durması gibi.
+- **Kuşatma fazı** (`game/kusatma.js`) normal savaştan SONRA, yalnız saldıran KAZANDIYSA ve yalnız SAĞ KALAN makinelerle çalışıyor. Kaybeden kuşatma yapamaz, ölen mancınık vurmaz.
+- Seviye maliyeti ARTIYOR: `30 × mevcut seviye`. Sabit olsaydı Lvl 20 sur Lvl 2 kadar kolay düşerdi. Ölçüm: 10 koç başı (600 puan) Lvl 3 suru ve Lvl 2 hendeği sıfırlıyor; 1 koç başı Lvl 20 sura hiç dokunamıyor.
+- Koç başı **sur → hendek** sırasıyla; mancınık **seçilen bina tipini**, yoksa rastgele bir binayı. "Hedefin yok" deyip seferi boşa çıkarmak hem oyuncuyu cezalandırır hem köyün içini dolaylı keşfetmeye yarardı.
+- Kuşatma **ganimetten ÖNCE** işliyor: mancınık depoyu vurabiliyor, seviye düşünce tavan da düşüyor. Ters sırada oyuncu önce deposunu boşaltıp sonra binasını kaybederdi.
+- Yıkılan binanın **işçileri havuza dönüyor** — dönmezse var olmayan bir binada "çalışıyor" görünüp nüfus muhasebesini bozarlardı.
+- **KÖY YIKIMI KAPALI:** ana bina Lvl 1'in altına inmiyor. Travian'da 0'a inince köy yok olur; satılan bir oyunda her şeyi tek saldırıda kaybetmek fazla sert bulundu. Açılacaksa tek yer `ANA_BINA_TABAN` — test o kararı kilitliyor.
+- Arayüz: gönderme ekranında mancınık hedefi seçici (yalnız seçimde mancınık varken), savaş raporunda "Kuşatma" kutusu (iki tarafa da — savunan surunun düştüğünü görmezse hazırlıksız yakalanır).
+- **11 birim testi** (`test/kusatma.test.js`), ikiz tanım testi dahil.
+- Yan bulgu: `EQUIPMENT_BUILDINGS` istemcide elle yazılıydı ve `atolye` yoktu — atölye paneli boş açılıyordu. Sabit liste kaldırıldı, artık payload'daki `equipmentByBuilding` tek kaynak. (Araştırmayı tıkayan hatanın aynı sınıfı.)
+
+### Ordu gönderme: hızlı seçim (13 Eylül 2026)
+- **TÜM ORDU · SALDIRI · SAVUNMA · TEMİZLE** düğmeleri. Asker tek tek yazmak yerine tek dokunuş.
+- **İzci ve göçmen hiçbirine girmez** (İlkan'ın isteği + ölçüm): izci savaşmaz, saldırıda bedavaya ölür; göçmenin saldırısı da savunması da SIFIR, savaşa gönderilirse hem boşa gider hem yerleşim hakkı kaçar.
+- Ayrım sabit listeden değil birimin KENDİ değerlerinden: saldırısı ortalama savunmasından büyükse saldırgan. Yeni birim eklendiğinde kendiliğinden doğru yere düşüyor.
 
 ### Takviye — başka köye savunma askeri gönderme (13 Eylül 2026)
 - Yeni sefer modu `takviye`: çarpışma yok, ganimet yok, dönüş ayağı yok. Asker hedef köyde **misafir** kalır ve o köy saldırı alınca savunmaya katılır (`savunanBirlikler` = kendi ordu + misafirler).

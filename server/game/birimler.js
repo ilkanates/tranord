@@ -8,11 +8,21 @@
  */
 const { UNIT_DEFS, EQUIPMENT_DEFS } = require('../data');
 
+/*
+  ÖLÇÜT TEK: birimin istediği ekipman GERÇEKTEN tanımlı mı?
+
+  Eskiden ayrıca `category === 'kusatma'` diye bir dışlama vardı. Sebebi
+  şuydu: koç başı ve mancınık ekipmanları hiç tanımlı değildi, o yüzden
+  kuşatma birimleri listede görünüp sunucuda reddediliyordu. Yani bu
+  satır asıl eksikliği gizleyen bir yama idi.
+
+  Ekipmanlar tanımlandı (militaryDefs · koc_basi, mancinik → atölye),
+  dolayısıyla yamaya gerek kalmadı. Kalan tek koşul dürüst olanı:
+  ekipmanı olmayan birim eğitilemez.
+*/
 const TRAINABLE_UNITS = Object.fromEntries(
-  Object.entries(UNIT_DEFS).filter(([_, def]) => {
-    if (def.category === 'kusatma') return false;
-    return (def.equipment || []).every(eq => EQUIPMENT_DEFS[eq]);
-  })
+  Object.entries(UNIT_DEFS).filter(([, def]) =>
+    (def.equipment || []).every(eq => EQUIPMENT_DEFS[eq]))
 );
 
 // trainedAt tek ad ya da dizi olabilir (göçmen hem köşkte hem sarayda)

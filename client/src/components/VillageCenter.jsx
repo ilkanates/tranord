@@ -18,7 +18,9 @@ import usePinchPan from './usePinchPan';
 import { useHoverable, TAP } from '../responsive';
 // Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
 import surTexture from '../assets/buildings/sur-doku.jpg';
-const EQUIPMENT_BUILDINGS = new Set(['silahci', 'zirh', 'ahir']);
+// EKİPMAN ÜRETEN BİNALAR ARTIK SUNUCUDAN GELİYOR: payload'daki
+// `equipmentByBuilding` tek kaynak. Burada elle tutulan bir liste vardı
+// ve kuşatma eklenince `atolye`yi kaçırdı — atölye paneli boş açılıyordu.
 // Göçmen köşk/sarayda eğitilir — o iki bina da eğitim paneli gösterir
 const TRAINING_BUILDINGS  = new Set(['kisla', 'ahir', 'atolye', 'kosk', 'saray']);
 
@@ -942,7 +944,7 @@ export default function VillageCenter({
   const selB = selected ? villageBuildings[selected] : null;
   // Yükseltme sırasında da bina çalıştığı için kuyruk paneli açık kalır
   const hasQueuePanel = !!selB && selB.level >= 1
-    && (EQUIPMENT_BUILDINGS.has(selB.type) || TRAINING_BUILDINGS.has(selB.type));
+    && ((equipmentByBuilding[selB.type] || []).length > 0 || TRAINING_BUILDINGS.has(selB.type));
 
   // Eğitim binalarında birim kartları görselli ve 4 sütun — pencere daha geniş olmalı
   const isTraining = !!selB && selB.level >= 1 && TRAINING_BUILDINGS.has(selB.type)
@@ -1302,8 +1304,17 @@ export default function VillageCenter({
           const panelVid = selectedBuilding ? BUILDING_VIDEO[selectedBuilding.type] : null;
 
           // Govde sirasi: savascilar gorselin hemen altinda, digerleri altta
+          /*
+            EKİPMAN ÜRETEN BİNA LİSTESİ SUNUCUDAN GELİR, ELLE YAZILMAZ.
+
+            `EQUIPMENT_BUILDINGS` sabiti burada elle tutuluyordu ve
+            `atolye` yoktu: kuşatma ekipmanları eklenince atölye paneli
+            hâlâ boş açılıyordu. Aynı hata sınıfı bu projede daha önce
+            araştırmayı tamamen tıkamıştı (bkz. WORKER_ASSIGNABLE_MILITARY).
+            `equipmentByBuilding` zaten payload'da; tek kaynak o olsun.
+          */
           const hasEquipment = !!selectedBuilding && selectedBuilding.level >= 1
-            && EQUIPMENT_BUILDINGS.has(selectedBuilding.type);
+            && (equipmentByBuilding[selectedBuilding.type] || []).length > 0;
           const hasTraining = !!selectedBuilding && selectedBuilding.level >= 1
             && TRAINING_BUILDINGS.has(selectedBuilding.type)
             && (unitsByBuilding[selectedBuilding.type] || []).length > 0;
@@ -1791,7 +1802,7 @@ export default function VillageCenter({
             </div>
 
             <div style={{ minWidth: 0 }}>
-            {selectedBuilding && EQUIPMENT_BUILDINGS.has(selectedBuilding.type)
+            {selectedBuilding && (equipmentByBuilding[selectedBuilding.type] || []).length > 0
               && selectedBuilding.level >= 1 && (
               <div style={{ padding: '0 10px 8px' }}>
                 {/* Ahırda yükseltme yok: at bir alet değil */}

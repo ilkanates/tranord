@@ -130,7 +130,7 @@ const VILLAGE_DEFS = {
   kisla:        { cpPerLevel:1, name:'Kışla',           category:'askeri', icon:'🛡️', description:'Piyade askerlerini eğitir. İşçi sayısı eğitim süresini kısaltır.',
                    unique:true, maxLevel:20, workersPerLevel:3, buildBaseWork:35, buildMultiplier:1.9, upgradeCostBase:{ kereste:60, yontmaTas:70 }, upgradeCostMultiplier:1.7, cost:{ kereste:60, yontmaTas:70 } },
   atolye:       { cpPerLevel:1, name:'Atölye',          category:'askeri', icon:'🏗️', description:'Kuşatma silahları üreten bina.',
-                   unique:true, maxLevel:20, workersPerLevel:3, buildBaseWork:30, buildMultiplier:1.9, upgradeCostBase:{ kereste:75, demirKulce:75 }, upgradeCostMultiplier:1.7, cost:{ kereste:75, demirKulce:75 } },
+                   unique:true, maxLevel:20, workersPerLevel:3, siegeCapPerLevel:5, buildBaseWork:30, buildMultiplier:1.9, upgradeCostBase:{ kereste:75, demirKulce:75 }, upgradeCostMultiplier:1.7, cost:{ kereste:75, demirKulce:75 } },
   cephane:      { cpPerLevel:1, name:'Cephanelik',      category:'askeri', icon:'🏹', description:'Kılıç/mızrak/kalkan/zırh depolar. Her seviye +50 kapasite.',
                    unique:true, maxLevel:20, equipmentCapPerLevel:50, poolCapPerLevel:200, buildBaseWork:30, buildMultiplier:1.8, upgradeCostBase:{ kereste:60, yontmaTas:70, demirKulce:35 }, upgradeCostMultiplier:1.6, cost:{ kereste:60, yontmaTas:70, demirKulce:35 } },
   saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',   category:'askeri', icon:'⛺', description:'Yaralı askerleri iyileştiren bina.',             unique:true, maxLevel:20, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:35, tahil:30 } },

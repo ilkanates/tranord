@@ -25,6 +25,7 @@
 const { UNIT_DEFS } = require('../data');
 const { SETTLER_UNIT, SETTLERS_REQUIRED } = require('../data/militaryDefs');
 const { simulateBattle, towerBonusPct } = require('./combat');
+const KUSATMA = require('./kusatma');
 const GT = require('./gameTime');
 
 // ── Ölçek sabitleri ────────────────────────────────────────────────────
@@ -661,6 +662,18 @@ function resolveArrival(march, origin, target, opts = {}) {
     origin.population = Math.max(1, (origin.population || 0) - attackerDead);
   }
 
+  /*
+    KUŞATMA FAZI — savaştan SONRA, yalnız saldıran KAZANDIYSA.
+
+    Sıra önemli: kuşatma ganimetten ÖNCE işliyor, çünkü mancınık depoyu
+    vurabiliyor. Depo seviyesi düşünce tavan da düşüyor ve fazlası
+    kayboluyor — yağmalanacak mal da o kadar azalıyor. Tersi sırada
+    oyuncu önce deposunu boşaltıp sonra binasını kaybederdi.
+  */
+  const kusatmaSonuc = (res.winner === 'attacker')
+    ? KUSATMA.uygula(target, survivors, march.kusatmaHedefi || null)
+    : null;
+
   // Ganimet: hayatta kalan varsa taşınır. Keşifte ve tam yok olmada yok.
   const loot = survTotal > 0
     ? takeLoot(target, carryCapacity(survivors), march.mode)
@@ -685,6 +698,8 @@ function resolveArrival(march, origin, target, opts = {}) {
     attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
     wallBonusPct: res.wallBonusPct,
     defenderDead, attackerDead,
+    // Kuşatma sonucu — yoksa alan hiç yazılmıyor, eski raporlar bozulmuyor
+    ...(kusatmaSonuc ? { kusatma: kusatmaSonuc } : {}),
   };
   // Gönderilen = hayatta kalan + kayıp
   report.sent = Object.fromEntries(
@@ -717,6 +732,9 @@ function resolveArrival(march, origin, target, opts = {}) {
     myLosses: res.defenderLosses || {}, theirLosses: res.attackerLosses || {},
     loot, wallBonusPct: res.wallBonusPct,
     attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
+    // Savunan da neyini kaybettiğini görmeli — surun düştüğünü fark etmezse
+    // bir sonraki saldırıya hazırlıksız yakalanır
+    ...(kusatmaSonuc ? { kusatma: kusatmaSonuc } : {}),
   });
 
   return march;

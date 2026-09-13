@@ -128,7 +128,7 @@ const VILLAGE_DEFS = {
                    buildBaseWork:35, buildMultiplier:1.9, cost:{ kereste:60, yontmaTas:70 },
                    upgradeCostBase:{ kereste:60, yontmaTas:70 }, upgradeCostMultiplier:1.7 },
   atolye:       { cpPerLevel:1, name:'Atölye',           category:'askeri',   icon:'🏗️', description:'Mancınık ve koç başı üreten bina.',
-                   unique:true,  maxLevel:20, workersPerLevel:3,
+                   unique:true,  maxLevel:20, workersPerLevel:3, siegeCapPerLevel:5,
                    buildBaseWork:30, buildMultiplier:1.9, cost:{ kereste:75, demirKulce:75 },
                    upgradeCostBase:{ kereste:75, demirKulce:75 }, upgradeCostMultiplier:1.7 },
   cephane:      { cpPerLevel:1, name:'Cephanelik',       category:'askeri',   icon:'🏹', description:'Kılıç, mızrak, kalkan ve zırh ORTAK bir depoyu paylaşır. Her seviye havuza +200 yer katar.',

@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { C, FONT, panel, btn, label as lbl, num, short } from '../theme';
 import { useViewport } from '../responsive';
 import { RES_LABEL } from '../flows';
+import VILLAGE_DEFS from '../data/villageDefs';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
@@ -493,6 +494,39 @@ function Detail({ r, unitDefs }) {
                 </div>
               </div>
             </Section>
+          )}
+
+          {/*
+            KUŞATMA SONUCU — iki tarafa da gösterilir.
+            Savunan surunun düştüğünü fark etmezse bir sonraki saldırıya
+            hazırlıksız yakalanır; saldıran da makinesinin işe yarayıp
+            yaramadığını göremezse kuşatmaya yatırım yapmaz.
+          */}
+          {r.kusatma && (
+            <div style={panel({
+              padding: '9px 11px', background: 'rgba(217,192,105,0.10)',
+              border: '1px solid rgba(217,192,105,0.38)',
+            })}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Icon name="atolye" size={14} color="#d9c069" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
+                  <b style={{ color: '#e8d08a' }}>Kuşatma</b>
+                  {r.kusatma.sur > 0 && (
+                    <div>Sur <b style={{ color: C.danger }}>−{r.kusatma.sur}</b> seviye</div>
+                  )}
+                  {r.kusatma.hendek > 0 && (
+                    <div>Hendek <b style={{ color: C.danger }}>−{r.kusatma.hendek}</b> seviye</div>
+                  )}
+                  {(r.kusatma.binalar || []).map((b, i) => (
+                    <div key={i}>
+                      {VILLAGE_DEFS[b.tip]?.name || b.tip}
+                      {' '}<b style={{ color: C.danger }}>{b.onceki} → {b.sonraki}</b>
+                      {b.sonraki === 0 ? ' (yıkıldı)' : ''}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {r.lootLost && sum(r.lootLost) > 0 && (

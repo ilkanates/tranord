@@ -39,6 +39,36 @@ const EQUIPMENT_DEFS = {
     cost: { demirKulce: 20, kereste: 5 }, productionHours: 3,
     producedAt: 'zirh'
   },
+  /*
+    KUŞATMA MAKİNELERİ — atölyede üretilir.
+
+    `kaleKiran` ve `alevMancınıgı` birimleri baştan tanımlıydı ama
+    gerektirdikleri bu iki ekipman HİÇ TANIMLI DEĞİLDİ ve hiçbir bina
+    üretmiyordu: ekipman denetimi her zaman başarısız oluyor, birim
+    kuyruğa hiç girmiyordu. Yani kuşatma birimleri üretilemiyordu.
+
+    Kişisel teçhizattan (kılıç/kalkan) farklı olarak bunlar MAKİNE:
+    cephanelik havuzunu paylaşmazlar, atölyenin kendi kapasitesinde
+    dururlar (bkz. tick.js · getSiegeCap) — atın ahırda durması gibi.
+
+    Pahalı ve yavaş: bir koç başı bir kılıçtan 12 kat uzun sürüyor.
+    Kuşatma tek seferlik bir yatırım olmalı, sürekli üretilen bir şey
+    değil; ucuz olsaydı her saldırıda sur sıfırlanırdı.
+  */
+  koc_basi: {
+    name: 'Koç Başı', icon: '🪵',
+    saldiri: +20, yayaSav: 0, atliSav: 0, hiz: 0, kapasite: 0,
+    cost: { kereste: 120, demirKulce: 60 }, productionHours: 6,
+    producedAt: 'atolye',
+    kural: 'Sur ve hendeği yıkar. Yalnız saldıran kazanırsa etki eder.'
+  },
+  mancinik: {
+    name: 'Mancınık', icon: '🎯',
+    saldiri: +25, yayaSav: 0, atliSav: 0, hiz: 0, kapasite: 0,
+    cost: { kereste: 200, yontmaTas: 120, demirKulce: 100 }, productionHours: 10,
+    producedAt: 'atolye',
+    kural: 'Seçilen binayı yıkar. Yalnız saldıran kazanırsa etki eder.'
+  },
   at: {
     name: 'At', icon: '🐎',
     saldiri: +10, yayaSav: +20, atliSav: +20, hiz: +4, kapasite: +50,

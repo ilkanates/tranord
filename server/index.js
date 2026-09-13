@@ -2535,7 +2535,7 @@ io.on('connection', async socket => {
 
 
   // ── SEFER: ordu gönder ────────────────────────────────────────────
-  socket.on('send_army', ({ targetKey, mode, units } = {}) => {
+  socket.on('send_army', ({ targetKey, mode, units, hedefBina = null } = {}) => {
     const fail = (reason) => socket.emit('army_error', { reason });
     const village = v();
     // ÇOKLU KÖY: sefer AKTİF köyden çıkar, oyuncunun "ilk" köyünden değil
@@ -2616,6 +2616,12 @@ io.on('connection', async socket => {
     if (!res.ok) return fail(res.reason);
     // Varışta misafir girdisine sahibini yazabilmek için sefere iliştir
     if (mode === 'takviye') res.march.ownerUserId = userId;
+    /*
+      MANCINIK HEDEFI — istemci bina TIPI gonderiyor (slot degil): saldiran
+      hedefin hangi slotunda ne oldugunu bilmiyor, yalnizca "deposunu vur"
+      diyebiliyor. Bulunamazsa rastgele bina vuruluyor (bkz. kusatma.js).
+    */
+    if (typeof hedefBina === 'string' && hedefBina) res.march.kusatmaHedefi = hedefBina;
 
     /*
       İlk SALDIRI başlangıç korumasını kaldırır. Göçmen seferi ve TAKVİYE

@@ -67,6 +67,21 @@ function getEquipmentPool(village) {
 }
 
 // At kapasitesi (ahır)
+/*
+  KUŞATMA MAKİNELERİ ATÖLYEDE DURUR — cephanelik havuzunu paylaşmazlar.
+
+  Kılıç/kalkan askerin üstünde taşınan teçhizat; koç başı ve mancınık
+  makine. Aynı havuza konsaydı bir mancınık 1 kılıç kadar yer kaplar,
+  ya da tersine kılıç üretimi kuşatma yüzünden tıkanırdı.
+*/
+const SIEGE_KEYS = new Set(['koc_basi', 'mancinik']);
+
+function getSiegeCap(village) {
+  const atolye = Object.values(village.villageBuildings).find(b => b.type === 'atolye');
+  if (!atolye || atolye.level < 1) return 0;
+  return atolye.level * (VILLAGE_DEFS.atolye?.siegeCapPerLevel || 5);
+}
+
 function getHorseCap(village) {
   const ahir = Object.values(village.villageBuildings).find(b => b.type === 'ahir');
   if (!ahir || ahir.level < 1) return 0;
@@ -77,6 +92,8 @@ function getHorseCap(village) {
 // Havuz türlerinde havuzun TAMAMI döner (tek tür tüm havuzu doldurabilir).
 function getEquipmentCap(village, equipmentType) {
   if (equipmentType === 'at') return getHorseCap(village);
+  // Kuşatma makineleri atölyenin kendi kapasitesinde — toplam sayı sınırı
+  if (SIEGE_KEYS.has(equipmentType)) return getSiegeCap(village);
   return getEquipmentPool(village).capacity;
 }
 
@@ -84,6 +101,16 @@ function getEquipmentCap(village, equipmentType) {
 function hasEquipmentRoom(village, equipmentType) {
   if (equipmentType === 'at') {
     return (village.equipment?.at || 0) < getHorseCap(village);
+  }
+  if (SIEGE_KEYS.has(equipmentType)) {
+    /*
+      Koç başı ve mancınık ORTAK bir atölye kapasitesini paylaşıyor:
+      atölye Lvl 5 → 25 makine, ikisi birlikte. Ayrı ayrı sayılsaydı
+      atölye iki kat makine tutardı.
+    */
+    let siege = 0;
+    for (const k of SIEGE_KEYS) siege += village.equipment?.[k] || 0;
+    return siege < getSiegeCap(village);
   }
   if (!POOL_KEYS.has(equipmentType)) return true;
   const pool = getEquipmentPool(village);
@@ -822,6 +849,7 @@ module.exports = {
   getEquipmentCap,
   getEquipmentPool,
   getHorseCap,
+  getSiegeCap, SIEGE_KEYS,
   hasEquipmentRoom,
   getBuildingWorkers,
   getConsumptionRates,

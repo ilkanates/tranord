@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { C, FONT, btn, label as lbl, num, short, fmtTime } from '../theme';
+import VILLAGE_DEFS from '../data/villageDefs';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
@@ -30,6 +31,18 @@ const MODES = [
     desc: 'Çarpışma yok. Askerin o köyde kalır ve saldırı gelince savunur. '
       + 'Yemini O KÖY öder. Geri çağırınca yürüyerek döner.' },
 ];
+
+/**
+ * MANCINIK HEDEF LİSTESİ — oyuncunun seçebileceği bina tipleri.
+ *
+ * Sur ve hendek YOK: onları koç başı yıkıyor, mancınığa verilse iki
+ * makine aynı işi yapardı. Liste villageDefs'ten türetiliyor, elle
+ * yazılsaydı yeni bina eklendiğinde unutulurdu.
+ */
+const YIKILABILIR = Object.entries(VILLAGE_DEFS)
+  .filter(([k]) => k !== 'sur' && k !== 'hendek' && k !== 'kule')
+  .map(([k, d]) => [k, d.name || k])
+  .sort((a, b) => a[1].localeCompare(b[1], 'tr'));
 
 const ERR = {
   konum_yok: 'Köyünün dünya konumu yok.',
@@ -67,6 +80,35 @@ function marchSeconds(units, unitDefs, distance, hourSeconds, minMinutes = 1) {
   if (!Number.isFinite(hiz)) return 0;
   const gameHours = Math.max(minMinutes / 60, distance / hiz);
   return Math.round(gameHours * hourSeconds);
+}
+
+/**
+ * Bu birim SAVAŞÇI mı? Hızlı seçim yalnız savaşçıları alır.
+ *
+ * Dışarıda kalanlar:
+ *   • İzci — savaşmaz, yalnız keşfeder ve taşır. Saldırıya karışırsa
+ *     bedavaya ölür, savunmaya karışırsa gücü şişirir.
+ *   • Göçmen — saldırısı ve savunması SIFIR. Yeni köy kurmak için lazım;
+ *     savaşa gönderilirse hem boşa gider hem yerleşim hakkı kaçar.
+ *
+ * Ölçüt sabit liste değil, birimin KENDİ değerleri: yeni bir savaşmayan
+ * birim eklendiğinde kendiliğinden dışarıda kalır.
+ */
+function savasci(def, scoutSet, key) {
+  if (scoutSet?.has(key)) return false;
+  const s = def?.stats;
+  if (!s) return false;
+  return (s.saldiri || 0) > 0 || (s.yayaSav || 0) > 0 || (s.atliSav || 0) > 0;
+}
+
+/**
+ * Bu birim saldırgan mı? Saldırısı ortalama savunmasından büyükse evet.
+ * Tanımdan çıkıyor; sabit liste tutulsaydı yeni birimde unutulurdu.
+ */
+function saldirgan(def) {
+  const s = def?.stats;
+  if (!s) return false;
+  return (s.saldiri || 0) > (((s.yayaSav || 0) + (s.atliSav || 0)) / 2);
 }
 
 function carryCapacity(units, unitDefs, statsNow = {}) {
@@ -150,6 +192,7 @@ export default function SendArmyPanel({
     [yalnizTakviye]);
 
   const [mode, setMode] = useState(yalnizTakviye ? 'takviye' : 'raid');
+  const [hedefBina, setHedefBina] = useState('');
   const [sel, setSel] = useState({});
   const [err, setErr] = useState(null);
   const [sent, setSent] = useState(null);
@@ -198,6 +241,16 @@ export default function SendArmyPanel({
   const secs = marchSeconds(chosen, unitDefs, distance, hourSeconds, minMarchMin);
   const cap  = carryCapacity(chosen, unitDefs, unitStatsNow);
 
+  /*
+    Seçimde mancınık var mı — hedef seçici yalnız o zaman çıkar.
+    Sınıfı birimin EKİPMANINDAN okunuyor (sunucudaki kusatma.js ile aynı
+    kural); ada bakılsaydı yeni bir mancınık eklenince unutulurdu.
+  */
+  const mancinikVar = useMemo(
+    () => Object.keys(chosen).some(
+      u => (unitDefs[u]?.equipment || []).includes('mancinik')),
+    [chosen, unitDefs]);
+
   // ── Sonuç/hata dinleyicileri ──
   useEffect(() => {
     if (!socket) return;
@@ -245,7 +298,7 @@ export default function SendArmyPanel({
   const send = () => {
     setErr(null); setNoReply(false);
     pending.current = true;
-    socket?.emit('send_army', { targetKey: target.key, mode, units: chosen });
+    socket?.emit('send_army', { targetKey: target.key, mode, units: chosen, hedefBina: hedefBina || null });
     // Sunucu ne 'army_sent' ne 'army_error' döndürmezse olayı kimse dinlemiyor
     // demektir — sessiz başarısızlık yerine bunu söyle.
     setTimeout(() => { if (pending.current) setNoReply(true); }, 3000);
@@ -335,6 +388,40 @@ export default function SendArmyPanel({
               {modeDef.desc}
             </div>
 
+            {/*
+              MANCINIK HEDEFİ — yalnız seçimde mancınık varken görünür.
+
+              Bina TİPİ gönderiliyor, slot değil: saldıran hedefin hangi
+              slotunda ne olduğunu bilmiyor. Sunucu o tipi bulamazsa
+              rastgele bir bina vuruyor (sefer boşa gitmesin).
+            */}
+            {mancinikVar && (
+              <div style={{ ...box, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <Icon name="atolye" size={12} color="#d9c069" />
+                  <span style={lbl({ fontSize: 8.5, letterSpacing: 1.4 })}>Mancınık hedefi</span>
+                </div>
+                <select value={hedefBina} onChange={(e) => setHedefBina(e.target.value)}
+                  style={{
+                    width: '100%', padding: '6px 8px', borderRadius: 4,
+                    background: 'rgba(4,9,15,0.75)', border: `1px solid ${C.lineSoft}`,
+                    color: C.frost, fontFamily: FONT.ui, fontSize: 10.5, outline: 'none',
+                  }}>
+                  <option value="">Rastgele bina</option>
+                  {YIKILABILIR.map(([k, ad]) => (
+                    <option key={k} value={k}>{ad}</option>
+                  ))}
+                </select>
+                <div style={{
+                  fontFamily: FONT.ui, fontSize: 9, color: C.textMute,
+                  marginTop: 5, lineHeight: 1.4,
+                }}>
+                  Sur ve hendeği koç başı yıkar — mancınık binaları vurur.
+                  Hedef o köyde yoksa rastgele bir bina vurulur.
+                </div>
+              </div>
+            )}
+
             {/* Birim seçimi */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
@@ -344,6 +431,43 @@ export default function SendArmyPanel({
                   {chosenTotal} asker
                 </span>
               </div>
+
+              {/*
+                HIZLI SEÇİM — asker tek tek yazmak yerine tek dokunuş.
+
+                İZCİ HİÇBİRİNE GİRMEZ. İzci savaşmaz, yalnız taşır ve
+                keşfeder; saldırıya karışırsa bedavaya ölür, savunmaya
+                karışırsa savunma gücünü şişirir. "Tüm ordu" bile izciyi
+                almıyor — oyuncu izcisini kaybetmek istemez.
+
+                Saldırı/savunma ayrımı birimin KENDİ değerlerinden çıkıyor:
+                saldırısı ortalama savunmasından büyükse saldırgan sayılır.
+                Sabit bir liste tutulsaydı yeni birim eklendiğinde
+                unutulurdu.
+              */}
+              {available.length > 0 && mode !== 'scout' && (
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6 }}>
+                  {[
+                    { k: 'hepsi', etiket: 'TÜM ORDU', sec: () => true },
+                    { k: 'saldiri', etiket: 'SALDIRI', sec: (d) => saldirgan(d) },
+                    { k: 'savunma', etiket: 'SAVUNMA', sec: (d) => !saldirgan(d) },
+                  ].map(({ k, etiket, sec }) => (
+                    <button key={k} onClick={() => setSel(
+                      Object.fromEntries(available
+                        .filter(([u]) => savasci(unitDefs[u], scoutSet, u) && sec(unitDefs[u]))
+                        .map(([u, have]) => [u, have])))}
+                      style={btn('ghost', {
+                        flex: '1 1 auto', padding: '5px 8px', fontSize: 9, letterSpacing: 0.8,
+                      })}>
+                      {etiket}
+                    </button>
+                  ))}
+                  <button onClick={() => setSel({})}
+                    style={btn('ghost', { flexShrink: 0, padding: '5px 8px', fontSize: 9 })}>
+                    TEMİZLE
+                  </button>
+                </div>
+              )}
 
               {available.length === 0 ? (
                 <div style={{ ...box, fontFamily: FONT.ui, fontSize: 10.5, color: C.warn }}>
