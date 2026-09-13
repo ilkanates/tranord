@@ -229,6 +229,18 @@ function buildPayload(village, tickMs, opts = {}) {
     // Ekipman yükseltmeleri — ordunun tamamına anında işler
     equipmentLevels: { ...(village.equipmentLevels || {}) }, upgradeQueues, equipmentUpgrade,
     quests: opts.quests || null,
+    /*
+      OYUNCU KİMLİĞİ ve KARŞILAMA DURUMU.
+
+      Bu üçü emitVillage'da hesaplanıp `opts` ile geliyordu ama payload'a
+      HİÇ KOPYALANMIYORDU: istemcide `village.adVerilmedi` her zaman
+      undefined kalıyor, adsız hesaba sorulan ad ekranı hiç açılmıyordu.
+      Karşılama anlatımı da aynı alanlara baktığı için eklenirken ortaya
+      çıktı.
+    */
+    playerName: opts.playerName || null,
+    adVerilmedi: !!opts.adVerilmedi,
+    egitimBitti: !!opts.egitimBitti,
     // Yerleşim hakkı — köşk/saray panelinde gösteriliyor
     expansion: {
       earned: refreshExpansionCredits(village),

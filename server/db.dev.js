@@ -98,16 +98,26 @@ async function initDB() {
   console.log(`[DEV DB] Hazir - ${db.users.length} kullanici, ${koySayisi} koy, ${Object.keys(db.world).length} NPC`);
 }
 
-async function createUser(email, passwordHash) {
+/** db.js ile aynı sözleşme — çakışmada { hata: 'email' | 'ad' } */
+async function createUser(email, passwordHash, displayName = null) {
+  const mail = email.toLowerCase().trim();
+  if (db.users.some(u => u.email === mail)) return { hata: 'email' };
+  if (displayName) {
+    const alinan = String(displayName).toLocaleLowerCase('tr');
+    if (db.users.some(u => String(u.display_name || '').toLocaleLowerCase('tr') === alinan)) {
+      return { hata: 'ad' };
+    }
+  }
   const user = {
     id: db.nextUserId++,
-    email: email.toLowerCase().trim(),
+    email: mail,
     password_hash: passwordHash,
+    display_name: displayName || null,
     created_at: new Date().toISOString(),
   };
   db.users.push(user);
   persist();
-  return { id: user.id, email: user.email };
+  return { id: user.id, email: user.email, display_name: user.display_name };
 }
 
 async function findUserByEmail(email) {

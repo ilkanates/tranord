@@ -26,6 +26,60 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13h',
+    tarih: '13 Eylül 2026',
+    baslik: 'Yeni başlayanlar için',
+    notlar: [
+      {
+        id: '20260913-kayit-kullanici-adi',
+        tur: 'yenilik',
+        metin: 'Kayıt olurken artık kullanıcı adı da seçiyorsun. Bu ad haritada, '
+          + 'savaş raporlarında ve sıralamada görünüyor ve SONRADAN '
+          + 'DEĞİŞTİRİLEMİYOR — değişebilseydi başkalarının gördüğü geçmiş '
+          + 'yalan olurdu. Köyünün adını istediğin zaman değiştirebilirsin.',
+      },
+      {
+        id: '20260913-karsilama',
+        tur: 'yenilik',
+        metin: 'İlk girişte oyunu anlatan kısa bir karşılama çıkıyor: oyunun '
+          + 'amacı, tarlalar, işleme binaları, bina ve asker, görevler. '
+          + 'Beş adım, bir kez. Yeni oyuncu 30 hex ve 28 binayla karşılaşıp '
+          + 'ne yapacağını bilemiyordu.',
+      },
+      {
+        id: '20260913-gorev-zorunlu',
+        tur: 'yenilik',
+        metin: 'Görevler 28\'den 46\'ya çıktı ve ZORUNLU / OPSİYONEL diye '
+          + 'ayrıldı. Zorunlu görevler ana hattı öğretir — rehber kartı '
+          + 'onları gösterir. Opsiyonel görevler yan hedeftir (pazar, '
+          + 'taverna, kule, atölye, at); atlayabilirsin. Yeni görevler: '
+          + 'işlenmiş mal deposu, tahıl ambarı, zırhçı, hendek, kule, ahır, '
+          + 'araştırma, nüfus, kaynak stoğu ve daha fazlası.',
+      },
+      {
+        id: '20260913-gorev-sirasi',
+        tur: 'duzeltme',
+        metin: 'Görev listesinde ödülü hazır olanlar EN ÜSTTE, ödülü alınmış '
+          + 'olanlar EN ALTTA. Eskiden biten görevler tepede birikip sıradaki '
+          + 'görevi ekranın dışına itiyordu.',
+      },
+      {
+        id: '20260913-mobil-nufus',
+        tur: 'duzeltme',
+        metin: 'Telefonda nüfus ve boş işçi sayısı artık üst barda görünüyor. '
+          + 'İkisi de çekmecenin içindeydi; işçi atarken ya da asker basarken '
+          + 'her seferinde çekmeceyi açman gerekiyordu.',
+      },
+      {
+        id: '20260913-ad-ekrani-duzeltme',
+        tur: 'duzeltme',
+        metin: 'Adı olmayan hesaplara sorulan "seni ne diye çağıralım" ekranı '
+          + 'hiç açılmıyordu: sunucu bilgiyi hesaplıyor ama pakete koymuyordu. '
+          + 'Düzeltildi.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13g',
     tarih: '13 Eylül 2026',
     baslik: 'Kuşatma düzeltmeleri',

@@ -163,10 +163,35 @@ export function ProfileButton({ socket, playerName, email, villages = [], active
             }}>{email}</div>
           </div>
 
-          <NameField socket={socket} alan="oyuncu"
-            baslik="Oyuncu adın" ipucu="haritada görünecek ad"
-            deger={playerName} enAz={3} enCok={18}
-            gonder={(ad) => socket?.emit('set_player_name', { name: ad })} />
+          {/*
+            KULLANICI ADI DEĞİŞTİRİLEMEZ — kayıt anında seçiliyor.
+            Haritada, savaş raporlarında ve sıralamada geçiyor; sonradan
+            değişmesi başkalarının gördüğü geçmişi yalanlıyordu. Sunucu da
+            reddediyor (index.js · set_player_name), buradaki yalnız
+            oyuncuya düzenlenemez olduğunu göstermek için.
+          */}
+          <div>
+            <div style={lbl({ fontSize: 8, letterSpacing: 1.2, marginBottom: 4 })}>
+              Kullanıcı adın
+            </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 9px', borderRadius: 5,
+              background: 'rgba(6,12,20,0.7)', border: `1px solid ${C.lineSoft}`,
+            }}>
+              <Icon name="kilit" size={11} color={C.textMute} />
+              <span style={{
+                flex: 1, minWidth: 0, fontFamily: FONT.ui, fontSize: 11, color: C.frost,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{playerName || '—'}</span>
+            </div>
+            <div style={{
+              fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint,
+              marginTop: 4, lineHeight: 1.5,
+            }}>
+              Kayıtta seçildi, değiştirilemez. Köyünün adını aşağıdan değiştirebilirsin.
+            </div>
+          </div>
 
           {aktifKoy && (
             <NameField socket={socket} alan="koy"

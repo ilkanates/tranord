@@ -202,9 +202,20 @@ export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mo
       </div>
 
       <div style={{
-        fontFamily: FONT.head, fontSize: 14, fontWeight: 600,
-        color: C.frost, marginBottom: 4,
-      }}>{aktif.title}</div>
+        display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4,
+      }}>
+        <span style={{
+          fontFamily: FONT.head, fontSize: 14, fontWeight: 600, color: C.frost,
+        }}>{aktif.title}</span>
+        {/* Atlanabilir mi, atlanamaz mı — kartta da görünsün */}
+        <span style={{
+          padding: '0px 5px', borderRadius: 3,
+          fontFamily: FONT.ui, fontSize: 7.5, letterSpacing: 0.8, fontWeight: 700,
+          color: aktif.zorunlu ? '#ffd98a' : C.textMute,
+          background: aktif.zorunlu ? 'rgba(242,187,96,0.13)' : 'transparent',
+          border: `1px solid ${aktif.zorunlu ? 'rgba(242,187,96,0.42)' : C.lineSoft}`,
+        }}>{aktif.zorunlu ? 'ZORUNLU' : 'OPSİYONEL'}</span>
+      </div>
 
       <div style={{
         fontFamily: FONT.ui, fontSize: 10, lineHeight: 1.55, color: C.textDim, marginBottom: 6,
@@ -278,6 +289,22 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
   }
   const alinan = quests.liste.filter(q => q.alindi).length;
 
+  /*
+    SIRALAMA — oyuncunun ŞİMDİ yapabileceği iş üstte.
+
+      1) Ödülü hazır (tamam ama alınmadı) — tek tıkla kazanç
+      2) Devam edenler — sırada bunlar var
+      3) Ödülü alınmış — bitti, listeyi tıkamasın
+
+    Tanım sırası (questDefs) grup İÇİNDE korunuyor; öğretim zinciri
+    karışmasın. Eskiden liste tanım sırasındaydı ve biten görevler
+    tepeye yığılıp aktif görevi ekranın dışına itiyordu.
+  */
+  const sirali = [...quests.liste]
+    .map((q, i) => ({ q, i, grup: q.alindi ? 2 : q.tamam ? 0 : 1 }))
+    .sort((a, b) => a.grup - b.grup || a.i - b.i)
+    .map(x => x.q);
+
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '12px 0 24px' }}>
       <div style={{
@@ -292,9 +319,21 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
             Sırayla ilerler; rehberi kapatsan da görevler işlemeye devam eder.
           </div>
         </div>
-        <span style={num({ fontSize: 13, color: C.frost })}>
-          {alinan}<span style={{ color: C.textMute }}>/{quests.liste.length}</span>
-        </span>
+        {/*
+          İki sayaç: ana hat ve toplam. Tek sayı gösterilseydi opsiyonel
+          görevler ana hattın ilerlemesini gizlerdi — "46'da 12" oyuncuya
+          zorunlu kısmın bitip bitmediğini söylemiyor.
+        */}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={num({ fontSize: 13, color: C.frost, lineHeight: 1.1 })}>
+            {alinan}<span style={{ color: C.textMute }}>/{quests.liste.length}</span>
+          </div>
+          <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute, marginTop: 1 }}>
+            {quests.zorunluKalan > 0
+              ? `ana hatta ${quests.zorunluKalan} görev`
+              : 'ana hat tamam'}
+          </div>
+        </div>
         <button onClick={() => onToggle(!quests.hidden)}
           style={btn(quests.hidden ? 'primary' : 'ghost', { padding: '6px 10px', fontSize: 9.5 })}>
           {quests.hidden ? 'REHBERİ AÇ' : 'REHBERİ KAPAT'}
@@ -302,7 +341,7 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {quests.liste.map((q, i) => {
+        {sirali.map((q, i) => {
           const aktif = q.id === (focus || quests.aktif);
           return (
             <div key={q.id}
@@ -323,9 +362,27 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
                 color={q.alindi ? C.good : aktif ? C.iceSoft : C.textMute} />
               <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                 <div style={{
-                  fontFamily: FONT.ui, fontSize: 11.5, fontWeight: 500,
-                  color: q.alindi ? C.textDim : C.frost,
-                }}>{q.title}</div>
+                  display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+                }}>
+                  <span style={{
+                    fontFamily: FONT.ui, fontSize: 11.5, fontWeight: 500,
+                    color: q.alindi ? C.textDim : C.frost,
+                  }}>{q.title}</span>
+                  {/*
+                    ZORUNLU / OPSİYONEL — oyuncu neyi atlayabileceğini
+                    görsün. Hepsi aynı görünseydi rehber bitmeyen bir
+                    yapılacaklar listesi gibi okunurdu.
+                  */}
+                  {!q.alindi && (
+                    <span style={{
+                      padding: '0px 5px', borderRadius: 3,
+                      fontFamily: FONT.ui, fontSize: 7.5, letterSpacing: 0.8, fontWeight: 700,
+                      color: q.zorunlu ? '#ffd98a' : C.textMute,
+                      background: q.zorunlu ? 'rgba(242,187,96,0.13)' : 'transparent',
+                      border: `1px solid ${q.zorunlu ? 'rgba(242,187,96,0.42)' : C.lineSoft}`,
+                    }}>{q.zorunlu ? 'ZORUNLU' : 'OPSİYONEL'}</span>
+                  )}
+                </div>
                 <div style={{
                   fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint,
                   /*

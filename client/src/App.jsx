@@ -6,6 +6,7 @@ import HelpScreen      from './components/HelpScreen';
 import MusicButton     from './components/MusicButton';
 import VillageSwitcher from './components/VillageSwitcher';
 import { ProfileButton, NameGate } from './components/ProfilePanel';
+import Tutorial from './components/Tutorial';
 import DevMenu        from './components/DevMenu';
 import WorkerScreen   from './components/WorkerScreen';
 import { startMusic }  from './audio';
@@ -167,7 +168,7 @@ function scaleLabel(hourSeconds, mult) {
 
 export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
   villages = [], activeSlot = null, onSwitchVillage, playerName = '',
-  vp = { mobile: false, railW: 186 }, onOpenStatus }) {
+  vp = { mobile: false, railW: 186 }, onOpenStatus, nufus = null }) {
   const dar = vp.mobile;
   return (
     <header style={{
@@ -287,14 +288,39 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
         marginLeft: dar ? 'auto' : 0,
         borderLeft: `1px solid ${C.lineSoft}`,
       }}>
-        {/* Durum rayi telefonda cekmecede — buradan acilir */}
+{/*
+          NÜFUS TELEFONDA ÜST BARDA.
+
+          Durum rayı telefonda çekmecede duruyor; nüfus da oradaydı, yani
+          oyuncu açmadan göremiyordu. Oysa nüfus ve BOŞ İŞÇİ oyunun her
+          adımında bakılan iki sayı: işçi atarken, asker basarken, inşaat
+          başlatırken. Çekmeceyi açan düğmenin üstüne sayıları da yazdık —
+          düğme hem bilgi veriyor hem kapıyı açmaya devam ediyor.
+
+          Aç kalan köyde sayı kırmızıya dönüyor: sessiz kalsaydı oyuncu
+          nüfusunun neden durduğunu göremezdi.
+        */}
         {dar && (
-          <button type="button" onClick={onOpenStatus} title="Durum"
+          <button type="button" onClick={onOpenStatus} title="Nüfus ve durum"
             style={{
-              width: TAP - 8, height: TAP - 8, display: 'grid', placeItems: 'center',
-              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              height: TAP - 8, display: 'flex', alignItems: 'center', gap: 5,
+              background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
             }}>
-            <Icon name="nufus" size={17} color={C.iceDeep} />
+            <Icon name="nufus" size={15}
+              color={nufus?.isStarving ? C.danger : C.iceDeep} />
+            {nufus && (
+              <span style={{
+                display: 'flex', alignItems: 'baseline', gap: 3,
+                fontFamily: FONT.num, lineHeight: 1,
+              }}>
+                <span style={{
+                  fontSize: 12, color: nufus.isStarving ? C.danger : C.frost,
+                }}>{nufus.population}</span>
+                <span style={{ fontSize: 9, color: C.textMute }}>/{nufus.maxPopulation}</span>
+                <span style={{ fontSize: 10, color: C.good, marginLeft: 2 }}
+                  title="Boş işçi">·{nufus.freeWorkers}</span>
+              </span>
+            )}
           </button>
         )}
         {/* Müzik — tam ayarlar menüsü gelene kadar tek denetim burası */}
@@ -674,6 +700,27 @@ function Game({ token, onLogout }) {
 
   const flows = useMemo(() => (village ? computeFlows(village) : {}), [village]);
 
+  /*
+    Karşılama anlatımını yeni bitiren oyuncu için geçmiş notlar okunmuş
+    sayılır — oyuna başlar başlamaz eski yamaların duvarıyla karşılaşmasın.
+    Yalnız BİR KEZ çalışır: `egitimBitti` false'tan true'ya döndüğünde.
+  */
+  const egitimOnceki = useRef(null);
+  useEffect(() => {
+    const simdi = village?.egitimBitti;
+    if (egitimOnceki.current === false && simdi === true) {
+      const hepsi = gosterilecekBolumler(new Set(), true)
+        .flatMap(b => b.notlar.map(n => n.id));
+      setYamaOkunan(prev => {
+        const yeni = new Set([...prev, ...hepsi]);
+        okunanlariKaydet(yeni);
+        return yeni;
+      });
+      setYamaAcik(false);
+    }
+    if (simdi !== undefined) egitimOnceki.current = simdi;
+  }, [village?.egitimBitti]);
+
   if (!village) {
     return <BaglaniyorEkrani socket={socket} onLogout={handleLogout} />;
   }
@@ -785,6 +832,12 @@ function Game({ token, onLogout }) {
             gorevler: (village.quests?.liste || []).filter((q) => q.tamam && !q.alindi).length,
             sefer: (village.marches || []).length + (village.incoming || []).length }}
         hourSeconds={village.marchInfo?.hourSeconds || 3600}
+        nufus={{
+          population: Math.floor(village.population || 0),
+          maxPopulation: Math.floor(village.maxPopulation || 0),
+          freeWorkers: Math.floor(village.freeWorkers || 0),
+          isStarving: !!village.isStarving,
+        }}
         socket={socket}
         villages={village.villages || []}
         activeSlot={village.activeSlot || null}
@@ -798,6 +851,12 @@ function Game({ token, onLogout }) {
         güncelleniyor ve ekran kendiliğinden kapanıyor.
       */}
       {village.adVerilmedi && <NameGate socket={socket} email={userEmail} />}
+      {/*
+        KARŞILAMA ANLATIMI — adı olan ama anlatımı görmemiş oyuncuya.
+        Ad kapısıyla AYNI ANDA çıkmasın: önce kim olduğunu söylesin,
+        sonra oyunu anlatalım. Geçilemez, kapatma düğmesi yok.
+      */}
+      {!village.adVerilmedi && !village.egitimBitti && <Tutorial socket={socket} />}
 
       {/* Telefonda kaynak rayi ust barin ALTINDA yatay serit olur */}
       {vp.mobile && (
@@ -1171,7 +1230,17 @@ function Game({ token, onLogout }) {
         gidilecek yeri yakıp söndürür. Rehber kapalıyken kart rozete iner
         ama görevler arka planda işlemeye devam eder.
       */}
-      <YamaNotlari acik={yamaAcik} onKapat={kapatYama} okunan={yamaOkunan}
+{/*
+        YAMA NOTLARI YENİ OYUNCUYA AÇILMAZ.
+
+        İlk girişte 60+ eski not karşılama anlatımının önüne yığılıyordu:
+        oyuna hiç başlamamış birine "koçbaşı artık yalnız suru indiriyor"
+        yazmanın anlamı yok. Anlatım bitene kadar panel hiç çizilmiyor;
+        bittikten sonra da yalnız BUNDAN SONRAKİ notlar gelsin diye
+        eskiler okunmuş sayılıyor (aşağıdaki effect).
+      */}
+      <YamaNotlari acik={yamaAcik && village.egitimBitti !== false}
+        onKapat={kapatYama} okunan={yamaOkunan}
         mobile={vp.mobile} railW={vp.railW} />
       {/*
         TELEFONDA YÜZEN REHBER YOK.

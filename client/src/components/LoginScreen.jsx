@@ -30,6 +30,8 @@ const field = {
 export default function LoginScreen({ serverUrl = '', onToken }) {
   const [mode, setMode]  = useState('login');     // 'login' | 'register'
   const [email, setEmail] = useState('');
+  // Kullanıcı adı KAYITTA alınıyor ve bir daha değişmiyor (bkz. auth.js)
+  const [kadi, setKadi]   = useState('');
   const [pass, setPass]   = useState('');
   const [busy, setBusy]   = useState(false);
   const [err, setErr]     = useState('');
@@ -41,6 +43,8 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
     setErr('');
 
     if (!email.trim() || !pass) { setErr('E-posta ve şifre gerekli.'); return; }
+    if (isRegister && !kadi.trim()) { setErr('Kullanıcı adı gerekli.'); return; }
+    if (isRegister && kadi.trim().length < 3) { setErr('Kullanıcı adı en az 3 karakter olmalı.'); return; }
     if (isRegister && pass.length < 6) { setErr('Şifre en az 6 karakter olmalı.'); return; }
 
     setBusy(true);
@@ -48,7 +52,10 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
       const res = await fetch(`${serverUrl}/auth/${isRegister ? 'register' : 'login'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password: pass }),
+        body: JSON.stringify({
+          email: email.trim(), password: pass,
+          ...(isRegister ? { username: kadi.trim() } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -101,6 +108,27 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
             <input type="email" value={email} autoComplete="username" autoFocus
               onChange={(e) => setEmail(e.target.value)} style={field} />
           </div>
+
+          {/*
+            KULLANICI ADI yalnız kayıtta sorulur ve SONRADAN DEĞİŞMEZ.
+            Haritada, savaş raporlarında ve sıralamada bu ad görünüyor;
+            değişebilseydi başkalarının gördüğü geçmiş yalan olurdu.
+          */}
+          {isRegister && (
+            <div style={{ marginBottom: 13 }}>
+              <span style={lbl()}>Kullanıcı adı</span>
+              <input type="text" value={kadi} autoComplete="nickname"
+                maxLength={18}
+                onChange={(e) => setKadi(e.target.value)} style={field} />
+              <div style={{
+                fontFamily: FONT.ui, fontSize: 9, color: C.textFaint,
+                marginTop: 4, lineHeight: 1.5,
+              }}>
+                Haritada ve savaş raporlarında bu ad görünecek.
+                <b style={{ color: C.warn }}> Sonradan değiştirilemez.</b>
+              </div>
+            </div>
+          )}
 
           <div style={{ marginBottom: 6 }}>
             <span style={lbl()}>Şifre</span>

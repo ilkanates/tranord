@@ -12,7 +12,8 @@ const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
-        setDisplayName, loadDisplayNames, renameVillage } = require('./db');
+        setDisplayName, loadDisplayNames, renameVillage,
+        findUserById } = require('./db');
 const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
 const { QUEST_BY_ID } = require('./data/questDefs');
@@ -39,8 +40,8 @@ const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
         MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('./sabitler');
 const { buildPayload } = require('./game/payload');
-const { questState, questSync, questTamam, questPayload, questFingerprint }
-  = require('./game/quests');
+const { questState, questSync, questTamam, questPayload, questFingerprint,
+        egitimGoruldu, egitimBitir } = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
 
 // Kule de personel alır (arayüzde "okçu" adıyla); sur ve hendek almaz.
@@ -396,6 +397,12 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     */
     playerName: ownerName(session.userId, session.userEmail),
     adVerilmedi: !WORLD.ownerByUser.has(session.userId),
+    /*
+      KARŞILAMA ANLATIMI. Görülmediyse istemci ekranın ortasında
+      geçilemez bir anlatım açıyor. Bilgi SUNUCUDA — localStorage'da
+      olsaydı depoyu temizleyen her girişte görür, isteyen de atlardı.
+    */
+    egitimBitti: egitimGoruldu(session),
   }));
 }
 
@@ -1267,22 +1274,13 @@ async function buildStats(forUserId) {
 }
 
 /**
- * AD DOĞRULAMA — hem oyuncu adı hem köy adı için.
+ * AD DOĞRULAMA — kural TEK yerde: server/adKurallari.js.
  *
- * Türkçe harfler, rakam, boşluk, tire, kesme ve alt çizgi serbest.
- * HTML/kontrol karakterleri ve baştaki/sondaki boşluklar temizlenir;
- * ad haritada, raporlarda ve sohbette görüneceği için biçim serbest
- * bırakılamaz. Sunucu son sözü söyler — istemcinin denetimine güvenilmez.
+ * İki giriş noktası aynı kuralı kullanıyor: kayıt (auth.js · oyuncu adı,
+ * artık kayıt anında alınıyor) ve oyun soketi (burası · köy adı). İkiz
+ * yazılsaydı biri değişince diğeri sessizce ayrışırdı.
  */
-const AD_DESEN = /^[0-9A-Za-zÇĞİIÖŞÜçğıiöşü][0-9A-Za-zÇĞİIÖŞÜçğıiöşü _''\-.]*$/;
-
-function adDogrula(ham, { enAz = 3, enCok = 18 } = {}) {
-  const ad = String(ham ?? '').replace(/\s+/g, ' ').trim();
-  if (ad.length < enAz) return { hata: `En az ${enAz} karakter olmalı` };
-  if (ad.length > enCok) return { hata: `En fazla ${enCok} karakter olabilir` };
-  if (!AD_DESEN.test(ad)) return { hata: 'Yalnız harf, rakam, boşluk ve - _ . kullanılabilir' };
-  return { ad };
-}
+const { adDogrula } = require('./adKurallari');
 
 /**
  * DÜNYAYI HERKESE YENİDEN YOLLA.
@@ -1565,6 +1563,24 @@ io.on('connection', async socket => {
     denemesi sunucuyu düşürebilirdi. Artık bağlantı kesiliyor; istemci sınırsız
     yeniden bağlanma ile birazdan tekrar deniyor (bkz. client/src/App.jsx).
   */
+  /*
+    OYUNCU ADINI BELLEĞE AL.
+
+    `WORLD.ownerByUser` AÇILIŞTA bir kez yükleniyor (loadDisplayNames).
+    Ad artık KAYIT sırasında veriliyor, yani sunucu açıldıktan sonra
+    kaydolan oyuncu bu haritada yok: adı olduğu hâlde "adsız" sayılıyor,
+    açılışta ad ekranı soruluyor ve adını değiştirebiliyordu (testte
+    yakalandı). Bağlantıda bir kez kayıttan okunuyor.
+  */
+  if (!WORLD.ownerByUser.has(userId)) {
+    try {
+      const kayit = await findUserById(userId);
+      if (kayit?.display_name) WORLD.ownerByUser.set(userId, kayit.display_name);
+    } catch (err) {
+      console.error('[AD] kullanıcı adı okunamadı:', err.message);
+    }
+  }
+
   let slotKey;
   try {
     slotKey = await ensurePlayerSlot(userId, userEmail);
@@ -1654,7 +1670,30 @@ io.on('connection', async socket => {
    * `ad_alinmis` alır. Ad değişince haritadaki bütün istemcilerin
    * gördüğü sahip adı da değişmeli, o yüzden dünya yayını tazeleniyor.
    */
+  /**
+   * OYUNCU ADI — YALNIZ BİR KEZ.
+   *
+   * Ad artık kayıt sırasında alınıyor (auth.js). Bu olay yalnızca ADSIZ
+   * ESKİ HESAPLAR için duruyor: adı olan bir hesapta çağrılırsa reddedilir.
+   * Ad haritada, savaş raporlarında ve sıralamada geçtiği için sonradan
+   * değişmesi başkalarının gördüğü geçmişi yalanlıyordu.
+   */
+  /**
+   * KARŞILAMA ANLATIMI BİTTİ — bir kez yazılır, geri alınmaz.
+   *
+   * "Gördüm" kararını istemci veriyor ama KAYIT sunucuda: oyuncu farklı
+   * bir tarayıcıdan girince anlatımı tekrar görmesin, depoyu temizleyerek
+   * de atlayamasın.
+   */
+  socket.on('tutorial_done', () => {
+    if (egitimBitir(session)) { dirty(); emit(); }
+  });
+
   socket.on('set_player_name', async ({ name } = {}) => {
+    if (WORLD.ownerByUser.has(userId)) {
+      return socket.emit('name_result', {
+        ok: false, alan: 'oyuncu', message: 'Kullanıcı adı değiştirilemez' });
+    }
     const { ad, hata } = adDogrula(name, { enAz: 3, enCok: 18 });
     if (hata) return socket.emit('name_result', { ok: false, alan: 'oyuncu', message: hata });
 

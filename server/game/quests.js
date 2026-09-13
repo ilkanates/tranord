@@ -126,6 +126,32 @@ function questSync(session) {
   return st;
 }
 
+/**
+ * KARŞILAMA ANLATIMI GÖRÜLDÜ MÜ?
+ *
+ * Bilgi SUNUCUDA duruyor, localStorage'da değil: anlatım geçilemez
+ * olduğu için istemciye bırakılsaydı depoyu temizleyen (ya da başka
+ * tarayıcıdan giren) oyuncu her seferinde baştan görür, geliştirici
+ * konsolundan bir satırla da atlayabilirdi.
+ *
+ * Görev durumuyla aynı yerde (merkez köyün `quests` kaydı) — ayrı tablo
+ * açmamak için; merkez taşınınca kayıt da taşınıyor.
+ */
+function egitimGoruldu(session) {
+  const st = questState(session);
+  return !!st?.egitim;
+}
+
+function egitimBitir(session) {
+  const st = questState(session);
+  if (!st || st.egitim) return false;
+  st.egitim = true;
+  const key = session.villages.has(session.capitalSlot)
+    ? session.capitalSlot : session.villages.keys().next().value;
+  if (key) session.dirtySlots.add(key);
+  return true;
+}
+
 /** Görev tamam mı — bir kez sağlandıysa kalıcı olarak tamam */
 const questTamam = (def, session) => {
   const st = questState(session);
@@ -149,6 +175,7 @@ function questPayload(session) {
     return {
       id: q.id, title: q.title, text: q.text, hint: q.hint,
       tab: q.tab, anchor: q.anchor, reward: q.reward,
+      zorunlu: !!q.zorunlu,
       hedef,
       // Tamamlanmış görevin çubuğu geri düşmesin (kılıç harcandı vb.)
       olculen: tamam ? Math.max(olculen, hedef) : olculen,
@@ -157,14 +184,28 @@ function questPayload(session) {
     };
   });
   /*
-    Zincir katı değil: oyuncu listeden istediğini yapabilir. Kart, ödülü
-    hazır olan ilk görevi gösterir; yoksa sıradaki ilk görevi.
+    KART NEYİ GÖSTERİR — sıra: hazır ödül > sıradaki ZORUNLU > sıradaki.
+
+    Zincir katı değil, oyuncu listeden istediğini yapabilir. Ama kart tek
+    bir şey gösterebiliyor ve yeni oyuncuya ANA HATTI göstermeli: opsiyonel
+    bir görev (pazar, taverna) kartı kapatırsa oyuncu ana hattın nerede
+    kaldığını göremiyordu.
   */
-  const aktif = liste.find(q => !q.alindi && q.tamam) || liste.find(q => !q.alindi) || null;
+  const aktif = liste.find(q => !q.alindi && q.tamam)
+    || liste.find(q => !q.alindi && q.zorunlu)
+    || liste.find(q => !q.alindi)
+    || null;
+  /*
+    "Rehber bitti" ölçüsü ZORUNLU görevler: opsiyonelleri yapmayan oyuncu
+    da ana hattı bitirmiş sayılır, rehber onu sonsuza kadar meşgul etmez.
+  */
+  const zorunluKalan = liste.filter(q => q.zorunlu && !q.alindi).length;
   return {
     hidden: !!st.hidden,
     aktif: aktif?.id || null,
-    bitti: claimed.size >= QUESTS.length,
+    bitti: zorunluKalan === 0,
+    zorunluKalan,
+    toplamKalan: liste.filter(q => !q.alindi).length,
     liste,
   };
 }
@@ -181,4 +222,5 @@ function questFingerprint(session) {
 module.exports = {
   questState, questOlcu, questHedef, questOlculuyor,
   questSync, questTamam, questPayload, questFingerprint,
+  egitimGoruldu, egitimBitir,
 };

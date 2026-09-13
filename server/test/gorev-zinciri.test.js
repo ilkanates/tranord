@@ -103,3 +103,48 @@ test('alınmış ödül ikinci kez verilmiyor', async (t) => {
   }
   assert.ok(await sunucu.ayaktaMi(), 'çift ödül isteği sunucuyu düşürdü');
 });
+
+/**
+ * ZORUNLU / OPSİYONEL AYRIMI ve KARŞILAMA ANLATIMI.
+ *
+ * İkisi de oyunun ilk on dakikasını belirliyor:
+ *   - Rehber kartı sıradaki ZORUNLU görevi göstermezse yeni oyuncu ana
+ *     hattın nerede kaldığını göremiyor.
+ *   - Anlatımın "görüldü" kaydı sunucuda değilse depoyu temizleyen her
+ *     girişte baştan görür, isteyen de konsoldan atlar.
+ */
+const { QUESTS } = require('../data/questDefs');
+
+test('her görevin zorunlu bayrağı var ve iki grup da dolu', () => {
+  for (const q of QUESTS) {
+    assert.equal(typeof q.zorunlu, 'boolean', `${q.id}: zorunlu bayrağı yok`);
+  }
+  const zorunlu = QUESTS.filter(q => q.zorunlu).length;
+  assert.ok(zorunlu > 0, 'ana hat boş olamaz');
+  assert.ok(QUESTS.length - zorunlu > 0, 'opsiyonel görev de olmalı');
+});
+
+test('görev id\'leri benzersiz — ilerleme id ile kaydediliyor', () => {
+  const ids = QUESTS.map(q => q.id);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test('ilk görev ZORUNLU — rehber kartı ana hattı göstermeli', () => {
+  assert.equal(QUESTS[0].zorunlu, true);
+});
+
+test('karşılama anlatımı: bir kez yazılır, ikinci çağrı boşa geçer', () => {
+  const { egitimGoruldu, egitimBitir } = require('../game/quests');
+  const { createVillage } = require('../game/villageState');
+  const v = createVillage(0, 0);
+  const session = {
+    capitalSlot: '0,0',
+    villages: new Map([['0,0', v]]),
+    dirtySlots: new Set(),
+  };
+  assert.equal(egitimGoruldu(session), false, 'yeni hesapta görülmemiş olmalı');
+  assert.equal(egitimBitir(session), true);
+  assert.equal(egitimGoruldu(session), true);
+  assert.ok(session.dirtySlots.has('0,0'), 'kayıt diske yazılmak üzere işaretlenmeli');
+  assert.equal(egitimBitir(session), false, 'ikinci çağrı bir şey değiştirmemeli');
+});

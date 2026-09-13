@@ -7,6 +7,7 @@ const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const { createUser, findUserByEmail } = require('./db');
+const { adDogrula } = require('./adKurallari');
 
 const router = express.Router();
 
@@ -74,10 +75,20 @@ function verifyToken(token) {
   return jwt.verify(token, JWT_SECRET);
 }
 
-// POST /auth/register
+/**
+ * POST /auth/register — e-posta + KULLANICI ADI + şifre.
+ *
+ * Ad kayıt anında alınıyor ve BİR DAHA DEĞİŞMİYOR: haritada, savaş
+ * raporlarında ve sıralamada geçiyor, sonradan değişmesi başkalarının
+ * gördüğü geçmişi yalanlıyordu. Oyuna adsız girip sonra soran eski akış
+ * (NameGate) yalnız ADSIZ ESKİ HESAPLAR için duruyor.
+ *
+ * Benzersizliği veritabanı dizini garanti ediyor; önden SELECT yarış
+ * durumunu (iki kişi aynı anda aynı adı alması) çözmez.
+ */
 router.post('/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, username } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email ve şifre gerekli' });
@@ -85,17 +96,24 @@ router.post('/register', async (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({ error: 'Şifre en az 6 karakter olmalı' });
     }
+    const { ad, hata } = adDogrula(username);
+    if (hata) return res.status(400).json({ error: `Kullanıcı adı: ${hata}`, alan: 'username' });
 
     const existing = await findUserByEmail(email);
     if (existing) {
-      return res.status(409).json({ error: 'Bu email zaten kayıtlı' });
+      return res.status(409).json({ error: 'Bu email zaten kayıtlı', alan: 'email' });
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await createUser(email, passwordHash);
+    const user = await createUser(email, passwordHash, ad);
+    if (user?.hata) {
+      return res.status(409).json(user.hata === 'ad'
+        ? { error: 'Bu kullanıcı adı alınmış', alan: 'username' }
+        : { error: 'Bu email zaten kayıtlı', alan: 'email' });
+    }
     const token = signToken(user);
 
-    res.json({ token, email: user.email, userId: user.id });
+    res.json({ token, email: user.email, userId: user.id, name: user.display_name });
   } catch (err) {
     console.error('[AUTH] Register error:', err);
     res.status(500).json({ error: 'Sunucu hatası' });

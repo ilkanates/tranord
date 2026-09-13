@@ -103,16 +103,24 @@ async function sunucuBaslat({ hile = true, acilisSaniye = 90 } = {}) {
   return sunucu;
 }
 
-/** Yeni bir hesap aç, jetonu döndür */
+/**
+ * Yeni bir hesap aç, jetonu döndür.
+ *
+ * KULLANICI ADI kayıt anında zorunlu (bkz. auth.js) ve benzersiz olmak
+ * zorunda; testler arka arkaya koştuğu için ada da zaman damgası
+ * giriyor — sabit bir ad ikinci testte "alınmış" hatası verirdi.
+ */
 async function hesapAc(sunucu) {
-  const email = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@ornek.test`;
+  const damga = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const email = `test-${damga}@ornek.test`;
+  const username = `t${damga}`.slice(0, 18);
   const yanit = await fetch(sunucu.taban + '/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'parola123' }),
+    body: JSON.stringify({ email, password: 'parola123', username }),
   }).then((r) => r.json());
   if (!yanit.token) throw new Error('kayıt başarısız: ' + JSON.stringify(yanit));
-  return { email, token: yanit.token };
+  return { email, token: yanit.token, username };
 }
 
 /**

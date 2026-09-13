@@ -34,6 +34,12 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
+### 0. Mesajlaşma sistemi
+- Oyuncular birbirine mesaj gönderebilsin (gelen kutusu + gönderilenler).
+- Okundu/okunmadı takibi; üst barda okunmamış sayacı (rapor sayacı gibi).
+- Birlik gelince BİRLİK MESAJI da buradan aksın — altyapı ona hazır kurulmalı.
+- Engelleme/şikâyet: satılan bir oyunda serbest metin taciz kapısıdır, en baştan düşünülmeli.
+
 ### 2. Elçilik ve birlik (ittifak)
 - Yeni bina: **Elçilik**. Buradan birlik kurulur ve başka oyuncular birliğe davet edilir.
 - Haritada birlik üyeleri **koyu yeşil** görünmeli (kendi köyüm açık yeşil, rakip oyuncu kırmızı, NPC gri).
@@ -134,6 +140,19 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Onboarding — ilk 10 dakika (13 Eylül 2026)
+- **Kayıtta kullanıcı adı.** `/auth/register` artık e-posta + kullanıcı adı + şifre alıyor; ad AYNI INSERT'te yazılıyor (iki adımda yazmak adsız hesap bırakma riski ve ikinci bir yarış penceresi demekti). Benzersizliği veritabanı dizini garanti ediyor. Ad **kalıcı**: `set_player_name` adı olan hesapta reddediyor, profilde alan kilitli gösteriliyor. Adsız ESKİ hesaplar için NameGate kapısı duruyor.
+- Ad doğrulama kuralı `server/adKurallari.js`'e alındı — kayıt ve oyun soketi aynı kuralı kullanıyor, ikiz yazılsaydı ayrışırdı.
+- **Karşılama anlatımı.** Ekranın ortasında, kapatma düğmesi YOK, beş adım: oyunun amacı → tarlalar → işleme binaları → bina/asker → görevler. "Gördüm" kaydı SUNUCUDA (`quests.egitim`); localStorage'da olsaydı depoyu temizleyen her girişte görür, konsoldan da atlanırdı.
+- Yeni oyuncuya **yama notları duvarı çıkmıyor**: anlatım bitene kadar panel çizilmiyor, bitince geçmiş notlar okunmuş sayılıyor. 60+ eski notu oyuna hiç başlamamış birine göstermenin anlamı yok.
+- **Görevler 28 → 46**, `zorunlu` bayrağıyla ikiye ayrıldı (29 zorunlu, 17 opsiyonel). Rehber kartı sıradaki ZORUNLU görevi gösteriyor; opsiyonel bir görev kartı kapatıp ana hattı gizlemiyor. "Rehber bitti" ölçüsü de zorunlu görevler.
+- Yeni görevler: işlenmiş mal deposu, tahıl ambarı, demir Lvl 2, ekmek/kereste stoğu, nüfus 80, tarla 12, ana bina Lvl 5, zırhçı, hendek, kule, ahır, 50 asker, 5 sefer, ilk araştırma, pazar, taverna, atölye.
+- **Görev listesi sıralaması:** ödülü hazır olanlar üstte, alınmışlar altta. Biten görevler tepede birikip sıradakini ekran dışına itiyordu.
+- **Telefonda nüfus üst barda** — nüfus ve boş işçi çekmecenin içindeydi, işçi/asker işlemlerinin her adımında bakılan iki sayı.
+- **Yan bulgu (gerçek hata):** `playerName`, `adVerilmedi` emitVillage'da hesaplanıp `opts` ile veriliyor ama payload'a HİÇ kopyalanmıyordu. Yani adsız hesaba sorulan ad ekranı hiç açılmıyordu. Karşılama anlatımı aynı alanlara bakınca ortaya çıktı.
+- **İkinci yan bulgu (test yakaladı):** `WORLD.ownerByUser` yalnız AÇILIŞTA yükleniyordu; sunucu açıldıktan sonra kaydolan oyuncu adı olduğu hâlde "adsız" sayılıyor, ad ekranı soruluyor ve adını değiştirebiliyordu. Bağlantıda bir kez kayıttan okunuyor.
+- **7 yeni test** (kayıt/ad 3, görev-zinciri 4).
 
 ### Sefer geri çağırma + kuşatma ayarları (13 Eylül 2026)
 - **Sefer geri çağırma — ilk 90 gerçek saniye.** Yola çıkan ordu bu pencerede dönüşe geçirilebiliyor; gittiği yol kadar geri yürüyor (ışınlanma yok), ganimet taşımıyor. Pencere bilerek DAR: her an geri çağrılabilseydi saldırı risksiz olurdu (hedefi izle, son anda çek). Sunucuda ölçülüyor — istemcideki düğmenin görünür olması yetmiyor, yayınlar arası gecikmede sunucu reddediyor ve sebebi uyarı şeridine düşüyor.

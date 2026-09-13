@@ -119,13 +119,33 @@ async function initDB() {
   console.log('[DB] Tablolar hazır (çoklu köy şeması)');
 }
 
-// Kullanıcı kayıt
-async function createUser(email, passwordHash) {
-  const res = await pool.query(
-    'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
-    [email.toLowerCase().trim(), passwordHash]
-  );
-  return res.rows[0];
+/**
+ * KULLANICI KAYIT — oyuncu adı AYNI INSERT'te yazılır.
+ *
+ * Ad kayıt anında alınıyor ve bir daha değişmiyor; iki adımda yazmak
+ * (önce kullanıcı, sonra UPDATE) adsız hesap bırakma riskini ve ikinci
+ * bir yarış penceresini getirirdi. Benzersizlik iki tekil dizinle
+ * korunuyor (email + lower(display_name)); çakışmada 23505 atıyor ve
+ * HANGİ alanın çakıştığını çağırana söylüyoruz.
+ *
+ * @returns {{id,email,display_name}} ya da { hata: 'email' | 'ad' }
+ */
+async function createUser(email, passwordHash, displayName = null) {
+  try {
+    const res = await pool.query(
+      `INSERT INTO users (email, password_hash, display_name)
+       VALUES ($1, $2, $3) RETURNING id, email, display_name`,
+      [email.toLowerCase().trim(), passwordHash, displayName]
+    );
+    return res.rows[0];
+  } catch (e) {
+    if (e.code === '23505') {
+      // constraint adı sürüme göre değişebiliyor; alan adına da bakıyoruz
+      const d = `${e.constraint || ''} ${e.detail || ''}`.toLowerCase();
+      return { hata: d.includes('display_name') ? 'ad' : 'email' };
+    }
+    throw e;
+  }
 }
 
 // Email ile kullanıcı bul
