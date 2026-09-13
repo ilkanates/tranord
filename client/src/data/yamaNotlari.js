@@ -26,6 +26,30 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14b',
+    tarih: '14 Eylül 2026',
+    baslik: 'Görevler ikiye ayrıldı',
+    notlar: [
+      {
+        id: '20260914-gorev-iki-bolum',
+        tur: 'duzeltme',
+        metin: 'Görevler ekranı artık ANA HAT ve YAN HEDEFLER diye ikiye '
+          + 'bölündü. Ana hat üstte tek parça duruyor; yan hedefler kendi '
+          + 'başlığı altında ve ana hat bitene kadar KAPALI geliyor (tek '
+          + 'tıkla açılıyor). 46 maddelik tek liste, hangisini '
+          + 'atlayabileceğini ancak her satırı okuyarak anlamana yol açıyordu.',
+      },
+      {
+        id: '20260914-kusatma-malzeme-adi',
+        tur: 'duzeltme',
+        metin: 'Atölyede üretilen malzemelerin adı "Koçbaşı Parçaları" ve '
+          + '"Mancınık Parçaları" oldu. Eskiden ekipmanın adı birimin adıyla '
+          + 'neredeyse aynıydı ve panelde hangisinin makine, hangisinin onu '
+          + 'yapmak için gereken malzeme olduğu okunmuyordu.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14a',
     tarih: '14 Eylül 2026',
     baslik: 'Misafir askeri geri yollayabilirsin',

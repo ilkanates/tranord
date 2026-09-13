@@ -56,14 +56,23 @@ const EQUIPMENT_DEFS = {
     değil; ucuz olsaydı her saldırıda sur sıfırlanırdı.
   */
   koc_basi: {
-    name: 'Koç Başı', icon: '🪵',
+    /*
+      AD "Koçbaşı Parçaları" — birim adıyla ÇAKIŞMASIN.
+
+      Ekipman "Koç Başı", birim "Koçbaşı" idi: atölye panelinde ikisi yan
+      yana duruyor ve hangisinin makinenin kendisi, hangisinin onu
+      yapmak için gereken malzeme olduğu okunmuyordu. Anahtar (`koc_basi`)
+      DEĞİŞMEDİ — oyuncuların kuyruklarında ve kayıtlarında duruyor.
+    */
+    name: 'Koçbaşı Parçaları', icon: '🪵',
     saldiri: +20, yayaSav: 0, atliSav: 0, hiz: 0, kapasite: 0,
     cost: { kereste: 120, demirKulce: 60 }, productionHours: 6,
     producedAt: 'atolye',
     kural: 'Yalnız SURU yıkar (hendeğe dokunmaz). Saldıran kazanırsa etki eder.'
   },
   mancinik: {
-    name: 'Mancınık', icon: '🎯',
+    // Aynı gerekçe: birim "Alev Mancınığı", malzeme "Mancınık Parçaları"
+    name: 'Mancınık Parçaları', icon: '🎯',
     saldiri: +25, yayaSav: 0, atliSav: 0, hiz: 0, kapasite: 0,
     cost: { kereste: 200, yontmaTas: 120, demirKulce: 100 }, productionHours: 10,
     producedAt: 'atolye',

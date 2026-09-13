@@ -280,6 +280,15 @@ export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mo
 
 /* ── "Görevler" sekmesi ──────────────────────────────────────────── */
 export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocus, focus = null }) {
+  /*
+    YAN HEDEFLER ANA HAT BİTENE KADAR KAPALI AÇILIR.
+
+    Kilitlemedik — opsiyonel görev yapılabilir olmalı; yalnız 46 maddelik
+    tek liste yeni oyuncuyu boğuyordu. Ana hat bitince kendiliğinden
+    açılıyor, çünkü artık sıradaki iş orası.
+  */
+  const [yanAcik, setYanAcik] = useState(!!quests && quests.zorunluKalan === 0);
+
   if (!quests) {
     return (
       <div style={{ padding: 20, fontFamily: FONT.ui, fontSize: 11, color: C.textMute }}>
@@ -300,10 +309,27 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
     karışmasın. Eskiden liste tanım sırasındaydı ve biten görevler
     tepeye yığılıp aktif görevi ekranın dışına itiyordu.
   */
-  const sirali = [...quests.liste]
+  const siralaGrup = (liste) => [...liste]
     .map((q, i) => ({ q, i, grup: q.alindi ? 2 : q.tamam ? 0 : 1 }))
     .sort((a, b) => a.grup - b.grup || a.i - b.i)
     .map(x => x.q);
+
+  /*
+    ANA HAT ve YAN HEDEFLER AYRI LİSTELER.
+
+    Tek listede 46 görev, rozet renginden başka bir ayrım olmadan
+    "bitmeyen bir yapılacaklar listesi" gibi okunuyordu: yeni oyuncu
+    hangisini atlayabileceğini ancak her satırı tek tek okuyarak
+    anlıyordu. Artık ana hat üstte tek parça duruyor, yan hedefler
+    kendi başlığı altında.
+
+    YAN HEDEFLER ANA HAT BİTENE KADAR KATLI: açılabiliyor ama
+    varsayılan kapalı. Kilitlemedik — opsiyonel görev yapılabilir
+    olmalı, yalnız ana hattın önüne geçmemeli.
+  */
+  const anaHat = siralaGrup(quests.liste.filter(q => q.zorunlu));
+  const yanHedefler = siralaGrup(quests.liste.filter(q => !q.zorunlu));
+  const yanAlinan = yanHedefler.filter(q => q.alindi).length;
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '12px 0 24px' }}>
@@ -324,11 +350,14 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
           görevler ana hattın ilerlemesini gizlerdi — "46'da 12" oyuncuya
           zorunlu kısmın bitip bitmediğini söylemiyor.
         */}
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+<div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={num({ fontSize: 13, color: C.frost, lineHeight: 1.1 })}>
             {alinan}<span style={{ color: C.textMute }}>/{quests.liste.length}</span>
           </div>
-          <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute, marginTop: 1 }}>
+          <div style={{
+            fontFamily: FONT.ui, fontSize: 8.5, marginTop: 1,
+            color: quests.zorunluKalan > 0 ? '#ffd98a' : C.good,
+          }}>
             {quests.zorunluKalan > 0
               ? `ana hatta ${quests.zorunluKalan} görev`
               : 'ana hat tamam'}
@@ -340,8 +369,73 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
         </button>
       </div>
 
+      {/* ── ANA HAT ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, margin: '2px 2px 7px',
+      }}>
+        <span style={{
+          padding: '2px 8px', borderRadius: 4,
+          fontFamily: FONT.ui, fontSize: 8.5, letterSpacing: 1.2, fontWeight: 700,
+          color: '#ffd98a', background: 'rgba(242,187,96,0.13)',
+          border: '1px solid rgba(242,187,96,0.42)',
+        }}>ANA HAT</span>
+        <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint }}>
+          Oyunu oynayabilmek için gereken adımlar — sırayla yap.
+        </span>
+        <span style={num({ fontSize: 9.5, color: C.textMute, marginLeft: 'auto' })}>
+          {anaHat.length - quests.zorunluKalan}/{anaHat.length}
+        </span>
+      </div>
+
+      <QuestListesi liste={anaHat} focus={focus} quests={quests}
+        onClaim={onClaim} onGoTab={onGoTab} onFocus={onFocus} />
+
+      {/* ── YAN HEDEFLER ── */}
+      {yanHedefler.length > 0 && (
+        <>
+          <div
+            onClick={() => setYanAcik(v => !v)}
+            title={yanAcik ? 'Yan hedefleri gizle' : 'Yan hedefleri göster'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              margin: '16px 2px 7px', paddingTop: 12,
+              borderTop: `1px solid ${C.lineSoft}`,
+            }}>
+            <span style={{
+              padding: '2px 8px', borderRadius: 4,
+              fontFamily: FONT.ui, fontSize: 8.5, letterSpacing: 1.2, fontWeight: 700,
+              color: C.textMute, border: `1px solid ${C.lineSoft}`,
+            }}>YAN HEDEFLER</span>
+            <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint }}>
+              İstersen atlarsın — verimlilik ve ileri sistemler.
+            </span>
+            <span style={num({ fontSize: 9.5, color: C.textMute, marginLeft: 'auto' })}>
+              {yanAlinan}/{yanHedefler.length}
+            </span>
+            <svg width="11" height="11" viewBox="0 0 12 12" style={{
+              flexShrink: 0, opacity: 0.6,
+              transform: yanAcik ? 'none' : 'rotate(-90deg)', transition: 'transform .16s',
+            }}>
+              <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke={C.iceSoft}
+                strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+
+          {yanAcik && (
+            <QuestListesi liste={yanHedefler} focus={focus} quests={quests}
+              onClaim={onClaim} onGoTab={onGoTab} onFocus={onFocus} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Görev satırları — ana hat ve yan hedefler aynı satırı kullanıyor */
+function QuestListesi({ liste, focus, quests, onClaim, onGoTab, onFocus }) {
+  return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {sirali.map((q, i) => {
+        {liste.map((q, i) => {
           const aktif = q.id === (focus || quests.aktif);
           return (
             <div key={q.id}
@@ -434,6 +528,5 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
           );
         })}
       </div>
-    </div>
   );
 }
