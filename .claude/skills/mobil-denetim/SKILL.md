@@ -179,8 +179,16 @@ Dar ekranda yan yana değil **alt alta** koy.
    Bu projedeki her düzeltmenin yanında ölçülen sayı duruyor; bir sonraki
    kişi "burası neden böyle" diye sormuyor.
 
-## Test köyü uyarısı
+## Kapsama uyarısı — aracın gezmediği yer kör noktadır
 
-Araç yalnız **kurulu** binaları gezer. Test hesabında 8 bina varken tarama
-"temiz" diyordu; 28 bina kurulunca iki yeni hata çıktı. Denetimden önce
-içeriğin gerçekten var olduğundan emin ol.
+İki kez aynı ders çıktı:
+
+- Araç yalnız **kurulu** binaları gezer. Test hesabında 8 bina varken tarama
+  "temiz" diyordu; 28 bina kurulunca iki yeni hata çıktı.
+- Araç yalnız **kendisine söylenen slotları** açar. Sekmeleri ve `bina-*`
+  slotlarını geziyordu, haritadaki `tarla-*` panellerini hiç açmıyordu —
+  tarla panelinin YÜKSELT düğmesi ekran dışındaydı ve bunu kullanıcı
+  bildirdi, araç değil.
+
+Yeni bir panel türü eklendiğinde **aracın gezme listesine de ekle.**
+Denetimden önce sor: bu tarama hangi ekranları HİÇ açmıyor?
