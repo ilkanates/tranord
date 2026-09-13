@@ -34,6 +34,17 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
+### 0. Köyün adı ANA BİNADAN değiştirilebilsin
+Şu an köy adı yalnız **profil menüsünde** değiştirilebiliyor (üst sağdaki
+oyuncu adına tıklayınca). Orası kimsenin aramadığı bir yer.
+
+- Ana Bina panelinde köy adı alanı olsun; oyuncu adı **değiştirilemez**
+  ama köy adı serbest (bkz. Tamamlandı · "Onboarding").
+- Çoklu köyde ANA BİNASINA tıklanan köyün adı değişsin — profildeki
+  "aktif köy" mantığı yanlış köyü yeniden adlandırmaya açık.
+- Sunucu olayı hazır: `rename_village { slotKey, name }`, sahiplik
+  denetimi ve ad kuralı zaten var. Yapılacak şey yalnız arayüz.
+
 ### 0. Ev sahibi misafir askeri geri yollayabilsin
 Şu an takviyeyi YALNIZ SAHİBİ geri çağırabiliyor (`takviye_geri_cagir`,
 sahiplik denetimi var). Ev sahibinin elinde hiçbir düğme yok.

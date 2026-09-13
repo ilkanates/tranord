@@ -1763,10 +1763,35 @@ io.on('connection', async socket => {
     console.log(`[MESAJ] ${userEmail} → ${hedef.display_name}`);
   });
 
-  socket.on('mesaj_kutusu', async ({ yon = 'gelen' } = {}) => {
-    const liste = await mesajKutusu(userId, { yon });
+  /**
+   * MESAJ ALICISI İÇİN OYUNCU LİSTESİ.
+   *
+   * Kaynak BELLEKTEKİ ad haritası (`WORLD.ownerByUser`), veritabanı değil:
+   * kutu her tuş vuruşunda süzülüyor, oraya sorgu koymak yazarken sunucuya
+   * yük bindirirdi. Harita zaten bu adları gösteriyor, yeni bir bilgi
+   * sızdırmıyor.
+   *
+   * Liste KISALTILIYOR (en fazla 40): binlerce oyuncuda tam listeyi
+   * yollamak hem paketi şişirir hem de kutuyu okunmaz yapar. Aranan ad
+   * listede yoksa oyuncu ELLE yazabiliyor — sunucu adı yine
+   * veritabanından çözüyor, yani liste bir kolaylık, kapı değil.
+   */
+  socket.on('mesaj_oyuncular', ({ q = '' } = {}) => {
+    const aranan = String(q || '').trim().toLocaleLowerCase('tr');
+    const hepsi = [];
+    for (const [uid, ad] of WORLD.ownerByUser) {
+      if (uid === userId || !ad) continue;          // kendine mesaj yok
+      if (aranan && !ad.toLocaleLowerCase('tr').includes(aranan)) continue;
+      hepsi.push(ad);
+    }
+    hepsi.sort((a, b) => a.localeCompare(b, 'tr'));
+    socket.emit('mesaj_oyuncu_listesi', { q, liste: hepsi.slice(0, 40), toplam: hepsi.length });
+  });
+
+  socket.on('mesaj_kutusu', async () => {
+    const liste = await mesajKutusu(userId);
     const engelliler = await engelListesi(userId);
-    socket.emit('mesaj_listesi', { yon, liste, engelliler });
+    socket.emit('mesaj_listesi', { liste, engelliler });
   });
 
   socket.on('mesaj_okundu', async ({ id } = {}) => {

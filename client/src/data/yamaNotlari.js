@@ -33,10 +33,12 @@ export const YAMA_NOTLARI = [
       {
         id: '20260913-mesajlasma',
         tur: 'yenilik',
-        metin: 'Artık diğer oyunculara MESAJ gönderebiliyorsun. Üstteki '
-          + 'Mesajlar sekmesinde gelen kutusu ve gönderdiklerin ayrı ayrı '
-          + 'duruyor; okunmamış mesajın varsa sekmede sayaç çıkıyor. '
-          + 'Alıcıyı oyuncu adıyla yazıyorsun.',
+        metin: 'Artık diğer oyunculara MESAJ gönderebiliyorsun. Mesajlar '
+          + 'sekmesinde yazışmaların OYUNCU BAZINDA gruplanıyor: bir kişiyle '
+          + 'olan bütün alışverişin — senin yazdıkların da dahil — tek akışta '
+          + 'sırayla duruyor. Okunmamış mesajın varsa sekmede sayaç çıkıyor. '
+          + 'YENİ SOHBET ile oyuncuyu listeden seçebilir ya da adını yazıp '
+          + 'arayabilirsin.',
       },
       {
         id: '20260913-mesaj-engelle',

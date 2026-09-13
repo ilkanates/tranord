@@ -425,13 +425,19 @@ async function mesajYaz({ fromUserId, toUserId, konu, govde }) {
 }
 
 /**
- * KUTU LİSTESİ — gelen ya da giden.
+ * YAZIŞMA LİSTESİ — gelen VE giden, tek sorguda.
  *
- * Karşı tarafın ADI sorguda birleştiriliyor: istemciye userId göndermek
+ * Arayüz mesajları karşı oyuncuya göre grupluyor (sohbet görünümü), yani
+ * iki ayrı kutu değil tek bir akış gerekiyor. Gelen/giden ayrımı
+ * satırdaki `benden` bayrağıyla yapılıyor.
+ *
+ * SİLME TEK TARAFLI olduğu için süzgeç de yöne göre: benim sildiğim
+ * mesaj benden gizlenir, karşı tarafta durmaya devam eder.
+ *
+ * Karşı tarafın ADI sorguda birleştiriliyor; istemciye userId göndermek
  * hem işe yaramıyor hem de oyuncuları numaralarıyla eşleştirmeye yarardı.
  */
-async function mesajKutusu(userId, { yon = 'gelen', limit = 100 } = {}) {
-  const gelen = yon !== 'giden';
+async function mesajKutusu(userId, { limit = 300 } = {}) {
   const res = await pool.query(
     `SELECT m.id, m.konu, m.govde, m.at, m.okundu_at,
             m.from_user_id, m.to_user_id,
@@ -439,18 +445,20 @@ async function mesajKutusu(userId, { yon = 'gelen', limit = 100 } = {}) {
        FROM messages m
        JOIN users gf ON gf.id = m.from_user_id
        JOIN users gt ON gt.id = m.to_user_id
-      WHERE ${gelen ? 'm.to_user_id' : 'm.from_user_id'} = $1
-        AND ${gelen ? 'm.alan_sildi' : 'm.gonderen_sildi'} = FALSE
+      WHERE (m.to_user_id   = $1 AND m.alan_sildi     = FALSE)
+         OR (m.from_user_id = $1 AND m.gonderen_sildi = FALSE)
       ORDER BY m.id DESC
       LIMIT $2`,
-    [userId, Math.min(200, Math.max(1, limit))]
+    [userId, Math.min(500, Math.max(1, limit))]
   );
-  return res.rows.map(r => ({
-    id: r.id, konu: r.konu, govde: r.govde,
-    at: r.at, okundu: !!r.okundu_at,
-    yon: gelen ? 'gelen' : 'giden',
-    karsiAd: gelen ? r.gonderen_ad : r.alan_ad,
-  }));
+  return res.rows.map(r => {
+    const benden = r.from_user_id === userId;
+    return {
+      id: r.id, konu: r.konu, govde: r.govde,
+      at: r.at, okundu: !!r.okundu_at, benden,
+      karsiAd: benden ? r.alan_ad : r.gonderen_ad,
+    };
+  });
 }
 
 async function mesajOkunmamisSayisi(userId) {

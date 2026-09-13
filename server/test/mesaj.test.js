@@ -76,16 +76,24 @@ async function ikiOyuncu(sunucu, t) {
   return hesaplar;
 }
 
-/** Bir kutu isteyip listeyi döndür */
-async function kutu(oturum, yon = 'gelen') {
+/**
+ * BÜTÜN YAZIŞMAYI iste.
+ *
+ * Kutu artık gelen/giden diye ayrılmıyor: arayüz mesajları karşı oyuncuya
+ * göre grupluyor (sohbet görünümü), sunucu da tek akış veriyor. Yön,
+ * satırdaki `benden` bayrağında.
+ */
+async function kutu(oturum) {
   let sonuc = null;
-  const al = (d) => { if (d?.yon === yon) sonuc = d; };
+  const al = (d) => { sonuc = d; };
   oturum.soket.on('mesaj_listesi', al);
-  oturum.soket.emit('mesaj_kutusu', { yon });
+  oturum.soket.emit('mesaj_kutusu');
   for (let i = 0; i < 30 && !sonuc; i++) await bekle(100);
   oturum.soket.off('mesaj_listesi', al);
   return sonuc;
 }
+const gelenler = (d) => (d?.liste || []).filter(m => !m.benden);
+const gidenler = (d) => (d?.liste || []).filter(m => m.benden);
 
 test('mesaj gidiyor, gelen kutusunda çıkıyor, okundu işaretleniyor', async (t) => {
   const sunucu = await sunucuBaslat();
@@ -96,23 +104,23 @@ test('mesaj gidiyor, gelen kutusunda çıkıyor, okundu işaretleniyor', async (
     alici: b.username, konu: 'Selam', govde: 'Komşu olalım mı?' });
   await bekle(1200);
 
-  const gelen = await kutu(b.oturum, 'gelen');
-  assert.equal(gelen.liste.length, 1, 'alıcının kutusunda 1 mesaj olmalı');
-  assert.equal(gelen.liste[0].konu, 'Selam');
-  assert.equal(gelen.liste[0].karsiAd, a.username, 'gönderen adı görünmeli');
-  assert.equal(gelen.liste[0].okundu, false);
+  const bKutu = gelenler(await kutu(b.oturum));
+  assert.equal(bKutu.length, 1, 'alıcının kutusunda 1 mesaj olmalı');
+  assert.equal(bKutu[0].konu, 'Selam');
+  assert.equal(bKutu[0].karsiAd, a.username, 'gönderen adı görünmeli');
+  assert.equal(bKutu[0].okundu, false);
 
-  const giden = await kutu(a.oturum, 'giden');
-  assert.equal(giden.liste.length, 1, 'gönderenin giden kutusunda durmalı');
-  assert.equal(giden.liste[0].karsiAd, b.username);
+  const aKutu = gidenler(await kutu(a.oturum));
+  assert.equal(aKutu.length, 1, 'gönderenin kendi akışında durmalı');
+  assert.equal(aKutu[0].karsiAd, b.username);
+  assert.equal(aKutu[0].benden, true, 'kendi mesajı benden=true olmalı');
 
   // Okunmamış sayacı payload'da
   assert.equal(b.oturum.koy.mesajOkunmamis, 1, 'rozet sayacı 1 olmalı');
 
-  b.oturum.soket.emit('mesaj_okundu', { id: gelen.liste[0].id });
+  b.oturum.soket.emit('mesaj_okundu', { id: bKutu[0].id });
   await bekle(1200);
-  const sonra = await kutu(b.oturum, 'gelen');
-  assert.equal(sonra.liste[0].okundu, true);
+  assert.equal(gelenler(await kutu(b.oturum))[0].okundu, true);
   assert.equal(b.oturum.koy.mesajOkunmamis, 0, 'okununca sayaç sıfırlanmalı');
 });
 
@@ -147,16 +155,14 @@ test('engellenen kişinin mesajı SESSİZCE düşüyor', async (t) => {
   await bekle(1200);
 
   assert.equal(sonuc?.ok, true, 'gönderene BAŞARILI görünmeli — engel gizli');
-  const gelen = await kutu(b.oturum, 'gelen');
-  assert.equal(gelen.liste.length, 0, 'mesaj kutuya DÜŞMEMELİ');
+  assert.equal(gelenler(await kutu(b.oturum)).length, 0, 'mesaj kutuya DÜŞMEMELİ');
 
   // Engel kaldırılınca yeniden geçiyor
   b.oturum.soket.emit('mesaj_engelle', { ad: a.username, kaldir: true });
   await bekle(800);
   a.oturum.soket.emit('mesaj_gonder', { alici: b.username, govde: 'simdi gecer' });
   await bekle(1200);
-  const sonra = await kutu(b.oturum, 'gelen');
-  assert.equal(sonra.liste.length, 1);
+  assert.equal(gelenler(await kutu(b.oturum)).length, 1);
 });
 
 test('silme İKİ TARAFLI değil: gönderen silince alıcıda duruyor', async (t) => {
@@ -167,14 +173,13 @@ test('silme İKİ TARAFLI değil: gönderen silince alıcıda duruyor', async (t
   a.oturum.soket.emit('mesaj_gonder', { alici: b.username, govde: 'kalici mesaj' });
   await bekle(1200);
 
-  const giden = await kutu(a.oturum, 'giden');
-  assert.equal(giden.liste.length, 1);
-  a.oturum.soket.emit('mesaj_sil', { id: giden.liste[0].id });
+  const aGiden = gidenler(await kutu(a.oturum));
+  assert.equal(aGiden.length, 1);
+  a.oturum.soket.emit('mesaj_sil', { id: aGiden[0].id });
   await bekle(1000);
 
-  const gidenSonra = await kutu(a.oturum, 'giden');
-  assert.equal(gidenSonra.liste.length, 0, 'gönderenin kutusundan kalkmalı');
-
-  const gelen = await kutu(b.oturum, 'gelen');
-  assert.equal(gelen.liste.length, 1, 'alıcıda OLDUĞU GİBİ durmalı');
+  assert.equal(gidenler(await kutu(a.oturum)).length, 0,
+    'gönderenin kutusundan kalkmalı');
+  assert.equal(gelenler(await kutu(b.oturum)).length, 1,
+    'alıcıda OLDUĞU GİBİ durmalı');
 });

@@ -347,21 +347,21 @@ async function mesajYaz({ fromUserId, toUserId, konu, govde }) {
 
 const adiniBul = (id) => db.users.find(u => u.id === Number(id))?.display_name || null;
 
-async function mesajKutusu(userId, { yon = 'gelen', limit = 100 } = {}) {
+async function mesajKutusu(userId, { limit = 300 } = {}) {
   const uid = Number(userId);
-  const gelen = yon !== 'giden';
   return db.messages
-    .filter(m => (gelen
-      ? m.to_user_id === uid && !m.alan_sildi
-      : m.from_user_id === uid && !m.gonderen_sildi))
+    .filter(m => (m.to_user_id === uid && !m.alan_sildi)
+      || (m.from_user_id === uid && !m.gonderen_sildi))
     .sort((a, b) => b.id - a.id)
-    .slice(0, Math.min(200, Math.max(1, limit)))
-    .map(m => ({
-      id: m.id, konu: m.konu, govde: m.govde,
-      at: m.at, okundu: !!m.okundu_at,
-      yon: gelen ? 'gelen' : 'giden',
-      karsiAd: adiniBul(gelen ? m.from_user_id : m.to_user_id),
-    }));
+    .slice(0, Math.min(500, Math.max(1, limit)))
+    .map(m => {
+      const benden = m.from_user_id === uid;
+      return {
+        id: m.id, konu: m.konu, govde: m.govde,
+        at: m.at, okundu: !!m.okundu_at, benden,
+        karsiAd: adiniBul(benden ? m.to_user_id : m.from_user_id),
+      };
+    });
 }
 
 async function mesajOkunmamisSayisi(userId) {
