@@ -187,6 +187,32 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Rún Salonu'na işçi atanamıyordu — araştırma tamamen tıkalıydı (13 Eylül 2026)
+- Hangi binaların işçi aldığını söyleyen `WORKER_ASSIGNABLE_MILITARY` kümesi sunucuda ve istemcide **ayrı ayrı** yazılıydı ve üçüncü kez ayrıştı: sunucu `runSalonu`, `kosk`, `saray`'ı kabul ediyor, istemci listesinde üçü de yoktu. İstemci bilmeyince atama arayüzü hiç çizilmiyor, sunucuya istek bile gitmiyor.
+- Sonuç: **araştırma hiç yapılamıyordu**; ayrıca köşk/saraya eğitmen atanamadığı için göçmen kuyruğu ilerlemiyordu (bu ikincisi bildirilmemişti, arayan bulundu).
+- Yorum yeterli olmadığı için `test/tanim-ikizleri.test.js`'e koruma testi eklendi: sunucudaki küme kaynak metinden okunup istemcidekiyle karşılaştırılıyor. Testin gerçekten yakaladığı doğrulandı (`runSalonu` çıkarılınca düştü).
+
+### Üretim adedi: 50 sınırı kalktı + MAKS düğmesi (13 Eylül 2026)
+- 50'lik tavan gerçek bir sınır gibi davranıyordu; deposu dolu oyuncu bile bir seferde 50'den fazla sipariş edemiyordu. Asıl sınır zaten kaynak/ekipman/boş işçi — bedel sipariş anında peşin düşülüyor. Tavan 10000'e çekildi (denge değil, saçma girdi kapısı); istemcideki `QTY_TAVAN` ile sunucudaki `ADET_TAVANI` aynı kalmalı.
+- **MAKS** düğmesi: asker = min(boş işçi, ekipman/adet, kaynak/adet); ekipman = min(kaynak/adet, **depo boş yeri**). Doğrulandı: silahçıda 80'lik sipariş kuyruğa girdi.
+- Adet kutusundaki rakam silinemiyordu (`+e.target.value || 1` boş dizeyi 1'e çeviriyordu) — artık boş kalabiliyor, odak çıkınca gerçek değere dönüyor.
+
+### Mobil oynanabilirlik — denetim aracı ve düzeltmeler (13 Eylül 2026)
+- `client/dev/mobil-denetim.html`: oyunu iframe'e alıp 9 çözünürlüğü gezen, denetimi sayfanın içinde çalıştıran araç (bağımlılıksız, üretime çıkmıyor). Kuralları ve **beş yanlış pozitif eleyicisi** `.claude/skills/mobil-denetim/` skill'inde.
+- Ölçüm: 1404 → 38 → **0 bulgu** (9 boyut × 28 bina × tarlalar × 10 sekme).
+- Düzeltilenler — hepsinin kök nedeni ölçülerek bulundu:
+  - **Ölçüt genişlikti, oysa soru "yer var mı"** (dört ayrı hata): yatay telefon 896 px geniş olduğu için "masaüstü" sayılıyordu. Ahırda at siparişi, silahçıda adet kutusu + YÜKSELT görünmüyordu; yüzen görev kartı denetimleri örtüyordu; tablette panel 448 px iken masaüstü şeridi seçilip kutular 74 px'e düşüyordu.
+  - **Tarla panelinde YÜKSELT ekran dışındaydı**: konum `prefH` (350) varsayımıyla hesaplanıyor ama panel 551 px; fark kabın dışında kalıyordu. `maxH` artık panelin durduğu yerden ölçülüyor.
+  - Kaydırıcılar 6 px'lik dokunma hedefiydi; satır içi `height` CSS'teki dokunmatik kuralını eziyordu. (Satır içi `minHeight` ezer, `height` ezmez — 24 yerde `height` var ve hepsi zararsız.)
+  - 320 px'de çıkış düğmesi tamamen ekran dışındaydı; haritada KÖYÜME DÖN taşıyordu; bina adlarına 69 px kalıyordu (→ 256).
+  - Ekipman binalarında gövde iki sütuna bölünüp "At" kartını 26 px'e sıkıştırıyordu (→ 214). Kadro/yükseltme kutuları da at siparişi gibi tam genişliğe alındı — binalarda tek tarz.
+- **Aracın körlüğü:** geometrik kurallar "sütun kullanılamaz genişliğe düştü"yü yakalamıyor; 26 px'lik kartı kullanıcı gözle buldu. Tarla panelleri de taranmıyordu — o da kullanıcıdan geldi, sonra araca eklendi.
+
+### Görsel temel: tek palet, tabular rakamlar, düğme geri bildirimi (13 Eylül 2026)
+- `index.css` ile `theme.js` **iki ayrı palet** kullanıyordu; yedi jetonun yedisi de farklıydı (sayfa zemini, odak halkası, kaydırma çubuğu bir palette, bileşenler başka palette). Tek kaynağa indirildi.
+- Sayılar zıplıyordu: `FONT.num`'ı doğrudan kullanan 17 yer tabular rakam almıyordu (ölçüm: Jost'ta "111111" 37.81 px, "888888" 45.88 px). Kural köke taşındı. `FONT.num` monospace değil ama Jost'un tabular rakamları var — stack'e dokunulmadı.
+- Düğmelere üzerine gelme/basma geri bildirimi. Zemin satır içi verildiği için CSS'ten `background` işe yaramıyor; `filter`/`transform` satır içinde hiç kullanılmadığından tek kuralla 38/38 düğme kapsandı.
+
 ### Savunma yapıları — sur / hendek / kule (Eylül 2026)
 - Sur ve hendek hex slotu olmaktan çıktı, köyü **çevreleyen** yapıya dönüştü; isimli slotlara taşındı (`sur`, `hendek`, `kule1…kule6`) ve eski kayıtlar göç ettirildi.
 - Sur köyün altıgen dış hattını takip ediyor, arada boşluk yok; kümenin gerçek birleşim sınırından türüyor (ölçüm: 6.062·S).
