@@ -1779,8 +1779,25 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
         backdropFilter: 'blur(14px) saturate(1.15)',
         WebkitBackdropFilter: 'blur(14px) saturate(1.15)',
       }}>
+        {/*
+          BİLGİ KISMI DARALIR, DÜĞMELER DARALMAZ.
+
+          Bütün öğeler `flexShrink: 0` iken bar `overflow: hidden` olduğu
+          için sığmayan SON öğe kesiliyordu — 320 px'de KÖYÜME DÖN sağ
+          kenarı 359 px'e taşıyor ve tamamen erişilemiyordu (ölçüldü).
+          Bilgi yazıları tek kapta toplandı: yer kalmayınca önce onlar
+          kırpılır, düğmeler her zaman tam görünür. Bilgi okunacak şey,
+          düğme iş yapar.
+        */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          flex: '1 1 auto', minWidth: 0, overflow: 'hidden',
+        }}>
         <Icon name="harita" size={12} color={C.iceDeep} style={{ flexShrink: 0 }} />
-        <span style={lbl({ fontSize: 8, whiteSpace: 'nowrap', flexShrink: 0 })}>{zoomLabel}</span>
+        {/* Dar ekranda yalnız sayı — "ARAZİ" yazısı 35 px yiyor */}
+        {railInset > 10 && (
+          <span style={lbl({ fontSize: 8, whiteSpace: 'nowrap', flexShrink: 0 })}>{zoomLabel}</span>
+        )}
         <span style={num({ fontSize: 10, color: C.textFaint, flexShrink: 0 })}>{scale.toFixed(2)}×</span>
 
         <div style={{ width: 1, height: 14, background: C.lineSoft, flexShrink: 0 }} />
@@ -1790,8 +1807,6 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           {tileCount}<span style={{ color: C.textMute, fontSize: 9.5 }}>/{maxProductionSlots}</span>
         </span>
 
-        <div style={{ width: 1, height: 14, background: C.lineSoft, flexShrink: 0 }} />
-
         {/*
           Köy sayısı TELEFONDA GİZLİ. Bilgi; düğmeler iş. 414 px'de
           sığmıyor ve "2..." diye kırpılıp çirkin duruyordu; kaldırınca
@@ -1799,14 +1814,16 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           ray genişliği kadar — ayrı bir prop'a gerek yok.
         */}
         {railInset > 10 && (
-          <span style={num({
-            fontSize: 10, color: C.textFaint, whiteSpace: 'nowrap', flexShrink: 0,
-          })}>
-            {villages.length} köy · r{snap?.radius ?? '—'}
-          </span>
+          <>
+            <div style={{ width: 1, height: 14, background: C.lineSoft, flexShrink: 0 }} />
+            <span style={num({
+              fontSize: 10, color: C.textFaint, whiteSpace: 'nowrap', flexShrink: 0,
+            })}>
+              {villages.length} köy · r{snap?.radius ?? '—'}
+            </span>
+          </>
         )}
-
-        <div style={{ flex: 1, minWidth: 4 }} />
+        </div>
         <button onClick={() => setScale(s => Math.max(Z_MIN, s / 1.6))}
           style={btn('ghost', {
             padding: '3px 8px', fontSize: 9, whiteSpace: 'nowrap', flexShrink: 0,

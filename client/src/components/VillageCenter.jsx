@@ -859,7 +859,21 @@ export default function VillageCenter({
     akışa giriyor — görsel üstte, denetimler altında, ikisi de tam
     genişlikte.
   */
-  const darEkran = viewSize.w > 0 ? viewSize.w < 760 : false;
+  /*
+    ÖLÇÜT GENİŞLİK DEĞİL, "YER VAR MI".
+
+    Yalnız genişliğe bakıyordu ve YATAY TELEFONDA çöküyordu: 896×414'te
+    ekran 896 px geniş olduğu için masaüstü düzeni seçiliyor, denetim
+    şeridi postere biniyor ve posterin en az yüksekliğini 300 px'e
+    çıkarıyor — oysa panelin tamamı 343 px. Gövde (191 px) panelin 149 px
+    dışında kalıp `overflow: hidden` altında kesiliyordu: adet kutusu ve
+    YÜKSELT düğmesi hiç görünmüyordu (ölçüldü).
+
+    Şerit postere ancak hem genişlik hem YÜKSEKLİK varsa biner.
+  */
+  const darEkran = viewSize.w > 0
+    ? (viewSize.w < 760 || viewSize.h < 520)
+    : false;
 
   const [denetimH, setDenetimH] = useState(0);
   const denetimRef = useRef(null);

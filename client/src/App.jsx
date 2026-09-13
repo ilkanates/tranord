@@ -181,7 +181,15 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
     }}>
       {/* Marka */}
       <div style={{
-        width: dar ? 'auto' : vp.railW, flexShrink: 0,
+        width: dar ? 'auto' : vp.railW,
+        /*
+          DAR EKRANDA MARKA DARALABİLİR — sağdaki düğmeler daralamaz.
+          `flexShrink: 0` iken marka yer bırakmıyordu ve 320 px'de ÇIKIŞ
+          düğmesi tamamen ekranın dışında kalıyordu (340–376, ekran 320;
+          ölçüldü). Bu emniyet kemeri: aşağıdaki gizleme kuralı yetmezse
+          bile marka kırpılır, düğme erişilebilir kalır.
+        */
+        flexShrink: dar ? 1 : 0, minWidth: 0, overflow: 'hidden',
         display: 'flex', alignItems: 'center', gap: dar ? 6 : 9,
         padding: dar ? '7px 9px' : '10px 14px',
         borderRight: `1px solid ${C.lineSoft}`,
@@ -196,8 +204,16 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
           cikis dugmesi ekranin 18 px disinda kaliyordu. Oyunun adi her
           ekranda durmak zorunda degil; koyun adi onemli. Tek koyde yazi
           kaliyor — ust bar zaten bos.
+
+          KOSUL KOY SAYISINA BAGLIYDI, YERE DEGIL: tek koylu bir oyuncuda
+          yazi kaliyor ve 320 px'de CIKIS dugmesini tamamen ekran disina
+          itiyordu (340–376). Artik yer de olcute giriyor — sag gruba
+          ~200 px, arma ve bosluklara ~60 px gerekiyor.
         */}
-        <div style={{ lineHeight: 1, display: (dar && villages.length > 1) ? 'none' : 'block' }}>
+        <div style={{
+          lineHeight: 1,
+          display: (dar && (villages.length > 1 || (vp.w || 9999) < 380)) ? 'none' : 'block',
+        }}>
           <div style={{
             fontFamily: FONT.head, fontSize: dar ? 14 : 19, fontWeight: 700,
             letterSpacing: dar ? 2 : 4, color: C.frost,
@@ -1144,7 +1160,16 @@ function Game({ token, onLogout }) {
         Telefonda görev durumu Görevler sekmesinin sayacında; kart
         masaüstünde aynen duruyor.
       */}
-      {!vp.mobile && (
+      {/*
+        ÖLÇÜT YİNE GENİŞLİKTİ — YATAY TELEFONDA KART GERİ GELİYORDU.
+
+        `!vp.mobile` yan çevrilmiş telefonda (896×414) doğru dönüyor,
+        kart açılıyor ve yukarıda anlatılan örtme sorunu aynen tekrar
+        ediyordu: Görevler'de GÖSTER, Köylüler'de ±/MAKS, Simülatör'de
+        SAVAŞ düğmelerinin üstünü kapatıyordu (denetim taramasıyla
+        ölçüldü). Kısa ekranda yüzen karta yer yok.
+      */}
+      {!vp.mobile && vp.h >= 520 && (
         <QuestCard quests={village.quests || null} mobile={vp.mobile} focus={questFocus}
           bastir={panelAcik || yamaAcik}
           onClaim={(id) => socket?.emit('claim_quest', { id })}
