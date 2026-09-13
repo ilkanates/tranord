@@ -42,7 +42,13 @@ const kutu = {
  * iki alan aynı olayı dinlediği için hangisinin cevabı olduğunu bununla
  * ayırıyoruz, yoksa köy adı hatası oyuncu adının altında beliriyordu.
  */
-function NameField({
+/**
+ * Profil menüsünün DIŞINDA da kullanılıyor: köy adı artık Ana Bina
+ * panelinden de değiştirilebiliyor (bkz. BuildMenu). Aynı alanı iki kez
+ * yazmak, sunucu cevabını (`name_result`) iki ayrı yerde yorumlamak
+ * demekti.
+ */
+export function NameField({
   socket, alan, baslik, ipucu, deger, enAz, enCok, gonder,
   otoOdak = false, dugme = 'KAYDET',
 }) {

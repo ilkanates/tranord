@@ -26,6 +26,21 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13k',
+    tarih: '13 Eylül 2026',
+    baslik: 'Köy adı Ana Binadan',
+    notlar: [
+      {
+        id: '20260913-koy-adi-anabina',
+        tur: 'duzeltme',
+        metin: 'Köyünün adını artık ANA BİNA panelinden değiştirebiliyorsun. '
+          + 'Eskiden yalnız üst sağdaki profil menüsündeydi; kimse orada '
+          + 'aramıyordu. Kullanıcı adın kilitli kalmaya devam ediyor, '
+          + 'değişen yalnız köyün adı.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13j',
     tarih: '13 Eylül 2026',
     baslik: 'Açlık artık önceden haber veriyor',

@@ -26,16 +26,48 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
-### 0. Köyün adı ANA BİNADAN değiştirilebilsin
-Şu an köy adı yalnız **profil menüsünde** değiştirilebiliyor (üst sağdaki
-oyuncu adına tıklayınca). Orası kimsenin aramadığı bir yer.
+### 0. Üst bar sekme amblemleri yanlış
+Sekmelerin çoğu ya genel bir ikon ya da başka bir sekmenin ikonunu
+kullanıyor (Harita ile Seferler aynı, Görevler ile Yardım aynı,
+Mesajlar "bilgi" ikonunda). İkonun sekmeyi ayırt etmesi gerekiyor.
 
-- Ana Bina panelinde köy adı alanı olsun; oyuncu adı **değiştirilemez**
-  ama köy adı serbest (bkz. Tamamlandı · "Onboarding").
-- Çoklu köyde ANA BİNASINA tıklanan köyün adı değişsin — profildeki
-  "aktif köy" mantığı yanlış köyü yeniden adlandırmaya açık.
-- Sunucu olayı hazır: `rename_village { slotKey, name }`, sahiplik
-  denetimi ve ad kuralı zaten var. Yapılacak şey yalnız arayüz.
+İstenen eşleme:
+
+| Sekme | Amblem |
+|---|---|
+| Köylüler | çiftçi |
+| Ordu | kılıç |
+| Seferler | tekerlek |
+| Görevler | kitap |
+| Raporlar | parşömen |
+| Mesajlar | mektup |
+| İstatistik | çubuk grafik |
+| Savaş Simülatörü | kılıç + kalkan |
+
+- Eksik ikonlar `client/src/components/Icons.jsx`'e çizilecek
+  (çiftçi, tekerlek, kitap, parşömen, mektup, çubuk grafik, kılıç+kalkan).
+- Mevcut stil korunacak: ince çizgi (stroke), 24×24 viewBox, `strokeWidth`
+  dışarıdan geliyor — dolu (fill) ikon karışır.
+- Alt bardaki telefon sekmeleri AYNI listeyi kullanıyor (`TABS`), tek
+  yerden değişecek.
+
+### 0. Takviye listesi KÖY başına olsun, gönderim başına değil
+Ordu ekranında her takviye GÖNDERİMİ ayrı satır: aynı köye üç kez asker
+yolladıysan üç satır görüyorsun ve her birini ayrı ayrı geri çağırıyorsun.
+Sunucuda da her varış ayrı bir `takviyeler` girdisi açıyor.
+
+- Liste **köy başına TEK satır** olsun; o köydeki bütün askerin toplamı.
+- Geri çağırırken **istediğin kadarını** seçebil: hepsini değil, birim
+  birim miktar verebilmeli (ordu gönderme panelindeki gibi sayı kutusu).
+- Sunucu tarafı: `takviyeGeriCagir` şu an TEK girdiyi (`takviyeId`)
+  komple alıp yolluyor. Kısmî çekmede girdi bölünmeli — istenen kadarı
+  dönüş seferine, kalanı ev sahibinde kalmalı; girdi boşalırsa silinmeli.
+- Kayıplar gelişe göre pay ediliyor (`savunmaKayiplariniPayEt` geliş
+  sırasına bakıyor) — girdiler birleştirilirse o sıra da değişir,
+  **karar gerekiyor**: birleştirme yalnız GÖRÜNÜMDE mi olsun (sunucu
+  girdileri ayrı tutsun), yoksa kayıt da mı birleşsin?
+- Öneri: kayıt AYRI kalsın, arayüz köy başına toplasın, kısmî çekimde
+  sunucu girdileri eskiden yeniye tüketsin. Böylece kayıp payı bozulmaz.
 
 ### 0. Ev sahibi misafir askeri geri yollayabilsin
 Şu an takviyeyi YALNIZ SAHİBİ geri çağırabiliyor (`takviye_geri_cagir`,
@@ -175,6 +207,13 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Köyün adı Ana Binadan değiştirilebiliyor (13 Eylül 2026)
+- Köy adı yalnız profil menüsünde değiştirilebiliyordu (üst sağdaki oyuncu adına tıklayınca) — kimsenin aramadığı bir yer. Artık köyün adı köyün kalbinden değişiyor.
+- Alan Ana Bina posterinin üstünde, başlığın hemen yukarısında. **Panel gövdesine konmadı**: Ana Binada poster bütün paneli kaplıyor ve gövdenin yüksekliği SIFIR kalıyor (ölçüldü: `clientHeight = 0`) — oraya konan alan hiç görünmüyordu.
+- Slot **açıkça** gönderiliyor (`activeSlot`), binanın hex slotu değil: ikisini karıştırmak sunucuda "bu köy senin değil" ile sessizce reddedilirdi.
+- `NameField` profil menüsünden dışa açıldı; iki yer aynı alanı ve aynı sunucu cevabını (`name_result`) paylaşıyor, birinde değiştirince diğeri kendiliğinden tazeleniyor.
+- Oyuncu adı kilitli kalmaya devam ediyor — değişen yalnız köy adı.
 
 ### Negatif ekmek akışı — ÖLÇÜLDÜ ve uyarı eklendi (13 Eylül 2026)
 **Maddenin ilk iki iddiası ölçümle doğrulanamadı; üçüncü, gerçek sorun bulundu.**

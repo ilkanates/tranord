@@ -12,6 +12,7 @@ import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/v
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, signed, fmtTime } from '../theme';
+import { NameField } from './ProfilePanel';
 import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf, yikimOnayi } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import usePinchPan from './usePinchPan';
@@ -1610,6 +1611,35 @@ export default function VillageCenter({
                   position: 'absolute', left: 13, right: darEkran ? 13 : 200,
                   bottom: 9, zIndex: 2,
                 }}>
+                  {/*
+                    KÖY ADI — ANA BİNADA, POSTERİN ÜSTÜNDE.
+
+                    Köy adı yalnız profil menüsünde değiştirilebiliyordu
+                    (üst sağdaki oyuncu adına tıklayınca); kimsenin aramadığı
+                    bir yer. Köyün adı köyün kalbinden değişsin.
+
+                    Neden panel GÖVDESİNDE değil: Ana Binada poster bütün
+                    paneli kaplıyor ve gövdenin yüksekliği SIFIR kalıyor
+                    (ölçüldü) — oraya konan alan hiç görünmüyordu.
+
+                    Slot AÇIKÇA veriliyor: çoklu köyde "aktif köy" varsayımı
+                    yanlış köyü yeniden adlandırmaya açıktı.
+                  */}
+                  {selected === '0,0' && socket && activeSlot && (
+                    <div style={{
+                      maxWidth: 320, marginBottom: 7,
+                      padding: '7px 9px', borderRadius: 6,
+                      background: 'rgba(6,12,20,0.82)', border: `1px solid ${C.lineSoft}`,
+                      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                    }}>
+                      <NameField socket={socket} alan="koy"
+                        baslik="Köyünün adı" ipucu="köy adı"
+                        deger={villages.find(v => v.slotKey === activeSlot)?.name || ''}
+                        enAz={2} enCok={22}
+                        gonder={(ad) => socket.emit('rename_village',
+                          { slotKey: activeSlot, name: ad })} />
+                    </div>
+                  )}
                   <div style={{
                     fontFamily: FONT.head, fontSize: darEkran ? 20 : 25,
                     fontWeight: 600, letterSpacing: 1.1,
