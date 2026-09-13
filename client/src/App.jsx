@@ -239,7 +239,10 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
                 color: on ? C.frost : C.textFaint,
                 fontFamily: FONT.head, fontSize: 13.5, fontWeight: on ? 600 : 500,
                 letterSpacing: 1.1, cursor: 'pointer', whiteSpace: 'nowrap',
-                transition: 'color .14s, border-color .14s, background .14s',
+                // filter/transform da listede: basma geri bildirimi index.css'te
+                // bu ikisiyle veriliyor, satır içi transition onu eziyordu.
+                transition: 'color .14s, border-color .14s, background .14s,'
+                  + ' filter .14s ease, transform .1s ease',
                 ...(on ? { background: 'linear-gradient(180deg, rgba(127,212,255,0.03), rgba(127,212,255,0.11))' } : {}),
               }}
               onMouseOver={(e) => { if (!on) e.currentTarget.style.color = C.textDim; }}

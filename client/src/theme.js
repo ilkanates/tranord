@@ -101,7 +101,13 @@ export const btn = (variant = 'ghost', extra = {}) => {
     padding: '7px 12px',
     borderRadius: 5,
     cursor: 'pointer',
-    transition: 'background .14s, border-color .14s, color .14s',
+    /*
+      `filter` ve `transform` de geçişte: basma/üzerine gelme geri bildirimi
+      index.css'te bu iki özellikle veriliyor. Satır içi `transition` CSS'teki
+      kuralı ezdiği için burada sayılmazlarsa düğmeler anında sıçrardı.
+    */
+    transition: 'background .14s, border-color .14s, color .14s,'
+      + ' filter .14s ease, transform .1s ease',
     lineHeight: 1.2,
   };
   const variants = {
