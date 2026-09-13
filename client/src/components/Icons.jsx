@@ -477,6 +477,106 @@ const P = {
       <path d="M12 12.5l2.4-2.7" />
     </>
   ),
+
+  /* ── SEKME AMBLEMLERİ ───────────────────────────────────────────
+     Üst bardaki sekmelerin çoğu genel bir ikon ya da BAŞKA bir
+     sekmenin ikonunu kullanıyordu: Harita ile Seferler aynı, Görevler
+     ile Yardım aynı, Mesajlar "bilgi" ikonundaydı. İkon sekmeyi ayırt
+     etmiyorsa hiç yok sayılır — telefonda alt barda yalnız ikon var.
+
+     Hepsi setin geri kalanıyla aynı dilde: 24×24, dolgusuz, stroke
+     tabanlı; kalınlık dışarıdan geliyor. Dolu (fill) ikon araya
+     girdiğinde göz onu "seçili" sanıyor.
+  */
+
+/**
+   * Köylüler — ÇİFTÇİ: geniş kenarlı şapka + gövde + yanında başak.
+   *
+   * İlk çizimde omuzdaki tırpan gövdeden ayrışmıyor, 16 px'te (alt bar
+   * boyutu) karalamaya dönüyordu. Şapkanın yatay çizgisi küçükte bile
+   * siluet veriyor; başak da "çiftçi"yi "asker"den ayırıyor.
+   */
+  ciftci: (
+    <>
+      <path d="M5 6.6h14" />
+      <path d="M8.8 6.6a3.2 3.2 0 0 1 6.4 0" />
+      <path d="M12 9.2v6" />
+      <path d="M8.4 11.8h7.2" />
+      <path d="M12 15.2 9.2 21M12 15.2 14.8 21" />
+    </>
+  ),
+
+  /** Seferler — TEKERLEK: yolda giden araba tekerleği */
+  tekerlek: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="2.4" />
+      <path d="M12 3.5v6.1M12 14.4v6.1" />
+      <path d="M3.5 12h6.1M14.4 12h6.1" />
+      <path d="m6 6 3.1 3.1M14.9 14.9 18 18" />
+      <path d="M18 6l-3.1 3.1M9.1 14.9 6 18" />
+    </>
+  ),
+
+  /** Görevler — KİTAP: açık kitap, ortada sırt */
+  kitap: (
+    <>
+      <path d="M12 6.4v13" />
+      <path d="M12 6.4C10.4 5.1 8.2 4.5 5 4.5v13c3.2 0 5.4.6 7 1.9" />
+      <path d="M12 6.4c1.6-1.3 3.8-1.9 7-1.9v13c-3.2 0-5.4.6-7 1.9" />
+    </>
+  ),
+
+/**
+   * Raporlar — PARŞÖMEN: üstü ve altı kıvrımlı sayfa + yazı satırları.
+   *
+   * İlk çizimde iki uçtaki rulo kıvrımları 16 px'te birbirine giriyordu.
+   * Tek bir dalga (üstte ve altta) hem "parşömen"i veriyor hem de düz
+   * bir kâğıttan ayırıyor.
+   */
+  parsomen: (
+    <>
+      <path d="M5 5.5c1.4-1.2 2.8-1.2 4.2 0s2.8 1.2 4.2 0 2.8-1.2 4.2 0" />
+      <path d="M5 18.5c1.4-1.2 2.8-1.2 4.2 0s2.8 1.2 4.2 0 2.8-1.2 4.2 0" />
+      <path d="M5 5.5v13M17.6 5.5v13" />
+      <path d="M8.2 10h6.4M8.2 13.2h6.4" />
+    </>
+  ),
+
+  /** Mesajlar — MEKTUP: zarf, kapağı üçgen */
+  mektup: (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="m3.6 7 7.2 5.4a2 2 0 0 0 2.4 0L20.4 7" />
+    </>
+  ),
+
+  /** İstatistik — ÇUBUK GRAFİK: eksen + üç çubuk */
+  grafik: (
+    <>
+      <path d="M4 4v16h16" />
+      <path d="M8 20v-5.5" />
+      <path d="M12.7 20V8.5" />
+      <path d="M17.4 20v-8.5" />
+    </>
+  ),
+
+/**
+   * Savaş Simülatörü — KALKAN (solda) + KILIÇ (sağda).
+   *
+   * İlk çizimde ikisi üst üste biniyordu ve 16 px'te tek bir karalama
+   * oluyordu. Ayrı ayrı duruyorlar: iki taraf, yani "karşılaştırma" —
+   * simülatörün yaptığı iş.
+   */
+  kilicKalkan: (
+    <>
+      <path d="M7 3.2 2.6 5v5.2c0 3.9 1.8 6.8 4.4 7.9 2.6-1.1 4.4-4 4.4-7.9V5z" />
+      <path d="M18.8 2.8v10.4" />
+      <path d="M15.6 13.2h6.4" />
+      <path d="M18.8 13.2v7.6" />
+      <path d="M17.2 20.8h3.2" />
+    </>
+  ),
 };
 
 // Bina tipi → ikon adı. 'zirh' hem ekipman (zırh) hem bina (zırhçı) olduğu için

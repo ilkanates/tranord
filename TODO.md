@@ -26,31 +26,6 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
-### 0. Üst bar sekme amblemleri yanlış
-Sekmelerin çoğu ya genel bir ikon ya da başka bir sekmenin ikonunu
-kullanıyor (Harita ile Seferler aynı, Görevler ile Yardım aynı,
-Mesajlar "bilgi" ikonunda). İkonun sekmeyi ayırt etmesi gerekiyor.
-
-İstenen eşleme:
-
-| Sekme | Amblem |
-|---|---|
-| Köylüler | çiftçi |
-| Ordu | kılıç |
-| Seferler | tekerlek |
-| Görevler | kitap |
-| Raporlar | parşömen |
-| Mesajlar | mektup |
-| İstatistik | çubuk grafik |
-| Savaş Simülatörü | kılıç + kalkan |
-
-- Eksik ikonlar `client/src/components/Icons.jsx`'e çizilecek
-  (çiftçi, tekerlek, kitap, parşömen, mektup, çubuk grafik, kılıç+kalkan).
-- Mevcut stil korunacak: ince çizgi (stroke), 24×24 viewBox, `strokeWidth`
-  dışarıdan geliyor — dolu (fill) ikon karışır.
-- Alt bardaki telefon sekmeleri AYNI listeyi kullanıyor (`TABS`), tek
-  yerden değişecek.
-
 ### 0. Takviye listesi KÖY başına olsun, gönderim başına değil
 Ordu ekranında her takviye GÖNDERİMİ ayrı satır: aynı köye üç kez asker
 yolladıysan üç satır görüyorsun ve her birini ayrı ayrı geri çağırıyorsun.
@@ -207,6 +182,12 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Sekme amblemleri (13 Eylül 2026)
+- Sekmelerin çoğu genel bir ikon ya da BAŞKA bir sekmenin ikonuydu: Harita ile Seferler aynı, Görevler ile Yardım aynı, Mesajlar "bilgi" ikonundaydı. İkon sekmeyi ayırt etmiyorsa hiç yok sayılır — telefonda alt barda zaten yalnız ikon var.
+- Yeni: **çiftçi** (Köylüler), **tekerlek** (Seferler), **kitap** (Görevler), **parşömen** (Raporlar), **mektup** (Mesajlar), **çubuk grafik** (İstatistik), **kılıç+kalkan** (Simülatör). Ordu artık kılıç.
+- Hepsi setin dilinde: 24×24, dolgusuz, stroke tabanlı, kalınlık dışarıdan. Dolu ikon araya girince göz onu "seçili" sanıyor.
+- **16 px'te okunurluk ölçüldü** (alt bar boyutu) — üç ikon o boyutta dağıldığı için yeniden çizildi: çiftçinin omzundaki tırpan gövdeye karışıyordu, parşömenin iki ucundaki rulo kıvrımları birbirine giriyordu, kılıç+kalkan üst üste binip tek bir karalama oluyordu. Önizleme sayfası: `client/dev/ikon-onizleme.html` (72/24/16 px yan yana).
 
 ### Köyün adı Ana Binadan değiştirilebiliyor (13 Eylül 2026)
 - Köy adı yalnız profil menüsünde değiştirilebiliyordu (üst sağdaki oyuncu adına tıklayınca) — kimsenin aramadığı bir yer. Artık köyün adı köyün kalbinden değişiyor.

@@ -139,17 +139,27 @@ function dropSocket() {
   _socket = null; _socketToken = null;
 }
 
+/**
+ * SEKMELER ve AMBLEMLERİ.
+ *
+ * Amblemler bir kez elden geçirildi: çoğu ya genel bir ikondu ya da
+ * BAŞKA bir sekmenin ikonuydu — Harita ile Seferler aynı, Görevler ile
+ * Yardım aynı, Mesajlar "bilgi" ikonundaydı. İkon sekmeyi ayırt
+ * etmiyorsa hiç yok sayılır; telefonda alt barda zaten yalnız ikon var.
+ *
+ * Tek liste: üst bar da alt bar da buradan besleniyor.
+ */
 const TABS = [
   { key: 'harita',    label: 'Harita',           icon: 'harita' },
   { key: 'koy',       label: 'Köy Merkezi',      icon: 'koy' },
-  { key: 'isciler',   label: 'Köylüler',         icon: 'isci' },
-  { key: 'ordu',      label: 'Ordu',             icon: 'ordu' },
-  { key: 'sefer',     label: 'Seferler',         icon: 'harita' },
-  { key: 'gorevler',  label: 'Görevler',         icon: 'bilgi' },
-  { key: 'raporlar',  label: 'Raporlar',         icon: 'savas' },
-  { key: 'mesajlar',  label: 'Mesajlar',         icon: 'bilgi' },
-  { key: 'istatistik', label: 'İstatistik',      icon: 'bonus' },
-  { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilic' },
+  { key: 'isciler',   label: 'Köylüler',         icon: 'ciftci' },
+  { key: 'ordu',      label: 'Ordu',             icon: 'kilic' },
+  { key: 'sefer',     label: 'Seferler',         icon: 'tekerlek' },
+  { key: 'gorevler',  label: 'Görevler',         icon: 'kitap' },
+  { key: 'raporlar',  label: 'Raporlar',         icon: 'parsomen' },
+  { key: 'mesajlar',  label: 'Mesajlar',         icon: 'mektup' },
+  { key: 'istatistik', label: 'İstatistik',      icon: 'grafik' },
+  { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilicKalkan' },
   { key: 'yardim',    label: 'Yardım',           icon: 'bilgi' },
 ];
 

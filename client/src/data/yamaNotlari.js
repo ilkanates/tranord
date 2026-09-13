@@ -26,6 +26,24 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13l',
+    tarih: '13 Eylül 2026',
+    baslik: 'Sekme amblemleri',
+    notlar: [
+      {
+        id: '20260913-sekme-amblemleri',
+        tur: 'duzeltme',
+        metin: 'Üstteki sekmelerin ikonları elden geçti. Çoğu ya genel bir '
+          + 'işaretti ya da başka bir sekmenin ikonuydu — Harita ile Seferler '
+          + 'aynıydı, Görevler ile Yardım aynıydı. Artık Köylüler çiftçi, '
+          + 'Ordu kılıç, Seferler tekerlek, Görevler kitap, Raporlar parşömen, '
+          + 'Mesajlar mektup, İstatistik çubuk grafik, Savaş Simülatörü '
+          + 'kılıç+kalkan. Telefonda alt barda yalnız ikon göründüğü için '
+          + 'hepsi küçük boyutta okunacak şekilde çizildi.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13k',
     tarih: '13 Eylül 2026',
     baslik: 'Köy adı Ana Binadan',
