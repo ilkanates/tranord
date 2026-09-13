@@ -1,6 +1,6 @@
 # TraNord — Yapılacaklar
 
-Son güncelleme: 9 Eylül 2026
+Son güncelleme: 13 Eylül 2026
 
 Sıralama önem sırasına göre. Her madde bitince **Tamamlandı** bölümüne taşınır.
 
@@ -18,25 +18,21 @@ Sıralama önem sırasına göre. Her madde bitince **Tamamlandı** bölümüne 
 
 Bu bölüm tek bir sistem — parçalarını ayrı ayrı yapmak mümkün değil, sıralı gitmek gerekiyor.
 
-### 0. Önce mimari: bir kullanıcı = birden fazla köy
-**Bu sistemin en büyük kısmı bu ve şu an hiç yok.** Mevcut kod bir kullanıcıya TEK köy varsayıyor:
-- `villages.user_id` sütununda **UNIQUE kısıtı** var — veritabanı seviyesinde ikinci köy imkânsız.
-- Sunucuda `session.village` tek nesne; tick döngüsü, kayıt, offline telafi, yayın (`emitVillage`) hepsi bunun üstüne kurulu.
-- İstemcide bütün paneller tek köyün verisiyle çalışıyor.
+### 0. ~~Önce mimari: bir kullanıcı = birden fazla köy~~ — YAPILDI
+Bkz. Tamamlandı · "Çoklu köy mimarisi". Bu maddede kalan tek iş:
+- **Kendi köyleri arasında kaynak/asker gönderimi.** Kaynak tarafı pazarla
+  çözüldü (tüccar yürüyüşü); asker tarafı için bkz. "Takviye" maddesi.
 
-Yapılacaklar:
-- `villages` tablosundan UNIQUE kaldır, `is_capital` sütunu ekle (`slot_key` unique kalsın).
-- `session.village` → `session.villages` + aktif köy; tick her köy için dönmeli, kayıt ve offline telafi köy başına.
-- Yayın (`buildPayload` / `emitVillage`) aktif köyü göndersin, köy listesi ayrı hafif bir alan olarak gitsin.
-- İstemciye köy değiştirici (üstte sekme veya açılır liste); bütün paneller aktif köye bağlanmalı.
-- Kendi köyleri arasında kaynak/asker gönderimi (mevcut yürüyüş altyapısı kullanılabilir).
+### 1. ~~Göçmen ve yeni köy kurma~~ — YAPILDI (uçtan uca oynanarak doğrulanmadı)
+Kod yolları yerinde: `gocmen` birimi (köşk/saray Lvl 10, 240 dk, maliyeti
+tanımlı), `mode: 'yerlesim'` seferi, kültür puanı + köy hakkı denetimi
+sefer BAŞLARKEN yapılıyor, varışta `foundVillageAt` köyü kuruyor.
 
-### 1. Göçmen ve yeni köy kurma
-- Göçmen köşk veya saraydan üretilir (asker gibi kuyruklu üretim).
-- **3 göçmen** boş bir araziye gönderilir → oraya yeni köy kurulur.
-- Kurulum için hem kültür puanı eşiği hem köy hakkı (köşk/saray seviyesi) sağlanmış olmalı.
-- Boş arazi seçimi: haritada slotu olan ama sahibi olmayan hex.
-- **Karar gerekiyor:** göçmen maliyeti (kaynak + nüfus) ve üretim süresi.
+Kalan:
+- Uçtan uca bir oyun turunda denenmedi — 3 göçmen üret, boş araziye gönder,
+  köyün gerçekten kurulduğunu ve köy listesine düştüğünü gör.
+- Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
+  rapor/uyarı gidiyor mu, kontrol edilmeli.
 
 ### 2. Elçilik ve birlik (ittifak)
 - Yeni bina: **Elçilik**. Buradan birlik kurulur ve başka oyuncular birliğe davet edilir.
@@ -85,10 +81,56 @@ Bu zincir sırayla ilerlemek zorunda:
 ## 🟢 Oyun mekaniği
 
 ### Kuşatma birimleri (Koç Başı, Mancınık)
-- Normal savaştan **sonra** çalışan ayrı faz.
-- Koç Başı: saldırgan kazanırsa `saldırı × sayı` oranında sur + hendek seviyesi düşer.
-- Mancınık: saldırgan hedef bina seçer, seviyesi düşürülür.
-- Şu an savaş hesabına hiç dahil değil (simülatörde de seçilemez).
+Birimler **zaten tanımlı**, ama şu an üretilmeleri İMKÂNSIZ:
+
+- `kaleKiran` ("Kale Kıran", atölye Lvl 1) → `koc_basi` ekipmanı istiyor
+- `alevMancınıgı` ("Alev Mancınığı", atölye Lvl 10, Rún araştırması var)
+  → `mancinik` ekipmanı istiyor
+- **İkisi de `EQUIPMENT_DEFS`'te yok** ve `EQUIPMENT_BY_BUILDING` yalnızca
+  `silahci: [kilic, mizrak]`, `zirh: [kalkan, zirh]`, `ahir: [at]` veriyor.
+  Yani ekipman denetimi her zaman başarısız — birim kuyruğa hiç girmiyor.
+
+Yapılacaklar:
+1. `koc_basi` ve `mancinik` ekipmanlarını tanımla; hangi bina üretecek?
+   (Atölyenin kendisi mi üretsin — şu an ekipman üreten bina listesinde yok.)
+2. Savaş hesabına kat: normal savaştan **sonra** çalışan ayrı faz.
+   - Koç Başı: saldırgan kazanırsa `saldırı × sayı` oranında sur + hendek
+     seviyesi düşer.
+   - Mancınık: saldırgan hedef bina seçer, seviyesi düşürülür.
+3. Sefer gönderme ekranında hedef bina seçimi (mancınık için).
+4. Savaş raporunda "yıkılan yapı" satırı.
+5. Simülatöre kuşatma girdisi (şu an seçilemiyorlar).
+
+**Karar gerekiyor:** ekipman maliyeti ve üretim süresi; mancınık ana binayı
+ya da depoyu vurabilsin mi (Travian'da ana bina Lvl 0'a inince köy yıkılır —
+bu oyunda köy yıkımı istiyor muyuz?).
+
+### Takviye — başka köye savunma askeri gönderme
+Yürüyüş altyapısı hazır; eksik olan yeni bir sefer **modu** ve askerin
+hedefte "misafir" olarak durması.
+
+- Şu anki modlar: `raid`, `scout`, `yerlesim` ve normal saldırı. `takviye` yok.
+- Takviye eden asker hedef köyde **savunmaya katılır**, ganimet almaz, geri
+  çağrılana kadar orada kalır.
+- Kendi köylerim arasında da, başka oyuncuya da gönderilebilmeli
+  (kime gönderilebileceği birlik sistemine bağlı → "Elçilik ve birlik").
+
+**Karar gerekiyor — en kritiği besleme:**
+- Misafir askerin tahılını **kim** öder? Travian'da ev sahibi köy besler.
+  Bu oyunda kısıt zaten tahıl (bkz. Tamamlandı · "Kısıt artık TAHIL"), yani
+  bu karar dengeyi doğrudan belirliyor: ev sahibi beslerse takviye gerçek
+  bir maliyet, gönderen beslerse bedava kalkan olur.
+- Ev sahibi köyün tahılı biterse ne olur — misafir asker mi ölür, önce ev
+  sahibinin askerleri mi?
+- Savaşta **kimin yükseltmeleri** uygulanır: askerin sahibi mi, ev sahibi mi?
+  (Ekipman yükseltmeleri köy bazlı; `unitStatsNow` buna göre hesaplanıyor.)
+- Geri çağırma: anında mı, yoksa yürüyüş süresi kadar mı?
+- Ev sahibi köy düşerse/yıkılırsa misafir askere ne olur?
+
+**Arayüz:**
+- Ev sahibi: köyümde kimin kaç askeri var.
+- Gönderen: askerim hangi köyde, geri çağır düğmesi.
+- Savaş raporunda takviye kayıpları ayrı satır (kimin askeri öldü).
 
 ### Sağlık çadırı
 - `saglikCadiri` binası tanımlı, mekaniği yok.
@@ -100,12 +142,42 @@ Bu zincir sırayla ilerlemek zorunda:
 - Formül: `moral = min(1, (saldıran_nüfus / savunan_nüfus)^0.2)`.
 - Köy puan sistemi netleşince eklenir.
 
-### Pazar
-- `pazar` binası tanımlı, al-sat ve köyler arası gönderi mekaniği yok.
+### Pazar — kalanlar
+NPC takası, oyuncular arası teklif ve tüccar yürüyüşü **yapıldı**
+(`server/game/pazar.js`, `pazarYol.js`; `pazar_takas`, `pazar_teklif_ac/
+kabul/iptal`). Bu maddede kalan:
+- Teklif listesinde arama/süzme (şu an bütün açık teklifler tek listede).
+- Teklifin süresi dolunca otomatik iptal ve kaynakların iadesi.
+- Tüccar kapasitesinin pazar seviyesiyle ilişkisi gözden geçirilecek.
 
 ---
 
 ## 🔵 Arayüz / içerik
+
+### Köy görünümü: hex haritaya alternatif "kart/kategori" görünümü
+Oyuncu iki görünüm arasında seçebilsin; tercih saklansın (`localStorage`).
+
+- **Şimdiki**: altıgen köy sahnesi, binaya tıklanarak panel açılır.
+- **Yeni**: üstte **kategori sekmeleri**, seçilen kategorinin binaları altta
+  kart olarak açılır; bütün işlemler o kartlardan yapılır. Oyuncu binayı köy
+  görselinden değil karttan seçer ve **ne seçtiğini net görür**.
+
+Kategoriler zaten tanımlı (`villageDefs.category`, renkleri `CAT_EDGE`'de):
+`isleme` · `askeri` · `depo` · `ekonomik` · `savunma` · `yonetim` · `nufus`
+· `merkez`. Buna ek olarak **"Boş alan"** diye bir sekme gerekiyor — inşa
+edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor).
+
+- Her bina kartında görsel **tam genişlik** olsun (panel poster'ı gibi).
+- Kart açılınca mevcut bina paneli aynen çalışsın — yeni bir panel yazmaya
+  gerek yok, yalnızca binaya ulaşma yolu değişiyor.
+- Bu görünüm telefonda muhtemelen daha kullanışlı: köy sahnesi dikeyde
+  yerin yarısını boş bırakıyor (bkz. mobil denetim notları).
+
+**Karar gerekiyor:**
+- Seçim nerede duracak — üst barda mı, köy ekranının içinde bir düğme mi?
+- Kategori sekmeleri telefonda yatay kaydırmalı şerit mi, açılır liste mi?
+- Boş alan sekmesinde slotlar nasıl sıralanacak (halka/uzaklık? bonus?)
+- Hex görünümü varsayılan mı kalacak, yoksa telefonda kart görünümü mü?
 
 - Köy içi görsel: kalan hammadde görselleri (`koy-tahil.png` vb.) istenirse köye özel arazi dokusu olarak eklenebilir.
 - ~~`client/public/` içindeki 5 tasarım önizleme sayfası~~ — yapıldı: altı geliştirme sayfası (5 prototip + `dev-login.html`) `client/dev/` altına taşındı ve yalnız `vite dev` sırasında servis ediliyor; üretime çıkmıyorlar. `koy-sekil3.html` referans olarak duruyor, diğer dördü istendiğinde silinebilir.
