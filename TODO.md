@@ -34,6 +34,22 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
+### 0. Ev sahibi misafir askeri geri yollayabilsin
+Şu an takviyeyi YALNIZ SAHİBİ geri çağırabiliyor (`takviye_geri_cagir`,
+sahiplik denetimi var). Ev sahibinin elinde hiçbir düğme yok.
+
+- Ordu ekranındaki "bu köydeki takviyeler" listesine **GERİ YOLLA** gelsin.
+- Asker sahibinin köyüne dönüş seferi olarak yola çıksın (mevcut
+  `takviyeGeriCagir` yolu birebir kullanılabilir — tek fark yetkilendirme).
+- **Neden gerekli:** misafir askerin ekmeğini EV SAHİBİ ödüyor. Çevrimdışı
+  ya da vazgeçmiş bir oyuncunun bıraktığı takviye, ev sahibinin köyünü
+  sessizce aç bırakabiliyor ve çıkış yolu yok.
+- Sahibine bir rapor gitmeli ("X köyü takviyeni geri yolladı") — askerin
+  neden yolda olduğunu göremezse oyuncu hata sanır.
+- **Karar gerekiyor:** ev sahibi geri yollarken asker yolda savunmaya
+  katılmıyor; kötüye kullanım var mı (saldırı anında misafiri kovmak)?
+  Muhtemel çözüm: gelen sefer varken geri yollama kapalı.
+
 ### 1. Kahraman (Travian mantığı)
 Oyuncunun TEK ve kalıcı kahramanı olsun; seferle birlikte yürüsün.
 
