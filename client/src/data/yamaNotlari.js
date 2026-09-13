@@ -26,6 +26,36 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14c',
+    tarih: '14 Eylül 2026',
+    baslik: 'Köyler artık yok edilebiliyor',
+    notlar: [
+      {
+        id: '20260914-koy-yikimi',
+        tur: 'yenilik',
+        metin: 'Bir köy artık HARİTADAN SİLİNEBİLİYOR — ama tek saldırıda '
+          + 'değil: yok olması için köydeki BÜTÜN binaların bitmesi gerekiyor. '
+          + 'Mancınıkla tek tek düşürerek ya da sahibi kendi eliyle yıkarak. '
+          + 'Ana Bina da artık sıfıra inebiliyor; eskiden Lvl 1 tabanı vardı '
+          + 've kuşatma bir yerden sonra hiçbir şey değiştirmiyordu.',
+      },
+      {
+        id: '20260914-ana-bina-yikilabilir',
+        tur: 'yenilik',
+        metin: 'Artık Ana Bina da yıkılabiliyor. Köyün son binasını yıkmaya '
+          + 'kalkarsan onay kutusu köyün haritadan silineceğini ayrıca '
+          + 'söylüyor — geri dönüşü yok.',
+      },
+      {
+        id: '20260914-son-koy-silinmez',
+        tur: 'denge',
+        metin: 'SON köyün asla silinmiyor: bütün binaları gitse bile köy boş '
+          + 'bir kabuk olarak kalıyor ve yeniden inşa edebiliyorsun. Oyundan '
+          + 'tamamen düşmek geri dönüşü olmayan bir ceza olurdu.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14b',
     tarih: '14 Eylül 2026',
     baslik: 'Görevler ikiye ayrıldı',

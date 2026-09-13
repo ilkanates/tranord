@@ -1497,12 +1497,18 @@ export default function VillageCenter({
                       <Icon name={panelEm.icon} size={panelEm.size || 17} color={panelEdge} strokeWidth={1.5} />
                     </div>
                   )}
-                  {/* Yıkım geri alınamaz ve artık SÜRE alıyor — onay şart */}
-                  {selectedBuilding && selectedBuilding.type !== 'anaBina'
+                  {/*
+                    Yıkım geri alınamaz ve artık SÜRE alıyor — onay şart.
+                    Ana bina da yıkılabilir; son binada onay metni köyün
+                    yok olacağını söylüyor (bkz. flows.js · yikimOnayi).
+                  */}
+                  {selectedBuilding
                     && !selectedBuilding.building && !selectedBuilding.yikiliyor && (
                     <button onClick={() => {
+                      const ayakta = Object.values(villageBuildings || {})
+                        .filter(b => (b.level || 0) > 0 || b.building).length;
                       if (!yikimOnayi(VILLAGE_DEFS[selectedBuilding.type], selectedBuilding,
-                        hourSeconds, worldSpeed)) return;
+                        hourSeconds, worldSpeed, ayakta <= 1)) return;
                       onDemolish(selected); setShowMenu(false); setSelected(null);
                     }}
                       title="Yık" style={{

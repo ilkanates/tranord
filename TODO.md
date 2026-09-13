@@ -1,6 +1,6 @@
 # TraNord — Yapılacaklar
 
-Son güncelleme: 13 Eylül 2026
+Son güncelleme: 14 Eylül 2026
 
 Sıralama önem sırasına göre. Her madde bitince **Tamamlandı** bölümüne taşınır.
 
@@ -26,27 +26,86 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
-### 1. Kahraman (Travian mantığı)
-Oyuncunun TEK ve kalıcı kahramanı olsun; seferle birlikte yürüsün.
+### 1. Kahraman (KAPSAMLI — kendi başına bir RPG katmanı)
+İlkan'ın tarifi: *"maceralara çıksın, XP kazansın, seviye atlasın, 4 tip
+skili olsun, seviye atlayınca 4 puan gelsin... itemler tek tek birimlerin
+saldırı ve def puanlarını arttırabilsin... baya item çeşitleri olsun kılıç
+kalkan zırh bileklik miğfer ayakkabı pantolon vs."*
 
-- **Kahraman konağı** (yeni bina): kahraman burada doğar, burada dirilir.
-- **Deneyim ve seviye**: savaşta öldürdüğü birim başına XP, seviye atlayınca
-  dağıtılacak puan. Travian'daki dört eksen: saldırı gücü, savunma gücü,
-  kaynak üretimi, dirilme hızı.
-- **Savaşta tek birim gibi davranır** ama ölmez — yaralanır ve konakta
-  belli bir sürede iyileşir. Ölüm kalıcı olsaydı kimse kahramanı riske atmazdı.
-- **Eşya**: silah/zırh/at/at nalı gibi kuşanılabilir parçalar. Kaynağı:
-  yağmada düşen ganimet (Travian'da "macera"; bizde NPC seferinden düşme
-  olabilir — ayrı bir macera sistemi kurmadan).
-- **Karar gerekiyor:**
-  - Kahraman hangi köye ait? Çoklu köyde konağın olduğu köy mü, aktif köy mü?
-  - Ölüm/iyileşme süresi gerçek zaman mı oyun saati mi?
-  - Eşya nasıl düşecek — macera sistemi mi, sefer ganimetinden mi?
-  - Kahraman kaynak üretimi (Travian'da köy üretimine ekleniyor) olsun mu,
-    yoksa yalnız savaş birimi mi kalsın?
-- Sunucu tarafı: kahraman durumu oyuncu bazında (merkez köyün state'inde,
-  görev kaydıyla aynı yerde), sefer paketine kahraman bayrağı, savaş
-  hesabına tek birimlik özel giriş.
+Bu madde TEK PARÇA DEĞİL — sırayla giden 5 aşama. Her aşama kendi başına
+oynanabilir bir şey bırakmalı; yarım kalan aşama oyuna girmez.
+
+#### Aşama 1 — Kahraman var olsun (temel)
+- **Kahraman Konağı** (yeni bina): kahraman burada doğar, burada dirilir,
+  eşyaları burada durur. Konak yıkılırsa kahraman "yurtsuz" kalır (macera
+  yok, iyileşme yok) ama ÖLMEZ — eşyası da silinmez.
+- **Kahraman OYUNCUYA ait, köye değil.** Konağın olduğu köy onun üssü;
+  çoklu köyde üs taşınabilir. Köy bazında olsaydı 5 köylü oyuncunun 5
+  kahramanı olurdu ve "tek ve kalıcı kahraman" fikri çökerdi.
+- **Can (HP) ve iyileşme:** savaşta ve macerada can kaybeder, konakta
+  zamanla dolar. **Ölmez, bayılır**: canı 0'a inince belli bir süre
+  kullanılamaz. Kalıcı ölüm olsaydı kimse kahramanı riske atmazdı.
+- Durum oyuncu bazında saklanır (merkez köyün state'inde, görev kaydının
+  yanında) — köy silinse bile kahraman kalır (bkz. Tamamlandı · köy yıkımı).
+
+#### Aşama 2 — XP, seviye ve 4 skil
+- **XP kaynakları:** macera (ana kaynak), savaşta öldürülen birim başına,
+  görev ödülü.
+- **Seviye atlayınca 4 PUAN** gelir, oyuncu dört skile dağıtır:
+  | Skil | Etkisi |
+  |---|---|
+  | **Savunma bonusu** | köyün TÜM savunmasına yüzde bonus |
+  | **Saldırı bonusu** | orduya yüzde bonus (kahraman seferdeyse) |
+  | **Saldırı puanı** | kahramanın KENDİ saldırı gücü (tek birim olarak) |
+  | **Kaynak üretimi** | bulunduğu köyün üretimine yüzde ek |
+- Puan **geri alınabilmeli mi?** → Karar: ücretli sıfırlama (bir kaynak
+  bedeliyle). Geri alınamaz olsaydı yeni oyuncu ilk yanlış dağıtımda
+  kalıcı ceza yerdi; bedava olsaydı skil seçimi bir karar olmazdı.
+- Yüzde bonuslara **tavan** konmalı — yoksa yüksek seviyeli kahraman tek
+  başına savaşı belirler ve ordu anlamsızlaşır.
+
+#### Aşama 3 — Maceralar
+- Konakta biriken **macera listesi**: haritada bir noktaya gider, bir süre
+  sonra döner, sonuç raporu gelir.
+- **Kısa / uzun macera**: kısa az XP az ödül, uzun çok XP çok ödül + daha
+  çok can kaybı. Tek tip macera olsaydı "gönder ve unut" olurdu.
+- **Ödül havuzu:** eşya · asker · hammadde · XP. Nadir eşya düşük olasılık.
+- Macera sayısı zamanla dolar (tavanı var) — sonsuz macera XP'yi anlamsız
+  kılardı.
+- Macera sırasında kahraman savunmada ve seferde YOK.
+
+#### Aşama 4 — Eşya sistemi
+- **Slotlar:** miğfer · zırh · pantolon · ayakkabı · sağ el (silah) ·
+  sol el (kalkan) · bileklik · kolye · at. Her slota tek eşya.
+- **Sürükle-bırak** ile kuşanma (İlkan'ın isteği); envanterden slota.
+  Görseller sonra çizilecek — şimdilik ikon + çerçeve rengi.
+- **Nadirlik kademeleri** (çerçeve rengi): sıradan · iyi · nadir · efsane.
+  Aynı eşyanın nadirliği bonus büyüklüğünü belirler.
+- **Eşya BONUSLARI iki türlü:**
+  1. *Kahramana*: kendi saldırısı, savunması, canı, hızı, macera süresi.
+  2. *ORDUYA*: **tek tek birim tiplerinin** saldırı/savunma puanına ek —
+     İlkan'ın özel isteği. Örn. "Fjordvakt Sancağı: fjordvakt savunması
+     +%15". Bu, ordu kompozisyonunu eşyaya bağlayan asıl derinlik.
+- Birim bazlı bonus ekipman havuzundan AYRI hesaplanmalı; ikisi aynı
+  yerden geçerse mevcut ekipman dengesi bozulur.
+
+#### Aşama 5 — Bağlama ve denge
+- Kahraman **sefere katılır** (sefer paketinde bayrak), savaş hesabına
+  tek birimlik özel giriş.
+- **Raporda** kahramanın ne yaptığı ayrı satır: verdiği hasar, aldığı can
+  kaybı, düşen ganimet.
+- Görev zincirine kahraman adımları (*konağı kur · ilk maceraya çık · ilk
+  eşyanı kuşan · seviye 5*).
+- Denge ölçümü: kahramansız ve kahramanlı aynı savaş, fark yüzdesi.
+
+**Kararlar (verildi):**
+- Kahraman **oyuncuya** ait, üssü konağın olduğu köy.
+- **Ölmez, bayılır**; iyileşme oyun saati üzerinden (hız çarpanına uyar).
+- Eşya **maceradan** düşer (yağma ganimetinden değil) — macera sistemi
+  zaten kuruluyor, iki ayrı düşme yolu dengeyi iki yerden bozardı.
+- Kaynak üretimi bonusu **var** (skil olarak) — Travian'daki gibi.
+
+**Açık kalan:** kahraman başka oyuncunun köyünde takviye olarak durabilir mi.
 
 ### 2. Elçilik ve birlik (ittifak)
 - Yeni bina: **Elçilik**. Buradan birlik kurulur ve başka oyuncular birliğe davet edilir.
@@ -148,6 +207,17 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Köy yıkımı: bütün binalar düşünce köy haritadan silinir (14 Eylül 2026)
+- Eskiden ana binanın altında `ANA_BINA_TABAN = 1` tabanı vardı: mancınık bir yerden sonra hiçbir şey değiştiremiyor, kuşatma anlamsızlaşıyordu. Taban **0** yapıldı.
+- Ama köyün yok olma koşulu ana binanın sıfırlanması DEĞİL: **hiç binası kalmaması**. Tek bir mancınık dalgasının köyü silmesi satılan bir oyun için fazla sertti; hiç silinememesi de kuşatmayı boşa çıkarıyordu. Aradaki yer: "her binayı tek tek düşür".
+- İki yol da aynı kuraldan geçiyor: **mancınıkla** yıkmak ya da **sahibinin kendi eliyle** yıkması. Kural `kusatma.js · koyBosMu`'da tek yerde, plumbing `index.js · koyuYokEt`'te.
+- **Ana Bina artık yıkılabiliyor** — eskiden `demolish_village` `'0,0'` isteğini sessizce reddediyordu, yani oyuncu köyünü kendi eliyle terk edemiyordu.
+- **Son binada onay metni ayrı uyarıyor**: "DİKKAT: Bu köyün SON binası. Yıkılırsa KÖY HARİTADAN SİLİNİR, geri alınamaz."
+- **SON köy asla silinmiyor** (verilen karar): bütün binaları gitse bile boş kabuk olarak kalıyor ve yeniden inşa edilebiliyor. Hesabın oyundan tamamen düşmesi geri dönüşü olmayan bir ceza olurdu.
+- Köy silinince merkez köyse **merkez kalan köylerden birine taşınıyor** (merkezsiz hesap görev kaydını ve kültür puanını kaybederdi), dünya haritasından ve kayıttan düşüyor, sahibinin ekranı `force + statics` ile tazeleniyor — parmak izi yalnız AKTİF köyü özetlediği için başka bir slotun silinmesi 30 sn'lik kalp atışını bekleyecekti.
+- `koyBosMu` **tarlaları saymıyor** (arazi, bina değil) ve **inşa hâlindeki binayı "var" sayıyor** (seviye 0 ama kaynak yatırılmış; köyü altından çekmek o kaynağı da silerdi).
+- Ölçüldü: iki köylü hesapta Alvby'nin Lvl 20 Ana Binası yıkıldı → köy kayıttan ve haritadan düştü, Bergheim merkez oldu. 135 test geçiyor (kuşatma dosyası 21 → 25).
 
 ### Ev sahibi misafir askeri geri yollayabiliyor (14 Eylül 2026)
 - Takviyeyi bugüne kadar YALNIZ SAHİBİ geri çağırabiliyordu; ev sahibinin elinde hiçbir düğme yoktu. Oysa misafir askerin ekmeğini **ev sahibi** ödüyor: vazgeçmiş ya da uzun süre girmemiş bir oyuncunun bıraktığı takviye köyü sessizce aç bırakabiliyordu.

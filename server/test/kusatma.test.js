@@ -7,8 +7,9 @@
  *    savunmadan bağımsız hâle gelir.
  * 2) Seviye maliyeti ARTAR: Lvl 20'yi indirmek Lvl 2'yi indirmekten
  *    pahalı. Sabit maliyet olsaydı yüksek sur yatırımı anlamsızlaşırdı.
- * 3) ANA BİNA Lvl 1'in altına inmez — köy yıkımı KAPALI. Açılacaksa tek
- *    yer `ANA_BINA_TABAN`; bu test o kararı kilitliyor.
+ * 3) ANA BİNA 0'a inebilir — köy yıkımı AÇIK, ama köyün yok olması için
+ *    BÜTÜN binaların bitmesi gerekiyor (koyBosMu). Tek dalgada köy silmek
+ *    fazla sert, hiç silememek kuşatmayı anlamsız kılıyordu.
  * 4) Yıkılan binanın işçileri havuza döner. Dönmezse işçiler artık var
  *    olmayan bir binada "çalışıyor" görünür ve nüfus muhasebesi bozulur.
  */
@@ -99,13 +100,58 @@ test('hedef bina yoksa RASTGELE bina vuruluyor — sefer boşa gitmiyor', () => 
   assert.equal(s.binalar[0].tip, 'kisla');
 });
 
-test('ANA BİNA Lvl 1 altına inmiyor — köy yıkımı kapalı', () => {
+test('ANA BİNA sıfıra inebiliyor — köy yıkımı AÇIK', () => {
   const v = koy({ '0,0': bina('anaBina', 3) });
   // 20 mancınık = 1500 puan, fazlasıyla yeter
   K.uygula(v, { 'alevMancınıgı': 20 }, 'anaBina');
-  assert.equal(v.villageBuildings['0,0'].level, K.ANA_BINA_TABAN);
-  assert.equal(K.ANA_BINA_TABAN, 1,
-    'köy yıkımı açılacaksa bu sabit 0 yapılır — karar burada kilitli');
+  assert.equal(v.villageBuildings['0,0'].level, 0,
+    'ana bina da düşebilmeli — köyün son binası');
+  assert.equal(K.ANA_BINA_TABAN, 0,
+    'köy yıkımı kapatılacaksa bu sabit 1 yapılır — karar burada kilitli');
+});
+
+test('köy ancak HİÇ binası kalmayınca boşalır', () => {
+  const v = koy({ '0,0': bina('anaBina', 1), '1,0': bina('kisla', 1) });
+  // Yalnız ana binayı hedefle: kışla ayakta kaldığı için köy hâlâ var
+  K.uygula(v, { 'alevMancınıgı': 20 }, 'anaBina');
+  const ayakta = Object.values(v.villageBuildings).filter(b => (b.level || 0) > 0);
+  assert.equal(ayakta.length, 1, 'kışla duruyorsa köy yok olmamalı');
+  assert.equal(ayakta[0].type, 'kisla');
+});
+
+test('koyBosMu: tek bina bile kalsa köy boş sayılmaz', () => {
+  assert.equal(K.koyBosMu(koy({})), true, 'hiç bina yoksa boş');
+  assert.equal(K.koyBosMu(koy({ '1,0': bina('kisla', 0) })), true,
+    'seviye 0 bina = yıkılmış, sayılmaz');
+  assert.equal(K.koyBosMu(koy({ '0,0': bina('anaBina', 1) })), false,
+    'ana bina Lvl 1 duruyorsa köy yaşıyor');
+  assert.equal(K.koyBosMu(koy({
+    '0,0': bina('anaBina', 0), '1,0': bina('kisla', 3),
+  })), false, 'ana bina sıfırlansa da kışla ayaktaysa köy yaşıyor');
+});
+
+test('koyBosMu: İNŞA hâlindeki bina köyü ayakta tutar', () => {
+  /*
+    Seviyesi 0 ama kaynak yatırılmış bir inşaat var. Köyü altından
+    çekmek o kaynağı da silerdi — oyuncu "yıkılmamış" bir şeye para
+    verip köyünü kaybederdi.
+  */
+  const v = koy({ '1,0': { type: 'kisla', level: 0, building: { endTime: 1 } } });
+  assert.equal(K.koyBosMu(v), false);
+});
+
+test('koyBosMu: TARLALAR köyü ayakta tutmaz', () => {
+  // Tarla köyün arazisi, binası değil; yoksa tarlalı köy hiç yok olamazdı
+  const v = koy({});
+  v.productionTiles = { 't1': { level: 5, workers: 2 } };
+  assert.equal(K.koyBosMu(v), true);
+});
+
+test('mancınık son binayı da düşürünce köy BOŞALIR', () => {
+  const v = koy({ '0,0': bina('anaBina', 2) });
+  K.uygula(v, { 'alevMancınıgı': 20 }, 'anaBina');
+  assert.equal(K.koyBosMu(v), true,
+    'tek binası kalan köy o bina da düşünce yok olabilir hâle gelmeli');
 });
 
 test('yıkılan binanın işçileri havuza dönüyor', () => {

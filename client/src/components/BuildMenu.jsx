@@ -318,10 +318,19 @@ export default function BuildMenu({
           </button>
         )}
 
-        {/* Yıkım geri alınamaz ve artık SÜRE alıyor — onay şart */}
-        {building && building.type !== 'anaBina' && !building.building && !building.yikiliyor && (
+        {/*
+          Yıkım geri alınamaz ve artık SÜRE alıyor — onay şart.
+          ANA BİNA DA YIKILABİLİR: köyün yok olma yolu "bütün binaları
+          düşür" olduğuna göre ana bina da bu yola dahil; onay metni son
+          binada ayrıca uyarıyor (bkz. flows.js · yikimOnayi).
+        */}
+        {building && !building.building && !building.yikiliyor && (
           <button
-            onClick={() => { if (yikimOnayi(def, building, hourSeconds, worldSpeed)) onDemolish(); }}
+            onClick={() => {
+              const ayakta = Object.values(placedBuildings || {})
+                .filter(b => (b.level || 0) > 0 || b.building).length;
+              if (yikimOnayi(def, building, hourSeconds, worldSpeed, ayakta <= 1)) onDemolish();
+            }}
             title="Yık"
             style={{
               display: 'grid', placeItems: 'center', width: 26, height: 26, padding: 0,

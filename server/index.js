@@ -10,7 +10,7 @@ const ARMY = require('./game/army');
 const KUSATMA = require('./game/kusatma');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
-const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
+const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVillage,
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
         setDisplayName, loadDisplayNames, renameVillage,
         findUserById, findUserByDisplayName,
@@ -425,7 +425,7 @@ function emitVillage(session, { force = false, statics = false } = {}) {
  * `userId` sadece log için; köyün kendisi hangi oyuncuya ait olduğunu
  * bilmiyor.
  */
-function advanceVillage(village, gameHours, userId) {
+function advanceVillage(village, gameHours, userId, slotKey = null) {
   processTick(village, gameHours);
 
   const now = village.clockMs;
@@ -438,6 +438,14 @@ function advanceVillage(village, gameHours, userId) {
     // Yıkım süresi doldu: slot boşalır. Personeli yıkım BAŞLARKEN çıkmıştı.
     if (b.yikiliyor && now >= b.yikimEndTime) {
       delete village.villageBuildings[key];
+      /*
+        Son bina da gittiyse köy yok olur. Oyuncunun kendi eliyle köyünü
+        terk etme yolu bu; kuşatmayla aynı kural (bkz. koyBosMu).
+      */
+      if (userId && koyBosMu(village)) {
+        koyuYokEt(userId, slotKey, 'kendi yıkımı').catch(err =>
+          console.error('[KÖY YIKIM] kendi yıkımı:', err?.message));
+      }
     }
   });
 
@@ -506,7 +514,7 @@ function runTickForUser(userId, session) {
 
   // BÜTÜN köyler ilerler; sadece aktif olan yayınlanır
   for (const [slotKey, village] of session.villages) {
-    advanceVillage(village, gameHours, userId);
+    advanceVillage(village, gameHours, userId, slotKey);
     session.dirtySlots.add(slotKey);
   }
 
@@ -851,6 +859,53 @@ function takviyelerimiBul(userId) {
   return [...gruplar.values()];
 }
 
+/** Köyün son binası da gitti mi? Kural kusatma.js'te (bkz. koyBosMu). */
+const koyBosMu = KUSATMA.koyBosMu;
+
+/**
+ * KÖYÜ YOK ET — son binası da düşen köy haritadan silinir.
+ *
+ * Sahibinin SON köyüyse yok edilmiyor: hesabın oyundan tamamen düşmesi,
+ * satılan bir oyunda geri dönüşü olmayan bir ceza olurdu. O durumda köy
+ * boş bir kabuk olarak kalıyor — oyuncu yeniden inşa edebilir; kaybettiği
+ * şey zaten her şeyi.
+ *
+ * @returns {boolean} köy gerçekten silindi mi
+ */
+async function koyuYokEt(ownerUserId, slotKey, sebep) {
+  const s = userSessions.get(ownerUserId);
+  if (!s || !s.villages.has(slotKey)) return false;
+  if (s.villages.size <= 1) return false;          // son köy silinmez
+
+  s.villages.delete(slotKey);
+  s.dirtySlots.delete(slotKey);
+  if (s.activeSlot === slotKey) s.activeSlot = [...s.villages.keys()][0];
+  if (s.capitalSlot === slotKey) {
+    // Merkez düştüyse kalan köylerden biri merkez olur — merkezsiz hesap
+    // görev kaydını ve kültür puanını kaybederdi
+    s.capitalSlot = [...s.villages.keys()][0];
+    for (const [k, v] of s.villages) v.isCapital = (k === s.capitalSlot);
+    try { await setCapital(ownerUserId, s.capitalSlot); }
+    catch (err) { console.error('[KÖY YIKIM] merkez taşınamadı:', err.message); }
+  }
+
+  WORLD.playerBySlot.delete(slotKey);
+  WORLD.slotsByUser.get(ownerUserId)?.delete(slotKey);
+  try { await deleteVillage(ownerUserId, slotKey); }
+  catch (err) { console.error('[KÖY YIKIM] kayıt silinemedi:', err.message); }
+
+  console.log(`[KÖY YIKIM] userId=${ownerUserId} ${slotKey} yok oldu (${sebep})`);
+  /*
+    Sahibinin ekranı ZORLA tazelenmeli. Parmak izi yalnız AKTİF köyü
+    özetliyor; silinen köy başka bir slotsa fingerprint hiç değişmez ve
+    köy listesinden düşmesi 30 saniyelik kalp atışını beklerdi. Aktif köy
+    silindiyse zaten bambaşka bir köye bakıyoruz: statics de gitmeli.
+  */
+  emitVillage(s, { force: true, statics: true });
+  yayinlaDunya();
+  return true;
+}
+
 /** slotKey → köy nesnesi. Çevrimdışı oyuncu için village null döner. */
 function villageAtSlot(slotKey) {
   const npc = WORLD.npcs.get(slotKey);
@@ -1126,6 +1181,17 @@ function processMarches(hours) {
         entry.dirty();
         if (tgt?.userId) markUserDirty(tgt.userId, m.toKey);
         else if (tgt?.kind === 'npc') markNpcDirty(m.toKey);
+
+        /*
+          KÖY YOK OLDU MU? Kuşatma son binayı da düşürmüş olabilir.
+          Kontrol burada, kusatma.js'te değil: orası yalnız seviye
+          düşürüyor; köyün varlığı oturum/dünya/kayıt üçlüsünü
+          ilgilendiriyor ve bu dosyanın işi.
+        */
+        if (tgt?.userId && tgt.village && koyBosMu(tgt.village)) {
+          koyuYokEt(tgt.userId, m.toKey, 'kuşatma').catch(err =>
+            console.error('[KÖY YIKIM] kuşatma sonrası:', err?.message));
+        }
 
         /*
           MİSAFİR KAYBI SAHİBİNİN NÜFUSUNDAN DÜŞER.
@@ -2284,7 +2350,12 @@ io.on('connection', async socket => {
    * oyuncuyu yanlış bastığı bir inşaatın süresi kadar bekletmek anlamsız.
    */
   socket.on('demolish_village', ({ slotKey } = {}) => {
-    if (slotKey === '0,0') return;
+    /*
+      ANA BİNA DA YIKILABİLİR. Eskiden '0,0' sessizce reddediliyordu ve
+      oyuncu köyünü kendi eliyle terk edemiyordu. Köyün yok olma yolu
+      "bütün binaları düşür" olduğuna göre ana bina da bu yola dahil.
+      Onay metni ayrıca uyarıyor (bkz. flows.js · yikimOnayi).
+    */
     const village = v();
     const b = village.villageBuildings[slotKey];
     if (!b || b.yikiliyor) return;

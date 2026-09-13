@@ -345,7 +345,8 @@ function sureMetni(sn) {
  *
  * @returns {boolean} oyuncu onayladı mı
  */
-export function yikimOnayi(def, building, hourSeconds = 3600, worldSpeed = 1) {
+export function yikimOnayi(def, building, hourSeconds = 3600, worldSpeed = 1,
+  sonBina = false) {
   const lvl = building?.level ?? 0;
   const ad = def?.name || building?.type || 'Bu bina';
   // Henüz bitmemiş inşaat anında kalkıyor — süre yazma, yanlış bilgi olur
@@ -360,6 +361,16 @@ export function yikimOnayi(def, building, hourSeconds = 3600, worldSpeed = 1) {
        `• Yıkım ${sureMetni(sn)} sürer; o süre boyunca bina çalışmaz.`,
        '• Personeli hemen işçi havuzuna döner.',
        '• Harcanan kaynak GERİ GELMEZ.'];
+  /*
+    SON BİNA = KÖYÜN SONU. Köy ancak hiç binası kalmayınca yok oluyor,
+    yani bu yıkım köyü haritadan siliyor. Diğer yıkımlarla aynı cümleyi
+    kullanmak geri dönüşü olmayan bir işlemi sıradan gösterirdi.
+  */
+  if (sonBina) {
+    satirlar.push('');
+    satirlar.push('DİKKAT: Bu köyün SON binası.');
+    satirlar.push('Yıkılırsa KÖY HARİTADAN SİLİNİR, geri alınamaz.');
+  }
   return window.confirm(satirlar.join('\n'));
 }
 

@@ -14,18 +14,30 @@
  *    Lvl 2 sur kadar kolay düşerdi; artan maliyet yüksek seviyeyi
  *    gerçek bir yatırım yapıyor.
  *
- * 4) KÖY YIKILMIYOR. Ana bina Lvl 1'in altına inmiyor. Travian'da ana
- *    bina 0'a inince köy yok olur; bu oyunda oyuncunun her şeyini tek
- *    saldırıda kaybetmesi satılan bir oyun için fazla sert bulundu.
- *    DEĞİŞTİRİLEBİLİR — tek yer: `ANA_BINA_TABAN`.
+ * 4) KÖY YIKILABİLİR — ama TEK SALDIRIDA DEĞİL.
+ *
+ *    Ana bina artık 0'a inebiliyor (`ANA_BINA_TABAN = 0`). Köyün yok
+ *    olması için BÜTÜN binaların bitmesi gerekiyor; mancınıkla ya da
+ *    oyuncunun kendi yıkımıyla. Tek bir mancınık dalgasının köyü silmesi
+ *    satılan bir oyun için fazla sertti, ama hiç yıkılamaması da kuşatmayı
+ *    anlamsız kılıyordu: aradaki yer "her binayı tek tek düşür".
+ *
+ *    Yıkımın kendisi burada DEĞİL: bu dosya yalnız seviye düşürüyor.
+ *    "Köy boşaldı mı" kararını çağıran taraf veriyor (bkz. index.js ·
+ *    koyBosMu / koyuYokEt) — kuşatma ile oyuncunun kendi yıkımı aynı
+ *    yerden geçsin diye.
  */
 const { UNIT_DEFS } = require('../data');
 
 /** Bir seviyeyi indirmenin puan maliyeti = bu sabit × mevcut seviye */
 const SEVIYE_MALIYETI = 30;
 
-/** Ana bina bu seviyenin altına inmez (0 yapılırsa köy yıkımı açılır) */
-const ANA_BINA_TABAN = 1;
+/**
+ * Ana binanın TABANI. 0 = mancınık ana binayı da sıfırlayabilir, yani
+ * köyün son binası da düşebilir. Köy ancak HİÇ binası kalmayınca yok
+ * oluyor (bkz. index.js · koyBosMu).
+ */
+const ANA_BINA_TABAN = 0;
 
 /**
  * İKİNCİ HEDEF — atölye bu seviyeye gelince mancınık iki bina vurabilir.
@@ -216,8 +228,31 @@ function uygula(target, survivors, hedefTip = null) {
   return sonuc;
 }
 
+/**
+ * KÖY BOŞ MU — hiç binası kalmadı mı?
+ *
+ * Köyün yok olma koşulu bu: ana binanın 0'a inmesi TEK BAŞINA yetmiyor,
+ * BÜTÜN binaların bitmesi gerekiyor. Tek bir mancınık dalgasının köyü
+ * silmesi satılan bir oyun için fazla sertti; hiç yıkılamaması da
+ * kuşatmayı anlamsız kılıyordu. Aradaki yer: "her binayı tek tek düşür".
+ *
+ * TARLALAR sayılmıyor — onlar köyün çevresindeki arazi, binası değil.
+ * Yoksa tarlası olan bir köy hiç yok olamazdı.
+ *
+ * İNŞA HÂLİNDEKİ bina da "var" sayılıyor (`b.building`): seviyesi 0 ama
+ * oyuncu kaynak yatırmış durumda; köyü altından çekmek o kaynağı da
+ * silerdi.
+ *
+ * Kural BURADA, index.js'te değil: hem kuşatma hem oyuncunun kendi yıkımı
+ * aynı cümleyi kullansın ve test edilebilsin diye.
+ */
+function koyBosMu(village) {
+  return !Object.values(village?.villageBuildings || {})
+    .some(b => (b.level || 0) > 0 || b.building);
+}
+
 module.exports = {
-  uygula, kusatmaGucu, kusatmaSinifi, seviyeDusur,
+  uygula, kusatmaGucu, kusatmaSinifi, seviyeDusur, koyBosMu,
   SEVIYE_MALIYETI, ANA_BINA_TABAN,
   IKI_HEDEF_MIN_ATOLYE, IKI_HEDEF_PAY,
 };
