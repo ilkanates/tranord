@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TraNord · Mobil denetim</title>
+<!--
+  MOBİL DENETİM — her çözünürlükte her ekranı tek tek gezip ölçer.
+
+  NEDEN VAR: arayüzde "tuş var ama görünmüyor / basılamıyor" sınıfı hata
+  üç kez tekrarladı (kaydırıcılar 6 px hedefti, EĞİT sıfır genişliğe
+  çökmüştü, MAKS overflow altında kesiliyordu). Hepsi tek tek elle
+  bulundu; 32 bina × 6 çözünürlük = 192 panel durumu elle gezilemez.
+
+  NASIL: oyun aynı origin'de bir iframe'e alınır, iframe BOYUTU
+  değiştirilerek telefon taklidi yapılır, denetim iframe'in İÇİNDE
+  çalışır. Tarayıcı otomasyonu (Playwright vb.) gerekmez.
+
+  GERÇEK CİHAZ: bu sayfa telefonda da açılır. Emülatör 768 px üstünde
+  dokunmatik taklidi yapmaz, yani yatay modu yanlış ölçer; gerçek
+  telefonda `hover: none` doğru gelir. Telefonda açıp "Tara"ya bas,
+  çıkan metni kopyala.
+
+  ÜRETİME ÇIKMAZ: client/dev/ yalnız `vite dev` sırasında servis edilir
+  (bkz. vite.config.js · devSayfalari, apply: 'serve').
+-->
+<style>
+  :root { color-scheme: dark; font-family: 'Jost', system-ui, sans-serif; }
+  body { margin: 0; background: #070c11; color: #e6ecf0; }
+  header {
+    padding: 10px 14px; border-bottom: 1px solid rgba(96,128,150,.34);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  h1 { font-size: 14px; margin: 0; letter-spacing: 2px; font-weight: 600; }
+  button {
+    font: inherit; font-size: 12px; padding: 7px 12px; border-radius: 5px;
+    background: linear-gradient(180deg,#1f4d70,rgba(23,57,84,.5));
+    border: 1px solid #4fb0e0; color: #f3f8fb; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.ikincil { background: rgba(28,51,73,.5); border-color: rgba(96,128,150,.34); color: #b2c0ca; }
+  label { font-size: 11px; color: #8b9aa6; display: inline-flex; gap: 5px; align-items: center; }
+  main { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
+  #kutu {
+    border: 1px solid rgba(96,128,150,.34); border-radius: 6px; overflow: hidden;
+    flex-shrink: 0; background: #000;
+  }
+  iframe { border: 0; display: block; }
+  #rapor {
+    flex: 1; min-width: 0; font-family: ui-monospace, 'Cascadia Mono', monospace;
+    font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+    background: rgba(8,17,28,.6); border: 1px solid rgba(96,128,150,.34);
+    border-radius: 6px; padding: 10px; max-height: 88vh; overflow: auto;
+  }
+  .ok { color: #6cdda3; }
+  .kotu { color: #ff6f78; }
+  .not { color: #8b9aa6; }
+  @media (max-width: 900px) {
+    main { flex-direction: column; }
+    #kutu { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MOBİL DENETİM</h1>
+  <button id="basla">Tara</button>
+  <button id="dur" class="ikincil" disabled>Durdur</button>
+  <button id="kopyala" class="ikincil">Raporu kopyala</button>
+  <label><input type="checkbox" id="hizli"> yalnız sekmeler (bina panellerini atla)</label>
+  <span class="not" id="durum"></span>
+</header>
+
+<main>
+  <div id="kutu"><iframe id="oyun" src="/" title="TraNord"></iframe></div>
+  <div id="rapor" class="not">Hazır. “Tara”ya bas.
+
+Not: önce oyuna giriş yapmış olman gerekiyor — aynı origin olduğu için
+iframe senin oturumunu kullanır.</div>
+</main>
+
+<script>
+/* ── Denetlenecek boyutlar ───────────────────────────────────────────
+   Gerçek cihazların CSS piksel ölçüleri. Yatay karşılıkları da var:
+   yan çevrilmiş telefon genişlik ölçütüne göre "masaüstü" sayılıyor
+   ama dokunmatik — hata tam oradan çıkmıştı.                          */
+const BOYUTLAR = [
+  { ad: 'iPhone SE',        w: 320, h: 568 },
+  { ad: 'Android küçük',    w: 360, h: 640 },
+  { ad: 'iPhone SE 2/3',    w: 375, h: 667 },
+  { ad: 'iPhone 12/13/14',  w: 390, h: 844 },
+  { ad: 'iPhone 11/XR',     w: 414, h: 896 },
+  { ad: 'iPhone Pro Max',   w: 430, h: 932 },
+  { ad: 'iPhone 11 yatay',  w: 896, h: 414 },
+  { ad: 'iPhone 14 yatay',  w: 844, h: 390 },
+  { ad: 'tablet',           w: 768, h: 1024 },
+];
+
+const SEKMELER = [
+  'tab-koy', 'tab-harita', 'tab-isciler', 'tab-ordu', 'tab-sefer',
+  'tab-gorevler', 'tab-raporlar', 'tab-istatistik', 'tab-simulator', 'tab-yardim',
+];
+
+const HEDEF = 44;          // Apple/Google dokunma hedefi
+const $ = (s) => document.querySelector(s);
+const bekle = (ms) => new Promise(r => setTimeout(r, ms));
+let iptal = false;
+
+/* Uygulamanın kendi tıklama işleyicileri pointer olaylarını bekliyor */
+function tikla(el) {
+  for (const t of ['pointerdown', 'mousedown', 'mouseup', 'click']) {
+    el.dispatchEvent(new MouseEvent(t, { bubbles: true }));
+  }
+}
+
+/* ── Tek ekranın denetimi — iframe'in İÇİNDE çalışır ──────────────── */
+function tara(pencere) {
+  const belge = pencere.document;
+  const VW = pencere.innerWidth, VH = pencere.innerHeight;
+  const gercekDokunmatik = pencere.matchMedia?.('(hover: none)').matches ?? false;
+  const bulgular = [];
+  const ekle = (tur, el, ek) => bulgular.push({
+    tur,
+    etiket: (el.textContent || el.value || el.getAttribute?.('aria-label')
+      || el.type || el.tagName).toString().trim().replace(/\s+/g, ' ').slice(0, 26),
+    ...ek,
+  });
+
+  /* Kaydırılabilir bir ata var mı — varsa "taşma" değil, kaydırma. */
+  const kaydirilabilirAta = (el, eksen) => {
+    let a = el.parentElement;
+    while (a && a !== belge.body) {
+      const s = pencere.getComputedStyle(a);
+      const o = eksen === 'x' ? s.overflowX : s.overflowY;
+      if (o === 'auto' || o === 'scroll') return a;
+      a = a.parentElement;
+    }
+    return null;
+  };
+
+  /*
+    `overflow: hidden` bir ata elemanı KALICI olarak kesiyor mu?
+
+    Naif sürüm "kutunun dışında mı" diye soruyordu ve kaydırılabilir
+    listelerdeki her öğeyi hata sayıyordu: görev listesi, kuyruk kutusu,
+    bina panelinin gövdesi… 678 bulgunun büyük kısmı buydu. Oysa aradaki
+    bir ata `overflow: auto` ise öğe SADECE kaydırılmamış demektir,
+    erişilebilir.
+
+    Doğru kural: öğeden yukarı çıkarken TAŞTIĞI EKSENDE ilk karşılaşılan
+    kaydırma davranışı hangisiyse o belirler — `auto/scroll` ise sorun
+    yok, `hidden/clip` ise gerçekten kesilmiş.
+  */
+  const kirpanAta = (el, r) => {
+    let a = el.parentElement;
+    while (a && a !== belge.body) {
+      const s = pencere.getComputedStyle(a);
+      const ar = a.getBoundingClientRect();
+      if (ar.width > 0 && ar.height > 0) {
+        const tasanX = r.right > ar.right + 1 || r.left < ar.left - 1;
+        const tasanY = r.bottom > ar.bottom + 1 || r.top < ar.top - 1;
+        for (const [tasan, ovf] of [[tasanX, s.overflowX], [tasanY, s.overflowY]]) {
+          if (!tasan || ovf === 'visible') continue;
+          if (ovf === 'auto' || ovf === 'scroll') return null;   // kaydırılabilir
+          return a;                                              // hidden/clip
+        }
+      }
+      a = a.parentElement;
+    }
+    return null;
+  };
+
+  const tiklanabilir = [...belge.querySelectorAll('button, input, select, textarea, [role="button"]')];
+  for (const el of tiklanabilir) {
+    /*
+      ÇİZİLMEYEN ÖĞEYİ HİÇ DENETLEME.
+
+      İlk sürüm yalnız elemanın KENDİ `display`ine bakıyordu ve masaüstü
+      üst barındaki sekme düğmelerini "sıfır boyut" diye bildiriyordu —
+      oysa onları gizleyen ATALARI (telefonda alt şeride geçiliyor).
+      1404 bulgunun çoğu buydu. `getClientRects()` boşsa öğe hiçbir yere
+      çizilmiyor demektir; ata zincirinin tamamını tek seferde kapsar.
+    */
+    if (el.getClientRects().length === 0) continue;
+    const s = pencere.getComputedStyle(el);
+    if (s.visibility === 'hidden' || s.opacity === '0') continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 0.5 && r.height < 0.5) {
+      ekle('sifir-boyut', el, { w: 0, h: 0 });
+      continue;
+    }
+
+    // 1) Kırpılma — kutunun dışına taşan tıklanabilir öğe
+    const kirpan = kirpanAta(el, r);
+    if (kirpan) {
+      ekle('kirpilmis', el, {
+        w: Math.round(r.width), h: Math.round(r.height),
+        kirpan: (kirpan.className || kirpan.tagName).toString().slice(0, 20),
+      });
+    }
+
+    // 2) Ekran dışı — kaydırma kutusu içinde değilse gerçekten erişilemez
+    const disaridaX = r.right > VW + 1 || r.left < -1;
+    const disaridaY = r.bottom > VH + 1 || r.top < -1;
+    if (disaridaX && !kaydirilabilirAta(el, 'x')) {
+      ekle('ekran-disi-x', el, { sol: Math.round(r.left), sag: Math.round(r.right), VW });
+    }
+    if (disaridaY && !kaydirilabilirAta(el, 'y')) {
+      ekle('ekran-disi-y', el, { ust: Math.round(r.top), alt: Math.round(r.bottom), VH });
+    }
+
+    /*
+      3) DOKUNMA HEDEFİ — yalnız GERÇEK dokunmatikte ölçülebilir.
+
+      Hedefi 44 px'e çıkaran kural `@media (hover: none)` altında
+      (index.css). Masaüstü tarayıcıda o kural hiç çalışmaz, dolayısıyla
+      burada "zorla" deyip ölçmek her tuşu hatalı gösterir — ölçtüğün şey
+      masaüstü yoğunluğu olur. Bu yüzden kural gerçek cihaza bağlı:
+      bu sayfayı telefonunda aç, sonuç orada anlamlı.
+    */
+    if (gercekDokunmatik && (r.width < HEDEF - 1 || r.height < HEDEF - 1)) {
+      ekle('kucuk-hedef', el, { w: Math.round(r.width), h: Math.round(r.height) });
+    }
+
+    /*
+      4) ÜSTÜ KAPALI — ortasına basınca başka bir şey yakalıyor.
+
+      ELEME: öğe kaydırılabilir bir kutunun içindeyse ve o kutunun görünür
+      alanının dışına taşmışsa `elementFromPoint` doğal olarak kutuyu
+      döndürür. Bu "kapalı" değil, "henüz kaydırılmamış" demektir —
+      eleyici yokken 85 bulgunun 62'si buydu.
+    */
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const kutu = kaydirilabilirAta(el, 'y') || kaydirilabilirAta(el, 'x');
+    let gorunurAlanda = true;
+    if (kutu) {
+      const kr = kutu.getBoundingClientRect();
+      gorunurAlanda = cx >= kr.left && cx <= kr.right && cy >= kr.top && cy <= kr.bottom;
+    }
+    if (gorunurAlanda && cx > 0 && cx < VW && cy > 0 && cy < VH) {
+      const ust = belge.elementFromPoint(cx, cy);
+      if (ust && ust !== el && !el.contains(ust) && !ust.contains(el)) {
+        // SVG öğelerinde className bir SVGAnimatedString — metne çevrilmez
+        const ad = typeof ust.className === 'string' && ust.className
+          ? ust.className : ust.tagName;
+        ekle('ustu-kapali', el, { kapayan: String(ad).slice(0, 20) });
+      }
+    }
+  }
+
+  // 5) Sayfanın kendisi yatay kayıyor mu
+  const kok = belge.documentElement;
+  if (kok.scrollWidth > kok.clientWidth + 2) {
+    bulgular.push({ tur: 'sayfa-yatay-kayiyor', etiket: '<html>',
+      cw: kok.clientWidth, sw: kok.scrollWidth });
+  }
+
+  /*
+    6) KESİLEN YAZI — yalnız KASITSIZ olanı.
+
+    `text-overflow: ellipsis` ya da `-webkit-line-clamp` varsa kısaltma
+    bilerek yapılmış, hata değil. Ayrım bu: eleyici olmadan bu kural tek
+    başına yüzlerce yanlış pozitif üretiyordu.
+  */
+  for (const el of belge.querySelectorAll('div, span, td, th, p')) {
+    if (el.children.length) continue;
+    if (el.getClientRects().length === 0) continue;
+    const s = pencere.getComputedStyle(el);
+    if (/auto|scroll/.test(s.overflowX)) continue;
+    if (s.textOverflow === 'ellipsis' || s.webkitLineClamp !== 'none') continue;
+    if (el.scrollWidth > el.clientWidth + 4 && el.clientWidth > 24) {
+      bulgular.push({ tur: 'yazi-kesik', etiket: (el.textContent || '').trim().slice(0, 26),
+        cw: el.clientWidth, sw: el.scrollWidth });
+    }
+  }
+
+  return { dokunmatik: gercekDokunmatik, bulgular };
+}
+
+/* ── Bir boyutta bütün ekranları gez ──────────────────────────────── */
+async function boyutuGez(cerceve, boyut, secenekler) {
+  const pencere = cerceve.contentWindow;
+  const belge = cerceve.contentDocument;
+  const sonuc = [];
+  const derle = (ekran, cikti) => {
+    for (const b of cikti.bulgular) sonuc.push({ ekran, ...b });
+  };
+
+  for (const sekme of SEKMELER) {
+    if (iptal) return sonuc;
+    const dugme = belge.querySelector(`[data-tut="${sekme}"]`);
+    if (!dugme) continue;
+    tikla(dugme);
+    await bekle(750);
+    derle(sekme.replace("tab-", ""), tara(pencere));
+  }
+
+  if (secenekler.hizli) return sonuc;
+
+  // Köy Merkezi'ne dön, kurulu her binayı tek tek aç
+  const koy = belge.querySelector('[data-tut="tab-koy"]');
+  if (koy) { tikla(koy); await bekle(800); }
+  const tipler = [...belge.querySelectorAll('[data-tut^="bina-"]')]
+    .map(e => e.getAttribute('data-tut').slice(5))
+    .filter(t => t !== 'bos');
+  for (const tip of new Set(tipler)) {
+    if (iptal) return sonuc;
+    const kapat = [...belge.querySelectorAll('.tn-rise button')]
+      .find(b => b.textContent.trim() === '×');
+    if (kapat) { tikla(kapat); await bekle(250); }
+    const hedef = belge.querySelector(`[data-tut="bina-${tip}"]`);
+    if (!hedef) continue;
+    tikla(hedef);
+    await bekle(900);
+    if (!belge.querySelector('.tn-rise')) continue;
+    derle('bina:' + tip, tara(pencere));
+  }
+  return sonuc;
+}
+
+/* ── Rapor ────────────────────────────────────────────────────────── */
+function raporla(hepsi) {
+  const satir = [];
+  let toplam = 0;
+  for (const { boyut, dokunmatik, bulgular } of hepsi) {
+    /*
+      AYNI HATA EKRAN EKRAN TEKRARLANMASIN.
+
+      Paylaşılan bir bileşendeki tek bir hata (ör. üst bardaki bir tuş)
+      açtığın her panelde yeniden bildiriliyordu; rapor okunmaz hâle
+      geliyordu. Artık tür+etiket başına TEK satır, hangi ekranlarda
+      göründüğü yanında yazıyor.
+    */
+    const grup = new Map();
+    for (const b of bulgular) {
+      const anahtar = `${b.tur}|${b.etiket}`;
+      if (!grup.has(anahtar)) grup.set(anahtar, { ...b, adet: 0, ekranlar: new Set() });
+      const g = grup.get(anahtar);
+      g.adet++;
+      g.ekranlar.add(b.ekran);
+    }
+    const liste = [...grup.values()].map(g => ({
+      ...g,
+      ekran: [...g.ekranlar].slice(0, 3).join(',')
+        + (g.ekranlar.size > 3 ? ` +${g.ekranlar.size - 3}` : ''),
+    }));
+    toplam += liste.length;
+    satir.push(`\n━━ ${boyut.ad}  ${boyut.w}×${boyut.h}`
+      + `  ${dokunmatik ? '(dokunmatik)' : '(fare — 44px hedef kuralı ATLANDI)'}`
+      + `  ·  ${liste.length} bulgu`);
+    if (!liste.length) { satir.push('   temiz'); continue; }
+    const turSirasi = ['sifir-boyut', 'kirpilmis', 'ekran-disi-x', 'ekran-disi-y',
+      'ustu-kapali', 'kucuk-hedef', 'sayfa-yatay-kayiyor', 'yazi-kesik'];
+    liste.sort((a, b) => turSirasi.indexOf(a.tur) - turSirasi.indexOf(b.tur)
+      || a.ekran.localeCompare(b.ekran));
+    for (const b of liste) {
+      const ek = Object.entries(b)
+        .filter(([k]) => !['tur', 'etiket', 'ekran', 'adet', 'ekranlar'].includes(k))
+        .map(([k, v]) => `${k}=${v}`).join(' ');
+      satir.push(`   ${b.tur.padEnd(20)} "${b.etiket}"`
+        + `${b.adet > 1 ? ` ×${b.adet}` : ''}  ${ek}  [${b.ekran}]`);
+    }
+  }
+  return `TOPLAM ${toplam} bulgu\n` + satir.join('\n');
+}
+
+/* ── Sürücü ───────────────────────────────────────────────────────── */
+const cerceve = $('#oyun');
+const durum = $('#durum');
+
+$('#basla').onclick = async () => {
+  iptal = false;
+  $('#basla').disabled = true;
+  $('#dur').disabled = false;
+  const secenekler = {
+    hizli: $('#hizli').checked,
+  };
+  const hepsi = [];
+  try {
+    for (const boyut of BOYUTLAR) {
+      if (iptal) break;
+      durum.textContent = `${boyut.ad} ${boyut.w}×${boyut.h} …`;
+      cerceve.style.width = boyut.w + 'px';
+      cerceve.style.height = boyut.h + 'px';
+      // Boyut değişince uygulamanın ölçüm yapan yerleri (ResizeObserver)
+      // ancak yeniden yüklenmede kesin doğru okuyor — panel genişliği
+      // mount anında hesaplanıyor.
+      cerceve.contentWindow.location.reload();
+      await new Promise(r => { cerceve.onload = r; setTimeout(r, 8000); });
+      await bekle(2500);
+      if (!cerceve.contentDocument.querySelector('[data-tut^="tab-"]')) {
+        hepsi.push({ boyut, dokunmatik: false, bulgular: [
+          { ekran: '—', tur: 'GIRIS-YAPILMAMIS', etiket: 'oyun açılmadı' }] });
+        continue;
+      }
+      const bulgular = await boyutuGez(cerceve, boyut, secenekler);
+      hepsi.push({
+        boyut,
+        dokunmatik: cerceve.contentWindow.matchMedia?.('(hover: none)').matches ?? false,
+        bulgular,
+      });
+      $('#rapor').textContent = raporla(hepsi);
+    }
+    durum.textContent = iptal ? 'durduruldu' : 'bitti';
+  } catch (e) {
+    $('#rapor').textContent += `\n\nHATA: ${e && e.message}\n${e && e.stack}`;
+    durum.textContent = 'hata';
+  } finally {
+    $('#basla').disabled = false;
+    $('#dur').disabled = true;
+    window.__sonRapor = hepsi;
+  }
+};
+
+$('#dur').onclick = () => { iptal = true; durum.textContent = 'durduruluyor…'; };
+$('#kopyala').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('#rapor').textContent);
+    durum.textContent = 'kopyalandı';
+  } catch { durum.textContent = 'kopyalanamadı — metni elle seç'; }
+};
+
+// Başlangıç boyutu
+cerceve.style.width = '414px';
+cerceve.style.height = '896px';
+</script>
+</body>
+</html>
