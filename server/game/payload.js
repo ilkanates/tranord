@@ -279,11 +279,37 @@ function buildPayload(village, tickMs, opts = {}) {
       İkisi ayrı olmak zorunda: ev sahibi misafirin sahibini bilir ama
       onu geri çağıramaz; sahibi de ev sahibinin köyünün içini görmez.
     */
-    takviyeler: (village.takviyeler || []).map(t => ({
-      id: t.id, userId: t.userId, slotKey: t.slotKey,
-      fromName: t.fromName, units: { ...t.units }, at: t.at,
-      toplam: ARMY.totalUnits(t.units),
-    })),
+    /*
+      EV SAHİBİNİN LİSTESİ de GÖNDEREN KÖY başına gruplanıyor: aynı köyden
+      üç sevkiyat gelmişse üç satır değil bir satır. Sahibin kendi
+      listesiyle (takviyelerim) aynı mantık — iki tarafta iki farklı
+      gruplama, aynı askerleri farklı sayıda satırda gösterirdi.
+
+      Kayıt birleşmiyor; gruplama yalnız görünümde (bkz. army.js ·
+      takviyeGeriCagir, kayıp payı geliş sırasına bakıyor).
+    */
+    takviyeler: (() => {
+      const gruplar = new Map();
+      for (const t of village.takviyeler || []) {
+        const anahtar = `${t.userId}|${t.slotKey}`;
+        const onceki = gruplar.get(anahtar);
+        if (onceki) {
+          for (const [k, n] of Object.entries(t.units || {})) {
+            onceki.units[k] = (onceki.units[k] || 0) + (n || 0);
+          }
+          onceki.toplam = ARMY.totalUnits(onceki.units);
+          onceki.girdiSayisi += 1;
+          onceki.at = Math.min(onceki.at, t.at);
+          continue;
+        }
+        gruplar.set(anahtar, {
+          id: t.id, userId: t.userId, slotKey: t.slotKey,
+          fromName: t.fromName, units: { ...t.units }, at: t.at,
+          toplam: ARMY.totalUnits(t.units), girdiSayisi: 1,
+        });
+      }
+      return [...gruplar.values()];
+    })(),
     takviyelerim: opts.takviyelerim || [],
     incoming: incomingMarchesFor(`${village.worldQ || 0},${village.worldR || 0}`),
     reports: (village.reports || []).slice(0, 25),

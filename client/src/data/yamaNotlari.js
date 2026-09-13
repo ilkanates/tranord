@@ -26,6 +26,29 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14a',
+    tarih: '14 Eylül 2026',
+    baslik: 'Misafir askeri geri yollayabilirsin',
+    notlar: [
+      {
+        id: '20260914-misafir-geri-yolla',
+        tur: 'yenilik',
+        metin: 'Köyünde duran MİSAFİR askeri artık sen de geri yollayabiliyorsun. '
+          + 'Ordu ekranında "Köyümde misafir" satırını aç, ne kadarını '
+          + 'yollayacağını seç. Neden gerekliydi: misafirin ekmeğini SEN '
+          + 'ödüyorsun; oyuna girmeyen bir müttefikin unuttuğu takviye köyünü '
+          + 'aç bırakabiliyordu ve çıkış yolu yoktu.',
+      },
+      {
+        id: '20260914-misafir-rapor',
+        tur: 'duzeltme',
+        metin: 'Takviyen bir köyden geri yollandığında sana rapor geliyor: '
+          + 'hangi köy yolladı, kaç asker döndü. Eskiden askerin sebepsiz '
+          + 'yolda görünürdü.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13m',
     tarih: '13 Eylül 2026',
     baslik: 'Takviye listesi ve kısmî geri çağırma',

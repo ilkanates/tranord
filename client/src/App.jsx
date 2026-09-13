@@ -1065,6 +1065,13 @@ function Game({ token, onLogout }) {
                 */
                 onGeriCagir={(istek) =>
                   socket?.emit('takviye_geri_cagir', istek)}
+                /*
+                  Ev sahibi misafiri geri yollar. Ekmeğini ödeyen taraf o;
+                  vazgeçmiş bir oyuncunun bıraktığı takviye köyü sessizce
+                  aç bırakabiliyordu ve çıkış yolu yoktu.
+                */
+                onGeriYolla={(istek) =>
+                  socket?.emit('takviye_geri_yolla', istek)}
               />
             </div>
           )}

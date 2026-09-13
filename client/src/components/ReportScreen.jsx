@@ -159,6 +159,9 @@ function verdictOf(r) {
       ? { txt: 'destek geldi', col: C.good, won: null }
       : { txt: 'destek ulaştı', col: C.good, won: null };
   }
+  if (r.outcome === 'takviye_geri_yollandi') {
+    return { txt: 'ev sahibi geri yolladı', col: C.warn, won: null };
+  }
   if (r.outcome === 'takviye_savasti') {
     const tuttu = r.winner === 'defender';
     return {
@@ -186,6 +189,7 @@ function titleOf(r) {
       ? `${r.fromName} sana destek gönderdi`
       : `${r.toName} köyünü destekledin`;
   }
+  if (r.outcome === 'takviye_geri_yollandi') return `${r.fromName} takviyeni geri yolladı`;
   if (r.outcome === 'takviye_savasti') return `${r.toName} köyündeki takviyen savaştı`;
   if (r.outcome === 'kesfedildim') return `${r.fromName} seni keşfetti`;
   if (r.outcome === 'kesif_engellendi') return `${r.fromName} keşfe geldi, durduruldu`;
@@ -727,6 +731,29 @@ function Detail({ r, unitDefs }) {
         Kendi savaş raporumdan ayrı: burada sur/ganimet benim değil,
         önemli olan kaç askerimi kaybettim ve orada kaç askerim kaldı.
       */}
+      {/*
+        EV SAHİBİ GERİ YOLLADI — asker yolda, sebebi burada.
+        Bu rapor olmasaydı oyuncu askerinin neden döndüğünü göremez,
+        bir hata sanardı.
+      */}
+      {r.outcome === 'takviye_geri_yollandi' && (
+        <>
+          <Section title="GERİ YOLLANAN BİRLİKLER">
+            <UnitGrid units={r.sent} unitDefs={unitDefs} color={C.warn} />
+          </Section>
+          <div style={panel({
+            padding: '9px 11px', background: 'rgba(242,187,96,0.09)',
+            border: `1px solid ${C.warn}44`,
+          })}>
+            <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
+              <b style={{ color: C.warn }}>{r.fromName}</b> köyü takviyeni geri yolladı.
+              Misafir askerin ekmeğini EV SAHİBİ öder; köyü besleyemiyor olabilir.
+              Askerlerin yürüyerek dönüyor.
+            </div>
+          </div>
+        </>
+      )}
+
       {r.outcome === 'takviye_savasti' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>

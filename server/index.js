@@ -2927,6 +2927,89 @@ io.on('connection', async socket => {
    * Geriye dönük: eski istemci `takviyeId` yolluyor; o kimlikten sahibi
    * ve köyü çözülüyor.
    */
+  /**
+   * EV SAHİBİ MİSAFİRİ GERİ YOLLAR.
+   *
+   * Takviyeyi bugüne kadar YALNIZ SAHİBİ geri çağırabiliyordu; ev
+   * sahibinin elinde hiçbir düğme yoktu. Oysa misafir askerin ekmeğini EV
+   * SAHİBİ ödüyor (bkz. tick.js · getConsumptionRates): vazgeçmiş ya da
+   * uzun süre girmemiş bir oyuncunun bıraktığı takviye, ev sahibinin
+   * köyünü sessizce aç bırakabiliyor ve çıkış yolu yoktu.
+   *
+   * GELEN SEFER VARKEN ENGELLENMEDİ — bilerek. İlk bakışta "saldırı
+   * anında misafiri kov, savunmayı düşür" gibi bir sömürü var sanılıyor
+   * ama SAHİBİ zaten her an geri çağırabiliyor ve onda böyle bir kısıt
+   * yok. Ev sahibine kısıt koymak yeni bir kapı kapatmaz, yalnız asıl
+   * kullanımı (açlıktan boğulan köyün fazla boğazı göndermesi) tam da
+   * gerektiği anda engellerdi.
+   *
+   * Sahibine RAPOR gidiyor: askerinin neden yolda olduğunu göremezse
+   * oyuncu bunu hata sanar.
+   */
+  socket.on('takviye_geri_yolla', async ({ ownerUserId, slotKey, units = null } = {}) => {
+    const fail = (reason) => socket.emit('army_error', { reason });
+    const hostKey = session.activeSlot;
+    const host = hostKey && session.villages.get(hostKey);
+    if (!host) return fail('konum_yok');
+    if (ownerUserId === userId) return fail('kendi_koyun');
+
+    const girdiler = (host.takviyeler || [])
+      .filter(t => t.userId === ownerUserId && t.slotKey === slotKey);
+    if (!girdiler.length) return fail('takviye_yok');
+
+    /*
+      SAHİBİN KÖYÜ: önce bellekteki oturum. Oyuncu çevrimdışıysa oturumu
+      sunucu yeniden başlayana kadar bellekte kalıyor; yoksa kayıttan
+      okunup geri yazılıyor. Asıl kullanım zaten ÇEVRİMDIŞI oyuncunun
+      unuttuğu takviye, "oyuncu çevrimiçi olsun" şartı işi anlamsız
+      kılardı.
+    */
+    const sahipOturum = userSessions.get(ownerUserId);
+    let sahipKoy = sahipOturum?.villages.get(slotKey) || null;
+    let kayittan = false;
+    if (!sahipKoy) {
+      try {
+        const rows = await loadVillages(ownerUserId);
+        const row = rows.find(r => r.slotKey === slotKey);
+        if (row?.state) { sahipKoy = hydrateVillage(row.state); kayittan = true; }
+      } catch (err) {
+        console.error('[TAKVİYE YOLLA] sahip köyü okunamadı:', err.message);
+      }
+    }
+    if (!sahipKoy) return fail('gecersiz_hedef');
+
+    const a = WORLD.slotByKey.get(hostKey);
+    const b = WORLD.slotByKey.get(slotKey);
+    const dist = (a && b) ? W.distanceBetween(a, b) : 1;
+
+    const res = ARMY.takviyeGeriCagir(host, sahipKoy,
+      { userId: ownerUserId, slotKey, units }, dist);
+    if (!res.ok) return fail(res.reason);
+
+    // Sahibine rapor: askerinin neden yolda olduğunu görsün
+    ARMY.pushReport(sahipKoy, {
+      id: `yolla-${Date.now()}`, at: Date.now(), dir: 'in', mode: 'takviye',
+      fromName: WORLD.playerBySlot.get(hostKey)?.name || hostKey,
+      toName: sahipKoy.name || slotKey, toKey: slotKey,
+      outcome: 'takviye_geri_yollandi', winner: 'none',
+      sent: { ...res.march.units }, myLosses: {}, theirLosses: {}, loot: {},
+    });
+
+    if (kayittan) {
+      try { await saveVillage(ownerUserId, slotKey, sahipKoy); }
+      catch (err) { console.error('[TAKVİYE YOLLA] sahip köyü yazılamadı:', err.message); }
+    } else {
+      markUserDirty(ownerUserId, slotKey);
+    }
+    dirty(); emit();
+    socket.emit('army_sent', {
+      id: res.march.id, toName: sahipKoy.name || slotKey, mode: 'takviye_geri_yollandi',
+      seconds: res.march.legSeconds, distance: dist,
+    });
+    console.log(`[TAKVİYE YOLLA] ${userEmail} → userId=${ownerUserId}`
+      + ` (${ARMY.totalUnits(res.march.units)} birim)`);
+  });
+
   socket.on('takviye_geri_cagir', ({ hostKey, takviyeId, slotKey, units = null } = {}) => {
     const fail = (reason) => socket.emit('army_error', { reason });
     const host = villageAtSlot(hostKey);

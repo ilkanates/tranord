@@ -26,22 +26,6 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
-### 0. Ev sahibi misafir askeri geri yollayabilsin
-Şu an takviyeyi YALNIZ SAHİBİ geri çağırabiliyor (`takviye_geri_cagir`,
-sahiplik denetimi var). Ev sahibinin elinde hiçbir düğme yok.
-
-- Ordu ekranındaki "bu köydeki takviyeler" listesine **GERİ YOLLA** gelsin.
-- Asker sahibinin köyüne dönüş seferi olarak yola çıksın (mevcut
-  `takviyeGeriCagir` yolu birebir kullanılabilir — tek fark yetkilendirme).
-- **Neden gerekli:** misafir askerin ekmeğini EV SAHİBİ ödüyor. Çevrimdışı
-  ya da vazgeçmiş bir oyuncunun bıraktığı takviye, ev sahibinin köyünü
-  sessizce aç bırakabiliyor ve çıkış yolu yok.
-- Sahibine bir rapor gitmeli ("X köyü takviyeni geri yolladı") — askerin
-  neden yolda olduğunu göremezse oyuncu hata sanır.
-- **Karar gerekiyor:** ev sahibi geri yollarken asker yolda savunmaya
-  katılmıyor; kötüye kullanım var mı (saldırı anında misafiri kovmak)?
-  Muhtemel çözüm: gelen sefer varken geri yollama kapalı.
-
 ### 1. Kahraman (Travian mantığı)
 Oyuncunun TEK ve kalıcı kahramanı olsun; seferle birlikte yürüsün.
 
@@ -164,6 +148,15 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Ev sahibi misafir askeri geri yollayabiliyor (14 Eylül 2026)
+- Takviyeyi bugüne kadar YALNIZ SAHİBİ geri çağırabiliyordu; ev sahibinin elinde hiçbir düğme yoktu. Oysa misafir askerin ekmeğini **ev sahibi** ödüyor: vazgeçmiş ya da uzun süre girmemiş bir oyuncunun bıraktığı takviye köyü sessizce aç bırakabiliyordu.
+- Ordu ekranındaki "Köyümde misafir" listesine **GERİ YOLLA** geldi; sahibin listesiyle aynı miktar seçici (ortak `MiktarSecici` bileşeni) — istediğin kadarını yollarsın, kalanlar savunmaya devam eder.
+- Sahibine **rapor** gidiyor: "X takviyeni geri yolladı" + geri yollanan birlikler + sebep. Askerinin neden yolda olduğunu göremezse oyuncu bunu hata sanardı.
+- Sahibin köyü önce bellekteki oturumdan, yoksa **kayıttan** okunup geri yazılıyor. Asıl kullanım zaten çevrimdışı oyuncunun unuttuğu takviye; "oyuncu çevrimiçi olsun" şartı işi anlamsız kılardı.
+- **GELEN SEFER VARKEN ENGELLENMEDİ — bilerek.** TODO'daki karar notu şöyle çözüldü: ilk bakışta "saldırı anında misafiri kov, savunmayı düşür" gibi bir sömürü var sanılıyor, ama SAHİBİ zaten her an geri çağırabiliyor ve onda böyle bir kısıt yok. Ev sahibine kısıt koymak yeni bir kapı kapatmaz, yalnız asıl kullanımı (açlıktan boğulan köyün fazla boğazı göndermesi) tam da gerektiği anda engellerdi.
+- Ev sahibinin listesi de gönderen köy başına gruplandı — iki tarafta iki farklı gruplama aynı askerleri farklı sayıda satırda gösterirdi.
+- Ölçüldü: 12 + (5+3) misafir → tek satır "20 asker · 2 sevkiyat" → 14 fjordvakt geri yollandı → kalan 6 asker (eski girdi önce tüketildi), ev sahibinin ekmek tüketimi −17,8'den −14,3'e düştü, sahibine rapor ulaştı.
 
 ### Takviye: köy başına tek satır + kısmî geri çağırma (13 Eylül 2026)
 - Her takviye GÖNDERİMİ ayrı satırdı: aynı köye üç kez asker yollayan oyuncu üç satır görüyor ve üçünü ayrı ayrı geri çağırıyordu. Artık **köy başına tek satır** — o köydeki bütün askerin toplamı, yanında "N sevkiyat" notu.

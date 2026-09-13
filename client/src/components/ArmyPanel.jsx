@@ -49,7 +49,55 @@ function StatChip({ icon, label, value, color }) {
  *                  kimi beslediğini görmesi şart.
  * `takviyelerim` : benim askerimin durduğu köyler. Geri çağırma buradan.
  */
-function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCagir }) {
+/**
+ * MİKTAR SEÇİCİ — birim birim sayı kutusu.
+ *
+ * İki yön de kullanıyor: sahibin geri ÇAĞIRMASI ve ev sahibinin geri
+ * YOLLAMASI. Aynı kutuyu iki kez yazmak, birinde düzeltilen bir sınırın
+ * diğerinde kalmasına davetiye.
+ */
+function MiktarSecici({ units, sec, setSec, unitDefs }) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(min(200px, 100%), 1fr))',
+      gap: 6,
+    }}>
+      {Object.entries(units).map(([u, have]) => (
+        <div key={u} style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '4px 7px', borderRadius: 5,
+          background: 'rgba(8,17,28,0.6)', border: `1px solid ${C.lineSoft}`,
+        }}>
+          <Icon name={unitDefs[u]?.category === 'suvari' ? 'at' : 'kalkan'}
+            size={12} color={C.iceDeep} />
+          <span style={{
+            flex: 1, minWidth: 0, fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{unitDefs[u]?.name || u}</span>
+          <span style={num({ fontSize: 9, color: C.textMute })}>/{have}</span>
+          <input type="number" min={0} max={have} value={sec[u] ?? 0}
+            onChange={(e) => setSec(s => ({
+              ...s,
+              [u]: Math.max(0, Math.min(have, Math.floor(Number(e.target.value) || 0))),
+            }))}
+            style={{
+              width: 56, flexShrink: 0, padding: '3px 5px', textAlign: 'right',
+              fontFamily: FONT.num, fontSize: 11, color: C.frost,
+              background: 'rgba(4,9,15,0.75)', border: `1px solid ${C.lineSoft}`,
+              borderRadius: 4, outline: 'none',
+            }} />
+          <button onClick={() => setSec(s => ({ ...s, [u]: have }))} title="Tümünü seç"
+            style={btn('ghost', {
+              flexShrink: 0, padding: '3px 6px', fontSize: 8, letterSpacing: 0.6,
+            })}>TÜM</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCagir, onGeriYolla }) {
   /*
     AÇIK SATIR ve MİKTARLAR.
 
@@ -108,10 +156,68 @@ function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCag
           <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint }}>
             Köyümde misafir — <strong style={{ color: C.warn }}>yemeklerini ben ödüyorum</strong>
           </div>
-          {takviyeler.map(t => (
-            <Satir key={`in-${t.id}`} baslik={t.fromName || 'Müttefik'}
-              alt={`${t.toplam} asker`} units={t.units} />
-          ))}
+          {takviyeler.map(t => {
+            const k = `in-${t.userId}-${t.slotKey}`;
+            const secili = acik === k;
+            return (
+              <div key={k}>
+                <Satir baslik={t.fromName || 'Müttefik'}
+                  alt={`${t.toplam} asker`
+                    + (t.girdiSayisi > 1 ? ` · ${t.girdiSayisi} sevkiyat` : '')}
+                  units={t.units}
+                  sag={onGeriYolla ? (
+                    <button onClick={() => {
+                      if (secili) { setAcik(null); return; }
+                      setAcik(k); setSec({ ...t.units });
+                    }}
+                      title="Misafir askeri sahibinin köyüne yolla"
+                      style={btn(secili ? 'primary' : 'ghost', {
+                        flexShrink: 0, padding: '5px 10px', fontSize: 9, letterSpacing: 0.8,
+                      })}>
+                      {secili ? 'KAPAT' : 'GERİ YOLLA'}
+                    </button>
+                  ) : null} />
+
+                {secili && (
+                  <div style={{
+                    margin: '5px 0 2px', padding: '9px 11px', borderRadius: 6,
+                    background: 'rgba(6,12,20,0.7)', border: `1px solid ${C.lineBright}`,
+                    display: 'flex', flexDirection: 'column', gap: 7,
+                  }}>
+                    <div style={{
+                      fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.5,
+                    }}>
+                      Ne kadarını yollayacaksın? Kalanlar köyünü savunmaya devam eder —
+                      ama <b style={{ color: C.warn }}>ekmeklerini sen ödersin</b>.
+                      Sahibine bir rapor gidiyor.
+                    </div>
+                    <MiktarSecici units={t.units} sec={sec} setSec={setSec} unitDefs={unitDefs} />
+                    <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button onClick={() => setSec({ ...t.units })}
+                        style={btn('ghost', { padding: '5px 9px', fontSize: 9 })}>HEPSİ</button>
+                      <button onClick={() => setSec({})}
+                        style={btn('ghost', { padding: '5px 9px', fontSize: 9 })}>TEMİZLE</button>
+                      <span style={num({ fontSize: 10.5, color: C.textDim, marginLeft: 'auto' })}>
+                        {secTopla()} asker
+                      </span>
+                      <button
+                        disabled={secTopla() <= 0}
+                        onClick={() => {
+                          onGeriYolla({ ownerUserId: t.userId, slotKey: t.slotKey, units: sec });
+                          setAcik(null);
+                        }}
+                        style={btn('danger', {
+                          padding: '6px 14px', fontSize: 9.5, letterSpacing: 1,
+                          opacity: secTopla() > 0 ? 1 : 0.5,
+                        })}>
+                        GERİ YOLLA
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -153,45 +259,7 @@ function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCag
                       Dönen asker <b style={{ color: C.textDim }}>yürüyerek</b> gelir.
                     </div>
 
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(min(200px, 100%), 1fr))',
-                      gap: 6,
-                    }}>
-                      {Object.entries(t.units).map(([u, have]) => (
-                        <div key={u} style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          padding: '4px 7px', borderRadius: 5,
-                          background: 'rgba(8,17,28,0.6)', border: `1px solid ${C.lineSoft}`,
-                        }}>
-                          <Icon name={unitDefs[u]?.category === 'suvari' ? 'at' : 'kalkan'}
-                            size={12} color={C.iceDeep} />
-                          <span style={{
-                            flex: 1, minWidth: 0, fontFamily: FONT.ui, fontSize: 10.5,
-                            color: C.textDim, overflow: 'hidden',
-                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>{unitDefs[u]?.name || u}</span>
-                          <span style={num({ fontSize: 9, color: C.textMute })}>/{have}</span>
-                          <input type="number" min={0} max={have}
-                            value={sec[u] ?? 0}
-                            onChange={(e) => setSec(s => ({
-                              ...s,
-                              [u]: Math.max(0, Math.min(have, Math.floor(Number(e.target.value) || 0))),
-                            }))}
-                            style={{
-                              width: 56, flexShrink: 0, padding: '3px 5px', textAlign: 'right',
-                              fontFamily: FONT.num, fontSize: 11, color: C.frost,
-                              background: 'rgba(4,9,15,0.75)', border: `1px solid ${C.lineSoft}`,
-                              borderRadius: 4, outline: 'none',
-                            }} />
-                          <button onClick={() => setSec(s => ({ ...s, [u]: have }))}
-                            title="Tümünü seç"
-                            style={btn('ghost', {
-                              flexShrink: 0, padding: '3px 6px', fontSize: 8, letterSpacing: 0.6,
-                            })}>TÜM</button>
-                        </div>
-                      ))}
-                    </div>
+                    <MiktarSecici units={t.units} sec={sec} setSec={setSec} unitDefs={unitDefs} />
 
                     <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
                       <button onClick={() => setSec({ ...t.units })}
@@ -227,7 +295,7 @@ function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCag
 
 export default function ArmyPanel({
   army = {}, unitDefs = {}, equipmentDefs = {}, unitStatsNow = {},
-  takviyeler = [], takviyelerim = [], onGeriCagir,
+  takviyeler = [], takviyelerim = [], onGeriCagir, onGeriYolla,
 }) {
   const stOf = (type) => unitStatsNow[type] || unitDefs[type]?.stats || {};
   const vp = useViewport();
@@ -280,6 +348,7 @@ export default function ArmyPanel({
         </div>
 
         <TakviyeBolumu takviyeler={takviyeler} takviyelerim={takviyelerim}
+          onGeriYolla={onGeriYolla}
           unitDefs={unitDefs} onGeriCagir={onGeriCagir} />
 
         {total === 0 ? (

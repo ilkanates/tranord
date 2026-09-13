@@ -78,6 +78,8 @@ test('eksik ya da bozuk yük gönderen komutlar sunucuyu düşürmez', async (t)
     ['mesaj_okundu', undefined],
     ['mesaj_sil', 'metin-degil-nesne'],
     ['mesaj_engelle', 42],
+    ['takviye_geri_yolla', undefined],
+    ['takviye_geri_cagir', null],
     ['build_village', null],
     ['upgrade_production', undefined],
     ['assign_village_workers', null],
