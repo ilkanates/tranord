@@ -241,6 +241,8 @@ function buildPayload(village, tickMs, opts = {}) {
     playerName: opts.playerName || null,
     adVerilmedi: !!opts.adVerilmedi,
     egitimBitti: !!opts.egitimBitti,
+    // Üst bardaki mesaj rozeti (bkz. index.js · emitVillage)
+    mesajOkunmamis: opts.mesajOkunmamis || 0,
     // Yerleşim hakkı — köşk/saray panelinde gösteriliyor
     expansion: {
       earned: refreshExpansionCredits(village),

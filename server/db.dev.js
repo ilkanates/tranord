@@ -18,7 +18,11 @@ const FILE = process.env.TRANORD_DEV_DATA
   ? path.resolve(process.env.TRANORD_DEV_DATA)
   : path.join(__dirname, '.dev-data.json');
 
-let db = { users: [], villages: {}, world: {}, playerSlots: {}, nextUserId: 1 };
+let db = {
+  users: [], villages: {}, world: {}, playerSlots: {}, nextUserId: 1,
+  // Mesajlaşma — db.js'teki messages / message_blocks tablolarının karşılığı
+  messages: [], nextMessageId: 1, blocks: [],
+};
 
 function load() {
   try {
@@ -29,6 +33,9 @@ function load() {
       db.world ||= {};
       db.playerSlots ||= {};
       db.nextUserId ||= db.users.length + 1;
+      db.messages ||= [];
+      db.nextMessageId ||= (db.messages.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
+      db.blocks ||= [];
       migrateToMultiVillage();
     }
   } catch (err) {
@@ -315,8 +322,99 @@ function normalizeSlots(v) {
 
 const pool = { query: async () => { throw new Error('[DEV DB] dogrudan SQL desteklenmiyor'); } };
 
+// ═══════════════════════════════════════════════════════════════════
+//  MESAJLAŞMA — db.js ile AYNI sözleşme
+// ═══════════════════════════════════════════════════════════════════
+
+async function findUserByDisplayName(name) {
+  const aranan = String(name || '').trim().toLocaleLowerCase('tr');
+  const u = db.users.find(
+    x => String(x.display_name || '').toLocaleLowerCase('tr') === aranan);
+  return u ? { id: u.id, email: u.email, display_name: u.display_name } : null;
+}
+
+async function mesajYaz({ fromUserId, toUserId, konu, govde }) {
+  const m = {
+    id: db.nextMessageId++,
+    from_user_id: Number(fromUserId), to_user_id: Number(toUserId),
+    konu, govde, at: new Date().toISOString(),
+    okundu_at: null, gonderen_sildi: false, alan_sildi: false,
+  };
+  db.messages.push(m);
+  persist();
+  return { id: m.id, at: m.at };
+}
+
+const adiniBul = (id) => db.users.find(u => u.id === Number(id))?.display_name || null;
+
+async function mesajKutusu(userId, { yon = 'gelen', limit = 100 } = {}) {
+  const uid = Number(userId);
+  const gelen = yon !== 'giden';
+  return db.messages
+    .filter(m => (gelen
+      ? m.to_user_id === uid && !m.alan_sildi
+      : m.from_user_id === uid && !m.gonderen_sildi))
+    .sort((a, b) => b.id - a.id)
+    .slice(0, Math.min(200, Math.max(1, limit)))
+    .map(m => ({
+      id: m.id, konu: m.konu, govde: m.govde,
+      at: m.at, okundu: !!m.okundu_at,
+      yon: gelen ? 'gelen' : 'giden',
+      karsiAd: adiniBul(gelen ? m.from_user_id : m.to_user_id),
+    }));
+}
+
+async function mesajOkunmamisSayisi(userId) {
+  const uid = Number(userId);
+  return db.messages.filter(
+    m => m.to_user_id === uid && !m.okundu_at && !m.alan_sildi).length;
+}
+
+async function mesajOkundu(userId, id) {
+  const m = db.messages.find(x => x.id === Number(id) && x.to_user_id === Number(userId));
+  if (!m || m.okundu_at) return false;
+  m.okundu_at = new Date().toISOString();
+  persist();
+  return true;
+}
+
+async function mesajSil(userId, id) {
+  const uid = Number(userId);
+  const m = db.messages.find(x => x.id === Number(id));
+  if (!m || (m.to_user_id !== uid && m.from_user_id !== uid)) return false;
+  if (m.to_user_id === uid) m.alan_sildi = true;
+  if (m.from_user_id === uid) m.gonderen_sildi = true;
+  persist();
+  return true;
+}
+
+async function engelEkle(userId, blockedId) {
+  const u = Number(userId), b = Number(blockedId);
+  if (!db.blocks.some(x => x.user_id === u && x.blocked_id === b)) {
+    db.blocks.push({ user_id: u, blocked_id: b, at: new Date().toISOString() });
+    persist();
+  }
+}
+async function engelKaldir(userId, blockedId) {
+  const n = db.blocks.length;
+  db.blocks = db.blocks.filter(
+    x => !(x.user_id === Number(userId) && x.blocked_id === Number(blockedId)));
+  if (db.blocks.length !== n) persist();
+}
+async function engelListesi(userId) {
+  return db.blocks
+    .filter(x => x.user_id === Number(userId))
+    .map(x => ({ userId: x.blocked_id, ad: adiniBul(x.blocked_id) }));
+}
+async function engelliMi(userId, otherId) {
+  return db.blocks.some(
+    x => x.user_id === Number(userId) && x.blocked_id === Number(otherId));
+}
+
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
+  findUserByDisplayName, mesajYaz, mesajKutusu, mesajOkunmamisSayisi,
+  mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
   setDisplayName, loadDisplayNames, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage,

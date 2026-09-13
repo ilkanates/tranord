@@ -13,7 +13,10 @@ const { router: authRouter, verifyToken } = require('./auth');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
         setDisplayName, loadDisplayNames, renameVillage,
-        findUserById } = require('./db');
+        findUserById, findUserByDisplayName,
+        mesajYaz, mesajKutusu, mesajOkunmamisSayisi, mesajOkundu, mesajSil,
+        engelEkle, engelKaldir, engelListesi, engelliMi } = require('./db');
+const MESAJ = require('./game/mesaj');
 const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
 const { QUEST_BY_ID } = require('./data/questDefs');
@@ -403,6 +406,15 @@ function emitVillage(session, { force = false, statics = false } = {}) {
       olsaydı depoyu temizleyen her girişte görür, isteyen de atlardı.
     */
     egitimBitti: egitimGoruldu(session),
+    /*
+      OKUNMAMIŞ MESAJ SAYACI — üst bardaki rozet bunu kullanıyor.
+
+      Sayı OTURUMDA tutuluyor, her yayında veritabanına sorulmuyor:
+      emitVillage saniyede bir çalışabiliyor ve senkron; oraya bir sorgu
+      koymak tick yoluna veritabanı gecikmesi sokardı. Bağlantıda bir kez
+      okunuyor, sonra mesaj gelince/okununca elle güncelleniyor.
+    */
+    mesajOkunmamis: session.mesajOkunmamis || 0,
   }));
 }
 
@@ -1649,6 +1661,20 @@ io.on('connection', async socket => {
         + ` (merkez ${capitalSlot})`);
     }
   }
+  /*
+    OKUNMAMIŞ MESAJ SAYISI — bağlantıda BİR KEZ okunur.
+
+    emitVillage senkron ve saniyede bir çalışabiliyor; oraya sorgu koymak
+    tick yoluna veritabanı gecikmesi sokardı. Bundan sonrası elle: mesaj
+    gelince, okununca ya da silinince `mesajSayaciYenile` güncelliyor.
+  */
+  try {
+    session.mesajOkunmamis = await mesajOkunmamisSayisi(userId);
+  } catch (err) {
+    console.error('[MESAJ] okunmamış sayısı okunamadı:', err.message);
+    session.mesajOkunmamis = 0;
+  }
+
   socketToUser.set(socket.id, userId);
   emitVillage(session, { force: true, statics: true });
 
@@ -1678,6 +1704,91 @@ io.on('connection', async socket => {
    * Ad haritada, savaş raporlarında ve sıralamada geçtiği için sonradan
    * değişmesi başkalarının gördüğü geçmişi yalanlıyordu.
    */
+  /*
+    ═══════════════════════════════════════════════════════════════
+      MESAJLAŞMA
+    ═══════════════════════════════════════════════════════════════
+
+    Alıcı OYUNCU ADIYLA seçiliyor, userId ile değil: istemciye kullanıcı
+    numarası vermek oyuncuları numaralarıyla eşleştirmeye yarar ve adın
+    zaten benzersiz olması bunu gereksiz kılıyor.
+  */
+  const mesajHata = (reason) =>
+    socket.emit('mesaj_sonuc', { ok: false, reason,
+      message: MESAJ.HATA_METNI[reason] || 'Mesaj gönderilemedi.' });
+
+  /** Sayaç hem oturumda hem yayında güncel kalsın */
+  const mesajSayaciYenile = async (uid = userId) => {
+    try {
+      const s = userSessions.get(uid);
+      if (!s) return;
+      s.mesajOkunmamis = await mesajOkunmamisSayisi(uid);
+      const oturumSoketi = s.socketId && io.sockets.sockets.get(s.socketId);
+      if (oturumSoketi) emitVillage(s, { force: true });
+    } catch (err) {
+      console.error('[MESAJ] sayaç yenilenemedi:', err.message);
+    }
+  };
+
+  socket.on('mesaj_gonder', async ({ alici, konu, govde } = {}) => {
+    const dogrulama = MESAJ.mesajDogrula({ konu, govde });
+    if (!dogrulama.ok) return mesajHata(dogrulama.reason);
+
+    const hiz = MESAJ.hizSiniri(userId);
+    if (!hiz.ok) return mesajHata(hiz.reason);
+
+    const hedef = await findUserByDisplayName(alici);
+    if (!hedef) return mesajHata('alici_yok');
+    if (hedef.id === userId) return mesajHata('kendine');
+
+    /*
+      ENGELLİYSE SESSİZCE DÜŞ. Gönderene "engellendin" demek, taciz edene
+      hangi hesabın çalıştığını söylemek olur; hız sınırı da bu yüzden
+      yine işletiliyor (engelli gönderim bedava deneme hakkı olmasın).
+    */
+    MESAJ.gonderimiKaydet(userId);
+    if (await engelliMi(hedef.id, userId)) {
+      return socket.emit('mesaj_sonuc', { ok: true, id: null, sessiz: true });
+    }
+
+    const kayit = await mesajYaz({
+      fromUserId: userId, toUserId: hedef.id,
+      konu: dogrulama.konu, govde: dogrulama.govde,
+    });
+    socket.emit('mesaj_sonuc', { ok: true, id: kayit.id });
+    // Alıcı çevrimiçiyse rozeti anında güncellensin
+    io.to(userRoom(hedef.id)).emit('mesaj_geldi', {
+      gonderen: ownerName(userId, userEmail), konu: dogrulama.konu });
+    await mesajSayaciYenile(hedef.id);
+    console.log(`[MESAJ] ${userEmail} → ${hedef.display_name}`);
+  });
+
+  socket.on('mesaj_kutusu', async ({ yon = 'gelen' } = {}) => {
+    const liste = await mesajKutusu(userId, { yon });
+    const engelliler = await engelListesi(userId);
+    socket.emit('mesaj_listesi', { yon, liste, engelliler });
+  });
+
+  socket.on('mesaj_okundu', async ({ id } = {}) => {
+    if (await mesajOkundu(userId, id)) await mesajSayaciYenile();
+  });
+
+  socket.on('mesaj_sil', async ({ id } = {}) => {
+    const oldu = await mesajSil(userId, id);
+    if (!oldu) return mesajHata('mesaj_yok');
+    await mesajSayaciYenile();
+    socket.emit('mesaj_sonuc', { ok: true, silindi: id });
+  });
+
+  socket.on('mesaj_engelle', async ({ ad, kaldir = false } = {}) => {
+    const hedef = await findUserByDisplayName(ad);
+    if (!hedef) return mesajHata('alici_yok');
+    if (hedef.id === userId) return mesajHata('kendine');
+    if (kaldir) await engelKaldir(userId, hedef.id);
+    else await engelEkle(userId, hedef.id);
+    socket.emit('mesaj_engel_listesi', { liste: await engelListesi(userId) });
+  });
+
   /**
    * KARŞILAMA ANLATIMI BİTTİ — bir kez yazılır, geri alınmaz.
    *

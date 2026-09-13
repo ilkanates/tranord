@@ -34,11 +34,27 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
-### 0. Mesajlaşma sistemi
-- Oyuncular birbirine mesaj gönderebilsin (gelen kutusu + gönderilenler).
-- Okundu/okunmadı takibi; üst barda okunmamış sayacı (rapor sayacı gibi).
-- Birlik gelince BİRLİK MESAJI da buradan aksın — altyapı ona hazır kurulmalı.
-- Engelleme/şikâyet: satılan bir oyunda serbest metin taciz kapısıdır, en baştan düşünülmeli.
+### 1. Kahraman (Travian mantığı)
+Oyuncunun TEK ve kalıcı kahramanı olsun; seferle birlikte yürüsün.
+
+- **Kahraman konağı** (yeni bina): kahraman burada doğar, burada dirilir.
+- **Deneyim ve seviye**: savaşta öldürdüğü birim başına XP, seviye atlayınca
+  dağıtılacak puan. Travian'daki dört eksen: saldırı gücü, savunma gücü,
+  kaynak üretimi, dirilme hızı.
+- **Savaşta tek birim gibi davranır** ama ölmez — yaralanır ve konakta
+  belli bir sürede iyileşir. Ölüm kalıcı olsaydı kimse kahramanı riske atmazdı.
+- **Eşya**: silah/zırh/at/at nalı gibi kuşanılabilir parçalar. Kaynağı:
+  yağmada düşen ganimet (Travian'da "macera"; bizde NPC seferinden düşme
+  olabilir — ayrı bir macera sistemi kurmadan).
+- **Karar gerekiyor:**
+  - Kahraman hangi köye ait? Çoklu köyde konağın olduğu köy mü, aktif köy mü?
+  - Ölüm/iyileşme süresi gerçek zaman mı oyun saati mi?
+  - Eşya nasıl düşecek — macera sistemi mi, sefer ganimetinden mi?
+  - Kahraman kaynak üretimi (Travian'da köy üretimine ekleniyor) olsun mu,
+    yoksa yalnız savaş birimi mi kalsın?
+- Sunucu tarafı: kahraman durumu oyuncu bazında (merkez köyün state'inde,
+  görev kaydıyla aynı yerde), sefer paketine kahraman bayrağı, savaş
+  hesabına tek birimlik özel giriş.
 
 ### 2. Elçilik ve birlik (ittifak)
 - Yeni bina: **Elçilik**. Buradan birlik kurulur ve başka oyuncular birliğe davet edilir.
@@ -140,6 +156,17 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Mesajlaşma (13 Eylül 2026)
+- **Mesajlar sekmesi**: gelen kutusu / gönderdiklerim, yazma formu, okundu takibi, üst barda okunmamış sayacı. Düzen raporlarla AYNI (solda liste, sağda gövde) — oyuncu iki ekran arasında yeni bir düzen öğrenmesin.
+- Alıcı **oyuncu adıyla** seçiliyor. Oyuncu listesi vermek hem haritadaki herkesi tek ekranda dökmek hem de toplu mesaj atmayı kolaylaştırmak olurdu; ad zaten benzersiz.
+- **Silme yumuşak ve TEK TARAFLI**: gönderenin silmesi alıcının kutusundan mesajı kaldırmıyor. Tek bir `deleted` alanı olsaydı şikâyet edilen mesaj tek tıkla yok edilebilirdi.
+- **Engelleme SESSİZ**: engellenen kişi gönderirken hata almıyor, mesaj kutuya düşmüyor. "Engellendin" demek taciz edene hangi hesabın çalıştığını söylemek olurdu. Hız sınırı yine de işliyor — engelli gönderim bedava deneme hakkı olmasın.
+- **Hız sınırı** dakikada 5, saatte 40. Engelleme tek başına yetmez: engellenen kişi yeni hesapla döner, hız sınırı hesap açmayı da yavaşlatır.
+- Kontrol karakterleri temizleniyor (ad taklidi ve düzen bozma), konu 60 / gövde 2000 karakterle sınırlı, konu boşsa ilk satırdan türetiliyor.
+- Okunmamış sayacı OTURUMDA tutuluyor: `emitVillage` senkron ve saniyede bir çalışabiliyor, oraya sorgu koymak tick yoluna veritabanı gecikmesi sokardı.
+- Kurallar `server/game/mesaj.js`'te ayrı duruyor — sunucu açmadan sınanabiliyor. **8 yeni test** (4 kural, 4 uçtan uca).
+- Birlik mesajı için altyapı hazır: `messages` tablosu ve engel listesi aynı şekilde kullanılacak.
 
 ### Onboarding — ilk 10 dakika (13 Eylül 2026)
 - **Kayıtta kullanıcı adı.** `/auth/register` artık e-posta + kullanıcı adı + şifre alıyor; ad AYNI INSERT'te yazılıyor (iki adımda yazmak adsız hesap bırakma riski ve ikinci bir yarış penceresi demekti). Benzersizliği veritabanı dizini garanti ediyor. Ad **kalıcı**: `set_player_name` adı olan hesapta reddediyor, profilde alan kilitli gösteriliyor. Adsız ESKİ hesaplar için NameGate kapısı duruyor.

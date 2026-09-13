@@ -26,6 +26,37 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13i',
+    tarih: '13 Eylül 2026',
+    baslik: 'Mesajlaşma geldi',
+    notlar: [
+      {
+        id: '20260913-mesajlasma',
+        tur: 'yenilik',
+        metin: 'Artık diğer oyunculara MESAJ gönderebiliyorsun. Üstteki '
+          + 'Mesajlar sekmesinde gelen kutusu ve gönderdiklerin ayrı ayrı '
+          + 'duruyor; okunmamış mesajın varsa sekmede sayaç çıkıyor. '
+          + 'Alıcıyı oyuncu adıyla yazıyorsun.',
+      },
+      {
+        id: '20260913-mesaj-engelle',
+        tur: 'yenilik',
+        metin: 'Rahatsız eden bir oyuncuyu mesajı açıp ENGELLE ile '
+          + 'susturabilirsin. Engellediğin kişi bunu GÖREMEZ — mesajı '
+          + 'gönderilmiş gibi görünür ama sana ulaşmaz. Engeli istediğin '
+          + 'zaman kaldırabilirsin.',
+      },
+      {
+        id: '20260913-mesaj-silme',
+        tur: 'denge',
+        metin: 'Mesaj silmek yalnız SENİN kutunu temizler. Gönderdiğin bir '
+          + 'mesajı silmen karşı taraftan kaldırmaz; aksi hâlde yazdığı şeyi '
+          + 'tek tıkla yok edebilen biri şikâyet edilemezdi. Ayrıca dakikada '
+          + '5, saatte 40 mesaj sınırı var.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13h',
     tarih: '13 Eylül 2026',
     baslik: 'Yeni başlayanlar için',

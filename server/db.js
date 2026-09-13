@@ -116,6 +116,40 @@ async function initDB() {
     )
     AND v.id = (SELECT MIN(id) FROM villages x WHERE x.user_id = v.user_id);
   `);
+  /**
+   * MESAJLAŞMA.
+   *
+   * Silme İKİ TARAFLI ve YUMUŞAK: gönderenin silmesi alıcının kutusundan
+   * mesajı kaldırmıyor, tersi de öyle. Tek bir `deleted` alanı olsaydı
+   * biri sildiğinde diğerinin okuduğu yazı gözünün önünde kaybolurdu —
+   * şikâyet gelen bir mesajı gönderen tek tıkla yok edebilirdi.
+   *
+   * `okundu_at` zaman damgası, boolean değil: "ne zaman okudu" ileride
+   * birlik mesajlarında ve şikâyet incelemesinde gerekecek.
+   */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id             SERIAL PRIMARY KEY,
+      from_user_id   INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      to_user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      konu           TEXT NOT NULL,
+      govde          TEXT NOT NULL,
+      at             TIMESTAMP DEFAULT NOW(),
+      okundu_at      TIMESTAMP,
+      gonderen_sildi BOOLEAN NOT NULL DEFAULT FALSE,
+      alan_sildi     BOOLEAN NOT NULL DEFAULT FALSE
+    );
+    CREATE INDEX IF NOT EXISTS messages_to_idx   ON messages (to_user_id, id DESC);
+    CREATE INDEX IF NOT EXISTS messages_from_idx ON messages (from_user_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS message_blocks (
+      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      blocked_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      at         TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (user_id, blocked_id)
+    );
+  `);
+
   console.log('[DB] Tablolar hazır (çoklu köy şeması)');
 }
 
@@ -368,8 +402,116 @@ async function loadAllVillages() {
     }));
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  MESAJLAŞMA
+// ═══════════════════════════════════════════════════════════════════
+
+/** Oyuncu adıyla kullanıcı bul — mesaj alıcısı adla seçiliyor */
+async function findUserByDisplayName(name) {
+  const res = await pool.query(
+    'SELECT id, email, display_name FROM users WHERE lower(display_name) = lower($1)',
+    [String(name || '').trim()]
+  );
+  return res.rows[0] || null;
+}
+
+async function mesajYaz({ fromUserId, toUserId, konu, govde }) {
+  const res = await pool.query(
+    `INSERT INTO messages (from_user_id, to_user_id, konu, govde)
+     VALUES ($1, $2, $3, $4) RETURNING id, at`,
+    [fromUserId, toUserId, konu, govde]
+  );
+  return res.rows[0];
+}
+
+/**
+ * KUTU LİSTESİ — gelen ya da giden.
+ *
+ * Karşı tarafın ADI sorguda birleştiriliyor: istemciye userId göndermek
+ * hem işe yaramıyor hem de oyuncuları numaralarıyla eşleştirmeye yarardı.
+ */
+async function mesajKutusu(userId, { yon = 'gelen', limit = 100 } = {}) {
+  const gelen = yon !== 'giden';
+  const res = await pool.query(
+    `SELECT m.id, m.konu, m.govde, m.at, m.okundu_at,
+            m.from_user_id, m.to_user_id,
+            gf.display_name AS gonderen_ad, gt.display_name AS alan_ad
+       FROM messages m
+       JOIN users gf ON gf.id = m.from_user_id
+       JOIN users gt ON gt.id = m.to_user_id
+      WHERE ${gelen ? 'm.to_user_id' : 'm.from_user_id'} = $1
+        AND ${gelen ? 'm.alan_sildi' : 'm.gonderen_sildi'} = FALSE
+      ORDER BY m.id DESC
+      LIMIT $2`,
+    [userId, Math.min(200, Math.max(1, limit))]
+  );
+  return res.rows.map(r => ({
+    id: r.id, konu: r.konu, govde: r.govde,
+    at: r.at, okundu: !!r.okundu_at,
+    yon: gelen ? 'gelen' : 'giden',
+    karsiAd: gelen ? r.gonderen_ad : r.alan_ad,
+  }));
+}
+
+async function mesajOkunmamisSayisi(userId) {
+  const res = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM messages
+      WHERE to_user_id = $1 AND okundu_at IS NULL AND alan_sildi = FALSE`,
+    [userId]
+  );
+  return res.rows[0]?.n || 0;
+}
+
+/** Okundu işaretle — YALNIZ alıcı. Gönderen kendi mesajını okutamaz. */
+async function mesajOkundu(userId, id) {
+  const res = await pool.query(
+    `UPDATE messages SET okundu_at = NOW()
+      WHERE id = $1 AND to_user_id = $2 AND okundu_at IS NULL RETURNING id`,
+    [id, userId]
+  );
+  return !!res.rows[0];
+}
+
+/** Yumuşak silme — yalnız SİLENİN kutusundan kalkar */
+async function mesajSil(userId, id) {
+  const res = await pool.query(
+    `UPDATE messages
+        SET alan_sildi     = CASE WHEN to_user_id   = $2 THEN TRUE ELSE alan_sildi END,
+            gonderen_sildi = CASE WHEN from_user_id = $2 THEN TRUE ELSE gonderen_sildi END
+      WHERE id = $1 AND (to_user_id = $2 OR from_user_id = $2) RETURNING id`,
+    [id, userId]
+  );
+  return !!res.rows[0];
+}
+
+async function engelEkle(userId, blockedId) {
+  await pool.query(
+    `INSERT INTO message_blocks (user_id, blocked_id) VALUES ($1, $2)
+     ON CONFLICT DO NOTHING`, [userId, blockedId]);
+}
+async function engelKaldir(userId, blockedId) {
+  await pool.query(
+    'DELETE FROM message_blocks WHERE user_id = $1 AND blocked_id = $2',
+    [userId, blockedId]);
+}
+async function engelListesi(userId) {
+  const res = await pool.query(
+    `SELECT b.blocked_id, u.display_name FROM message_blocks b
+       JOIN users u ON u.id = b.blocked_id WHERE b.user_id = $1`, [userId]);
+  return res.rows.map(r => ({ userId: r.blocked_id, ad: r.display_name }));
+}
+/** A, B'yi engellemiş mi? (gönderim denetiminde alıcı tarafa bakılır) */
+async function engelliMi(userId, otherId) {
+  const res = await pool.query(
+    'SELECT 1 FROM message_blocks WHERE user_id = $1 AND blocked_id = $2',
+    [userId, otherId]);
+  return res.rowCount > 0;
+}
+
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
+  findUserByDisplayName, mesajYaz, mesajKutusu, mesajOkunmamisSayisi,
+  mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
   setDisplayName, loadDisplayNames, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage,

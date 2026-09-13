@@ -7,6 +7,7 @@ import MusicButton     from './components/MusicButton';
 import VillageSwitcher from './components/VillageSwitcher';
 import { ProfileButton, NameGate } from './components/ProfilePanel';
 import Tutorial from './components/Tutorial';
+import MessageScreen from './components/MessageScreen';
 import DevMenu        from './components/DevMenu';
 import WorkerScreen   from './components/WorkerScreen';
 import { startMusic }  from './audio';
@@ -145,6 +146,7 @@ const TABS = [
   { key: 'sefer',     label: 'Seferler',         icon: 'harita' },
   { key: 'gorevler',  label: 'Görevler',         icon: 'bilgi' },
   { key: 'raporlar',  label: 'Raporlar',         icon: 'savas' },
+  { key: 'mesajlar',  label: 'Mesajlar',         icon: 'bilgi' },
   { key: 'istatistik', label: 'İstatistik',      icon: 'bonus' },
   { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilic' },
   { key: 'yardim',    label: 'Yardım',           icon: 'bilgi' },
@@ -824,6 +826,7 @@ function Game({ token, onLogout }) {
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []),
+            mesajlar: village.mesajOkunmamis || 0,
             /*
               GÖREV ÖDÜLÜ SEKMEDE. Telefonda yüzen rehber rozeti kaldırıldı;
               "ödülün hazır" haberi Görevler sekmesinin sayacıyla veriliyor,
@@ -1106,6 +1109,16 @@ function Game({ token, onLogout }) {
               <ReportScreen
                 reports={village.reports || []}
                 unitDefs={village.unitDefs || {}} />
+            </div>
+          )}
+
+          {tab === 'mesajlar' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: railInset, paddingRight: railInset,
+              paddingBottom: vp.mobile ? 64 : 0,
+            }}>
+              <MessageScreen socket={socket} playerName={village.playerName || ''} />
             </div>
           )}
 
