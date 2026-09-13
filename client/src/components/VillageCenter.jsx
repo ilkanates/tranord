@@ -1615,6 +1615,9 @@ export default function VillageCenter({
             {darEkran && selectedBuilding && (
               <div style={{ padding: '10px 10px 4px', order: 0 }}>
                 <BuildingControls
+                  // Telefonda kutular akışta ve TAM GENİŞLİK — ekipman
+                  // satırıyla aynı hizada dursun (bkz. BuildingControls · blok)
+                  layout="blok"
                   building={selectedBuilding}
                   freeWorkers={freeWorkers}
                   resources={resources}

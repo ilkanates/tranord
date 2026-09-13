@@ -58,7 +58,19 @@ export default function BuildingControls({
   const realSecs = (m) => gameMinutesToRealSeconds(m, hourSeconds, worldSpeed);
   const sure = (w) => fmtTime(realSecs(buildMinutes(building.type, building.level + 1, w)));
 
-  const serit = layout === 'strip';
+  /*
+    ÜÇ YERLEŞİM:
+      strip — masaüstü: kutular görselin sağ-altına biner, sabit 212 px
+      blok  — telefon: kutular AKIŞTA ve TAM GENİŞLİK, alt alta
+      (diğeri) — çıplak, kutu çerçevesi yok
+
+    `blok` eklenmeden önce telefonda da `strip` kullanılıyordu: kutular
+    212 px sabit kalıp sağa yaslanıyor, 376 px'lik gövdede yanlarında
+    boşluk bırakıyordu. At siparişi satırı tam genişlik olunca aradaki
+    fark göze battı — kadro ve yükseltme de aynı hizada olmalı.
+  */
+  const blok = layout === 'blok';
+  const serit = layout === 'strip' || blok;
   const kutu = serit ? {
     background: 'rgba(6,12,20,0.72)',
     border: `1px solid ${C.lineSoft}`,
@@ -71,7 +83,7 @@ export default function BuildingControls({
       212 px üçünü de alt satıra sığdırıyor ve maliyet satırındaki sayılar
       da kısaltmaya uğramıyor.
     */
-    width: 212,
+    width: blok ? '100%' : 212,
     // Dar ekranda kutu sarmalayıcıdan taşmasın (bkz. VillageCenter · şerit)
     maxWidth: '100%',
   } : { minWidth: 0 };
@@ -84,8 +96,11 @@ export default function BuildingControls({
   if (building.building) {
     return (
       <div style={{
-        display: 'flex', gap: 8, alignItems: 'flex-end', maxWidth: '100%',
-        flexWrap: serit ? 'wrap' : 'nowrap', justifyContent: 'flex-end',
+        display: 'flex', gap: 8, maxWidth: '100%',
+        flexDirection: blok ? 'column' : 'row',
+        alignItems: blok ? 'stretch' : 'flex-end',
+        flexWrap: serit ? 'wrap' : 'nowrap',
+        justifyContent: blok ? 'flex-start' : 'flex-end',
       }}>
         {kadroVar && (
           <div style={kutu}>
@@ -131,8 +146,11 @@ export default function BuildingControls({
 
   return (
     <div style={{
-      display: 'flex', gap: 8, alignItems: 'flex-end', maxWidth: '100%',
-      flexWrap: serit ? 'wrap' : 'nowrap', justifyContent: 'flex-end',
+      display: 'flex', gap: 8, maxWidth: '100%',
+      flexDirection: blok ? 'column' : 'row',
+      alignItems: blok ? 'stretch' : 'flex-end',
+      flexWrap: serit ? 'wrap' : 'nowrap',
+      justifyContent: blok ? 'flex-start' : 'flex-end',
     }}>
       {/* ── Çalışan kadro ── */}
       {kadroVar && (
