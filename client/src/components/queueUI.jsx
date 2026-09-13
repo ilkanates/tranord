@@ -1,6 +1,7 @@
 /**
  * Ekipman ve birim kuyruğu panellerinin paylaştığı parçalar (nordic).
  */
+import { useState } from 'react';
 import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
 import { QTY_TAVAN } from '../flows';
 import Icon from './Icons';
@@ -70,7 +71,21 @@ export function WorkerNote({ workers, ok, warn }) {
  *               düğmesi çıkar. `null` → düğme yok (sınır bilinmiyor).
  */
 export function Qty({ value, onChange, max = QTY_TAVAN, enCok = null }) {
-  const set = (n) => onChange(Math.max(1, Math.min(max, n)));
+  /*
+    YAZARKEN KUTU BOŞALABİLSİN.
+
+    `onChange={(e) => set(+e.target.value || 1)}` idi: kutuyu silmek
+    istediğin an boş dize 0'a, 0 da `|| 1` ile 1'e dönüyor ve kutuda
+    yine "1" beliriyordu. Yani rakamı hiç silemiyordun — 25 yazmak için
+    önce hepsini seçmen gerekiyordu.
+
+    Artık yazılan metin `ham`da ayrı duruyor: boş kalabilir, geçerli bir
+    sayı olduğu anda dışarı bildirilir, odak çıkınca gerçek değere döner.
+    `ham === null` → kutu dışarıdaki `value`yu gösterir (± ve MAKS bunu
+    böyle geri alır).
+  */
+  const [ham, setHam] = useState(null);
+  const set = (n) => { setHam(null); onChange(Math.max(1, Math.min(max, n))); };
   const maksVar = Number.isFinite(enCok) && enCok >= 1;
   const kare = {
     width: 20, height: 22, border: 'none', background: 'rgba(28,51,73,0.6)',
@@ -82,8 +97,17 @@ export function Qty({ value, onChange, max = QTY_TAVAN, enCok = null }) {
       border: `1px solid ${C.lineSoft}`, borderRadius: 4, overflow: 'hidden',
     }}>
       <button onClick={() => set(value - 1)} className="tn-step" style={kare}>−</button>
-      <input type="number" min={1} max={max} value={value}
-        onChange={(e) => set(+e.target.value || 1)}
+      <input type="number" min={1} max={max}
+        value={ham !== null ? ham : String(value)}
+        onChange={(e) => {
+          const metin = e.target.value;
+          setHam(metin);
+          const n = parseInt(metin, 10);
+          // Geçerli sayı yazıldıysa hemen bildir; boş/yarım girdi beklesin
+          if (Number.isFinite(n) && n >= 1) onChange(Math.min(max, n));
+        }}
+        onFocus={(e) => e.target.select()}
+        onBlur={() => setHam(null)}
         style={{
           width: 32, height: 22, border: 'none', textAlign: 'center',
           background: 'rgba(8,17,28,0.8)', color: C.frost,

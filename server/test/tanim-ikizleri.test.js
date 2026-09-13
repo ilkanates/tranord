@@ -106,3 +106,35 @@ test('savunma bonusu eğrileri iki tarafta aynı', async () => {
   assert.deepEqual(c.HENDEK_BONUS, HENDEK_BONUS, 'HENDEK_BONUS ayrışmış');
   assert.deepEqual(c.KULE_BONUS, KULE_BONUS, 'KULE_BONUS ayrışmış');
 });
+
+/**
+ * PERSONEL ALAN ASKERİ BİNALAR — bu liste ÜÇ KEZ ayrıştı.
+ *
+ * Sunucu kabul edip istemci bilmezse bina işçi almıyormuş gibi görünür:
+ * atama arayüzü hiç çizilmez, sunucuya istek bile gitmez. Son ayrışmada
+ * `runSalonu` istemcide yoktu ve ARAŞTIRMA TAMAMEN YAPILAMIYORDU; `kosk`
+ * ile `saray` da eksikti, göçmen kuyruğu ilerlemiyordu.
+ *
+ * Sunucu tarafı `index.js` içinde duruyor ve o dosya yan etkisiz
+ * require edilemiyor (bağlantı açıyor), bu yüzden küme KAYNAK METİNDEN
+ * okunuyor. Kırılgan görünüyor ama tam da korumak istediğimiz şeyi
+ * koruyor: birine eklenip diğerine eklenmeyen bir tip.
+ */
+test('personel alan askeri bina listesi iki tarafta aynı', async () => {
+  const fs = require('node:fs');
+  const kaynak = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  const m = kaynak.match(/WORKER_ASSIGNABLE_MILITARY\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  assert.ok(m, 'sunucuda WORKER_ASSIGNABLE_MILITARY bulunamadı — test güncellenmeli');
+  const sunucu = [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]).sort();
+
+  const flows = await import(
+    url.pathToFileURL(
+      path.join(__dirname, '..', '..', 'client', 'src', 'flows.js')
+    ).href
+  );
+  const istemci = [...flows.WORKER_ASSIGNABLE_MILITARY].sort();
+
+  assert.deepEqual(istemci, sunucu,
+    'liste ayrışmış — sunucuda ' + sunucu.join(',')
+    + ' / istemcide ' + istemci.join(','));
+});

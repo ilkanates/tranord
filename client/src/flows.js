@@ -276,11 +276,20 @@ export const NO_WORKER_TYPES = new Set(['sur', 'hendek']);
 
 /**
  * PERSONEL ALAN ASKERİ BİNALAR — sunucudaki WORKER_ASSIGNABLE_MILITARY'nin
- * aynısı. Bu liste iki yerde ayrı ayrı yazılıydı ve VillageCenter'daki
- * kopyada `kule` eksikti; tek kaynak burası olsun.
+ * (server/index.js) BİREBİR aynısı olmalı. Sunucu kabul edip istemci
+ * bilmezse bina hiç işçi alamıyor gibi görünür: atama arayüzü çizilmez,
+ * oyuncu da "işçi atayamıyorum" der.
+ *
+ * Bu liste üçüncü kez ayrıştı. Önce VillageCenter'daki kopyada `kule`
+ * eksikti; tek kaynağa indirildi ama sunucuya sonradan eklenen üçü
+ * buraya geçmemişti:
+ *   runSalonu → işçi atanamıyor, dolayısıyla ARAŞTIRMA HİÇ YAPILAMIYOR
+ *   kosk, saray → göçmen eğitmeni atanamıyor, kuyruk ilerlemiyor
+ * Sunucudaki listeyi değiştirirken BURAYI DA değiştir.
  */
 export const WORKER_ASSIGNABLE_MILITARY = new Set([
-  'silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule',
+  'silahci', 'zirh', 'ahir', 'kisla', 'atolye', 'kule', 'runSalonu',
+  'kosk', 'saray',
 ]);
 
 /** Bu bina personel alır mı? (üretim yapan her bina + askeri liste) */
