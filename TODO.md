@@ -6,14 +6,6 @@ Sıralama önem sırasına göre. Her madde bitince **Tamamlandı** bölümüne 
 
 ---
 
-## 🔴 Canlıya çıkmadan önce
-
-### 1. Negatif ekmek akışı
-- Bazı köylerde ekmek üretimi tüketimin altında ve hiç toparlanmıyor; NPC'ler sonsuz açlıkta kalıyor.
-- Nüfus/asker/at tüketimi ile fırın kapasitesi arasındaki denge gözden geçirilecek.
-
----
-
 ## 🟠 Büyük iş: Çoklu köy ve genişleme
 
 Bu bölüm tek bir sistem — parçalarını ayrı ayrı yapmak mümkün değil, sıralı gitmek gerekiyor.
@@ -183,6 +175,21 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Negatif ekmek akışı — ÖLÇÜLDÜ ve uyarı eklendi (13 Eylül 2026)
+**Maddenin ilk iki iddiası ölçümle doğrulanamadı; üçüncü, gerçek sorun bulundu.**
+
+- ❌ *"NPC'ler sonsuz açlıkta kalıyor"* — **üretilemedi.** 39 NPC tohumlandı ve 2000 oyun saati daha ilerletildi: aç köy 0. Kayıtlı dev dünyasındaki 200 NPC'de de aç köy 0. Pi'deki canlı günlükte 3 günde tek bir `[STARVE]` satırı yok. Yiyecek zinciri düzeltmelerinden (bkz. `npcAi.ensureFoodStaffing` un/ekmek ambar payı) sonra kapanmış görünüyor.
+- ❌ *"Nüfus/asker/at tüketimi ile fırın kapasitesi dengesi"* — **denge sağlam.** Zincir 1 tahıl → 0,6 ekmek; ham tahılla beslenmeye göre 1,5× verimli, yani fırın kurmak kârlı kalıyor. 1 tahıl işçisi 14,4 köylü ya da 7,2 asker besliyor; 1 at yalnız 0,042 tahıl işçisi tutuyor. Altı Lvl 1 tarla tam kadroyla 518 köylü besliyor — nüfus tavanının kat kat üstünde.
+- ✅ **GERÇEK SORUN: oyuncu açlığı ancak BAŞLADIKTAN sonra öğreniyordu.** Ölçüm: yeni bir köy hiçbir şey yapılmazsa **36 oyun saatinde** açlığa giriyor, **45. saatte** ilk köylüsünü kaybediyor. O ana kadar tek işaret, kaynak rayındaki 7,5 punto "AÇLIK" rozetiydi — o da kayıp başladıktan sonra çıkıyor.
+
+**Yapılan:** üst barın altında, her sekmede duran iki kademeli uyarı şeridi.
+- SARI: "Ekmek bitiyor: 10 saat 34 dk sonra köyün aç kalacak" + SEBEP + ne yapılacağı.
+- KIRMIZI: "KÖYÜN AÇ — nüfusun eriyor".
+- Sebep zincirin akış yönünde: tahıl işçisi → değirmen → fırın → ordu. "Aç kalıyorsun" tek başına işe yaramıyordu; oyuncu ne yapacağını bilmiyordu.
+- Hesap SUNUCUDA (`tick.js · getFoodOutlook`): zincir oranları ve tüketim sabitleri orada; istemcide ikizini tutmak ikisinin sessizce ayrışması demekti.
+- Akış artıdayken şerit hiç çizilmiyor, yer kaplamıyor.
+- **6 yeni test** — uyarının zamanı ve sebebi kilitli.
 
 ### Mesajlaşma (13 Eylül 2026)
 - **Mesajlar sekmesi**: gelen kutusu / gönderdiklerim, yazma formu, okundu takibi, üst barda okunmamış sayacı. Düzen raporlarla AYNI (solda liste, sağda gövde) — oyuncu iki ekran arasında yeni bir düzen öğrenmesin.

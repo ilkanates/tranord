@@ -11,7 +11,7 @@
  * (bkz. client/src/App.jsx setServerVillage).
  */
 const { WALL_SLOTS_ARR: WALL_SLOT_NAMES, civilianCount } = require('./villageState');
-const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEquipmentCap, getEquipmentPool, getConsumptionRates, getSiegeCap, SIEGE_KEYS } = require('./tick');
+const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEquipmentCap, getEquipmentPool, getConsumptionRates, getSiegeCap, SIEGE_KEYS, getFoodOutlook } = require('./tick');
 const ARMY = require('./army');
 const KUSATMA = require('./kusatma');
 const GT = require('./gameTime');
@@ -361,6 +361,12 @@ function buildPayload(village, tickMs, opts = {}) {
       gonderiler: PAZAR_YOL.ozet(village, speed),
     },
     isStarving: !!village.isStarving, starveCounter: village.starveCounter || 0,
+    /*
+      YİYECEK ÖNGÖRÜSÜ — açlık BAŞLAMADAN uyarmak için. Hesap sunucuda
+      (zincir oranları ve tüketim sabitleri orada), istemci yalnız
+      gösteriyor (bkz. tick.js · getFoodOutlook).
+    */
+    yiyecek: getFoodOutlook(village),
     consumption, tickMs, tickMsRange: { min: MIN_TICK_MS, max: MAX_TICK_MS, default: DEFAULT_TICK_MS },
     // İstemci kaynakları iki yayın ARASINDA kendisi ilerletiyor; bunun için
     // dünya hızını bilmesi gerekiyor (bkz. client/src/flows.js extrapolate).

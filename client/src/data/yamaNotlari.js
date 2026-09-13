@@ -26,6 +26,31 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13j',
+    tarih: '13 Eylül 2026',
+    baslik: 'Açlık artık önceden haber veriyor',
+    notlar: [
+      {
+        id: '20260913-aclik-uyarisi',
+        tur: 'yenilik',
+        metin: 'Ekmeğin eksiye düştüğünde üst barın altında bir uyarı çıkıyor: '
+          + 'ne kadar sonra aç kalacağını, SEBEBİNİ ve ne yapman gerektiğini '
+          + 'yazıyor. Eskiden açlığı ancak nüfusun erimeye başladıktan sonra '
+          + 'fark ediyordun — küçük bir kırmızı rozetten. Ölçüm: yeni bir köy '
+          + 'hiçbir şey yapılmazsa 36 oyun saatinde açlığa giriyor, 45. saatte '
+          + 'ilk köylüsünü kaybediyor.',
+      },
+      {
+        id: '20260913-aclik-sebep',
+        tur: 'duzeltme',
+        metin: 'Uyarı zincirin neresinin koptuğunu söylüyor: tahıl tarlasında '
+          + 'işçi yok mu, değirmen mi durmuş, fırın mı yok, yoksa ordun köyünün '
+          + 'besleyebileceğinden mi büyük. Akış artıya dönünce şerit '
+          + 'kendiliğinden kayboluyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13i',
     tarih: '13 Eylül 2026',
     baslik: 'Mesajlaşma geldi',

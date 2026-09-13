@@ -836,8 +836,91 @@ function getConsumptionRates(village) {
   };
 }
 
+/**
+ * YİYECEK ÖNGÖRÜSÜ — "ne zaman aç kalacağım ve NEDEN?"
+ *
+ * Oyuncuya açlık, ancak BAŞLADIKTAN sonra söyleniyordu: küçük bir kırmızı
+ * "AÇLIK" rozeti, o da nüfus kaybı çoktan başlamışken. Ölçüldü: yeni bir
+ * köy hiçbir şey yapılmazsa 36 oyun saatinde açlığa giriyor ve 45.
+ * saatte ilk köylüsünü kaybediyor — yani oyuncunun uyarılabileceği ~3,5
+ * saatlik bir pencere vardı ve boş geçiyordu.
+ *
+ * Hesap SUNUCUDA: zincir oranları (ekmek 1 / un 1,5 / tahıl 2,5) ve
+ * tüketim sabitleri burada; istemcide ikizini tutmak ikisinin sessizce
+ * ayrışması demekti.
+ *
+ * SEBEP de dönüyor, çünkü "aç kalıyorsun" tek başına işe yaramıyor —
+ * oyuncu NE YAPACAĞINI bilmiyor. Sıra, zincirin akış yönü: önce tahıl,
+ * sonra değirmen, sonra fırın; en sonda "ordu fazla".
+ *
+ * @returns {{ stokSaat, netSaat, uretim, tuketim, aclik, sebep }}
+ *   stokSaat  eldeki yiyecekle kaç OYUN SAATİ dayanılır (null = tükenmiyor)
+ *   netSaat   ekmek biriminden saatlik net akış (eksi = eriyor)
+ *   sebep     'tahilIsci' | 'degirmen' | 'firin' | 'ordu' | null
+ */
+function getFoodOutlook(village) {
+  const c = getConsumptionRates(village);
+  const tuketim = c.foodPerHour;
+
+  // Ekmek üretimi: fırının GERÇEKTEN işleyebildiği kadarı (girdiye bağlı)
+  const isleyen = (tip) => {
+    const b = Object.values(village.villageBuildings || {})
+      .find(x => x.type === tip && (x.level || 0) > 0);
+    return b ? { seviye: b.level, isci: b.workers || 0 } : null;
+  };
+  const degirmen = isleyen('degirmen');
+  const firin = isleyen('firin');
+  const tahilIsci = Object.values(village.productionTiles || {})
+    .filter(t => t.type === 'tahil' && (t.level || 0) > 0)
+    .reduce((s, t) => s + (t.workers || 0), 0);
+
+  /*
+    ÜRETİM tahminini zincirin EN DAR halkası belirliyor. Tam simülasyon
+    (processTick'teki tur döngüsü) burada tekrarlanmıyor: uyarı için
+    "kaç ekmek çıkıyor" yeterli, kuruşu kuruşuna değer değil.
+  */
+  const tahilSaat = tahilIsci * (BUILDING_DEFS.tahil?.baseProductionPerWorker || 3);
+  const degKural = VILLAGE_DEFS.degirmen?.processes;
+  const firKural = VILLAGE_DEFS.firin?.processes;
+  const unSaat = degirmen && degKural
+    ? Math.min(tahilSaat, degirmen.isci * degKural.inputPerHour)
+      * (degKural.outputPerHour / degKural.inputPerHour)
+    : 0;
+  const ekmekSaat = firin && firKural
+    ? Math.min(unSaat, firin.isci * firKural.inputPerHour)
+      * (firKural.outputPerHour / firKural.inputPerHour)
+    : 0;
+
+  /*
+    STOK ekmek biriminden: un ve ham tahıl daha az doyurduğu için
+    processTick'teki AYNI oranlarla çevriliyor (FOOD_CHAIN).
+  */
+  const r = village.resources || {};
+  const stok = (r.ekmek || 0) + (r.un || 0) / 1.5 + (r.tahil || 0) / 2.5;
+  const netSaat = ekmekSaat - tuketim;
+  const stokSaat = netSaat >= -1e-9 ? null : stok / -netSaat;
+
+  let sebep = null;
+  if (netSaat < 0) {
+    if (tahilIsci <= 0) sebep = 'tahilIsci';
+    else if (!degirmen || degirmen.isci <= 0) sebep = 'degirmen';
+    else if (!firin || firin.isci <= 0) sebep = 'firin';
+    else sebep = 'ordu';
+  }
+
+  return {
+    stokSaat: stokSaat === null ? null : +stokSaat.toFixed(1),
+    netSaat: +netSaat.toFixed(2),
+    uretim: +ekmekSaat.toFixed(2),
+    tuketim: +tuketim.toFixed(2),
+    aclik: !!village.isStarving,
+    sebep,
+  };
+}
+
 module.exports = {
   processTick,
+  getFoodOutlook,
   processUnitQueues,
   processResearchQueue,
   processUpgradeQueues,

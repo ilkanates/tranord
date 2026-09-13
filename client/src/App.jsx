@@ -8,6 +8,7 @@ import VillageSwitcher from './components/VillageSwitcher';
 import { ProfileButton, NameGate } from './components/ProfilePanel';
 import Tutorial from './components/Tutorial';
 import MessageScreen from './components/MessageScreen';
+import FoodWarning from './components/FoodWarning';
 import DevMenu        from './components/DevMenu';
 import WorkerScreen   from './components/WorkerScreen';
 import { startMusic }  from './audio';
@@ -847,6 +848,15 @@ function Game({ token, onLogout }) {
         onSwitchVillage={switchVillage}
         playerName={village.playerName || ''}
         vp={vp} onOpenStatus={() => setStatusOpen(o => !o)} />
+
+      {/*
+        YİYECEK UYARISI — üst barın hemen altında, HER sekmede.
+        Açlık tek bir ekranın sorunu değil; köyün tamamını durduruyor.
+        Akış artıdayken hiç çizilmiyor, yer kaplamıyor.
+      */}
+      <FoodWarning yiyecek={village.yiyecek}
+        hourSeconds={village.marchInfo?.hourSeconds || 3600}
+        worldSpeed={village.worldSpeed || 1} />
 
       {/*
         İLK GİRİŞ: adı olmayan oyuncuya tek soruluk ekran. Sunucu
