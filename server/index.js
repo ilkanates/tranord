@@ -101,7 +101,7 @@ app.use('/auth', authRouter);
 // Oturumlar (userId -> session) ve dünya durumu tek yerde: durum.js
 const { userSessions, WORLD, markNpcDirty, markUserDirty } = require('./durum');
 const { marchingVillages, gelenSeferSayilari } = require('./game/seferTakip');
-const { popPerGameHour, getVillageBuildMinutes, getScaledUpgradeCost,
+const { popPerGameHour, getVillageBuildMinutes, getVillageDemolishMinutes, getScaledUpgradeCost,
         expansionFree, settlerCapacity, MAX_BUILDERS } = require('./game/koyKurallari');
 
 /**
@@ -310,7 +310,9 @@ function structFingerprint(v) {
     + `|${Object.entries(v.equipmentLevels || {}).map(([k, n]) => k + n).join('')}`;
   for (const k in v.villageBuildings) {
     const b = v.villageBuildings[k];
-    s += `|${k}:${b.level}:${b.workers || 0}:${b.building ? 1 : 0}`;
+    // Yıkım bayrağı da parmak izinde: yoksa "yıkılıyor" rozeti ekrana
+    // ancak kalp atışında düşerdi.
+    s += `|${k}:${b.level}:${b.workers || 0}:${b.building ? 1 : 0}:${b.yikiliyor ? 1 : 0}`;
   }
   for (const k in v.productionTiles) {
     const t = v.productionTiles[k];
@@ -407,11 +409,15 @@ function advanceVillage(village, gameHours, userId) {
   processTick(village, gameHours);
 
   const now = village.clockMs;
-  Object.entries(village.villageBuildings).forEach(([, b]) => {
+  Object.entries(village.villageBuildings).forEach(([key, b]) => {
     if (b.building && now >= b.buildEndTime) {
       b.level++;
       village.freeWorkers += b.buildWorkers;
       delete b.building; delete b.buildEndTime; delete b.buildWorkers;
+    }
+    // Yıkım süresi doldu: slot boşalır. Personeli yıkım BAŞLARKEN çıkmıştı.
+    if (b.yikiliyor && now >= b.yikimEndTime) {
+      delete village.villageBuildings[key];
     }
   });
 
@@ -1088,6 +1094,8 @@ function processMarches(hours) {
           const koy = sahip?.villages?.get(kayip.slotKey);
           if (!koy) continue;
           koy.population = Math.max(1, (koy.population || 0) - kayip.olu);
+          // Askerleri başka köyde öldü — sebebini görebilsin diye rapor
+          if (kayip.rapor) ARMY.pushReport(koy, kayip.rapor);
           markUserDirty(kayip.userId, kayip.slotKey);
         }
         m.misafirKayip = null;
@@ -1837,7 +1845,7 @@ io.on('connection', async socket => {
 
   socket.on('upgrade_village', ({ slotKey, workers } = {}) => {
     const b = v().villageBuildings[slotKey];
-    if (!b || b.building) return;
+    if (!b || b.building || b.yikiliyor) return;
     const def = VILLAGE_DEFS[b.type];
     // Tavan: tanımda yoksa DEFAULT_MAX_LEVEL. Eski koşul `def.maxLevel &&`
     // ile başlıyordu, tanımsız olan 18 bina sınırsız yükseliyordu.
@@ -1866,6 +1874,7 @@ io.on('connection', async socket => {
     };
     const b = v().villageBuildings[slotKey];
     if (!b || b.level < 1) return reject('bina yok ya da seviye 0');
+    if (b.yikiliyor) return reject('bina yıkılıyor, personel almaz');
     const def = VILLAGE_DEFS[b.type];
     if (!def || (!def.processes && !WORKER_ASSIGNABLE_MILITARY.has(b.type))) {
       return reject(`${b.type} personel almıyor (processes yok, atanabilir listede değil)`);
@@ -2062,14 +2071,34 @@ io.on('connection', async socket => {
       + ` (${f.hours} oyun saati, +${Math.round(village.festival.cpAtStart * f.multiplier)} CP)`);
   });
 
+  /**
+   * YIKIM — anında değil, SÜREYLE.
+   *
+   * Başlatıldığı an: personeli havuza döner, bina çalışmaz, yükseltilemez.
+   * Süre dolunca (advanceVillage) slot boşalır. Süre o seviyenin inşa
+   * süresinin onda biri (koyKurallari · getVillageDemolishMinutes).
+   *
+   * HENÜZ BİTMEMİŞ inşaat anında kalkar: ortada yıkılacak bina yok,
+   * oyuncuyu yanlış bastığı bir inşaatın süresi kadar bekletmek anlamsız.
+   */
   socket.on('demolish_village', ({ slotKey } = {}) => {
     if (slotKey === '0,0') return;
-    const b = v().villageBuildings[slotKey];
-    if (b) {
-      if (b.building && b.buildWorkers) v().freeWorkers += b.buildWorkers;
-      if (b.workers) v().freeWorkers += b.workers;
+    const village = v();
+    const b = village.villageBuildings[slotKey];
+    if (!b || b.yikiliyor) return;
+
+    if (b.building || (b.level || 0) < 1) {
+      if (b.building && b.buildWorkers) village.freeWorkers += b.buildWorkers;
+      if (b.workers) village.freeWorkers += b.workers;
+      delete village.villageBuildings[slotKey];
+      dirty(); emit();
+      return;
     }
-    delete v().villageBuildings[slotKey];
+
+    if (b.workers) { village.freeWorkers += b.workers; b.workers = 0; }
+    b.yikiliyor = true;
+    b.yikimEndTime = village.clockMs
+      + GT.minutesToClock(getVillageDemolishMinutes(b.type, b.level));
     dirty(); emit();
   });
 
@@ -2486,6 +2515,22 @@ io.on('connection', async socket => {
       b.upgradeEndTime = null;
       b.upgradeWorkersAssigned = 0;
     }
+    dirty(); emit();
+  });
+
+  /**
+   * YIKIMI İPTAL ET — süre dolmadan vazgeçme.
+   *
+   * Yıkım artık zaman aldığı için yanlış basılan düğmeden dönüş olmalı;
+   * inşaatın "İPTAL"i varken yıkımın olmaması tuzak olurdu. Geçen süre
+   * geri gelmiyor: bina olduğu yerde kalıyor, personeli elle yeniden
+   * atanıyor — karar bedelsiz değil, sadece geri alınabilir.
+   */
+  socket.on('cancel_demolish_village', ({ slotKey } = {}) => {
+    const b = v().villageBuildings[slotKey];
+    if (!b || !b.yikiliyor) return;
+    delete b.yikiliyor;
+    delete b.yikimEndTime;
     dirty(); emit();
   });
 

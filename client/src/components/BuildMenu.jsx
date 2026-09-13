@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm,
-  takesWorkers, maxWorkersOf, maxBuilders } from '../flows';
+  takesWorkers, maxWorkersOf, maxBuilders, yikimOnayi } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import { CostRow } from './mapPanels';
 import { TEXTURE_EMBLEM } from './buildingArt';
@@ -149,7 +149,7 @@ function EffectStrip({ type, level, def, processingRates, flows }) {
 export default function BuildMenu({
   slotKey, building, isTower, slotKind = 'hex', isCenter,
   placedBuildings, freeWorkers, resources = {}, processingRates = {}, flows = {},
-  onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onClose,
+  onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onCancelDemolish, onClose,
   hourSeconds = 3600, worldSpeed = 1,
   onOpenHelp,
   /**
@@ -318,8 +318,11 @@ export default function BuildMenu({
           </button>
         )}
 
-        {building && building.type !== 'anaBina' && !building.building && (
-          <button onClick={onDemolish} title="Yık"
+        {/* Yıkım geri alınamaz ve artık SÜRE alıyor — onay şart */}
+        {building && building.type !== 'anaBina' && !building.building && !building.yikiliyor && (
+          <button
+            onClick={() => { if (yikimOnayi(def, building, hourSeconds, worldSpeed)) onDemolish(); }}
+            title="Yık"
             style={{
               display: 'grid', placeItems: 'center', width: 26, height: 26, padding: 0,
               borderRadius: 4, cursor: 'pointer',
@@ -452,8 +455,36 @@ export default function BuildMenu({
         </div>
       )}
 
+      {/* ── Yıkılıyor: bina duruyor ama çalışmıyor ── */}
+      {building?.yikiliyor && (
+        <div style={{
+          margin: '0 0 8px', padding: '10px 11px', borderRadius: 5, textAlign: 'center',
+          background: 'rgba(232,99,111,0.08)', border: `1px solid ${C.dangerDim}`,
+        }}>
+          <Icon name="yik" size={18} color="#f0b8bd" className="tn-pulse" />
+          <div style={num({ fontSize: 22, color: '#ffc6cb', lineHeight: 1.2, marginTop: 3 })}>
+            {fmtTime(building.yikimTimeLeft)}
+          </div>
+          <div style={lbl({ fontSize: 7.5, marginTop: 2 })}>YIKILIYOR</div>
+          <div style={{
+            fontFamily: FONT.ui, fontSize: 9.5, color: C.textDim,
+            marginTop: 5, lineHeight: 1.5,
+          }}>
+            Personeli havuza döndü. Süre dolunca slot boşalacak; o ana kadar
+            bina çalışmıyor ve yükseltilemiyor.
+          </div>
+          <button onClick={() => onCancelDemolish?.()}
+            title="Bina yerinde kalır; personelini yeniden atarsın"
+            style={btn('ghost', {
+              width: '100%', padding: 7, letterSpacing: 1.2, marginTop: 7,
+            })}>
+            YIKIMI İPTAL ET
+          </button>
+        </div>
+      )}
+
       {/* ── Mevcut bina: SOL işçi · SAĞ yükseltme (poster modunda görselin üstünde) ── */}
-      {building && !building.building && !controlsInHeader && (
+      {building && !building.building && !building.yikiliyor && !controlsInHeader && (
         <div style={popCols('1fr', '1.05fr')}>
           <div style={popCol}>
             {hasWorkerSlot ? (

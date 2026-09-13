@@ -26,6 +26,53 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13e',
+    tarih: '13 Eylül 2026',
+    baslik: 'Destek raporları ve yıkım süresi',
+    notlar: [
+      {
+        id: '20260913-takviye-raporu',
+        tur: 'duzeltme',
+        metin: 'Bir köye destek yolladığında rapor "saldırdın ve kaybettin" '
+          + 'diyordu. Artık gönderdiğinde "o köyü destekledin", sana geldiğinde '
+          + '"sana destek gönderdi" yazıyor; rozeti de kırmızı değil yeşil. '
+          + 'Raporda gönderilen birlikler ve ekmeğini hangi köyün ödediği var.',
+      },
+      {
+        id: '20260913-takviye-savas-raporu',
+        tur: 'yenilik',
+        metin: 'Başka bir köydeki takviyen savaşa girdiğinde artık sana da '
+          + 'rapor geliyor. Eskiden askerin orada ölüyordu, nüfusun düşüyordu '
+          + 've hiçbir ekranda sebebi yazmıyordu. Yeni rapor kaç askerini '
+          + 'kaybettiğini, orada kaç askerin kaldığını ve savunmanın tutup '
+          + 'tutmadığını söylüyor.',
+      },
+      {
+        id: '20260913-rapor-filtresi',
+        tur: 'duzeltme',
+        metin: 'Rapor ekranındaki "SALDIRILARIM" sekmesi artık "GİDENLER". '
+          + 'Orada saldırı olmayan seferler de var (destek, yerleşim).',
+      },
+      {
+        id: '20260913-kusatma-gorselleri',
+        tur: 'yenilik',
+        metin: 'Koçbaşı ve mancınığın görselleri geldi — eğitim ekranında ve '
+          + 'raporlarda diğer birimler gibi görünüyorlar.',
+      },
+      {
+        id: '20260913-yikim-suresi',
+        tur: 'denge',
+        metin: 'Bina yıkmak artık anında değil: önce "emin misin" diye soruyor, '
+          + 'sonra yıkım o seviyenin inşa süresinin onda biri kadar sürüyor. '
+          + 'Yıkım başlar başlamaz personeli işçi havuzuna döner, bina '
+          + 'çalışmaz ve yükseltilemez; süre dolunca slot boşalır. Vazgeçersen '
+          + '"YIKIMI İPTAL" ile bina yerinde kalır (geçen süre geri gelmez, '
+          + 'personelini yeniden atarsın). Henüz bitmemiş bir inşaatı iptal '
+          + 'etmek eskisi gibi anında.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13d',
     tarih: '13 Eylül 2026',
     baslik: 'Kuşatma silahları geldi',

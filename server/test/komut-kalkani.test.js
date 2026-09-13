@@ -70,6 +70,7 @@ test('eksik ya da bozuk yük gönderen komutlar sunucuyu düşürmez', async (t)
   */
   const kotuYukler = [
     ['demolish_village', undefined],
+    ['cancel_demolish_village', undefined],
     ['build_village', null],
     ['upgrade_production', undefined],
     ['assign_village_workers', null],

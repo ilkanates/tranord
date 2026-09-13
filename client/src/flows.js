@@ -306,6 +306,61 @@ export function takesWorkers(type, def) {
  */
 export const maxBuilders = (mevcutSeviye) => Math.max(1, (mevcutSeviye || 0) + 2);
 
+/**
+ * YIKIM SÜRESİ — sunucudaki getVillageDemolishMinutes ikizi.
+ *
+ * O seviyenin TAM KADROYLA inşa süresinin onda biri. Yıkıma işçi
+ * atanmıyor; sayı yalnız oyuncuya "ne kadar sürecek" demek için.
+ */
+export const YIKIM_ORANI = 0.1;
+
+export function yikimDakikasi(def, level) {
+  if (!def) return 0;
+  const lvl = Math.max(1, level || 1);
+  const work = def.buildBaseWork * Math.pow(def.buildMultiplier, lvl - 1);
+  return (work / maxBuilders(lvl)) * YIKIM_ORANI;
+}
+
+/** Saniye → "2 sa 15 dk" gibi kısa süre. Onay metninde kullanılıyor. */
+function sureMetni(sn) {
+  const s = Math.max(0, Math.round(sn));
+  if (s < 60) return `${s} sn`;
+  const dk = Math.round(s / 60);
+  if (dk < 60) return `${dk} dk`;
+  const sa = Math.floor(dk / 60);
+  const kalanDk = dk % 60;
+  return kalanDk ? `${sa} sa ${kalanDk} dk` : `${sa} sa`;
+}
+
+/**
+ * YIKIM ONAYI — tek metin, iki giriş noktası.
+ *
+ * Yıkma düğmesi köy merkezinde de bina panelinde de var; onayı iki yere
+ * ayrı ayrı yazmak ikisinin ayrışmasına davetiye. Geri alınamayan bir
+ * işlem için tek soru, tek metin.
+ *
+ * @returns {boolean} oyuncu onayladı mı
+ */
+export function yikimOnayi(def, building, hourSeconds = 3600, worldSpeed = 1) {
+  const lvl = building?.level ?? 0;
+  const ad = def?.name || building?.type || 'Bu bina';
+  // Henüz bitmemiş inşaat anında kalkıyor — süre yazma, yanlış bilgi olur
+  const insaHalinde = !!building?.building || lvl < 1;
+  const sn = gameMinutesToRealSeconds(
+    yikimDakikasi(def, lvl), hourSeconds, worldSpeed);
+  const satirlar = insaHalinde
+    ? [`${ad} inşaatı iptal edilsin mi?`, '',
+       '• İşçiler hemen havuza döner.',
+       '• Harcanan kaynak GERİ GELMEZ.']
+    : [`${ad} (Lvl ${lvl}) yıkılsın mı?`, '',
+       `• Yıkım ${sureMetni(sn)} sürer; o süre boyunca bina çalışmaz.`,
+       '• Personeli hemen işçi havuzuna döner.',
+       '• Harcanan kaynak GERİ GELMEZ.'];
+  return window.confirm(satirlar.join('\n'));
+}
+
+
+
 export function maxWorkersOf(type, def, level) {
   if (!takesWorkers(type, def) || !level || level < 1) return 0;
   return level * (def.workersPerLevel || 3);

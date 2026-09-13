@@ -673,6 +673,7 @@ function Game({ token, onLogout }) {
   const assignVillageWorkers = (slotKey, workers)               => socket.emit('assign_village_workers', { slotKey, workers });
   const cancelProductionBuild = (slotKey) => socket.emit('cancel_production_build', { slotKey });
   const cancelVillageBuild    = (slotKey) => socket.emit('cancel_village_build',    { slotKey });
+  const cancelDemolishVillage = (slotKey) => socket.emit('cancel_demolish_village', { slotKey });
 
   const queueEquipment  = (buildingType, equipmentType, quantity) => socket.emit('queue_equipment', { buildingType, equipmentType, quantity });
   const cancelEquipment = (buildingType, orderId) => socket.emit('cancel_equipment_order', { buildingType, orderId });
@@ -900,6 +901,7 @@ function Game({ token, onLogout }) {
               onDemolish={demolishVillage}
               onAssignVillageWorkers={assignVillageWorkers}
               onCancelBuild={cancelVillageBuild}
+              onCancelDemolish={cancelDemolishVillage}
               onOpenHelp={openHelp}
               onQueueEquipment={queueEquipment}
               onCancelEquipment={cancelEquipment}

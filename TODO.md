@@ -135,6 +135,14 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Takviye raporları + yıkımın süresi (13 Eylül 2026)
+- **"Destek yolladım, rapor 'saldırdın ve kaybettin' diyordu."** Takviye raporunun `outcome`'u (`takviye_vardi`) rapor ekranında hiç tanınmıyordu: kazanan/kaybeden testine düşüyor, `winner: 'none'` olduğu için herkes kaybediyordu. Artık giden "X köyünü destekledin", gelen "X sana destek gönderdi"; rozet de kırmızı değil savunma yeşili.
+- Takviye ayrıntısı savaş kutularını (saldırı gücü, ganimet, dönüş yükü) göstermiyor — savaş değil. Onun yerine giden/gelen birlikler ve **ekmeği kim ödüyor** yazıyor.
+- **Yeni: misafir askerin ölünce sahibi haber alıyor.** Takviyen başka köyde savaşa girip eridiğinde hiçbir rapor yazılmıyordu; nüfus düşüyor, ordu eriyor, sebebi hiçbir ekranda görünmüyordu (`takviye_savasti`). Rapor kaybı, orada kalanı ve savunmanın tutup tutmadığını söylüyor.
+- Filtre sekmesi "SALDIRILARIM" → **"GİDENLER"**: artık orada saldırı olmayan seferler de var.
+- **Koçbaşı ve mancınık görselleri** eklendi. `alevMancınıgı` anahtarı Türkçe harf içerdiği için dosya adına konmadı; `unitImages.js`'te takma ad eşlemesi var (dosya adı ASCII kalsın diye).
+- **Bina yıkımı artık anında değil:** onay soruluyor ve o seviyenin **tam kadroyla inşa süresinin onda biri** kadar sürüyor. Yıkım başlayınca personel havuza döner, bina çalışmaz ve yükseltilemez; süre dolunca slot boşalır. Yıkım sürerken **"YIKIMI İPTAL"** ile vazgeçilebiliyor — süre aldığı için geri dönüşü olmayan bir düğme tuzak olurdu. Henüz bitmemiş inşaat anında kalkıyor (ortada yıkılacak bina yok). Oran iki yerde yazılı (sunucu `koyKurallari.js`, istemci `flows.js`) — test ikisini kilitliyor.
+
 ### Kuşatma birimleri — Koç Başı ve Mancınık (13 Eylül 2026)
 - **Asıl eksik ekipmandı.** `kaleKiran` ve `alevMancınıgı` baştan tanımlıydı ama istedikleri `koc_basi`/`mancinik` ekipmanları HİÇ tanımlı değildi. Üstelik `birimler.js` bu yüzden konmuş bir yamayla kuşatma sınıfını listeden dışlıyordu — yani eksikliği gizliyordu. İkisi de kaldırıldı: artık tek ölçüt "ekipmanı tanımlı mı".
 - Ekipmanlar **atölyede** üretiliyor, cephanelik havuzunu paylaşmıyorlar: makine, kişisel teçhizat değil. Atölyenin kendi kapasitesi (`siegeCapPerLevel: 5`, ikisi ortak) — atın ahırda durması gibi.

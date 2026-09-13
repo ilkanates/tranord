@@ -17,8 +17,8 @@ import VILLAGE_DEFS from '../data/villageDefs';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
-const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif', yerlesim: 'Yerleşim' };
-const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita', yerlesim: 'koy' };
+const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif', yerlesim: 'Yerleşim', takviye: 'Takviye' };
+const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita', yerlesim: 'koy', takviye: 'kalkan' };
 
 /**
  * SEFER TÜRÜNÜN RENGİ — listede tür bir bakışta okunsun.
@@ -33,6 +33,7 @@ const MODE_COLOR = {
   attack: '#e8636f',      // tam saldırı — kan
   scout: '#8fdcff',       // keşif — buz
   yerlesim: '#4ecfa8',    // yerleşim — yeşil
+  takviye: '#6cdda3',     // takviye — savunma yeşili
 };
 const modeColor = (r) => MODE_COLOR[r?.mode] || C.ice;
 
@@ -46,9 +47,12 @@ const sum = (o) => Object.values(o || {}).reduce((a, b) => a + (b || 0), 0);
  * renkli bir rozet var ve ok yönü konuşuyor.
  */
 function yonBilgisi(r) {
+  // Gelen takviye tehdit değil — kırmızı rozet onu "saldırı geldi" gibi
+  // gösteriyordu. Dost hareket savunma yeşiliyle işaretleniyor.
+  const dost = r?.outcome === 'takviye_vardi';
   return r?.dir === 'in'
-    ? { etiket: 'BANA GELDİ', ikon: 'asagi', renk: '#e8636f' }
-    : { etiket: 'BEN GİTTİM', ikon: 'yukari', renk: '#8fdcff' };
+    ? { etiket: dost ? 'DESTEK GELDİ' : 'BANA GELDİ', ikon: 'asagi', renk: dost ? '#6cdda3' : '#e8636f' }
+    : { etiket: dost ? 'DESTEK GİTTİ' : 'BEN GİTTİM', ikon: 'yukari', renk: dost ? '#6cdda3' : '#8fdcff' };
 }
 
 /**
@@ -111,7 +115,7 @@ export function unseenCount(reports = []) {
 
 const FILTERS = [
   { key: 'all',    label: 'HEPSİ' },
-  { key: 'out',    label: 'SALDIRILARIM' },
+  { key: 'out',    label: 'GİDENLER' },
   { key: 'in',     label: 'BANA GELENLER' },
   { key: 'scout',  label: 'KEŞİFLER' },
 ];
@@ -147,6 +151,21 @@ const kesifMi = (r) => KESIF_SONUCLARI.has(r?.outcome);
 
 /** Rapor bir kazanç mı kayıp mı — saldıran/savunan tarafına göre */
 function verdictOf(r) {
+  // Takviye bir savaş değil: kazanan/kaybeden ekseni burada anlamsız.
+  // Bu satır yokken rapor aşağıdaki winner testine düşüyor ve destek
+  // gönderen oyuncuya 'kaybettin' yazıyordu.
+  if (r.outcome === 'takviye_vardi') {
+    return r.dir === 'in'
+      ? { txt: 'destek geldi', col: C.good, won: null }
+      : { txt: 'destek ulaştı', col: C.good, won: null };
+  }
+  if (r.outcome === 'takviye_savasti') {
+    const tuttu = r.winner === 'defender';
+    return {
+      txt: tuttu ? 'takviyen savundu' : 'takviyen savaşı kaybetti',
+      col: tuttu ? C.good : C.danger, won: tuttu,
+    };
+  }
   if (r.outcome === 'kesif') return { txt: 'keşif tamam', col: C.ice, won: null };
   if (r.outcome === 'kesif_basarisiz') return { txt: 'keşif durduruldu', col: C.danger, won: false };
   if (r.outcome === 'kesfedildim') return { txt: 'köyün keşfedildi', col: C.warn, won: false };
@@ -162,6 +181,12 @@ function verdictOf(r) {
  * ve gelen saldırıdan ayırt etmek zordu.
  */
 function titleOf(r) {
+  if (r.outcome === 'takviye_vardi') {
+    return r.dir === 'in'
+      ? `${r.fromName} sana destek gönderdi`
+      : `${r.toName} köyünü destekledin`;
+  }
+  if (r.outcome === 'takviye_savasti') return `${r.toName} köyündeki takviyen savaştı`;
   if (r.outcome === 'kesfedildim') return `${r.fromName} seni keşfetti`;
   if (r.outcome === 'kesif_engellendi') return `${r.fromName} keşfe geldi, durduruldu`;
   if (r.dir === 'in') return `${r.fromName} sana saldırdı`;
@@ -656,6 +681,106 @@ function Detail({ r, unitDefs }) {
             <>İzcilerin casusu durdurdu — köyün hakkında hiçbir bilgi sızmadı.</>
           )}
         </div>
+        </>
+      )}
+
+      {/*
+        TAKVİYE — savaş değil, bu yüzden güç/kayıp/ganimet kutuları yok.
+        Gönderen "askerim nerede" sorusunun, alan da "kim ne gönderdi ve
+        ekmeğini kim ödüyor" sorusunun cevabını burada buluyor.
+      */}
+      {r.outcome === 'takviye_vardi' && (
+        <>
+          <Section title={inc ? 'GELEN BİRLİKLER' : 'GÖNDERDİĞİM BİRLİKLER'}>
+            <UnitGrid units={r.sent} unitDefs={unitDefs} color={C.good} />
+          </Section>
+          <div style={panel({
+            padding: '9px 11px', background: 'rgba(78,207,168,0.09)',
+            border: '1px solid rgba(78,207,168,0.30)',
+          })}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Icon name="kalkan" size={14} color={C.good} style={{ flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
+                {inc ? (
+                  <>
+                    <b style={{ color: C.good }}>{r.fromName}</b> köyünden
+                    {' '}<b style={{ color: C.good }}>{sum(r.sent)}</b> asker savunmana katıldı.
+                    {' '}Bu askerlerin ekmeğini <b>senin köyün</b> ödüyor — üretimin eksiye
+                    {' '}düşmesin diye tarlalarına bak.
+                  </>
+                ) : (
+                  <>
+                    <b style={{ color: C.good }}>{sum(r.sent)}</b> asker
+                    {' '}<b style={{ color: C.good }}>{r.toName}</b> köyünün savunmasına katıldı.
+                    {' '}Ekmeğini artık o köy ödüyor. Ordu ekranından istediğin an geri
+                    {' '}çağırabilirsin.
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/*
+        TAKVİYEM SAVAŞTI — asker benim, savaş başkasının köyünde.
+        Kendi savaş raporumdan ayrı: burada sur/ganimet benim değil,
+        önemli olan kaç askerimi kaybettim ve orada kaç askerim kaldı.
+      */}
+      {r.outcome === 'takviye_savasti' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>KAYBIM</div>
+              <div style={num({ fontSize: 18, color: sum(r.myLosses) ? C.danger : C.textMute })}>
+                {sum(r.myLosses) || 0}
+              </div>
+            </div>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>ORADA KALAN</div>
+              <div style={num({ fontSize: 18, color: sum(r.kalanTakviye) ? C.good : C.textMute })}>
+                {sum(r.kalanTakviye) || 0}
+              </div>
+            </div>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>SALDIRANIN KAYBI</div>
+              <div style={num({ fontSize: 18, color: C.good })}>{sum(r.theirLosses) || 0}</div>
+            </div>
+          </div>
+
+          {r.attackerUnits && (
+            <Section title="SALDIRAN ORDU">
+              <UnitGrid units={r.attackerUnits} unitDefs={unitDefs} color={C.danger} />
+            </Section>
+          )}
+          {sum(r.myLosses) > 0 && (
+            <Section title="KAYBETTİĞİM BİRLİKLER">
+              <UnitGrid units={r.myLosses} unitDefs={unitDefs} color={C.danger} />
+            </Section>
+          )}
+          {sum(r.kalanTakviye) > 0 && (
+            <Section title="HÂLÂ ORADA DURAN BİRLİKLERİM">
+              <UnitGrid units={r.kalanTakviye} unitDefs={unitDefs} color={C.good} />
+            </Section>
+          )}
+
+          <div style={panel({
+            padding: '9px 11px',
+            background: r.winner === 'defender' ? 'rgba(78,207,168,0.09)' : 'rgba(232,99,111,0.09)',
+            border: `1px solid ${r.winner === 'defender' ? 'rgba(78,207,168,0.30)' : 'rgba(232,99,111,0.30)'}`,
+          })}>
+            <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
+              <b style={{ color: C.frost }}>{r.toName}</b> köyüne
+              {' '}<b style={{ color: C.danger }}>{r.fromName}</b> saldırdı; oradaki
+              {' '}takviyen savunmaya katıldı.
+              {r.winner === 'defender'
+                ? ' Savunma tuttu.'
+                : ' Savunma düştü.'}
+              {sum(r.kalanTakviye) > 0
+                ? ' Kalan askerlerin hâlâ o köyde; ordu ekranından geri çağırabilirsin.'
+                : ' Orada askerin kalmadı.'}
+            </div>
+          </div>
         </>
       )}
 

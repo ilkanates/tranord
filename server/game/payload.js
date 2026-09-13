@@ -326,6 +326,8 @@ function buildPayload(village, tickMs, opts = {}) {
       Object.entries(village.villageBuildings).map(([k, b]) => [k, {
         ...b,
         buildTimeLeft: b.building ? GT.clockToRealSeconds(b.buildEndTime - now, speed) : null,
+        // Yıkım geri sayımı — arayüz "yıkılıyor" rozetini bununla gösteriyor
+        yikimTimeLeft: b.yikiliyor ? GT.clockToRealSeconds(b.yikimEndTime - now, speed) : null,
         upgradeCost: getScaledUpgradeCost(b.type, b.level)
       }])
     ),

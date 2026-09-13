@@ -12,7 +12,7 @@ import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/v
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, signed, fmtTime } from '../theme';
-import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf } from '../flows';
+import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf, yikimOnayi } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import usePinchPan from './usePinchPan';
 import { useHoverable, TAP } from '../responsive';
@@ -792,7 +792,7 @@ export default function VillageCenter({
   equipment = {}, equipmentCaps = {}, equipmentPool = { capacity: 0, used: 0, free: 0 },
   equipmentQueues = {}, equipmentByBuilding = {}, equipmentDefs = {},
   unitQueues = {}, unitsByBuilding = {}, unitDefs = {},
-  onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild,
+  onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onCancelDemolish,
   onQueueEquipment, onCancelEquipment, onTrainUnit, onCancelUnitOrder,
   // Kuyruk sırası — hangi iş önce bitsin (bkz. server/game/kuyruk.js)
   onReorderUnitOrder, onReorderEquipment,
@@ -1174,6 +1174,13 @@ export default function VillageCenter({
                   </g>
                 )}
 
+                {/* Yıkım göstergesi — bina hâlâ duruyor ama çalışmıyor */}
+                {building?.yikiliyor && (
+                  <g transform={`translate(${x + 13} ${y - 30})`} className="tn-pulse">
+                    <Icon name="yik" size={15} color="#f0b8bd" />
+                  </g>
+                )}
+
                 {/* İşçisiz uyarısı */}
                 {idle && (
                   <g transform={`translate(${x + 14} ${y - 30})`}>
@@ -1206,10 +1213,12 @@ export default function VillageCenter({
                 {building && (
                   <text x={x} y={y + S - 12} textAnchor="middle" dominantBaseline="middle"
                     fontFamily={FONT.head} fontSize={11} fontWeight="700"
-                    fill={building.building ? C.ice : C.frost}
+                    fill={building.yikiliyor ? '#ffc6cb' : building.building ? C.ice : C.frost}
                     stroke="#04121e" strokeWidth={2.6} paintOrder="stroke"
                     style={{ userSelect: 'none' }}>
-                    {building.building ? fmtTime(building.buildTimeLeft) : `LVL ${building.level}`}
+                    {building.yikiliyor ? fmtTime(building.yikimTimeLeft)
+                      : building.building ? fmtTime(building.buildTimeLeft)
+                        : `LVL ${building.level}`}
                   </text>
                 )}
 
@@ -1487,8 +1496,14 @@ export default function VillageCenter({
                       <Icon name={panelEm.icon} size={panelEm.size || 17} color={panelEdge} strokeWidth={1.5} />
                     </div>
                   )}
-                  {selectedBuilding && selectedBuilding.type !== 'anaBina' && !selectedBuilding.building && (
-                    <button onClick={() => { onDemolish(selected); setShowMenu(false); setSelected(null); }}
+                  {/* Yıkım geri alınamaz ve artık SÜRE alıyor — onay şart */}
+                  {selectedBuilding && selectedBuilding.type !== 'anaBina'
+                    && !selectedBuilding.building && !selectedBuilding.yikiliyor && (
+                    <button onClick={() => {
+                      if (!yikimOnayi(VILLAGE_DEFS[selectedBuilding.type], selectedBuilding,
+                        hourSeconds, worldSpeed)) return;
+                      onDemolish(selected); setShowMenu(false); setSelected(null);
+                    }}
                       title="Yık" style={{
                         display: 'grid', placeItems: 'center', width: 30, height: 30, padding: 0,
                         borderRadius: 15, cursor: 'pointer',
@@ -1574,6 +1589,10 @@ export default function VillageCenter({
                       onCancelBuild={() => {
                         onCancelBuild?.(selected);
                         setShowMenu(false); setSelected(null);
+                      }}
+                      onCancelDemolish={() => {
+                        onCancelDemolish?.(selected);
+                        setShowMenu(false); setSelected(null);
                       }} />
                     </div>
                   </div>
@@ -1654,6 +1673,10 @@ export default function VillageCenter({
                   }}
                   onCancelBuild={() => {
                     onCancelBuild?.(selected);
+                    setShowMenu(false); setSelected(null);
+                  }}
+                  onCancelDemolish={() => {
+                    onCancelDemolish?.(selected);
                     setShowMenu(false); setSelected(null);
                   }} />
               </div>
@@ -1790,6 +1813,7 @@ export default function VillageCenter({
               onDemolish={() => { onDemolish(selected); setShowMenu(false); setSelected(null); }}
               onAssignVillageWorkers={(workers) => onAssignVillageWorkers(selected, workers)}
               onCancelBuild={() => { onCancelBuild?.(selected); setShowMenu(false); setSelected(null); }}
+              onCancelDemolish={() => { onCancelDemolish?.(selected); setShowMenu(false); setSelected(null); }}
               onClose={() => { setShowMenu(false); setSelected(null); }}
             />
             </div>

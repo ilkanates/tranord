@@ -253,7 +253,12 @@ function savunmaKayiplariniPayEt(village, losses) {
       pay[k] = kill; olu += kill; kalan[k] = cnt - kill;
     }
     if (olu > 0) {
-      misafirKayip.push({ userId: t.userId, slotKey: t.slotKey, losses: pay, olu });
+      // `kalan`: bu savaştan sonra o köyde duran birliğim. Sahibi "kaç
+      // askerim kaldı orada" sorusunu ancak buradan görebiliyor.
+      misafirKayip.push({
+        userId: t.userId, slotKey: t.slotKey, losses: pay, olu,
+        kalan: { ...(t.units || {}) }, fromName: t.fromName,
+      });
     }
   }
   // Tamamen eriyen takviye girdisi listeden çıkar
@@ -735,6 +740,27 @@ function resolveArrival(march, origin, target, opts = {}) {
     // Savunan da neyini kaybettiğini görmeli — surun düştüğünü fark etmezse
     // bir sonraki saldırıya hazırlıksız yakalanır
     ...(kusatmaSonuc ? { kusatma: kusatmaSonuc } : {}),
+  });
+
+  /*
+    MİSAFİRİN SAHİBİNE DE RAPOR.
+
+    Takviye gönderen oyuncu, askerleri başka bir köyde öldüğünde hiçbir
+    bildirim almıyordu: nüfusu düşüyor, ordusu eriyor, sebebi hiçbir
+    ekranda yazmıyordu. Rapor seferin sahibine değil, takviyeyi gönderen
+    köye ait — processMarches (index.js) sahibinin köyüne yazıyor.
+  */
+  (march.misafirKayip || []).forEach((kayip, i) => {
+    kayip.rapor = {
+      id: `${march.id}-${now}-m${i}`, at: now, dir: 'in', mode: 'takviye',
+      fromName: march.fromName, toName, toKey: march.toKey,
+      outcome: 'takviye_savasti', winner: res.winner,
+      attackerUnits: report.sent,
+      myLosses: kayip.losses, theirLosses: res.attackerLosses || {}, loot: {},
+      kalanTakviye: kayip.kalan || {},
+      attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
+      wallBonusPct: res.wallBonusPct,
+    };
   });
 
   return march;

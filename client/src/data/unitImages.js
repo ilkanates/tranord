@@ -21,6 +21,15 @@ for (const [path, mod] of Object.entries(mods)) {
   if (key) BY_KEY[key] = mod?.default || mod;
 }
 
-export const unitImage = (type) => BY_KEY[type] || null;
+/**
+ * ASCII OLMAYAN ANAHTARLAR İÇİN TAKMA AD.
+ *
+ * `alevMancınıgı` anahtarı Türkçe harf içeriyor; dosya adına konursa
+ * kodlama Windows↔Linux↔git arasında kırılgan oluyor. Dosya ASCII adla
+ * duruyor, eşleşme burada kuruluyor.
+ */
+const TAKMA_AD = { 'alevMancınıgı': 'mancinik' };
+
+export const unitImage = (type) => BY_KEY[type] || BY_KEY[TAKMA_AD[type]] || null;
 export const unitImageCount = Object.keys(BY_KEY).length;
 export default BY_KEY;

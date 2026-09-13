@@ -54,6 +54,25 @@ function getVillageBuildMinutes(type, level, workers) {
 }
 
 /**
+ * YIKIM SÜRESİ — o seviyenin inşa süresinin ONDA BİRİ.
+ *
+ * Yıkım eskiden anındaydı; saldırı görünce bina silip nüfus/puan
+ * oynatmak bedava bir hamleydi. Artık bir karar: başlattığın an
+ * işçilerin çıkıyor, bina bir süre yıkık hâlde duruyor.
+ *
+ * Süre TAM KADROYLA hesaplanıyor (MAX_BUILDERS) — yıkıma işçi atanmıyor,
+ * "kaç işçiyle yıkıyorum" diye bir seçim yok. Yıkmak yapmaktan ucuz:
+ * ondalık oran oyuncuya yanlış yatırımı düzeltme şansı bırakıyor ama
+ * bedavaya getirmiyor.
+ */
+const YIKIM_ORANI = 0.1;
+
+function getVillageDemolishMinutes(type, level) {
+  const lvl = Math.max(1, level || 1);
+  return getVillageBuildMinutes(type, lvl, MAX_BUILDERS(lvl)) * YIKIM_ORANI;
+}
+
+/**
  * YÜKSELTME MALİYETİ — HER SEVİYE İÇİN.
  *
  * Eskiden yalnızca `upgradeCostBase` tanımlı binalar ücret alıyordu ve o alan
@@ -128,6 +147,7 @@ const MAX_BUILDERS = (mevcutSeviye) => Math.max(1, (mevcutSeviye || 0) + 2);
 
 module.exports = {
   POP_PER_HOUR_BASE, POP_PER_HOUR_STEP, popPerGameHour,
-  getVillageBuildMinutes, UPGRADE_MULT_DEFAULT, getScaledUpgradeCost,
+  getVillageBuildMinutes, getVillageDemolishMinutes, YIKIM_ORANI,
+  UPGRADE_MULT_DEFAULT, getScaledUpgradeCost,
   refreshExpansionCredits, expansionFree, settlerCapacity, MAX_BUILDERS,
 };

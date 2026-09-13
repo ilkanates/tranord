@@ -39,7 +39,7 @@ function Etiket({ children, icon, color }) {
 export default function BuildingControls({
   building, freeWorkers = 0, resources = {}, flows = {},
   hourSeconds = 3600, worldSpeed = 1,
-  onAssignVillageWorkers, onUpgrade, onCancelBuild,
+  onAssignVillageWorkers, onUpgrade, onCancelBuild, onCancelDemolish,
   layout = 'strip',
 }) {
   const [upgradeWorkers, setUpgradeWorkers] = useState(1);
@@ -93,6 +93,40 @@ export default function BuildingControls({
    * Eskiden burada null dönülüyordu; denetimler BuildMenu'nün gövdesine
    * düşüyor ve panelin düzeni yükseltme sırasında tamamen değişiyordu.
    */
+  /**
+   * YIKILIYOR — kadro da yükseltme de kapalı, geri sayım var.
+   * İnşaat şeridiyle aynı yerde duruyor ki poster düzeni oynamasın.
+   */
+  if (building.yikiliyor) {
+    return (
+      <div style={{
+        display: 'flex', gap: 8, maxWidth: '100%',
+        flexDirection: blok ? 'column' : 'row',
+        alignItems: blok ? 'stretch' : 'flex-end',
+        justifyContent: blok ? 'flex-start' : 'flex-end',
+      }}>
+        <div style={{ ...kutu, borderColor: C.dangerDim }}>
+          <Etiket icon="yik">Yıkılıyor</Etiket>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 4 }}>
+            <span style={num({ fontSize: 15, color: '#ffc6cb', lineHeight: 1.1 })}>
+              {fmtTime(building.yikimTimeLeft)}
+            </span>
+            <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute }}>
+              sonra slot boşalır
+            </span>
+          </div>
+          <button onClick={() => onCancelDemolish?.()}
+            title="Bina yerinde kalır; personelini yeniden atarsın"
+            style={btn('ghost', {
+              width: '100%', padding: '4px 0', letterSpacing: 1, fontSize: 9,
+            })}>
+            YIKIMI İPTAL
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (building.building) {
     return (
       <div style={{
