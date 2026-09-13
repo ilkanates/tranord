@@ -178,7 +178,8 @@ function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
 }
 
 export default function SendArmyPanel({
-  socket, target, army = {}, unitDefs = {}, unitStatsNow = {}, marchInfo = {}, intel = null, onClose,
+  socket, target, army = {}, unitDefs = {}, unitStatsNow = {}, marchInfo = {}, intel = null,
+  kahraman = null, activeSlot = null, onClose,
 }) {
   /*
     KENDİ KÖYÜNE YALNIZ TAKVİYE. Panel kendi köyün için de açılıyor (çoklu
@@ -197,6 +198,9 @@ export default function SendArmyPanel({
   // İkinci mancınık hedefi — yalnız atölye Lvl 10'dan itibaren
   const [hedefBina2, setHedefBina2] = useState('');
   const [sel, setSel] = useState({});
+  // Kahraman sefere katılsın mı — varsayılan HAYIR: kahramanı yanlışlıkla
+  // riske atmak, yanlışlıkla evde bırakmaktan çok daha pahalı
+  const [kahramaniGotur, setKahramaniGotur] = useState(false);
   const [err, setErr] = useState(null);
   const [sent, setSent] = useState(null);
   const [pred, setPred] = useState(null);
@@ -323,6 +327,26 @@ export default function SendArmyPanel({
   if (!target) return null;
   const modeDef = moduller.find(m => m.key === mode);
 
+  /*
+    KAHRAMAN BU SEFERE KATILABİLİR Mİ?
+
+    Üç koşul: baygın olmamalı, başka bir işte (sefer/macera) olmamalı ve
+    SEFERİN ÇIKTIĞI köyde durmalı. Sonuncusu çoklu köy yüzünden: kahraman
+    tek, ordu her köyden çıkabiliyor.
+
+    Aynı denetim SUNUCUDA da var — buradaki yalnız oyuncuya sebebi
+    söylemek için; kutuyu gizlemek bir denetim değildir.
+  */
+  const kahramanEngeli = !kahraman?.var ? 'Kahramanın yok'
+    : (kahraman.baygunKalanSaat || 0) > 0
+      ? `Baygın · ${kahraman.baygunKalanSaat} oyun sa`
+      : (kahraman.nerede && kahraman.nerede !== 'koy')
+        ? (kahraman.nerede === 'sefer' ? 'Zaten seferde' : 'Macerada')
+        : (activeSlot && kahraman.usSlot && kahraman.usSlot !== activeSlot)
+          ? 'Başka köyde — konağının olduğu köyden yollanır'
+          : null;
+  const kahramanUygun = !!kahraman?.var && !kahramanEngeli;
+
   const send = () => {
     setErr(null); setNoReply(false);
     pending.current = true;
@@ -330,6 +354,7 @@ export default function SendArmyPanel({
       targetKey: target.key, mode, units: chosen,
       hedefBina: hedefBina || null,
       hedefBina2: (ikiHedefAcik && hedefBina) ? (hedefBina2 || null) : null,
+      kahraman: kahramaniGotur && kahramanUygun,
     });
     // Sunucu ne 'army_sent' ne 'army_error' döndürmezse olayı kimse dinlemiyor
     // demektir — sessiz başarısızlık yerine bunu söyle.
@@ -419,6 +444,41 @@ export default function SendArmyPanel({
             <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textFaint, lineHeight: 1.5 }}>
               {modeDef.desc}
             </div>
+
+            {/*
+              KAHRAMAN — yalnız SALDIRI ve YAĞMADA.
+
+              Keşif izcinin, yerleşim göçmenin işi; takviyede kahramanı
+              başka köyde bırakmak onu oradaki savaşta bayıltır ve oyuncu
+              kahramanını geri alamazdı.
+
+              Baygın ya da başka bir köyde duruyorsa kutu KAPALI ama
+              GÖRÜNÜR: nedenini yazmazsak oyuncu kahramanın neden
+              gelmediğini bilemezdi.
+            */}
+            {kahraman?.var && (mode === 'attack' || mode === 'raid') && (
+              <label style={{
+                ...box, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 9,
+                cursor: kahramanUygun ? 'pointer' : 'default',
+                opacity: kahramanUygun ? 1 : 0.55,
+              }}>
+                <input type="checkbox" disabled={!kahramanUygun}
+                  checked={kahramaniGotur && kahramanUygun}
+                  onChange={(e) => setKahramaniGotur(e.target.checked)}
+                  style={{ accentColor: C.frost, width: 14, height: 14, flexShrink: 0 }} />
+                <Icon name="migfer" size={14} color={kahramanUygun ? C.frost : C.textMute} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.frost }}>
+                    Kahramanı da götür
+                  </div>
+                  <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>
+                    {kahramanEngeli || `Lvl ${kahraman.seviye} · +${Math.round(kahraman.bonuslar?.saldiriGucu || 0)} güç`
+                      + ((kahraman.bonuslar?.saldiriYuzde || 0) > 0
+                        ? ` · orduya +%${kahraman.bonuslar.saldiriYuzde}` : '')}
+                  </div>
+                </div>
+              </label>
+            )}
 
             {/*
               MANCINIK HEDEFİ — yalnız seçimde mancınık varken görünür.

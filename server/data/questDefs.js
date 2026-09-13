@@ -422,6 +422,34 @@ const QUESTS = [
     cond: { tur: 'bina', tip: 'atolye', seviye: 1 },
     reward: { res: { kereste: 400, demirKulce: 300 }, kp: 40 },
   },
+  /*
+    KAHRAMAN ZİNCİRİ — YAN HEDEF, ana hat değil.
+
+    Kahraman güçlü ama oyunu oynamak için şart değil: köy kurup ordu
+    yetiştirmeyi öğrenmemiş bir oyuncuyu kahramana yönlendirmek, ana
+    hattın önüne başka bir sistem koymak olurdu. İsteyen erken dalar.
+  */
+  {
+    id: 'kahramanKonagi', title: 'Kahramanın Evi', zorunlu: false,
+    text: 'Kahraman Konağı kur. Kahramanın burada doğar; konağın seviyesi '
+      + 'onun iyileşme hızını belirler.',
+    hint: 'Kahraman KÖYE değil SANA ait: köyün yıkılsa bile kahramanın kalır. '
+      + 'Savaştıkça deneyim kazanır, seviye atlar ve her seviyede 4 skil puanı verir.',
+    tab: 'koy', anchor: 'bina-bos',
+    cond: { tur: 'bina', tip: 'kahramanKonagi', seviye: 1 },
+    reward: { res: { kereste: 300, yontmaTas: 300 }, kp: 30 },
+  },
+  {
+    id: 'kahramanLvl3', title: 'İlk Zaferler', zorunlu: false,
+    text: 'Kahramanını 3. seviyeye çıkar. Deneyim savaştan gelir — sefer '
+      + 'panelindeki kutuyu işaretleyip onu yanında götür.',
+    hint: 'Kaybedilen savaş bile deneyim verir: XP savaşın SONUCUNA değil '
+      + 'BÜYÜKLÜĞÜNE bağlı. Kahraman ölmez, bayılır — canı biterse bir süre '
+      + 'kullanılamaz ve hiçbir bonus vermez.',
+    tab: 'kahraman',
+    cond: { tur: 'kahramanSeviye', seviye: 3 },
+    reward: { res: { demirKulce: 400, tahil: 400 }, kp: 45 },
+  },
   {
     id: 'kosk', title: 'Yeni Topraklar', zorunlu: true,
     text: 'Köşk kur. Lvl 10\'da göçmen eğitip ikinci köyünü kurabilirsin.',

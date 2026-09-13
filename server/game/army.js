@@ -26,6 +26,7 @@ const { UNIT_DEFS } = require('../data');
 const { SETTLER_UNIT, SETTLERS_REQUIRED } = require('../data/militaryDefs');
 const { simulateBattle, towerBonusPct } = require('./combat');
 const KUSATMA = require('./kusatma');
+const HERO = require('./kahraman');
 const GT = require('./gameTime');
 
 // ── Ölçek sabitleri ────────────────────────────────────────────────────
@@ -654,11 +655,24 @@ function resolveArrival(march, origin, target, opts = {}) {
    * `target`tan okunuyor. İkisi ayrı olmalı — saldıranın kılıç seviyesi
    * savunanın kalkanını güçlendirmemeli.
    */
+  /*
+    KAHRAMAN BONUSLARI DIŞARIDAN GELİYOR.
+
+    Kahraman kaydı OTURUMDA (merkez köyün state'inde) duruyor, army.js'in
+    göremediği bir yerde. Burada hesaplamaya kalkarsak bu dosya oturum
+    yapısına bağlanır; çağıran (index.js) zaten iki tarafın oturumunu da
+    biliyor. Saldıranınki sefere iliştirilmiş anlık görüntüden okunuyor —
+    sefer yola çıktıktan sonra skil dağıtıp gücü büyütmek mümkün olmasın.
+  */
+  const kahSald = march.kahraman || null;
   const res = simulateBattle(march.units, defenderUnits, {
     surLevel, hendekLevel, kulePct,
     mode: march.mode === 'raid' ? 'raid' : 'normal',
     attackerLevels: origin?.equipmentLevels || null,
     defenderLevels: target?.equipmentLevels || null,
+    kahramanSaldiriGucu: kahSald?.gucu || 0,
+    kahramanSaldiriYuzde: kahSald?.saldiriYuzde || 0,
+    kahramanSavunmaYuzde: opts.kahramanSavunmaYuzde || 0,
   });
 
   /*
@@ -705,6 +719,15 @@ function resolveArrival(march, origin, target, opts = {}) {
   // Yükle dönüşte de aynı süre — hız yükle değişmiyor (basit tutuldu)
   march.remainingHours = march.legHours;
 
+  /*
+    KAHRAMANIN HESABI. Burada yalnız HESAPLANIYOR, uygulanmıyor: kahraman
+    kaydı saldıranın oturumunda duruyor ve bu dosya oturumu görmüyor.
+    Sefere iliştirilen sonucu index.js (processMarches) işliyor.
+  */
+  if (march.kahraman) {
+    march.kahramanSonuc = HERO.savasSonucu(defenderDead, res.attackerLossRate || 0);
+  }
+
   march.reportId = `${march.id}-${now}`;
   const report = {
     id: march.reportId, at: now, dir: 'out', mode: march.mode,
@@ -718,6 +741,19 @@ function resolveArrival(march, origin, target, opts = {}) {
     attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
     wallBonusPct: res.wallBonusPct,
     defenderDead, attackerDead,
+    /*
+      KAHRAMAN SATIRI — sur bonusundan AYRI. Tek sayıya karıştırsaydık
+      oyuncu kahramana yaptığı yatırımın işe yarayıp yaramadığını hiç
+      ölçemezdi. Alan yoksa hiç yazılmıyor; eski raporlar bozulmuyor.
+    */
+    ...(march.kahraman ? {
+      kahraman: {
+        gucu: res.kahramanSaldiriGucu || 0,
+        saldiriYuzde: res.kahramanSaldiriYuzde || 0,
+        xp: march.kahramanSonuc?.xp || 0,
+        hasar: march.kahramanSonuc?.hasar || 0,
+      },
+    } : {}),
     // Kuşatma sonucu — yoksa alan hiç yazılmıyor, eski raporlar bozulmuyor
     ...(kusatmaSonuc ? { kusatma: kusatmaSonuc } : {}),
   };
@@ -752,6 +788,19 @@ function resolveArrival(march, origin, target, opts = {}) {
     myLosses: res.defenderLosses || {}, theirLosses: res.attackerLosses || {},
     loot, wallBonusPct: res.wallBonusPct,
     attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
+    /*
+      SAVUNAN da kahramanı gördüğünü bilmeli: saldıranın kahramanı geldiyse
+      "neden bu kadar güçlüydü" sorusunun cevabı burada. Kendi savunma
+      bonusu da yazılıyor — kahramanını köyde tutmanın işe yaradığını
+      göremezse oyuncu onu hep sefere sürer.
+    */
+    ...((res.kahramanSaldiriGucu || res.kahramanSaldiriYuzde || res.kahramanSavunmaYuzde) ? {
+      kahraman: {
+        saldiranGucu: res.kahramanSaldiriGucu || 0,
+        saldiranYuzde: res.kahramanSaldiriYuzde || 0,
+        savunmamYuzde: res.kahramanSavunmaYuzde || 0,
+      },
+    } : {}),
     // Savunan da neyini kaybettiğini görmeli — surun düştüğünü fark etmezse
     // bir sonraki saldırıya hazırlıksız yakalanır
     ...(kusatmaSonuc ? { kusatma: kusatmaSonuc } : {}),

@@ -26,6 +26,56 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14d',
+    tarih: '14 Eylül 2026',
+    baslik: 'Kahraman geldi',
+    notlar: [
+      {
+        id: '20260914-kahraman-temel',
+        tur: 'yenilik',
+        metin: 'Artık bir KAHRAMANIN var. Kahraman Konağı kurunca doğuyor; '
+          + 'konak onun evi — orada iyileşiyor, eşyalarını orada tutuyor ve '
+          + 'konağın seviyesi iyileşme hızını belirliyor. Kahraman KÖYE '
+          + 'DEĞİL SANA ait: köyün yıkılsa bile kahramanın kalır.',
+      },
+      {
+        id: '20260914-kahraman-skil',
+        tur: 'yenilik',
+        metin: 'Kahraman savaştıkça deneyim kazanıp seviye atlıyor. Her '
+          + 'seviye 4 PUAN veriyor ve bu puanları dört skile dağıtıyorsun: '
+          + 'Saldırı Puanı (kendi vuruşu), Saldırı Bonusu (ordunun '
+          + 'saldırısına yüzde ek), Savunma Bonusu (köyünün savunmasına '
+          + 'yüzde ek) ve Hammadde Üretimi (durduğu köye saatlik kaynak). '
+          + 'Yanlış dağıttıysan bedelini ödeyip sıfırlayabiliyorsun — ama '
+          + 'her sıfırlama bir öncekinin iki katı tutuyor.',
+      },
+      {
+        id: '20260914-kahraman-sefer',
+        tur: 'yenilik',
+        metin: 'Kahramanı saldırıya ve yağmaya YANINDA GÖTÜREBİLİYORSUN '
+          + '(sefer panelindeki kutu). Tek birim gibi savaşıyor, ordunun '
+          + 'gücünü büyütüyor ve savaştan deneyim kazanıyor. Kaybedilen '
+          + 'savaş bile deneyim veriyor — yoksa riskli savaş hiç denenmezdi.',
+      },
+      {
+        id: '20260914-kahraman-bayilma',
+        tur: 'denge',
+        metin: 'Kahraman ÖLMEZ, BAYILIR. Canı biterse bir süre ne sefere '
+          + 'katılabiliyor ne de bonus veriyor; sonra üssünde iyileşiyor. '
+          + 'Baygınken hiçbir bonus vermiyor — bayılmanın canı yakmalı ki '
+          + 'onu savaşa sokmak gerçek bir karar olsun.',
+      },
+      {
+        id: '20260914-kahraman-rapor',
+        tur: 'yenilik',
+        metin: 'Savaş raporlarında kahraman AYRI bir satır: ham gücü, '
+          + 'orduya kattığı yüzde, kazandığı deneyim ve can kaybı. Sur '
+          + 'bonusuyla aynı sayıya karıştırsaydık kahramana yaptığın '
+          + 'yatırımın işe yarayıp yaramadığını hiç ölçemezdin.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14c',
     tarih: '14 Eylül 2026',
     baslik: 'Köyler artık yok edilebiliyor',

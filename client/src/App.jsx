@@ -8,6 +8,7 @@ import VillageSwitcher from './components/VillageSwitcher';
 import { ProfileButton, NameGate } from './components/ProfilePanel';
 import Tutorial from './components/Tutorial';
 import MessageScreen from './components/MessageScreen';
+import HeroPanel from './components/HeroPanel';
 import FoodWarning from './components/FoodWarning';
 import DevMenu        from './components/DevMenu';
 import WorkerScreen   from './components/WorkerScreen';
@@ -154,6 +155,12 @@ const TABS = [
   { key: 'koy',       label: 'Köy Merkezi',      icon: 'koy' },
   { key: 'isciler',   label: 'Köylüler',         icon: 'ciftci' },
   { key: 'ordu',      label: 'Ordu',             icon: 'kilic' },
+  /*
+    KAHRAMAN Ordu ile Seferler arasında: askerî bir şey ve kararı
+    "kimi göndereyim"in yanında veriliyor. Sona koysaydık oyuncu onu
+    Yardım/İstatistik gibi bir yan ekran sanırdı.
+  */
+  { key: 'kahraman',  label: 'Kahraman',         icon: 'migfer' },
   { key: 'sefer',     label: 'Seferler',         icon: 'tekerlek' },
   { key: 'gorevler',  label: 'Görevler',         icon: 'kitap' },
   { key: 'raporlar',  label: 'Raporlar',         icon: 'parsomen' },
@@ -682,9 +689,27 @@ function Game({ token, onLogout }) {
       const metin = SEFER_SEBEP[r?.reason];
       if (metin) onRefused({ reason: metin });
     };
+    /*
+      KAHRAMAN HATALARI da aynı şeride. Puan dağıtımı sunucuda KISMÎ
+      uygulanmıyor: yetmiyorsa istek tamamen reddediliyor. Sebebi
+      yazmazsak "+ düğmesi çalışmıyor" gibi görünürdü.
+    */
+    const KAHRAMAN_SEBEP = {
+      kahraman_yok: 'Önce Kahraman Konağı kurman gerekiyor.',
+      puan_yetmiyor: 'O kadar dağıtılmamış puanın yok.',
+      skil_tavani: 'Bu skil dolu — bir skile en çok 100 puan verilebilir.',
+      skil_yok: 'Böyle bir skil yok.',
+      gecersiz_adet: 'Geçersiz puan miktarı.',
+      yetersiz_kaynak: 'Sıfırlama bedeli için kaynağın yetmiyor.',
+    };
+    const onKahramanHata = (r) => {
+      const metin = KAHRAMAN_SEBEP[r?.reason] || 'Kahraman işlemi reddedildi.';
+      onRefused({ reason: r?.metin ? `${metin} (${r.metin})` : metin });
+    };
     socket.on('build_refused', onRefused);
     socket.on('pazar_sonuc', onPazar);
     socket.on('army_error', onSeferHata);
+    socket.on('kahraman_error', onKahramanHata);
     return () => {
       clearTimeout(zaman);
       socket.off('village_update', onUpdate);
@@ -693,6 +718,7 @@ function Game({ token, onLogout }) {
       socket.off('build_refused', onRefused);
       socket.off('pazar_sonuc', onPazar);
       socket.off('army_error', onSeferHata);
+      socket.off('kahraman_error', onKahramanHata);
     };
   }, []);
 
@@ -921,6 +947,8 @@ function Game({ token, onLogout }) {
               onPanelChange={setPanelAcik}
               socket={socket}
               world={village.world}
+              kahraman={village.kahraman}
+              activeSlot={village.activeSlot}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}
               worldSpeed={village.worldSpeed || 1}
               productionTiles={village.productionTiles || {}}
@@ -1140,6 +1168,36 @@ function Game({ token, onLogout }) {
               <ReportScreen
                 reports={village.reports || []}
                 unitDefs={village.unitDefs || {}} />
+            </div>
+          )}
+
+          {tab === 'kahraman' && (
+            <div className="tn-scroll" style={{
+              height: '100%', overflowY: 'auto',
+              paddingLeft: railInset, paddingRight: railInset,
+              paddingBottom: vp.mobile ? 64 : 0,
+            }}>
+              <HeroPanel
+                kahraman={village.kahraman}
+                villages={village.villages || []}
+                onGoTab={setTab}
+                onPuan={(skil, adet) => socket.emit('kahraman_puan', { skil, adet })}
+                onSifirla={() => {
+                  /*
+                    SIFIRLAMA GERİ ALINAMAZ ve BEDELLİ — onay şart.
+                    Yanlış tıklama oyuncunun kaynağını yakıp bütün
+                    puanlarını yeniden dağıtmasını gerektirirdi.
+                  */
+                  const bedel = Object.entries(village.kahraman?.sifirlamaBedeli || {})
+                    .map(([k, n]) => `${n} ${k}`).join(', ');
+                  if (window.confirm(
+                    'Kahramanın bütün skil puanları geri verilsin mi?\n\n'
+                    + `• Bedel: ${bedel}\n`
+                    + '• Bir sonraki sıfırlama İKİ KATI tutar.')) {
+                    socket.emit('kahraman_sifirla');
+                  }
+                }}
+              />
             </div>
           )}
 

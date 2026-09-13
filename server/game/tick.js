@@ -231,6 +231,26 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
     }
   });
 
+  /*
+    KAHRAMANIN ÜRETİM SKİLİ — dört HAM kaynağa saatlik DÜZ ek.
+
+    Tarlalara yüzde bonus değil, düz ek: yüzde olsaydı tarlası olmayan
+    yeni oyuncuya hiçbir şey vermez, geç oyunda ise tarla yatırımını
+    gereksizleştirecek kadar büyürdü. Düz ek erken oyunda hissediliyor,
+    geç oyunda tarlaların yanında küçük kalıyor.
+
+    Değeri index.js her tikte yazıyor (kahraman kaydı OTURUMDA); alan
+    yoksa hiçbir şey olmuyor, yani kahramansız köy eskisiyle birebir aynı.
+    İŞLENMİŞ mallara dokunmuyor — değirmen/fırın zincirini atlamak
+    üretim ekonomisinin tamamını anlamsızlaştırırdı.
+  */
+  const kahEk = village.kahramanUretimSaatlik || 0;
+  if (kahEk > 0) {
+    for (const kaynak of ['odun', 'kil', 'tas', 'demir']) {
+      village.resources[kaynak] = (village.resources[kaynak] || 0) + kahEk * hours;
+    }
+  }
+
   // Depo kapasiteleri — İŞLEMEDEN ÖNCE hesaplanır.
   // Sebep: çıktı deposu doluyken girdi tüketilip çıktı çöpe atılıyordu
   // (ölçüm: keresteci 3 işçi, kereste tavanda → 240 odun gitti, 0 kereste geldi).

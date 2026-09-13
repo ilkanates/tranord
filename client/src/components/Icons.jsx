@@ -577,6 +577,24 @@ const P = {
       <path d="M17.2 20.8h3.2" />
     </>
   ),
+  /*
+    KAHRAMAN — miğfer. 16 pikselde okunması gereken tek şey silueti:
+    yanaklıkların arasındaki T yarığı ve tepe tarağı. Kılıç/kalkan
+    ikonlarıyla karışmasın diye silah kullanılmadı.
+  */
+  migfer: (
+    <>
+      {/* kubbe */}
+      <path d="M5 12.5V10a7 7 0 0 1 14 0v2.5" />
+      {/* alın bandı — miğferi baştan ayıran tek çizgi */}
+      <path d="M3.6 12.5h16.8" />
+      {/* burunluk: aşağı inen dikey, siluetin imzası */}
+      <path d="M12 12.5v7.5" />
+      {/* yanaklıklar */}
+      <path d="M6.8 12.5v5" />
+      <path d="M17.2 12.5v5" />
+    </>
+  ),
 };
 
 // Bina tipi → ikon adı. 'zirh' hem ekipman (zırh) hem bina (zırhçı) olduğu için

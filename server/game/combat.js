@@ -102,6 +102,22 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
      * Verilmezse Lvl 0 sayılır ve sonuç eski hesapla birebir aynı çıkar.
      */
     attackerLevels = null, defenderLevels = null,
+    /**
+     * KAHRAMAN — savaşa üç kanaldan giriyor:
+     *
+     *   kahramanSaldiriGucu  saldırana eklenen HAM güç (kahramanın kendi
+     *                        vuruşu; tek birim gibi davranır)
+     *   kahramanSaldiriYuzde saldıran ordunun TOPLAMINA yüzde ek
+     *   kahramanSavunmaYuzde savunanın toplamına yüzde ek
+     *
+     * Ham güç PİYADE sayılıyor: kahraman yaya savaşıyor, süvari oranını
+     * kaydırıp savunanın atlı/yaya dengesini bozmamalı.
+     *
+     * Yüzde ekler SUR bonusundan AYRI çarpan: sur bonusuyla toplansaydı
+     * ikisinin tavanı tek bir tavana sıkışır ve "surum yüksek, kahraman
+     * hiçbir şey katmıyor" gibi görünmez bir tavan etkisi doğardı.
+     */
+    kahramanSaldiriGucu = 0, kahramanSaldiriYuzde = 0, kahramanSavunmaYuzde = 0,
   } = options;
 
   // ── 1. Saldırgan tarafını topla ──────────────────────────────────
@@ -126,6 +142,17 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
     if (def.category === 'piyade') infAttack += atk;
     else if (def.category === 'suvari') cavAttack += atk;
     attackerClean[key] = count;
+  }
+
+  // Kahramanın kendi vuruşu — piyade tarafına yazılıyor (bkz. yukarıdaki not)
+  if (kahramanSaldiriGucu > 0) {
+    attackTotal += kahramanSaldiriGucu;
+    infAttack += kahramanSaldiriGucu;
+  }
+  // Ordunun tamamına yüzde ek: kahraman orduyu GÜÇLENDİRİR, yerine geçmez
+  if (kahramanSaldiriYuzde > 0 && attackTotal > 0) {
+    const carpan = 1 + kahramanSaldiriYuzde / 100;
+    attackTotal *= carpan; infAttack *= carpan; cavAttack *= carpan;
   }
 
   // ── 2. Savunan tarafını topla (saldırgan oranıyla ağırlıklı) ────
@@ -184,7 +211,9 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
   const bonusPct = kesif
     ? wallBonusPct(0, 0, kulePct)
     : wallBonusPct(surLevel, hendekLevel, kulePct);
-  const defenseTotal = defenseRaw * (1 + bonusPct / 100);
+  const defenseTotal = defenseRaw
+    * (1 + bonusPct / 100)
+    * (1 + Math.max(0, kahramanSavunmaYuzde) / 100);
 
   // ── 3. Kazanan ve kayıp oranı ───────────────────────────────────
   let winner, attackerLossRate, defenderLossRate;
@@ -243,6 +272,14 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
     defenseRaw:   +defenseRaw.toFixed(2),
     defenseTotal: +defenseTotal.toFixed(2),
     wallBonusPct: +bonusPct.toFixed(2),
+    /*
+      Raporda AYRI satır: oyuncu savaşı neden kazandığını/kaybettiğini
+      görebilmeli. Sur bonusuyla tek sayıya karıştırırsak kahramana
+      yatırım yapmanın işe yarayıp yaramadığı hiç ölçülemez.
+    */
+    kahramanSaldiriGucu: +(kahramanSaldiriGucu || 0).toFixed(2),
+    kahramanSaldiriYuzde: +(kahramanSaldiriYuzde || 0).toFixed(2),
+    kahramanSavunmaYuzde: +(kahramanSavunmaYuzde || 0).toFixed(2),
     infRatio:     +infRatio.toFixed(4),
     cavRatio:     +cavRatio.toFixed(4),
     attackerLossRate: +attackerLossRate.toFixed(4),

@@ -35,7 +35,9 @@ kalkan zırh bileklik miğfer ayakkabı pantolon vs."*
 Bu madde TEK PARÇA DEĞİL — sırayla giden 5 aşama. Her aşama kendi başına
 oynanabilir bir şey bırakmalı; yarım kalan aşama oyuna girmez.
 
-#### Aşama 1 — Kahraman var olsun (temel)
+#### Aşama 1 — Kahraman var olsun (temel) — ~~YAPILDI~~
+Bkz. Tamamlandı · "Kahraman: temel, skiller ve savaş". Aşağıdaki madde
+tasarımın kaydı olarak duruyor.
 - **Kahraman Konağı** (yeni bina): kahraman burada doğar, burada dirilir,
   eşyaları burada durur. Konak yıkılırsa kahraman "yurtsuz" kalır (macera
   yok, iyileşme yok) ama ÖLMEZ — eşyası da silinmez.
@@ -48,7 +50,7 @@ oynanabilir bir şey bırakmalı; yarım kalan aşama oyuna girmez.
 - Durum oyuncu bazında saklanır (merkez köyün state'inde, görev kaydının
   yanında) — köy silinse bile kahraman kalır (bkz. Tamamlandı · köy yıkımı).
 
-#### Aşama 2 — XP, seviye ve 4 skil
+#### Aşama 2 — XP, seviye ve 4 skil — ~~YAPILDI~~
 - **XP kaynakları:** macera (ana kaynak), savaşta öldürülen birim başına,
   görev ödülü.
 - **Seviye atlayınca 4 PUAN** gelir, oyuncu dört skile dağıtır:
@@ -64,7 +66,7 @@ oynanabilir bir şey bırakmalı; yarım kalan aşama oyuna girmez.
 - Yüzde bonuslara **tavan** konmalı — yoksa yüksek seviyeli kahraman tek
   başına savaşı belirler ve ordu anlamsızlaşır.
 
-#### Aşama 3 — Maceralar
+#### Aşama 3 — Maceralar — SIRADAKİ İŞ
 - Konakta biriken **macera listesi**: haritada bir noktaya gider, bir süre
   sonra döner, sonuç raporu gelir.
 - **Kısa / uzun macera**: kısa az XP az ödül, uzun çok XP çok ödül + daha
@@ -89,14 +91,13 @@ oynanabilir bir şey bırakmalı; yarım kalan aşama oyuna girmez.
 - Birim bazlı bonus ekipman havuzundan AYRI hesaplanmalı; ikisi aynı
   yerden geçerse mevcut ekipman dengesi bozulur.
 
-#### Aşama 5 — Bağlama ve denge
-- Kahraman **sefere katılır** (sefer paketinde bayrak), savaş hesabına
-  tek birimlik özel giriş.
-- **Raporda** kahramanın ne yaptığı ayrı satır: verdiği hasar, aldığı can
-  kaybı, düşen ganimet.
-- Görev zincirine kahraman adımları (*konağı kur · ilk maceraya çık · ilk
-  eşyanı kuşan · seviye 5*).
-- Denge ölçümü: kahramansız ve kahramanlı aynı savaş, fark yüzdesi.
+#### Aşama 5 — Bağlama ve denge (savaş ayağı YAPILDI)
+- ~~Kahraman **sefere katılır**, savaş hesabına tek birimlik özel giriş.~~
+- ~~**Raporda** kahramanın ne yaptığı ayrı satır.~~
+- ~~Görev zincirine kahraman adımları~~ — iki tanesi eklendi (*konağı kur*,
+  *seviye 3*). Macera ve eşya gelince ikisi daha eklenmeli.
+- KALAN: kahramanın ganimet payı; macera/eşya geldikten sonra uçtan uca
+  denge ölçümü (kahramansız ve kahramanlı aynı savaş, fark yüzdesi).
 
 **Kararlar (verildi):**
 - Kahraman **oyuncuya** ait, üssü konağın olduğu köy.
@@ -207,6 +208,22 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Kahraman: temel, skiller ve savaş (14 Eylül 2026)
+- **Kahraman Konağı** (yeni bina, askerî, unique, Lvl 20): kahraman burada doğuyor, iyileşiyor, eşyalarını burada tutacak. Konak yıkılırsa kahraman **silinmiyor** — yalnız üssünü kaybediyor; bir mancınık dalgası oyuncunun aylarca biriktirdiği kahramanı sıfırlayamamalı.
+- **Kahraman KÖYE değil OYUNCUYA ait.** Kayıt merkez köyün state'inde (görev zinciriyle aynı yerde, ayrı tablo açmamak için). Köy bazında olsaydı beş köylü oyuncunun beş kahramanı olurdu.
+- **XP ve seviye:** kuvvet eğrisi (100 × (s−1)^1,6) — Lvl 2 → 100, Lvl 10 → ~3.400, Lvl 20 → ~11.000, Lvl 100 → ~156.000. Ölçek macera ödülüne göre seçildi; denge ayarı iki sabitten yapılıyor.
+- **Dört skil, seviye başına 4 puan** (İlkan'ın tarifi): Saldırı Puanı (+80 ham güç/puan), Saldırı Bonusu (+%0,2/puan, tavan %20), Savunma Bonusu (+%0,2/puan, tavan %20), Hammadde Üretimi (+3/sa her ham kaynak). Skil başına tavan 100 puan.
+- **Yüzde bonusların TAVANI var** ve sur bonusundan **ayrı çarpan**. Toplansaydı ikisi tek tavana sıkışır, "surum yüksek, kahraman hiçbir şey katmıyor" gibi görünmez bir etki doğardı. Test: tam yatırımlı kahraman + 1 asker, 300 savunanı yenemiyor.
+- **Ölmez, bayılır.** Canı 0'a inince 12 oyun saati kullanılamıyor, sonra çeyrek canla kalkıyor (sıfır canla kalksa sonraki savaşta anında yeniden bayılırdı). **Baygınken HİÇBİR bonus vermiyor** — yarım bonus bayılmayı sıradanlaştırırdı. Bayılma ve iyileşme aynı anda işlemiyor: ceza ikisi birden.
+- **Skil sıfırlama bedelli ve bedel KATLANIYOR** (200 külçe + 200 tahıl, her seferinde ×2). Bedava olsaydı oyuncu savaştan önce puanları saldırıya, savunma sırasında savunmaya taşıyıp iki tavandan birden faydalanırdı; geri alınamaz olsaydı ilk yanlış dağıtım kalıcı ceza olurdu.
+- **Sefere katılıyor** (saldırı ve yağmada; keşif izcinin, yerleşim göçmenin işi, takviyede kahramanı başka köyde bırakmak onu geri alınamaz hâle getirirdi). Gücü **sefer çıkarken donduruluyor** — yola çıktıktan sonra skil dağıtıp saldırıyı büyütmek mümkün değil. Ham güç PİYADE sayılıyor: süvari oranını kaydırıp savunanın atlı/yaya dengesini bozmamalı.
+- **XP savaşın BÜYÜKLÜĞÜNE bağlı, sonucuna değil** (öldürülen birim başına 2). Yalnız zaferi ödüllendirseydik kahraman ancak kazanılacağı belli savaşlara sokulurdu. **Hasar kayıp oranına bağlı**: ordu sıyrık almadan kazandıysa kahraman da az yıpranıyor.
+- **Raporda ayrı satır**: ham güç, orduya kattığı yüzde, kazanılan XP, can kaybı. Savunanın raporunda da görünüyor (saldıranın gücü + kendi savunma bonusu) — kahramanı köyde tutmanın işe yaradığını göremezse oyuncu onu hep sefere sürer.
+- **Yeni sekme: Kahraman** (Ordu ile Seferler arasında, miğfer amblemi). Kimlik kartı + XP/can çubukları, dört skil satırı (açılır açıklama, toplu puan verme), sıfırlama, ve **eşya slotları** — Aşama 4'e kadar boş çerçeveler ama yerleşim şimdiden doğru, oyuncu kahramanın nereye varacağını görsün.
+- Görev zincirine iki **YAN HEDEF**: *Kahramanın Evi* (konağı kur) ve *İlk Zaferler* (Lvl 3). Ana hat değil — kahraman güçlü ama oyunu oynamak için şart değil.
+- **Yol açarken bulunan hata:** merkez köy YIKILINCA görev zinciri ve kahraman kaydı yıkılan köyle birlikte siliniyordu (`set_capital` taşıyordu, `koyuYokEt` taşımıyordu). Ortak `game/hesapKaydi.js` yazıldı, iki yol da oradan geçiyor, test kilitledi.
+- Ölçüldü: konak kuruldu → kahraman doğdu (Lvl 1, can 100/100, +3,5/sa), sefer panelinde "Kahramanı da götür" kutusu çıktı, sefere iliştirildi, savaştan sonra raporda kahraman bloğu göründü ve kahraman üssüne döndü. 25 yeni test.
 
 ### Köy yıkımı: bütün binalar düşünce köy haritadan silinir (14 Eylül 2026)
 - Eskiden ana binanın altında `ANA_BINA_TABAN = 1` tabanı vardı: mancınık bir yerden sonra hiçbir şey değiştiremiyor, kuşatma anlamsızlaşıyordu. Taban **0** yapıldı.

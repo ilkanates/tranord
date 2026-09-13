@@ -11,6 +11,7 @@
  */
 const { QUESTS } = require('../data/questDefs');
 const W = require('./world');
+const HERO = require('./kahraman');
 
 // ─── GÖREV ZİNCİRİ ────────────────────────────────────────────────
 /**
@@ -94,6 +95,17 @@ function questOlcu(cond, session) {
       return koyler.reduce((s2, v) => s2 + (v.stats?.attacksSent || 0) + (v.stats?.scoutsSent || 0), 0);
     case 'nufus':
       return Math.max(0, ...koyler.map(v => v.population || 0));
+    /*
+      KAHRAMAN SEVİYESİ. Kayıt merkez köyün state'inde (görev kaydıyla
+      aynı yerde), o yüzden köyler üzerinde MAX değil — kahraman tek ve
+      bir tane. Yine de bütün köylere bakıyoruz: merkez taşınmış bir
+      hesapta kayıt bir süre eski köyde kalabiliyor.
+    */
+    case 'kahramanSeviye': {
+      const kah = koyler.map(v => v.kahraman).find(Boolean);
+      if (!kah) return 0;
+      return HERO.xpSeviyesi(kah.xp || 0);
+    }
     default: return 0;
   }
 }

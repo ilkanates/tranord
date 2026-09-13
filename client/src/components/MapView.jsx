@@ -808,6 +808,8 @@ export default function MapView({
   socket, world, productionTiles = {}, maxProductionSlots = 6, anaBina,
   freeWorkers = 0, resources = {}, flows = {}, railInset = 0, myArmy = 0,
   army = {}, unitDefs = {}, unitStatsNow = {}, intel = {}, marchInfo = {},
+  // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
+  kahraman = null, activeSlot = null,
   onBuild, onUpgrade, onDemolish, onAssignWorkers, onCancelBuild,
   onUpgradeAnaBina, onEnterVillageCenter,
   // Panel açıkken rehber kartı rozete iner (bkz. QuestGuide.jsx)
@@ -1939,6 +1941,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
         <SendArmyPanel socket={socket} target={sendTarget}
           army={army} unitDefs={unitDefs} unitStatsNow={unitStatsNow} marchInfo={marchInfo}
           intel={intel[sendTarget.key] || null}
+          kahraman={kahraman} activeSlot={activeSlot}
           onClose={() => setSendTarget(null)} />
       )}
     </div>

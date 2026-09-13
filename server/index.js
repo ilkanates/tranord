@@ -8,6 +8,9 @@ const { processTick, getUpgradeSeconds, getStorageCaps } = require('./game/tick'
 const { simulateBattle } = require('./game/combat');
 const ARMY = require('./game/army');
 const KUSATMA = require('./game/kusatma');
+const HERO = require('./game/kahraman');
+/** Görev zinciri ve kahraman KÖYE değil HESABA ait — merkez değişince taşınır */
+const { hesapKaydiniTasi } = require('./game/hesapKaydi');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVillage,
@@ -335,6 +338,27 @@ function structFingerprint(v) {
 /** Kullanıcının tüm bağlantılarını kapsayan oda */
 const userRoom = (userId) => `u${userId}`;
 
+/**
+ * KAHRAMAN PARMAK İZİ — kahraman da yayının tetikleyicisi olmalı.
+ *
+ * Yoksa deneyim, can ve baygınlık sayacı ekrana ancak 30 saniyelik kalp
+ * atışında yansırdı: oyuncu kahramanının iyileştiğini donmuş bir çubukta
+ * izlerdi.
+ *
+ * CAN YUVARLANIYOR. Ham değer her tikte kesirli olarak artıyor; olduğu
+ * gibi koysaydık parmak izi saniyede bir değişir ve tam paketi her tikte
+ * yollardık — parmak izinin var olma sebebi tam olarak bunu önlemek.
+ * Tam sayıya yuvarlamak dakikada birkaç yayın demek, o da yeterli.
+ */
+function kahramanFingerprint(session) {
+  const k = kahramanDurumu(session);
+  if (!k) return 'K-';
+  return `K${Math.round(k.xp || 0)}:${Math.round(k.can || 0)}`
+    + `:${k.harcanmamisPuan || 0}:${k.nerede || 'koy'}`
+    + `:${Math.round((k.baygunKalanSaat || 0) * 10)}`
+    + `:${k.usSlot || '-'}`;
+}
+
 function emitVillage(session, { force = false, statics = false } = {}) {
   /**
    * Yayın KULLANICI ODASINA yapılır, tek bir socketId'ye değil.
@@ -357,7 +381,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     bekliyordu. Uyarı geciktiğinde işe yaramıyor.
   */
   const fp = structFingerprint(v) + '#' + questFingerprint(session)
-    + '#' + digerKoyFingerprint(session);
+    + '#' + digerKoyFingerprint(session)
+    + '#' + kahramanFingerprint(session);
   const nowReal = Date.now();
   const beat = nowReal - (session.lastEmitAt || 0) >= FULL_SYNC_MS;
   if (!force && !beat && fp === session.fp) return;
@@ -415,6 +440,12 @@ function emitVillage(session, { force = false, statics = false } = {}) {
       okunuyor, sonra mesaj gelince/okununca elle güncelleniyor.
     */
     mesajOkunmamis: session.mesajOkunmamis || 0,
+    /*
+      KAHRAMAN. Konağı olmayan oyuncuya `{ var: false }` gidiyor —
+      istemci o zaman ekranda "Kahraman Konağı kur" diyor. null yollasaydık
+      "henüz yüklenmedi" ile "kahramanın yok" ayırt edilemezdi.
+    */
+    kahraman: HERO.ozet(kahramanDurumu(session), kahramanKonagi(session)?.level || 0),
   }));
 }
 
@@ -516,6 +547,29 @@ function runTickForUser(userId, session) {
   for (const [slotKey, village] of session.villages) {
     advanceVillage(village, gameHours, userId, slotKey);
     session.dirtySlots.add(slotKey);
+  }
+
+  /*
+    KAHRAMAN köylerden SONRA ilerliyor. Önce ilerleseydi bu tikte
+    tamamlanan konak yükseltmesi iyileşme hızına ancak bir sonraki
+    tikte yansırdı — görünür bir gecikme değil ama sebepsiz bir tutarsızlık.
+  */
+  const { kahraman, konak } = kahramaniSenkronla(session);
+  if (kahraman) HERO.ilerlet(kahraman, gameHours, konak?.level || 0);
+
+  /*
+    ÜRETİM SKİLİ yalnız kahramanın DURDUĞU köye işliyor — tek kahraman,
+    tek köy. Bütün köylere birden verseydik çok köylü oyuncu tek bir
+    kahramanla imparatorluğunun tamamını beslerdi.
+
+    Her tikte bütün köylerde sıfırlanıp doğru köye yazılıyor: kahraman
+    sefere çıkınca ya da üssü taşınınca eski köyde artık kalmasın.
+  */
+  const uretimEk = (kahraman && (kahraman.nerede || 'koy') === 'koy')
+    ? HERO.bonuslar(kahraman).uretimSaatlik : 0;
+  for (const [slotKey, village] of session.villages) {
+    village.kahramanUretimSaatlik =
+      (uretimEk > 0 && slotKey === kahraman?.usSlot) ? uretimEk : 0;
   }
 
   emitVillage(session);
@@ -863,6 +917,54 @@ function takviyelerimiBul(userId) {
 const koyBosMu = KUSATMA.koyBosMu;
 
 /**
+ * KAHRAMAN DURUMU — hesap başına, merkez köyün state'inde.
+ *
+ * Görev kaydıyla aynı yerde ve aynı gerekçeyle: ayrı tablo açmamak için,
+ * ve merkez taşınınca kayıt da taşınsın diye (bkz. set_capital).
+ *
+ * Kahraman KÖYE DEĞİL OYUNCUYA ait. Köy bazında olsaydı beş köylü
+ * oyuncunun beş kahramanı olurdu ve "tek ve kalıcı kahraman" fikri
+ * çökerdi — köyü yıkılan oyuncu kahramanını da kaybederdi.
+ *
+ * @returns {object|null} kahraman nesnesi, ya da hiç konak yoksa null
+ */
+function kahramanDurumu(session, { yarat = false } = {}) {
+  const merkez = session.villages.get(session.capitalSlot)
+    || session.villages.values().next().value;
+  if (!merkez) return null;
+  if (!merkez.kahraman && yarat) merkez.kahraman = HERO.yeniKahraman(null);
+  return merkez.kahraman || null;
+}
+
+/** Kahramanın üssü — Kahraman Konağı'nın bulunduğu köy. */
+function kahramanKonagi(session) {
+  for (const [slotKey, v] of session.villages) {
+    const b = Object.values(v.villageBuildings || {})
+      .find(x => x.type === 'kahramanKonagi' && (x.level || 0) > 0);
+    if (b) return { slotKey, village: v, level: b.level };
+  }
+  return null;
+}
+
+/**
+ * Konak var ama kahraman yoksa kahramanı DOĞUR; konak yıkıldıysa
+ * kahramanı SİLME — eşyası ve seviyesi kalır, yalnız üssü kaybolur.
+ * Silseydik bir mancınık dalgası oyuncunun aylarca biriktirdiği
+ * kahramanını sıfırlardı.
+ */
+function kahramaniSenkronla(session) {
+  const konak = kahramanKonagi(session);
+  if (!konak) {
+    const k = kahramanDurumu(session);
+    if (k) k.usSlot = null;
+    return { kahraman: k, konak: null };
+  }
+  const k = kahramanDurumu(session, { yarat: true });
+  if (k) k.usSlot = konak.slotKey;
+  return { kahraman: k, konak };
+}
+
+/**
  * KÖYÜ YOK ET — son binası da düşen köy haritadan silinir.
  *
  * Sahibinin SON köyüyse yok edilmiyor: hesabın oyundan tamamen düşmesi,
@@ -877,6 +979,7 @@ async function koyuYokEt(ownerUserId, slotKey, sebep) {
   if (!s || !s.villages.has(slotKey)) return false;
   if (s.villages.size <= 1) return false;          // son köy silinmez
 
+  const yikilan = s.villages.get(slotKey);
   s.villages.delete(slotKey);
   s.dirtySlots.delete(slotKey);
   if (s.activeSlot === slotKey) s.activeSlot = [...s.villages.keys()][0];
@@ -884,6 +987,8 @@ async function koyuYokEt(ownerUserId, slotKey, sebep) {
     // Merkez düştüyse kalan köylerden biri merkez olur — merkezsiz hesap
     // görev kaydını ve kültür puanını kaybederdi
     s.capitalSlot = [...s.villages.keys()][0];
+    // Görev zinciri ve kahraman hesaba ait — yıkılan köyle birlikte gitmesin
+    hesapKaydiniTasi(yikilan, s.villages.get(s.capitalSlot));
     for (const [k, v] of s.villages) v.isCapital = (k === s.capitalSlot);
     try { await setCapital(ownerUserId, s.capitalSlot); }
     catch (err) { console.error('[KÖY YIKIM] merkez taşınamadı:', err.message); }
@@ -1174,13 +1279,52 @@ function processMarches(hours) {
           entry.dirty();
           continue;
         }
+        /*
+          SAVUNANIN KAHRAMANI. Kahraman ÜSSÜNDE duruyorsa o köyün
+          savunmasına yüzde ek veriyor. Bonusu burada okuyoruz çünkü
+          kahraman kaydı savunanın OTURUMUNDA; army.js oturumu görmüyor.
+
+          Başka köye saldırılırsa bonus YOK: kahraman tek ve bir yerde.
+          Bütün köylere birden bonus verseydi, çok köylü oyuncu tek bir
+          kahramanla bütün imparatorluğunu güçlendirirdi.
+        */
+        let savunanKahYuzde = 0;
+        if (tgt?.userId) {
+          const ts = userSessions.get(tgt.userId);
+          const tk = ts ? kahramanDurumu(ts) : null;
+          if (tk && tk.usSlot === m.toKey && (tk.nerede || 'koy') === 'koy') {
+            savunanKahYuzde = HERO.bonuslar(tk).savunmaYuzde;
+          }
+        }
         ARMY.resolveArrival(m, v, tgt?.village || null, {
           targetName: tgt?.name,
           ownerUserId: m.ownerUserId ?? null,
+          kahramanSavunmaYuzde: savunanKahYuzde,
         });
         entry.dirty();
         if (tgt?.userId) markUserDirty(tgt.userId, m.toKey);
         else if (tgt?.kind === 'npc') markNpcDirty(m.toKey);
+
+        /*
+          SEFERDEKİ KAHRAMANIN HESABI. XP ve hasar savaş çözülürken
+          hesaplandı (army.js · kahramanSonuc); uygulaması burada çünkü
+          kahraman saldıranın OTURUMUNDA duruyor.
+
+          Kahraman seferle birlikte DÖNMÜYOR: bayılma ihtimali varken
+          "orduyla beraber yürüyor" saymak, geri dönüş yolunda bayılmış
+          bir kahramanı köyde göstermek demekti. Savaş biter bitmez
+          üssünde sayılıyor; yol yalnız orduya ait.
+        */
+        if (m.kahramanSonuc && m.kahramanUserId) {
+          const ks = userSessions.get(m.kahramanUserId);
+          const kk = ks ? kahramanDurumu(ks) : null;
+          if (kk) {
+            kk.nerede = 'koy';
+            HERO.xpEkle(kk, m.kahramanSonuc.xp || 0);
+            HERO.hasarVer(kk, m.kahramanSonuc.hasar || 0);
+            if (ks) markUserDirty(m.kahramanUserId, ks.capitalSlot);
+          }
+        }
 
         /*
           KÖY YOK OLDU MU? Kuşatma son binayı da düşürmüş olabilir.
@@ -1993,6 +2137,44 @@ io.on('connection', async socket => {
    * Merkez bayrağı köy nesnelerinde de tutuluyor (canBuildAt ve payload
    * okuyor), o yüzden hepsi baştan yazılıyor.
    */
+  /**
+   * KAHRAMAN SKİL PUANI DAĞIT.
+   *
+   * Dağıtım KISMÎ uygulanmıyor (bkz. game/kahraman.js · puanDagit): puan
+   * yetmiyorsa ya da skil tavanı aşılıyorsa istek tamamen reddediliyor.
+   * Yarısı uygulanmış bir dağıtım oyuncunun geri alamayacağı sessiz bir
+   * hata olurdu.
+   */
+  socket.on('kahraman_puan', ({ skil, adet = 1 } = {}) => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
+    const r = HERO.puanDagit(kah, skil, adet);
+    if (!r.ok) return socket.emit('kahraman_error', { reason: r.sebep });
+    dirty(); emit();
+  });
+
+  /**
+   * SKİLLERİ SIFIRLA — bedeli KATLANARAK artıyor.
+   *
+   * Bedelsiz olsaydı oyuncu her savaştan önce puanları saldırıya, savunma
+   * sırasında savunmaya taşır ve iki tavandan da aynı anda faydalanırdı.
+   * Bedel AKTİF köyden alınıyor: oyuncunun kaynağı köyde durur, hesapta değil.
+   */
+  socket.on('kahraman_sifirla', () => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
+    const village = v();
+    const bedel = HERO.sifirlamaBedeli(kah);
+    const eksik = KUYRUK.eksikler(village.resources, bedel);
+    if (Object.keys(eksik).length) {
+      return socket.emit('kahraman_error', {
+        reason: 'yetersiz_kaynak', metin: KUYRUK.eksikMetni(eksik) });
+    }
+    for (const [k2, n] of Object.entries(bedel)) village.resources[k2] -= n;
+    HERO.skilleriSifirla(kah);
+    dirty(); emit();
+  });
+
   socket.on('set_capital', ({ slotKey } = {}) => {
     const hedef = slotKey || session.activeSlot;
     const village = session.villages.get(hedef);
@@ -2006,15 +2188,12 @@ io.on('connection', async socket => {
       return;
     }
     /*
-      Görev kaydı merkez köyün state'inde duruyor; merkez taşınınca
-      kayıt da taşınmalı, yoksa zincir sıfırlanmış görünür.
+      Görev zinciri ve kahraman merkez köyün state'inde duruyor; merkez
+      taşınınca kayıt da taşınmalı, yoksa oyuncu zinciri sıfırlanmış,
+      kahramanını yok olmuş görür (bkz. hesapKaydiniTasi).
     */
-    const eskiMerkez = session.villages.get(session.capitalSlot);
-    const yeniMerkez = session.villages.get(hedef);
-    if (eskiMerkez?.quests && yeniMerkez) {
-      yeniMerkez.quests = eskiMerkez.quests;
-      delete eskiMerkez.quests;
-    }
+    hesapKaydiniTasi(
+      session.villages.get(session.capitalSlot), session.villages.get(hedef));
 
     session.capitalSlot = hedef;
     for (const [k, v2] of session.villages) v2.isCapital = (k === hedef);
@@ -2853,7 +3032,8 @@ io.on('connection', async socket => {
 
 
   // ── SEFER: ordu gönder ────────────────────────────────────────────
-  socket.on('send_army', ({ targetKey, mode, units, hedefBina = null, hedefBina2 = null } = {}) => {
+  socket.on('send_army', ({ targetKey, mode, units, hedefBina = null, hedefBina2 = null,
+    kahraman: kahramaniGotur = false } = {}) => {
     const fail = (reason) => socket.emit('army_error', { reason });
     const village = v();
     // ÇOKLU KÖY: sefer AKTİF köyden çıkar, oyuncunun "ilk" köyünden değil
@@ -2934,6 +3114,34 @@ io.on('connection', async socket => {
     if (!res.ok) return fail(res.reason);
     // Varışta misafir girdisine sahibini yazabilmek için sefere iliştir
     if (mode === 'takviye') res.march.ownerUserId = userId;
+
+    /*
+      KAHRAMAN SEFERE KATILIYOR.
+
+      Gücü SEFER ÇIKARKEN dondurularak sefere iliştiriliyor: yola çıktıktan
+      sonra skil dağıtıp saldırıyı büyütmek mümkün olmasın. Koşullar
+      sunucuda ölçülüyor — istemcinin kutuyu göstermemesi bir denetim değil.
+
+      YALNIZ SALDIRI VE YAĞMADA. Keşif izcinin işi, yerleşim göçmenin;
+      takviyede kahramanı başka köyde bırakmak onu oradaki savaşta
+      bayıltabilirdi ve oyuncu kahramanını geri alamazdı.
+    */
+    if (kahramaniGotur && (mode === 'attack' || mode === 'raid')) {
+      const kah = kahramanDurumu(session);
+      const konak = kahramanKonagi(session);
+      const uygun = kah && konak
+        && kah.usSlot === mySlot                 // kahraman BU köyde
+        && (kah.nerede || 'koy') === 'koy'       // seferde/macerada değil
+        && (kah.baygunKalanSaat || 0) <= 0;      // baygın değil
+      if (uygun) {
+        const b = HERO.bonuslar(kah);
+        res.march.kahraman = { gucu: b.saldiriGucu, saldiriYuzde: b.saldiriYuzde };
+        res.march.kahramanUserId = userId;
+        kah.nerede = 'sefer';
+      }
+      // Uygun değilse sefer yine gidiyor, yalnız kahramansız. Reddetmek,
+      // bayılmış kahraman yüzünden saldırıyı tamamen iptal etmek olurdu.
+    }
     /*
       MANCINIK HEDEFI — istemci bina TIPI gonderiyor (slot degil): saldiran
       hedefin hangi slotunda ne oldugunu bilmiyor, yalnizca "deposunu vur"

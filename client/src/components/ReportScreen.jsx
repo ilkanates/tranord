@@ -345,6 +345,16 @@ function ResGrid({ res, color }) {
   );
 }
 
+/** Kahraman satırındaki tek ölçü — ad üstte, sayı altta */
+function KahOlcu({ ad, deger, renk }) {
+  return (
+    <div style={{ textAlign: 'right' }}>
+      <div style={lbl({ fontSize: 7, letterSpacing: 0.9 })}>{ad}</div>
+      <div style={num({ fontSize: 12, color: renk })}>{deger}</div>
+    </div>
+  );
+}
+
 function Section({ title, children }) {
   return (
     <div>
@@ -435,6 +445,55 @@ function Detail({ r, unitDefs }) {
               </div>
             </div>
           </div>
+
+          {/*
+            KAHRAMAN SATIRI — sur bonusunun yanında AYRI.
+
+            Tek sayıya karıştırsaydık oyuncu kahramana yaptığı yatırımın
+            işe yarayıp yaramadığını hiç ölçemezdi: "savaşı kahraman mı
+            çevirdi, sur mu tuttu" sorusunun cevabı burada.
+          */}
+          {r.kahraman && (
+            <div style={panel({
+              padding: '9px 11px', marginTop: 8,
+              background: 'rgba(11,23,37,0.7)',
+              display: 'flex', alignItems: 'center', gap: 11, flexWrap: 'wrap',
+            })}>
+              <Icon name="migfer" size={16} color={C.frost} strokeWidth={1.5} />
+              <span style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.iceSoft }}>
+                {inc ? 'KAHRAMAN' : 'KAHRAMANIM'}
+              </span>
+              <div style={{
+                display: 'flex', gap: 16, flexWrap: 'wrap', marginLeft: 'auto',
+                fontFamily: FONT.ui, fontSize: 9.5,
+              }}>
+                {!inc && (
+                  <>
+                    <KahOlcu ad="HAM GÜÇ" deger={`+${short(r.kahraman.gucu || 0)}`}
+                      renk={C.frost} />
+                    <KahOlcu ad="ORDUYA" deger={(r.kahraman.saldiriYuzde || 0) > 0
+                      ? `+%${r.kahraman.saldiriYuzde}` : '—'} renk={C.warn} />
+                    <KahOlcu ad="DENEYİM" deger={`+${r.kahraman.xp || 0}`} renk={C.good} />
+                    <KahOlcu ad="CAN KAYBI" deger={`-${r.kahraman.hasar || 0}`}
+                      renk={(r.kahraman.hasar || 0) > 0 ? C.danger : C.textMute} />
+                  </>
+                )}
+                {inc && (
+                  <>
+                    <KahOlcu ad="SALDIRANIN GÜCÜ"
+                      deger={(r.kahraman.saldiranGucu || 0) > 0
+                        ? `+${short(r.kahraman.saldiranGucu)}` : '—'} renk={C.danger} />
+                    <KahOlcu ad="SALDIRANIN ORDUSUNA"
+                      deger={(r.kahraman.saldiranYuzde || 0) > 0
+                        ? `+%${r.kahraman.saldiranYuzde}` : '—'} renk={C.danger} />
+                    <KahOlcu ad="KENDİ SAVUNMAMA"
+                      deger={(r.kahraman.savunmamYuzde || 0) > 0
+                        ? `+%${r.kahraman.savunmamYuzde}` : '—'} renk={C.good} />
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {!inc && r.sent && (
             <Section title="GÖNDERDİĞİM ORDU">

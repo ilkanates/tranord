@@ -134,6 +134,9 @@ const VILLAGE_DEFS = {
   cephane:      { cpPerLevel:1, name:'Cephanelik',      category:'askeri', icon:'🏹', description:'Kılıç/mızrak/kalkan/zırh depolar. Her seviye +50 kapasite.',
                    unique:true, maxLevel:20, equipmentCapPerLevel:50, poolCapPerLevel:200, buildBaseWork:30, buildMultiplier:1.8, upgradeCostBase:{ kereste:60, yontmaTas:70, demirKulce:35 }, upgradeCostMultiplier:1.6, cost:{ kereste:60, yontmaTas:70, demirKulce:35 } },
   saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',   category:'askeri', icon:'⛺', description:'Yaralı askerleri iyileştiren bina.',             unique:true, maxLevel:20, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:35, tahil:30 } },
+  // Kahramanın evi — doğduğu, iyileştiği ve eşyalarını tuttuğu yer.
+  // İKİZ TANIM: sunucudaki villageDefs.js ile birlikte değişir.
+  kahramanKonagi: { cpPerLevel:2, name:'Kahraman Konağı', category:'askeri', icon:'🏅', description:'Kahramanın evi. Burada doğar, yaralanınca burada iyileşir, eşyalarını burada tutar. Seviye arttıkça daha hızlı iyileşir ve daha çok macera birikir.', unique:true, maxLevel:20, workersPerLevel:1, buildBaseWork:35, buildMultiplier:1.85, cost:{ kereste:70, yontmaTas:90, demirKulce:50 }, upgradeCostBase:{ kereste:70, yontmaTas:90, demirKulce:50 }, upgradeCostMultiplier:1.7 },
 
   // ── Depo ────────────────────────────────────────────────────────
   hammaddeDepo: { cpPerLevel:1,

@@ -243,6 +243,12 @@ function buildPayload(village, tickMs, opts = {}) {
     egitimBitti: !!opts.egitimBitti,
     // Üst bardaki mesaj rozeti (bkz. index.js · emitVillage)
     mesajOkunmamis: opts.mesajOkunmamis || 0,
+    /*
+      KAHRAMAN özeti. `opts`'a koymak YETMEZ — payload nesnesine bu satırla
+      kopyalanmazsa istemciye hiç gitmez; adVerilmedi tam bu yüzden aylarca
+      ölü kalmıştı (bkz. yukarıdaki not).
+    */
+    kahraman: opts.kahraman || null,
     // Yerleşim hakkı — köşk/saray panelinde gösteriliyor
     expansion: {
       earned: refreshExpansionCredits(village),

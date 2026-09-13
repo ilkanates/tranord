@@ -137,6 +137,19 @@ const VILLAGE_DEFS = {
                    upgradeCostBase:{ kereste:60, yontmaTas:70, demirKulce:35 }, upgradeCostMultiplier:1.6 },
   saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Savaşta yaralanan askerleri iyileştiren bina.',
                    unique:true,  maxLevel:20, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:35, tahil:30 } },
+  /*
+    KAHRAMAN KONAĞI — kahraman burada DOĞAR, burada iyileşir, eşyaları
+    burada durur. Konak kurulmadan oyuncunun kahramanı YOKTUR: "kahraman
+    var ama hiçbir şey yapamıyor" gibi anlaşılmaz bir ara durum olmasın.
+
+    unique — kahraman tek; iki konak iki kahraman çağrışımı yapardı.
+    Seviye iki şeyi belirliyor: iyileşme hızı ve aynı anda açık
+    durabilecek macera sayısı (bkz. game/kahraman.js).
+  */
+  kahramanKonagi: { cpPerLevel:2, name:'Kahraman Konağı', category:'askeri',   icon:'🏅', description:'Kahramanın evi. Burada doğar, yaralanınca burada iyileşir, eşyalarını burada tutar. Seviye arttıkça daha hızlı iyileşir ve daha çok macera birikir.',
+                   unique:true,  maxLevel:20, workersPerLevel:1,
+                   buildBaseWork:35, buildMultiplier:1.85, cost:{ kereste:70, yontmaTas:90, demirKulce:50 },
+                   upgradeCostBase:{ kereste:70, yontmaTas:90, demirKulce:50 }, upgradeCostMultiplier:1.7 },
 
   // ── Depo ────────────────────────────────────────────────────────
   hammaddeDepo: { cpPerLevel:1,
