@@ -1771,9 +1771,22 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
         ipucu da bir kez okunduktan sonra yer kaplamaktan başka iş
         görmüyordu.
       */}
+      {/*
+        TELEFONDA PANEL AÇIKKEN BAR GİZLİ.
+
+        İkisi de ekranın altında duruyor. Kısa ekranlarda tarla paneli
+        aşağı uzanıp barı örtüyordu: 320×568, 360×640 ve 375×667'de
+        UZAKLAŞ ile KÖYÜME DÖN düğmelerinin üstü kapalıydı (denetim
+        taramasıyla ölçüldü; 844+ yükseklikte sorun yok).
+
+        Panel açıkken oyuncunun işi o karo; yakınlaştırma düğmeleri
+        beklesin — panel kapanınca bar geri geliyor. Masaüstünde yer
+        bol, orada ikisi bir arada duruyor.
+      */}
       <div style={{
+        display: (railInset <= 10 && popoverPos) ? 'none' : 'flex',
         position: 'absolute', bottom: 10, left: railInset + 10, right: railInset + 10, zIndex: 30,
-        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden',
+        alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden',
         padding: '4px 10px', borderRadius: 7,
         background: 'rgba(9,18,30,0.55)', border: `1px solid ${C.lineSoft}`,
         backdropFilter: 'blur(14px) saturate(1.15)',
