@@ -135,6 +135,16 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Sefer geri çağırma + kuşatma ayarları (13 Eylül 2026)
+- **Sefer geri çağırma — ilk 90 gerçek saniye.** Yola çıkan ordu bu pencerede dönüşe geçirilebiliyor; gittiği yol kadar geri yürüyor (ışınlanma yok), ganimet taşımıyor. Pencere bilerek DAR: her an geri çağrılabilseydi saldırı risksiz olurdu (hedefi izle, son anda çek). Sunucuda ölçülüyor — istemcideki düğmenin görünür olması yetmiyor, yayınlar arası gecikmede sunucu reddediyor ve sebebi uyarı şeridine düşüyor.
+- Sayaç `geriCagirTimeLeft` adıyla gidiyor: istemcideki `shiftTimers` `...TimeLeft` ekini tanıyıp iki yayın arasında kendisi sayıyor, düğme 30 saniye boyunca yanlış görünmüyor.
+- **Mancınıkla ikinci hedef — atölye Lvl 10.** Tek seferde iki bina hedeflenebiliyor, kuşatma gücü **%60 / %40** bölünüyor. Bonus DEĞİL, tercih: tek binaya tam güç mü iki binaya bölünmüş güç mü. Test bunu kilitliyor (bölünmüş güç aynı binayı daha az indirmeli). İkinci atış birincinin slotunu rastgele havuzundan dışlıyor.
+- Atölye seviyesi SUNUCUDA denetleniyor; istemci kutuyu gizliyor ama gizlemek denetim değil.
+- **Koç başı artık YALNIZ suru indiriyor.** Eskiden artan puan hendeğe geçiyordu; tek sefer iki savunma yapısını birden siliyor, hendeğe yatırımı anlamsız kılıyordu. Artan puan artık boşa gidiyor — "kaç koç başı göndereyim" gerçek bir hesap.
+- **Kuşatma stoğu sağ rayda.** Koç başı/mancınık hiçbir ekranda görünmüyordu: kaç makinen var, atölye doldu mu bilinmiyordu. Cephanelik havuzuna karıştırılmadı — atölyenin kendi kapasitesi, at gibi ayrı blok.
+- **Koç başı artık Rún Salonu araştırması istiyor** (Lvl 2). Araştırma `minLevel`den türüyor ve koç başınınki 1 olduğu için hiç kapı yoktu. `minLevel` bilerek değiştirilmedi: onu yükseltmek atölye şartını da yükseltirdi, tek istek için iki kapı olurdu.
+- **14 yeni test** (kuşatma 6, geri çağırma 6, payload 4).
+
 ### Takviye raporları + yıkımın süresi (13 Eylül 2026)
 - **"Destek yolladım, rapor 'saldırdın ve kaybettin' diyordu."** Takviye raporunun `outcome`'u (`takviye_vardi`) rapor ekranında hiç tanınmıyordu: kazanan/kaybeden testine düşüyor, `winner: 'none'` olduğu için herkes kaybediyordu. Artık giden "X köyünü destekledin", gelen "X sana destek gönderdi"; rozet de kırmızı değil savunma yeşili.
 - Takviye ayrıntısı savaş kutularını (saldırı gücü, ganimet, dönüş yükü) göstermiyor — savaş değil. Onun yerine giden/gelen birlikler ve **ekmeği kim ödüyor** yazıyor.

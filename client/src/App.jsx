@@ -629,8 +629,23 @@ function Game({ token, onLogout }) {
     socket.on('village_update', onUpdate);
     socket.on('connect', onConn);
     socket.on('disconnect', onDisc);
+    /*
+      SEFER HATALARI da aynı şeride. Geri çağırma penceresi kapandıysa
+      düğme hâlâ görünüyor olabilir (yayınlar arası gecikme); oyuncu
+      "bastım, bir şey olmadı" demesin diye sebebi yazıyoruz.
+    */
+    const SEFER_SEBEP = {
+      sefer_yok: 'Bu sefer artık listede değil.',
+      zaten_donuyor: 'Sefer zaten dönüşte.',
+      sure_doldu: 'Geri çağırma süresi doldu — ordu yoluna devam ediyor.',
+    };
+    const onSeferHata = (r) => {
+      const metin = SEFER_SEBEP[r?.reason];
+      if (metin) onRefused({ reason: metin });
+    };
     socket.on('build_refused', onRefused);
     socket.on('pazar_sonuc', onPazar);
+    socket.on('army_error', onSeferHata);
     return () => {
       clearTimeout(zaman);
       socket.off('village_update', onUpdate);
@@ -638,6 +653,7 @@ function Game({ token, onLogout }) {
       socket.off('disconnect', onDisc);
       socket.off('build_refused', onRefused);
       socket.off('pazar_sonuc', onPazar);
+      socket.off('army_error', onSeferHata);
     };
   }, []);
 
@@ -674,6 +690,7 @@ function Game({ token, onLogout }) {
   const cancelProductionBuild = (slotKey) => socket.emit('cancel_production_build', { slotKey });
   const cancelVillageBuild    = (slotKey) => socket.emit('cancel_village_build',    { slotKey });
   const cancelDemolishVillage = (slotKey) => socket.emit('cancel_demolish_village', { slotKey });
+  const seferGeriCagir        = (marchId) => socket.emit('sefer_geri_cagir',        { marchId });
 
   const queueEquipment  = (buildingType, equipmentType, quantity) => socket.emit('queue_equipment', { buildingType, equipmentType, quantity });
   const cancelEquipment = (buildingType, orderId) => socket.emit('cancel_equipment_order', { buildingType, orderId });
@@ -989,7 +1006,8 @@ function Game({ token, onLogout }) {
                   marches={village.marches || []}
                   incoming={village.incoming || []}
                   unitDefs={village.unitDefs || {}}
-                  maxMarches={village.marchInfo?.maxMarches || 8} />
+                  maxMarches={village.marchInfo?.maxMarches || 8}
+                  onRecall={seferGeriCagir} />
               </div>
             </div>
           )}
@@ -1121,6 +1139,7 @@ function Game({ token, onLogout }) {
             equipment={village.equipment || {}}
             equipmentCaps={village.equipmentCaps || {}}
             equipmentPool={village.equipmentPool || { capacity: 0, used: 0, free: 0 }}
+            kusatmaHavuz={village.kusatmaHavuz || { capacity: 0, used: 0, free: 0 }}
             buildQueue={village.buildQueue || []}
             onCancelBuild={(item) => (item.area === 'production'
               ? cancelProductionBuild(item.slotKey)

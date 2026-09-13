@@ -788,6 +788,48 @@ function resolveReturn(march, origin, caps = null, foodRoom = null) {
 }
 
 /**
+ * SEFER GERİ ÇAĞIRMA PENCERESİ — yola çıktıktan sonra ilk 90 GERÇEK saniye.
+ *
+ * Amaç dar: "yanlış köye bastım"ı kurtarmak. Pencere açık bırakılsaydı
+ * (her an geri çağır) saldırı risksiz olurdu — hedefi keşfeder, ordunun
+ * yolda olduğunu görür, son anda geri çekerdin. 90 saniye yanlış tıklamayı
+ * kurtarmaya yeter, taktik kaçamağa yetmez.
+ *
+ * Ölçü GERÇEK saniye (`departAt` = Date.now()): dünya hızı değişince
+ * pencerenin uzayıp kısalması oyuncu için anlamsız olurdu.
+ */
+const GERI_CAGIRMA_SANIYE = 90;
+
+/** Bu seferin geri çağırma penceresinden kaç saniye kaldı? (0 = kapandı) */
+function geriCagirmaKalan(march, now = Date.now()) {
+  if (!march || march.phase !== 'outbound') return 0;
+  if (!march.departAt) return 0;
+  return Math.max(0, GERI_CAGIRMA_SANIYE - (now - march.departAt) / 1000);
+}
+
+/**
+ * SEFERİ GERİ ÇAĞIR — yoldaki orduyu dönüşe geçirir.
+ *
+ * Işınlanma yok: ordu gittiği kadar yolu geri yürür. 90 saniyelik pencerede
+ * bu birkaç saniye tutuyor, yani pratikte anında dönüyor; asıl kural yine de
+ * "gidilen yol kadar dönülür" — pencere ileride genişletilirse doğru kalsın.
+ */
+function seferGeriCagir(village, marchId) {
+  const march = (village.marches || []).find(m => m.id === marchId);
+  if (!march) return { ok: false, reason: 'sefer_yok' };
+  if (march.phase !== 'outbound') return { ok: false, reason: 'zaten_donuyor' };
+  if (geriCagirmaKalan(march) <= 0) return { ok: false, reason: 'sure_doldu' };
+
+  const gidilen = Math.max(0, (march.legHours || 0) - (march.remainingHours ?? 0));
+  march.phase = 'return';
+  march.remainingHours = gidilen;
+  march.loot = {};          // hedefe varmadı, ganimet yok
+  march.intel = null;
+  march.geriCagrildi = true;
+  return { ok: true, march };
+}
+
+/**
  * TAKVİYEYİ GERİ ÇAĞIR — misafir birliği ev sahibinden alıp sahibine
  * dönüş seferi olarak yola çıkarır.
  *
@@ -848,5 +890,6 @@ module.exports = {
   totalUnits, buildingLevel, applyLossesToVillage, takeLoot, depositLoot,
   createMarch, resolveArrival, resolveReturn, pushReport,
   takviyeBirlikleri, savunanBirlikler, savunmaKayiplariniPayEt, takviyeGeriCagir,
+  seferGeriCagir, geriCagirmaKalan, GERI_CAGIRMA_SANIYE,
   SETTLER_UNIT, SETTLERS_REQUIRED,
 };

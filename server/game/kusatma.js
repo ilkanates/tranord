@@ -27,6 +27,17 @@ const SEVIYE_MALIYETI = 30;
 /** Ana bina bu seviyenin altına inmez (0 yapılırsa köy yıkımı açılır) */
 const ANA_BINA_TABAN = 1;
 
+/**
+ * İKİNCİ HEDEF — atölye bu seviyeye gelince mancınık iki bina vurabilir.
+ *
+ * Güç BÖLÜNÜYOR (%60 / %40), artmıyor: ikinci hedef bir bonus değil bir
+ * TERCİH. Tek binaya tam güç mü, iki binaya bölünmüş güç mü — oyuncu
+ * kararı. Eşit bölseydik (%50/%50) "birinci hedef" diye bir şey kalmaz,
+ * sıralamanın anlamı olmazdı.
+ */
+const IKI_HEDEF_MIN_ATOLYE = 10;
+const IKI_HEDEF_PAY = [0.6, 0.4];
+
 /** Koç başı surla, mancınık binayla ilgilenir — ekipmanından anlaşılıyor */
 const KOC_EKIPMANI = 'koc_basi';
 const MANCINIK_EKIPMANI = 'mancinik';
@@ -81,11 +92,62 @@ function yapiBul(village, tip) {
 }
 
 /**
+ * TEK MANCINIK ATIŞI — bir hedefi bul ve puanı harca.
+ *
+ * @param vurulan bu seferde zaten vurulmuş slot anahtarları; rastgele
+ *                seçim bunları atlar (iki atışın aynı binaya düşmemesi için)
+ */
+function mancinikVur(target, hedefTip, puan, sonuc, vurulan) {
+  let hedef = hedefTip ? yapiBul(target, hedefTip) : null;
+  if (!hedef) {
+    const adaylar = Object.entries(target.villageBuildings || {})
+      .filter(([slotKey, b]) => (b.level || 0) > 0
+        && b.type !== 'sur' && b.type !== 'hendek'
+        && !vurulan.has(slotKey));
+    if (adaylar.length) {
+      const [slotKey, b] = adaylar[Math.floor(Math.random() * adaylar.length)];
+      hedef = { slotKey, b };
+    }
+  }
+  if (!hedef) return false;
+
+  const taban = hedef.b.type === 'anaBina' ? ANA_BINA_TABAN : 0;
+  const { dusen } = seviyeDusur(hedef.b.level, puan, taban);
+  vurulan.add(hedef.slotKey);
+  if (dusen <= 0) return false;
+
+  const onceki = hedef.b.level;
+  hedef.b.level = Math.max(taban, hedef.b.level - dusen);
+  if (hedef.b.level === 0) { hedef.b.building = false; hedef.b.buildEndTime = null; }
+  /*
+    Yıkılan binada çalışan işçiler havuza döner — yoksa işçiler artık var
+    olmayan bir binada "çalışıyor" görünür ve nüfus muhasebesi sessizce
+    bozulur.
+  */
+  if (hedef.b.level === 0 && hedef.b.workers > 0) {
+    target.freeWorkers = (target.freeWorkers || 0) + hedef.b.workers;
+    hedef.b.workers = 0;
+  }
+  /*
+    Aynı bina iki kez vurulduysa (oyuncu aynı tipi iki kez seçti) tek
+    satırda birleştir: rapor "Depo 12 → 10" demeli, iki ayrı satır değil.
+  */
+  const eski = sonuc.binalar.find(x => x.slotKey === hedef.slotKey);
+  if (eski) eski.sonraki = hedef.b.level;
+  else sonuc.binalar.push({
+    tip: hedef.b.type, slotKey: hedef.slotKey,
+    onceki, sonraki: hedef.b.level,
+  });
+  return true;
+}
+
+/**
  * KUŞATMAYI UYGULA.
  *
  * @param target     savunan köy (state DEĞİŞİR)
  * @param survivors  saldıranın SAĞ KALAN birlikleri
- * @param hedefTip   mancınığın hedef bina tipi (yoksa/bulunamazsa rastgele)
+ * @param hedefTip   mancınığın hedef bina tipi; dizi verilirse ilk ikisi
+ *                   %60/%40 paylaşır (atölye Lvl 10 kuralı çağıranda)
  * @returns {{ sur:number, hendek:number, binalar:Array<{tip,ad,onceki,sonraki}> }|null}
  *          Hiç kuşatma birimi yoksa null.
  */
@@ -96,15 +158,20 @@ function uygula(target, survivors, hedefTip = null) {
   const sonuc = { sur: 0, hendek: 0, binalar: [] };
 
   /*
-    KOÇ BAŞI — önce sur, artan puanla hendek. Sıra önemli: sur savunma
-    bonusunun büyük kısmını veriyor, oyuncunun beklentisi de "kapıyı kır".
+    KOÇ BAŞI — YALNIZ SUR.
+
+    Eskiden artan puan hendeğe de geçiyordu; tek sefer iki savunma yapısını
+    birden siliyordu ve hendeğe yatırım yapmanın anlamı kalmıyordu. Artık
+    koç başı tek iş yapıyor: kapıyı kırmak. Sur sıfırlandıktan sonra artan
+    puan BOŞA GİDER — "kaç koç başı göndereyim" gerçek bir hesap olsun.
+
+    Hendeği indirmek isteyen mancınıkla hedefleyebilir (hedef listesinde
+    yok; ileride açılırsa tek yer YIKILABILIR filtresi).
   */
   if (guc.koc > 0) {
-    let puan = guc.koc;
-    for (const tip of ['sur', 'hendek']) {
-      const y = yapiBul(target, tip);
-      if (!y) continue;
-      const { dusen, kalanPuan } = seviyeDusur(y.b.level, puan, 0);
+    const y = yapiBul(target, 'sur');
+    if (y) {
+      const { dusen } = seviyeDusur(y.b.level, guc.koc, 0);
       if (dusen > 0) {
         y.b.level = Math.max(0, y.b.level - dusen);
         /*
@@ -113,10 +180,8 @@ function uygula(target, survivors, hedefTip = null) {
           diye kilitli görünüyordu.
         */
         if (y.b.level === 0) { y.b.building = false; y.b.buildEndTime = null; }
-        sonuc[tip] = dusen;
+        sonuc.sur = dusen;
       }
-      puan = kalanPuan;
-      if (puan <= 0) break;
     }
   }
 
@@ -124,38 +189,26 @@ function uygula(target, survivors, hedefTip = null) {
     MANCINIK — seçilen bina tipi. Yoksa RASTGELE bir bina vurulur:
     "hedefin yok" deyip seferi boşa çıkarmak hem oyuncuyu cezalandırır
     hem de dolaylı olarak köyün içini keşfetmeye yarardı.
+
+    İki hedef verildiyse güç %60/%40 bölünür. İkinci atış birincinin
+    slotunu rastgele seçim havuzundan DIŞLIYOR: "rastgele" iki kez aynı
+    binaya düşerse oyuncu iki hedef seçmiş olmanın karşılığını alamazdı.
+    (Aynı TİPİ iki kez seçmek serbest — o oyuncunun kendi tercihi.)
   */
   if (guc.mancinik > 0) {
-    let hedef = hedefTip ? yapiBul(target, hedefTip) : null;
-    if (!hedef) {
-      const adaylar = Object.entries(target.villageBuildings || {})
-        .filter(([, b]) => (b.level || 0) > 0 && b.type !== 'sur' && b.type !== 'hendek');
-      if (adaylar.length) {
-        const [slotKey, b] = adaylar[Math.floor(Math.random() * adaylar.length)];
-        hedef = { slotKey, b };
-      }
-    }
-    if (hedef) {
-      const taban = hedef.b.type === 'anaBina' ? ANA_BINA_TABAN : 0;
-      const { dusen } = seviyeDusur(hedef.b.level, guc.mancinik, taban);
-      if (dusen > 0) {
-        const onceki = hedef.b.level;
-        hedef.b.level = Math.max(taban, hedef.b.level - dusen);
-        if (hedef.b.level === 0) { hedef.b.building = false; hedef.b.buildEndTime = null; }
-        /*
-          Yıkılan binada çalışan işçiler havuza döner — yoksa işçiler
-          artık var olmayan bir binada "çalışıyor" görünür ve nüfus
-          muhasebesi sessizce bozulur.
-        */
-        if (hedef.b.level === 0 && hedef.b.workers > 0) {
-          target.freeWorkers = (target.freeWorkers || 0) + hedef.b.workers;
-          hedef.b.workers = 0;
-        }
-        sonuc.binalar.push({
-          tip: hedef.b.type, slotKey: hedef.slotKey,
-          onceki, sonraki: hedef.b.level,
-        });
-      }
+    const liste = (Array.isArray(hedefTip) ? hedefTip : [hedefTip])
+      .filter(t => typeof t === 'string' && t)
+      .slice(0, IKI_HEDEF_PAY.length);
+    const ikili = liste.length >= 2;
+    const atislar = ikili
+      ? [[liste[0], guc.mancinik * IKI_HEDEF_PAY[0]],
+         [liste[1], guc.mancinik * IKI_HEDEF_PAY[1]]]
+      : [[liste[0] || null, guc.mancinik]];
+
+    const vurulan = new Set();
+    for (const [tip, puan] of atislar) {
+      if (puan <= 0) continue;
+      mancinikVur(target, tip, puan, sonuc, vurulan);
     }
   }
 
@@ -166,4 +219,5 @@ function uygula(target, survivors, hedefTip = null) {
 module.exports = {
   uygula, kusatmaGucu, kusatmaSinifi, seviyeDusur,
   SEVIYE_MALIYETI, ANA_BINA_TABAN,
+  IKI_HEDEF_MIN_ATOLYE, IKI_HEDEF_PAY,
 };

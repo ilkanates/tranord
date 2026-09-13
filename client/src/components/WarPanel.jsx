@@ -7,7 +7,7 @@
  * hız çarpanıyla değil; istemcide sayaç tutmak iki saatin arasında kayma
  * üretirdi.
  */
-import { C, FONT, panel, label as lbl, num, short, fmtTime } from '../theme';
+import { C, FONT, panel, btn, label as lbl, num, short, fmtTime } from '../theme';
 import Icon from './Icons';
 
 const MODE_LABEL = { raid: 'Yağma', attack: 'Saldırı', scout: 'Keşif', yerlesim: 'Yerleşim' };
@@ -62,7 +62,7 @@ export function IncomingAlert({ incoming = [] }) {
 }
 
 // ── Yoldaki seferler ─────────────────────────────────────────────────
-export function MarchPanel({ marches = [], incoming = [], unitDefs = {}, maxMarches = 8 }) {
+export function MarchPanel({ marches = [], incoming = [], unitDefs = {}, maxMarches = 8, onRecall }) {
   const mine = marches;
   if (!mine.length && !incoming.length) return null;
 
@@ -104,6 +104,25 @@ export function MarchPanel({ marches = [], incoming = [], unitDefs = {}, maxMarc
                   )}
                 </div>
               </div>
+              {/*
+                GERİ ÇAĞIR — yalnız pencere açıkken. Kalan süre düğmenin
+                üstünde yazıyor: "basabilir miyim" sorusunun cevabı
+                düğmeye basmadan görünsün.
+              */}
+              {!back && m.geriCagirTimeLeft > 0 && onRecall && (
+                <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                  <button onClick={() => onRecall(m.id)}
+                    title="Ordu geri döner; ganimet taşımaz"
+                    style={btn('danger', {
+                      padding: '4px 8px', fontSize: 8.5, letterSpacing: 0.9,
+                    })}>
+                    GERİ ÇAĞIR
+                  </button>
+                  <div style={num({ fontSize: 9, color: C.textMute, marginTop: 2 })}>
+                    {Math.ceil(m.geriCagirTimeLeft)} sn
+                  </div>
+                </div>
+              )}
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={lbl({ fontSize: 7, letterSpacing: 0.9 })}>
                   {back ? 'EVE' : 'VARIŞ'}

@@ -60,7 +60,7 @@ const EQUIPMENT_DEFS = {
     saldiri: +20, yayaSav: 0, atliSav: 0, hiz: 0, kapasite: 0,
     cost: { kereste: 120, demirKulce: 60 }, productionHours: 6,
     producedAt: 'atolye',
-    kural: 'Sur ve hendeği yıkar. Yalnız saldıran kazanırsa etki eder.'
+    kural: 'Yalnız SURU yıkar (hendeğe dokunmaz). Saldıran kazanırsa etki eder.'
   },
   mancinik: {
     name: 'Mancınık', icon: '🎯',
@@ -298,6 +298,19 @@ for (const def of Object.values(UNIT_DEFS)) {
   İkinci bir kapı koymak yeni köyü gereksiz yere kilitler.
 */
 UNIT_DEFS[SETTLER_UNIT].research = null;
+
+/*
+  KOÇBAŞI RÚN SALONU İSTER — ama atölye şartı Lvl 1 kalır.
+
+  Araştırma normalde `minLevel`den türüyor ve koç başının minLevel'i 1
+  olduğu için hiç araştırma istemiyordu: atölyeyi kurar kurmaz sur kırma
+  makinesi üretilebiliyordu. Kuşatma bilgisinin bedava gelmemesi gerekiyor.
+
+  `minLevel` DEĞİŞTİRİLMEDİ bilerek: onu yükseltmek atölye şartını da
+  yükseltir, yani tek istek için iki kapı birden eklenirdi. Araştırma
+  doğrudan en alt kademeye (Lvl 2) yazılıyor — Rún Salonu Lvl 2 yetiyor.
+*/
+UNIT_DEFS.kaleKiran.research = researchFor(2);
 
 /** Bu birim eğitilmeden önce araştırılmalı mı? */
 const needsResearch = (unitType) => !!UNIT_DEFS[unitType]?.research;

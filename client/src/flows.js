@@ -40,7 +40,11 @@ export const RES_LABEL = {
 
 export const EQ_LABEL = {
   kilic: 'Kılıç', mizrak: 'Mızrak', kalkan: 'Kalkan', zirh: 'Zırh', at: 'At',
+  koc_basi: 'Koçbaşı', mancinik: 'Mancınık',
 };
+
+/** Atölyenin kendi kapasitesini paylaşan kuşatma makineleri */
+export const KUSATMA_KEYS = ['koc_basi', 'mancinik'];
 
 const FOOD_KEYS = new Set(['un', 'ekmek']);
 

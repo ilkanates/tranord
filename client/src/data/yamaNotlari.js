@@ -26,6 +26,55 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13f',
+    tarih: '13 Eylül 2026',
+    baslik: 'Seferi geri çağır, kuşatma ayarları',
+    notlar: [
+      {
+        id: '20260913-sefer-geri-cagir',
+        tur: 'yenilik',
+        metin: 'Yola çıkardığın seferi ilk 90 saniye içinde GERİ ÇAĞIRabilirsin. '
+          + 'Seferler listesindeki düğmenin altında kalan süre yazıyor. Ordu '
+          + 'gittiği yol kadar geri yürür, ganimet getirmez. Pencere bilerek '
+          + 'dar: yanlış köye basmayı kurtarmak için, saldırıyı son anda geri '
+          + 'çekmek için değil.',
+      },
+      {
+        id: '20260913-mancinik-iki-hedef',
+        tur: 'yenilik',
+        metin: 'Atölye Lvl 10 olunca mancınık tek seferde İKİ bina '
+          + 'hedefleyebiliyor. Kuşatma gücü bölünür: birinci hedefe %60, '
+          + 'ikinciye %40. Yani bedava bir güç değil — tek binaya tam güç mü '
+          + 'vuracaksın, iki binaya bölünmüş mü, sen seçiyorsun.',
+      },
+      {
+        id: '20260913-koc-sadece-sur',
+        tur: 'denge',
+        metin: 'Koçbaşı artık YALNIZ suru indiriyor, hendeğe dokunmuyor. '
+          + 'Eskiden surdan artan güç hendeğe geçiyordu ve tek sefer iki '
+          + 'savunma yapısını birden siliyordu — hendeğe yatırım yapmanın '
+          + 'anlamı kalmıyordu. Artan güç artık boşa gidiyor: kaç koçbaşı '
+          + 'göndereceğin gerçek bir hesap.',
+      },
+      {
+        id: '20260913-koc-arastirma',
+        tur: 'denge',
+        metin: 'Koçbaşı artık Rún Salonu araştırması olmadan üretilemiyor '
+          + '(Rún Salonu Lvl 2). Eskiden atölyeyi kurar kurmaz sur kırma '
+          + 'makinesi basılabiliyordu; kuşatma bilgisi bedava geliyordu. '
+          + 'Atölye şartı değişmedi, Lvl 1 yeterli.',
+      },
+      {
+        id: '20260913-kusatma-stok-rayi',
+        tur: 'duzeltme',
+        metin: 'Koçbaşı ve mancınık stoğun artık sağ rayda, ekipmanların '
+          + 'altında görünüyor. Kaç makinen olduğunu ve atölyenin dolup '
+          + 'dolmadığını hiçbir ekrandan göremiyordun. Cephanelik havuzuna '
+          + 'girmezler — at gibi kendi kapasiteleri var (atölye seviyesi × 5).',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13e',
     tarih: '13 Eylül 2026',
     baslik: 'Destek raporları ve yıkım süresi',

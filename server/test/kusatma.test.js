@@ -57,16 +57,16 @@ test('seviyeDusur: maliyet seviyeyle artıyor', () => {
   assert.ok(K.seviyeDusur(3, 270).dusen > K.seviyeDusur(10, 270).dusen);
 });
 
-test('koç başı önce suru, artan puanla hendeği indiriyor', () => {
+test('koç başı YALNIZ suru indiriyor — hendeğe dokunmuyor', () => {
   const v = koy({ sur: bina('sur', 3), hendek: bina('hendek', 2) });
   // kaleKiran saldırı 60 → 10 adet = 600 puan
-  // sur 3: 90+60+30 = 180 → sur 0'a iner, 420 kalır
-  // hendek 2: 60+30 = 90 → hendek de 0'a iner
+  // sur 3: 90+60+30 = 180 → sur 0'a iner. Artan 420 puan BOŞA GİDER:
+  // eskiden hendeğe geçiyordu ve tek sefer iki yapıyı birden siliyordu.
   const s = K.uygula(v, { kaleKiran: 10 });
   assert.equal(v.villageBuildings.sur.level, 0);
-  assert.equal(v.villageBuildings.hendek.level, 0);
+  assert.equal(v.villageBuildings.hendek.level, 2, 'hendek el değmeden kalmalı');
   assert.equal(s.sur, 3);
-  assert.equal(s.hendek, 2);
+  assert.equal(s.hendek, 0);
 });
 
 test('az sayıda koç başı yüksek suru indiremiyor', () => {
@@ -133,4 +133,72 @@ test('atölye kuşatma kapasitesi tanımlı ve iki tarafta aynı', async () => {
   assert.ok(S.atolye.siegeCapPerLevel > 0, 'sunucuda tanımlı olmalı');
   assert.equal(C.atolye.siegeCapPerLevel, S.atolye.siegeCapPerLevel,
     'ikiz tanım ayrışmış');
+});
+
+/**
+ * İKİ HEDEF — atölye Lvl 10 kuralı.
+ *
+ * Güç BÖLÜNÜYOR (%60/%40), artmıyor. Testin kilitlediği şey bu: ikinci
+ * hedef bir bonus olarak yazılırsa mancınık sessizce iki katına çıkar.
+ */
+test('iki hedef: güç %60/%40 bölünüyor, ikisi de vuruluyor', () => {
+  const v = koy({ '1,0': bina('kisla', 3), '2,0': bina('depo', 3) });
+  // 8 mancınık = 600 puan. %60 = 360, %40 = 240.
+  // Lvl 3 → 2 için 90, 2 → 1 için 60, 1 → 0 için 30 puan.
+  K.uygula(v, { 'alevMancınıgı': 8 }, ['kisla', 'depo']);
+  assert.equal(v.villageBuildings['1,0'].level, 0, '360 puan Lvl 3 kışlayı sıfırlar');
+  assert.equal(v.villageBuildings['2,0'].level, 0, '240 puan Lvl 3 depoyu sıfırlar');
+});
+
+test('iki hedef bölünmesi TEK hedeften zayıf — bonus değil tercih', () => {
+  const tek = koy({ '1,0': bina('kisla', 6) });
+  const cift = koy({ '1,0': bina('kisla', 6), '2,0': bina('depo', 1) });
+  K.uygula(tek,  { 'alevMancınıgı': 8 }, 'kisla');
+  K.uygula(cift, { 'alevMancınıgı': 8 }, ['kisla', 'depo']);
+  assert.ok(cift.villageBuildings['1,0'].level > tek.villageBuildings['1,0'].level,
+    'bölünmüş güç aynı binayı daha az indirmeli');
+});
+
+test('tek hedef verilince eski davranış aynen sürüyor (dizi şart değil)', () => {
+  const dizi = koy({ '1,0': bina('kisla', 3) });
+  const metin = koy({ '1,0': bina('kisla', 3) });
+  K.uygula(dizi,  { 'alevMancınıgı': 8 }, ['kisla']);
+  K.uygula(metin, { 'alevMancınıgı': 8 }, 'kisla');
+  assert.equal(dizi.villageBuildings['1,0'].level,
+    metin.villageBuildings['1,0'].level);
+});
+
+test('ikinci hedef bulunamazsa rastgele seçim BİRİNCİYİ tekrar vurmuyor', () => {
+  // 'pazar' köyde yok; ikinci atış rastgeleye düşer ve tek aday depo kalır
+  for (let i = 0; i < 20; i++) {
+    const v = koy({ '1,0': bina('kisla', 1), '2,0': bina('depo', 1) });
+    const s = K.uygula(v, { 'alevMancınıgı': 8 }, ['kisla', 'pazar']);
+    const slotlar = s.binalar.map(b => b.slotKey);
+    assert.equal(new Set(slotlar).size, slotlar.length,
+      'aynı slot iki atışta da seçilmiş');
+  }
+});
+
+test('iki hedef eşiği ve paylar sabitlerde — denge buradan ayarlanır', () => {
+  assert.equal(K.IKI_HEDEF_MIN_ATOLYE, 10);
+  assert.deepEqual(K.IKI_HEDEF_PAY, [0.6, 0.4]);
+  assert.equal(K.IKI_HEDEF_PAY[0] + K.IKI_HEDEF_PAY[1], 1,
+    'paylar toplamı 1 olmalı — yoksa ikinci hedef gizli bir bonus/ceza olur');
+});
+
+/**
+ * KUŞATMA BİRİMLERİ ARAŞTIRMA İSTER.
+ *
+ * Koç başının minLevel'i 1 olduğu için araştırma türetilmiyordu: atölye
+ * kurulur kurulmaz sur kırma makinesi üretilebiliyordu. Kapı elle eklendi;
+ * bu test onu ve "atölye şartı yükselmesin" kararını kilitliyor.
+ */
+test('koç başı Rún Salonu araştırması istiyor, atölye şartı Lvl 1 kalıyor', () => {
+  const { UNIT_DEFS: U, needsResearch, RESEARCHABLE } = require('../data/militaryDefs');
+  assert.ok(needsResearch('kaleKiran'), 'koç başı araştırma istemeli');
+  assert.equal(U.kaleKiran.research.level, 2, 'Rún Salonu Lvl 2');
+  assert.equal(U.kaleKiran.minLevel, 1,
+    'atölye şartı yükselmemeli — tek istek için iki kapı olmaz');
+  assert.ok(RESEARCHABLE.includes('kaleKiran'), 'araştırma listesinde olmalı');
+  assert.ok(needsResearch('alevMancınıgı'), 'mancınık zaten istiyordu');
 });

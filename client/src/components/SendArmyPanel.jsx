@@ -35,7 +35,7 @@ const MODES = [
 /**
  * MANCINIK HEDEF LİSTESİ — oyuncunun seçebileceği bina tipleri.
  *
- * Sur ve hendek YOK: onları koç başı yıkıyor, mancınığa verilse iki
+ * Sur YOK: onu koç başı yıkıyor, mancınığa verilse iki
  * makine aynı işi yapardı. Liste villageDefs'ten türetiliyor, elle
  * yazılsaydı yeni bina eklendiğinde unutulurdu.
  */
@@ -193,6 +193,8 @@ export default function SendArmyPanel({
 
   const [mode, setMode] = useState(yalnizTakviye ? 'takviye' : 'raid');
   const [hedefBina, setHedefBina] = useState('');
+  // İkinci mancınık hedefi — yalnız atölye Lvl 10'dan itibaren
+  const [hedefBina2, setHedefBina2] = useState('');
   const [sel, setSel] = useState({});
   const [err, setErr] = useState(null);
   const [sent, setSent] = useState(null);
@@ -251,6 +253,14 @@ export default function SendArmyPanel({
       u => (unitDefs[u]?.equipment || []).includes('mancinik')),
     [chosen, unitDefs]);
 
+  /*
+    İKİNCİ HEDEF — atölye seviyesi sunucudan (marchInfo) geliyor: seviye
+    SALDIRANIN köyüne ait, panelin haritadan aldığı hedef bilgisinde yok.
+    Karar yine sunucuda; buradaki kontrol yalnız kutuyu göstermek için.
+  */
+  const minAtolye = marchInfo?.ikiHedefMinAtolye ?? 10;
+  const ikiHedefAcik = (marchInfo?.atolyeSeviye ?? 0) >= minAtolye;
+
   // ── Sonuç/hata dinleyicileri ──
   useEffect(() => {
     if (!socket) return;
@@ -298,7 +308,11 @@ export default function SendArmyPanel({
   const send = () => {
     setErr(null); setNoReply(false);
     pending.current = true;
-    socket?.emit('send_army', { targetKey: target.key, mode, units: chosen, hedefBina: hedefBina || null });
+    socket?.emit('send_army', {
+      targetKey: target.key, mode, units: chosen,
+      hedefBina: hedefBina || null,
+      hedefBina2: (ikiHedefAcik && hedefBina) ? (hedefBina2 || null) : null,
+    });
     // Sunucu ne 'army_sent' ne 'army_error' döndürmezse olayı kimse dinlemiyor
     // demektir — sessiz başarısızlık yerine bunu söyle.
     setTimeout(() => { if (pending.current) setNoReply(true); }, 3000);
@@ -412,12 +426,50 @@ export default function SendArmyPanel({
                     <option key={k} value={k}>{ad}</option>
                   ))}
                 </select>
+                {/*
+                  İKİNCİ HEDEF — güç bölünüyor, artmıyor. Yüzdeleri yazmak
+                  şart: "iki hedef seçebiliyorum" bedava bir bonus gibi
+                  okunuyor, oysa tek hedefe tam güç vurmanın alternatifi.
+                */}
+                {ikiHedefAcik && (
+                  <div style={{ marginTop: 7 }}>
+                    <div style={lbl({ fontSize: 8, letterSpacing: 1.2, marginBottom: 4 })}>
+                      İkinci hedef · atölye Lvl {minAtolye}+
+                    </div>
+                    <select value={hedefBina2}
+                      onChange={(e) => setHedefBina2(e.target.value)}
+                      disabled={!hedefBina}
+                      style={{
+                        width: '100%', padding: '6px 8px', borderRadius: 4,
+                        background: 'rgba(4,9,15,0.75)', border: `1px solid ${C.lineSoft}`,
+                        color: hedefBina ? C.frost : C.textMute,
+                        fontFamily: FONT.ui, fontSize: 10.5, outline: 'none',
+                        opacity: hedefBina ? 1 : 0.55,
+                      }}>
+                      <option value="">İkinci hedef yok — tek hedefe tam güç</option>
+                      {YIKILABILIR.map(([k, ad]) => (
+                        <option key={k} value={k}>{ad}</option>
+                      ))}
+                    </select>
+                    <div style={{
+                      fontFamily: FONT.ui, fontSize: 9, color: C.textMute,
+                      marginTop: 4, lineHeight: 1.4,
+                    }}>
+                      {hedefBina2
+                        ? 'Kuşatma gücü bölünür: birinci hedefe %60, ikinciye %40.'
+                        : hedefBina
+                          ? 'Boş bırakırsan bütün güç birinci hedefe gider.'
+                          : 'Önce birinci hedefi seç.'}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{
                   fontFamily: FONT.ui, fontSize: 9, color: C.textMute,
                   marginTop: 5, lineHeight: 1.4,
                 }}>
-                  Sur ve hendeği koç başı yıkar — mancınık binaları vurur.
-                  Hedef o köyde yoksa rastgele bir bina vurulur.
+                  Suru koç başı yıkar (hendeğe dokunmaz) — mancınık binaları
+                  vurur. Hedef o köyde yoksa rastgele bir bina vurulur.
                 </div>
               </div>
             )}

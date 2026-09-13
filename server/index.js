@@ -7,6 +7,7 @@ const { createVillage, hydrateVillage, civilianCount } = require('./game/village
 const { processTick, getUpgradeSeconds, getStorageCaps } = require('./game/tick');
 const { simulateBattle } = require('./game/combat');
 const ARMY = require('./game/army');
+const KUSATMA = require('./game/kusatma');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital,
@@ -2580,7 +2581,7 @@ io.on('connection', async socket => {
 
 
   // ── SEFER: ordu gönder ────────────────────────────────────────────
-  socket.on('send_army', ({ targetKey, mode, units, hedefBina = null } = {}) => {
+  socket.on('send_army', ({ targetKey, mode, units, hedefBina = null, hedefBina2 = null } = {}) => {
     const fail = (reason) => socket.emit('army_error', { reason });
     const village = v();
     // ÇOKLU KÖY: sefer AKTİF köyden çıkar, oyuncunun "ilk" köyünden değil
@@ -2666,7 +2667,19 @@ io.on('connection', async socket => {
       hedefin hangi slotunda ne oldugunu bilmiyor, yalnizca "deposunu vur"
       diyebiliyor. Bulunamazsa rastgele bina vuruluyor (bkz. kusatma.js).
     */
-    if (typeof hedefBina === 'string' && hedefBina) res.march.kusatmaHedefi = hedefBina;
+    if (typeof hedefBina === 'string' && hedefBina) {
+      /*
+        İKİNCİ HEDEF — ATÖLYE SEVİYESİ SUNUCUDA ÖLÇÜLÜR. İstemci düğmeyi
+        gizliyor ama gizlemek bir denetim değil: seviye yetmiyorsa ikinci
+        hedef sessizce düşürülüyor, sefer yine de gidiyor.
+      */
+      const ikiHedefAcik =
+        ARMY.buildingLevel(village, 'atolye') >= KUSATMA.IKI_HEDEF_MIN_ATOLYE;
+      res.march.kusatmaHedefi =
+        (ikiHedefAcik && typeof hedefBina2 === 'string' && hedefBina2)
+          ? [hedefBina, hedefBina2]
+          : hedefBina;
+    }
 
     /*
       İlk SALDIRI başlangıç korumasını kaldırır. Göçmen seferi ve TAKVİYE
@@ -2680,6 +2693,19 @@ io.on('connection', async socket => {
       seconds: res.march.legSeconds, distance: dist,
     });
     console.log(`[SEFER] ${userEmail} → ${tgtName} (${mode}, ${dist} hex, ${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
+  });
+
+  /**
+   * SEFERİ GERİ ÇAĞIR — yoldaki orduyu dönüşe geçirir (ilk 90 saniye).
+   *
+   * Pencere sunucuda ölçülüyor: istemcideki düğmenin görünür olması yetmez,
+   * yayınlar arası gecikmede düğme hâlâ duruyor olabilir.
+   */
+  socket.on('sefer_geri_cagir', ({ marchId } = {}) => {
+    const res = ARMY.seferGeriCagir(v(), marchId);
+    if (!res.ok) return socket.emit('army_error', { reason: res.reason });
+    dirty(); emit();
+    console.log(`[SEFER İPTAL] ${userEmail} → ${res.march.toName} (${res.march.mode})`);
   });
 
   /**

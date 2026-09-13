@@ -11,8 +11,9 @@
  * (bkz. client/src/App.jsx setServerVillage).
  */
 const { WALL_SLOTS_ARR: WALL_SLOT_NAMES, civilianCount } = require('./villageState');
-const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEquipmentCap, getEquipmentPool, getConsumptionRates } = require('./tick');
+const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEquipmentCap, getEquipmentPool, getConsumptionRates, getSiegeCap, SIEGE_KEYS } = require('./tick');
 const ARMY = require('./army');
+const KUSATMA = require('./kusatma');
 const GT = require('./gameTime');
 const W = require('./world');
 const CULTURE = require('./culture');
@@ -147,8 +148,22 @@ function buildPayload(village, tickMs, opts = {}) {
 
   const equipmentCaps = {
     kilic: getEquipmentCap(village,'kilic'), mizrak: getEquipmentCap(village,'mizrak'),
-    kalkan: getEquipmentCap(village,'kalkan'), zirh: getEquipmentCap(village,'zirh'), at: getEquipmentCap(village,'at')
+    kalkan: getEquipmentCap(village,'kalkan'), zirh: getEquipmentCap(village,'zirh'), at: getEquipmentCap(village,'at'),
+    // Kuşatma makineleri: ikisi ORTAK atölye kapasitesini paylaşıyor
+    koc_basi: getEquipmentCap(village, 'koc_basi'),
+    mancinik: getEquipmentCap(village, 'mancinik'),
   };
+  /*
+    KUŞATMA HAVUZU — cephanelik havuzundan AYRI, atölyenin kendi yeri.
+    Ekipman rayında görünmüyordu: oyuncu koç başı/mancınık stokunu ve
+    atölyenin dolup dolmadığını hiçbir yerden göremiyordu.
+  */
+  const kusatmaHavuz = (() => {
+    const capacity = getSiegeCap(village);
+    let used = 0;
+    for (const k of SIEGE_KEYS) used += village.equipment?.[k] || 0;
+    return { capacity, used, free: Math.max(0, capacity - used) };
+  })();
   // Kılıç/mızrak/kalkan/zırh ortak havuzu — client tek bar olarak gösterir
   const equipmentPool = getEquipmentPool(village);
 
@@ -206,7 +221,7 @@ function buildPayload(village, tickMs, opts = {}) {
     resources: Object.fromEntries(Object.entries(village.resources)
       .map(([k, n]) => [k, Math.round((n || 0) * 10) / 10])),
     equipment: { ...(village.equipment || {}) },
-    equipmentCaps, equipmentPool, buildQueue, equipmentQueues, equipmentByBuilding: EQUIPMENT_BY_BUILDING, equipmentDefs: EQUIPMENT_DEFS,
+    equipmentCaps, equipmentPool, kusatmaHavuz, buildQueue, equipmentQueues, equipmentByBuilding: EQUIPMENT_BY_BUILDING, equipmentDefs: EQUIPMENT_DEFS,
     army: { ...(village.army || {}) }, unitQueues, unitDefs: TRAINABLE_UNITS,
     unitsByBuilding: UNITS_BY_BUILDING, baseStats: BASE_STATS,
     // Rún Salonu: hangi birimler açık, sırada ne var
@@ -232,6 +247,12 @@ function buildPayload(village, tickMs, opts = {}) {
       legSeconds: m.legSeconds,
       timeLeft: GT.clockToRealSeconds(
         GT.hoursToClock(Math.max(0, m.remainingHours ?? 0)), speed),
+      /*
+        GERİ ÇAĞIRMA PENCERESİ. Alan adı `...TimeLeft` ile bitiyor: istemci
+        `shiftTimers` ile bu eki tanıyıp iki yayın arasında kendisi sayıyor.
+        Sunucu sessizken düğmenin 30 sn boyunca canlı görünmesini engelliyor.
+      */
+      geriCagirTimeLeft: ARMY.geriCagirmaKalan(m),
     })),
     /*
       TAKVİYE — İKİ AYRI GÖRÜNÜM.
@@ -261,6 +282,14 @@ function buildPayload(village, tickMs, opts = {}) {
       raidLootShare: ARMY.RAID_LOOT_SHARE,
       scoutUnits: [...ARMY.SCOUT_UNITS],
       maxMarches: MAX_MARCHES_PER_TOWN,
+      geriCagirmaSaniye: ARMY.GERI_CAGIRMA_SANIYE,
+      /*
+        MANCINIK İKİNCİ HEDEFİ — atölye seviyesi SALDIRANIN köyüne ait,
+        o yüzden hedefin değil kendi payload'ımızda gidiyor. İstemci ikinci
+        seçim kutusunu buna bakarak açıyor; karar yine sunucuda.
+      */
+      atolyeSeviye: ARMY.buildingLevel(village, 'atolye'),
+      ikiHedefMinAtolye: KUSATMA.IKI_HEDEF_MIN_ATOLYE,
       protected: !village.hasAttacked && ARMY.totalUnits(village.army) < PROTECT_MIN_ARMY,
       protectMinArmy: PROTECT_MIN_ARMY,
     },

@@ -4,7 +4,7 @@
  */
 import { memo, useState } from 'react';
 import { C, FONT, label as lbl, num, fmtTime } from '../theme';
-import { EQ_LABEL, RES_LABEL, gameHoursToRealSeconds } from '../flows';
+import { EQ_LABEL, RES_LABEL, KUSATMA_KEYS, gameHoursToRealSeconds } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import { useHoverable } from '../responsive';
 
@@ -144,6 +144,7 @@ function StatusRail({
   populationGrowthRate = 0, isStarving = false,
   consumption = {}, equipment = {}, equipmentCaps = {},
   equipmentPool = { capacity: 0, used: 0, free: 0 },
+  kusatmaHavuz = { capacity: 0, used: 0, free: 0 },
   buildQueue = [], onCancelBuild,
   army = {}, unitDefs = {}, tickMs = 1000,
   populationPerHour = 0, hourSeconds = 3600, worldSpeed = 1,
@@ -441,6 +442,11 @@ function StatusRail({
           const atCap    = equipmentCaps.at ?? 0;
           const atVal    = equipment.at || 0;
           const atFull   = atCap > 0 && atVal >= atCap;
+          // Kuşatma: atölyenin kendi kapasitesi — koç başı + mancınık ORTAK
+          const kusatmaCap  = kusatmaHavuz.capacity || 0;
+          const kusatmaUsed = kusatmaHavuz.used || 0;
+          const kusatmaPct  = kusatmaCap > 0 ? Math.min(1, kusatmaUsed / kusatmaCap) : 0;
+          const kusatmaFull = kusatmaCap > 0 && kusatmaUsed >= kusatmaCap;
 
           return (
             <div style={glass({ padding: '5px 3px 6px', flexShrink: 0 })}>
@@ -567,6 +573,67 @@ function StatusRail({
                 </div>
               </div>
               )}
+
+              {/*
+                KUŞATMA — atölyenin KENDİ yeri, cephanelik havuzundan ayrı.
+                Buraya konmadan önce koç başı/mancınık stoğu hiçbir ekranda
+                görünmüyordu: kaç makinen var, atölye doldu mu, bilinmiyordu.
+                At gibi ayrı bir blok — havuz barına karıştırılmadı, yoksa
+                "ortak havuz" kuralı yanlış okunurdu.
+              */}
+              {!fold.ekipman && kusatmaCap > 0 && (
+              <div style={{ height: 1, background: C.lineSoft, margin: '4px 7px 3px' }} />
+              )}
+              {!fold.ekipman && kusatmaCap > 0 && (
+              <div
+                onMouseEnter={(e) => place(e, {
+                  title: 'Kuşatma atölyesi', icon: 'atolye',
+                  rows: [
+                    { k: 'Kullanılan', v: `${kusatmaUsed} / ${kusatmaCap}`,
+                      c: kusatmaFull ? C.danger : C.frost },
+                    ...KUSATMA_KEYS.map(k => ({ k: EQ_LABEL[k], v: equipment[k] || 0 })),
+                  ],
+                  note: kusatmaFull
+                    ? 'Atölye dolu — yeni makine üretilmiyor. Kuşatma birimi eğit ya da atölyeyi yükselt.'
+                    : 'Koçbaşı ve mancınık cephanelik havuzuna girmez; ikisi atölyenin kendi kapasitesini paylaşır (seviye × 5).',
+                })}
+                onMouseMove={(e) => tip && place(e, tip)}
+                onMouseLeave={() => setTip(null)}
+                style={{ padding: '0 6px 2px', cursor: 'help' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                  <Icon name="atolye" size={10} color={kusatmaFull ? C.warn : C.iceDeep} />
+                  <span style={lbl({ fontSize: 7.5, letterSpacing: 1.3, flex: 1 })}>Kuşatma</span>
+                  <span style={num({ fontSize: 10, color: kusatmaFull ? C.warn : C.frost })}>
+                    {kusatmaUsed}<span style={{ color: C.textMute }}>/{kusatmaCap}</span>
+                  </span>
+                </div>
+                <Bar pct={kusatmaPct} color={C.iceDeep} danger={kusatmaFull} />
+              </div>
+              )}
+              {!fold.ekipman && kusatmaCap > 0 && KUSATMA_KEYS.map(k => {
+                const val = equipment[k] || 0;
+                return (
+                  <div key={k}
+                    onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(127,212,255,0.09)'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    style={{
+                      padding: '2px 6px 3px', borderRadius: 4,
+                      opacity: val === 0 ? 0.5 : 1, transition: 'background .12s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Icon name="atolye" size={13} color={kusatmaFull ? C.warn : C.textDim} />
+                      <span style={{ flex: 1, fontFamily: FONT.ui, fontSize: 9.5, color: C.textDim }}>
+                        {EQ_LABEL[k]}
+                      </span>
+                      <span style={num({ fontSize: 11.5, color: kusatmaFull ? C.warn : C.frost, fontWeight: 500 })}>
+                        {val}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })()}
