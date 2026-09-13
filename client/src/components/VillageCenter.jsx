@@ -983,6 +983,22 @@ export default function VillageCenter({
   */
   const fitMaxH = popoverPos?.h || prefH;
 
+  /*
+    POSTERİN EN AZ YÜKSEKLİĞİ — TEK KAYNAK.
+
+    İki yerde ayrı ayrı yazılıydı ve toplamları panele sığmıyordu:
+    poster `minHeight: max(150, denetimH + 49)` isterken gövdenin tavanı
+    `calc(100% - 150px)` idi — yani gövde, posterin HER ZAMAN 150 px
+    olduğunu varsayıyordu. Şerit uzayınca (ahır, kışla: denetimH ≈ 251)
+    poster 300 px'e çıkıyor, 300 + (panel − 150) panelin 150 px dışına
+    taşıyor ve gövdenin altı `overflow: hidden` ile kesiliyordu:
+    768×1024 tablette kışlada LVL düğmeleri erişilemiyordu (ölçüldü:
+    poster 300 + gövde 648 = 948, panel 800).
+
+    Artık ikisi de bu değeri okuyor; toplamları tanım gereği %100.
+  */
+  const posterMinH = darEkran ? 150 : Math.max(150, denetimH + 49);
+
   function handleSlotClick(slotKey) {
     if (selected === slotKey) { setSelected(null); setShowMenu(false); }
     else { setSelected(slotKey); setShowMenu(true); }
@@ -1399,7 +1415,7 @@ export default function VillageCenter({
                 */
                 flex: '1 1 auto',
                 // Dar ekranda şerit akışta; pencerenin onun için uzamasına gerek yok
-                minHeight: darEkran ? 150 : Math.max(150, denetimH + 49),
+                minHeight: posterMinH,
                 backgroundColor: '#0b1420',
                 overflow: 'hidden',
               }}>
@@ -1540,9 +1556,20 @@ export default function VillageCenter({
                 )}
 
                 {/* Sol alt: bina adı + seviye, görselin üstünde */}
-                <div style={{ position: 'absolute', left: 13, right: 200, bottom: 9, zIndex: 2 }}>
+                {/*
+                  SAĞDAKİ 200 px DENETİM ŞERİDİ İÇİN AYRILIYOR — ama şerit
+                  dar ekranda postere binmiyor, gövdeye iniyor. Orada da
+                  ayrılınca bina adına 320 px'de yalnız 69 px kalıyordu ve
+                  28 binanın 17'sinde ad kesiliyordu (ölçüldü: "Hammadde
+                  Deposu" 123 px istiyor). Şerit yoksa yer de ayrılmasın.
+                */}
+                <div style={{
+                  position: 'absolute', left: 13, right: darEkran ? 13 : 200,
+                  bottom: 9, zIndex: 2,
+                }}>
                   <div style={{
-                    fontFamily: FONT.head, fontSize: 25, fontWeight: 600, letterSpacing: 1.1,
+                    fontFamily: FONT.head, fontSize: darEkran ? 20 : 25,
+                    fontWeight: 600, letterSpacing: 1.1,
                     color: C.frost, lineHeight: 1.1, textShadow: '0 2px 8px rgba(0,0,0,0.95)',
                   }}>{panelTitle}</div>
                   <div style={{
@@ -1563,12 +1590,14 @@ export default function VillageCenter({
               /*
                 Gövde KENDİ boyunda durur (flex-shrink 0). Eskiden hem %62
                 sınırı hem de esneme vardı: gövde birkaç piksel sıkışıyor ve
-                sağda gereksiz kaydırma çubuğu çıkıyordu. Tavan "panel−150":
-                görsele her hâlde en az 150 px kalır, kaydırma yalnız
-                gerçekten sığmayan binalarda görünür.
+                sağda gereksiz kaydırma çubuğu çıkıyordu.
+
+                Tavan = panel − posterMinH. Sabit 150 yazılıydı ve posterin
+                gerçek en azı 300'e çıkabildiği için toplam paneli aşıyordu;
+                bkz. posterMinH'nin yanındaki not.
               */
               ...(panelTex
-                ? { flex: '0 0 auto', maxHeight: 'calc(100% - 150px)' }
+                ? { flex: '0 0 auto', maxHeight: `calc(100% - ${posterMinH}px)` }
                 : { flex: '1 1 auto', minHeight: 0 }),
               overflowY: 'auto',
             }}>
