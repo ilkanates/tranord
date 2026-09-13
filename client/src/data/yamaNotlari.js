@@ -26,6 +26,172 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13d',
+    tarih: '13 Eylül 2026',
+    baslik: 'Kuşatma silahları geldi',
+    notlar: [
+      {
+        id: '20260913-kusatma-uretilebilir',
+        tur: 'yenilik',
+        metin: 'Koçbaşı ve Alev Mancınığı artık gerçekten üretilebiliyor. '
+          + 'Birimler tanımlıydı ama gerektirdikleri ekipman hiç yoktu, yani '
+          + 'sipariş kuyruğa bile girmiyordu. Atölye bu iki ekipmanı üretiyor; '
+          + 'cephanelik havuzunu paylaşmıyorlar, atölyenin kendi kapasitesinde '
+          + 'duruyorlar (her seviye +5 makine).',
+      },
+      {
+        id: '20260913-kusatma-savas',
+        tur: 'yenilik',
+        metin: 'Kuşatma normal savaştan SONRA çalışıyor ve yalnız SALDIRAN '
+          + 'KAZANIRSA. Savaşta ölen makine iş yapmaz. Koçbaşı önce suru, '
+          + 'artan gücüyle hendeği indiriyor; mancınık senin seçtiğin binayı '
+          + 'vuruyor — o bina o köyde yoksa rastgele bir bina.',
+      },
+      {
+        id: '20260913-kusatma-maliyet',
+        tur: 'denge',
+        metin: 'Yüksek seviye yapıyı yıkmak daha pahalı: bir seviyeyi '
+          + 'indirmenin bedeli mevcut seviyeyle artıyor. 10 koçbaşı Lvl 3 '
+          + 'suru ve Lvl 2 hendeği sıfırlar; tek koçbaşı Lvl 20 sura hiç '
+          + 'dokunamaz. Sur yatırımın boşa gitmiyor.',
+      },
+      {
+        id: '20260913-koy-yikilmaz',
+        tur: 'denge',
+        metin: 'Mancınık ana binayı Lvl 1\'in altına indiremiyor — köyün tek '
+          + 'saldırıda yok olmuyor. Yıkılan binada çalışan işçiler havuza '
+          + 'geri dönüyor.',
+      },
+      {
+        id: '20260913-hizli-secim',
+        tur: 'yenilik',
+        metin: 'Ordu gönderme ekranında TÜM ORDU · SALDIRI · SAVUNMA · '
+          + 'TEMİZLE düğmeleri. İzci ve göçmen hiçbirine girmiyor: izci '
+          + 'savaşmaz, göçmenin ise saldırısı da savunması da sıfır — savaşa '
+          + 'giderse yerleşim hakkın boşa gider.',
+      },
+    ],
+  },
+  {
+    surum: '2026-09-13c',
+    tarih: '13 Eylül 2026',
+    baslik: 'Takviye: başka köye savunma gönder',
+    notlar: [
+      {
+        id: '20260913-takviye',
+        tur: 'yenilik',
+        metin: 'Artık başka bir köye TAKVİYE gönderebiliyorsun. Askerin orada '
+          + 'misafir kalıyor ve o köy saldırı alınca savunmaya katılıyor. '
+          + 'Kendi köylerin arasında da gönderilebiliyor — kendi köyüne '
+          + 'saldıramazsın ama takviye edebilirsin.',
+      },
+      {
+        id: '20260913-takviye-besleme',
+        tur: 'denge',
+        metin: 'Misafir askerin yemeğini EV SAHİBİ köy ödüyor. Takviye almak '
+          + 'bedava kalkan değil: ambarından çıkan gerçek bir yem maliyeti. '
+          + 'Saldırıda kayıp önce ev sahibinin ordusundan, artanı '
+          + 'misafirlerden düşüyor.',
+      },
+      {
+        id: '20260913-takviye-geri',
+        tur: 'yenilik',
+        metin: 'Askerini Ordu ekranından geri çağırabiliyorsun — ama '
+          + 'ışınlanmıyor, yürüyerek dönüyor. Saldırı gelince tek tuşla geri '
+          + 'almak olsaydı takviye risksiz olurdu.',
+      },
+    ],
+  },
+  {
+    surum: '2026-09-13b',
+    tarih: '13 Eylül 2026',
+    baslik: 'Üretim sınırları ve tıkanmalar',
+    notlar: [
+      {
+        id: '20260913-run-salonu-isci',
+        tur: 'duzeltme',
+        metin: 'Rún Salonu\'na işçi atanamıyordu, dolayısıyla HİÇBİR ARAŞTIRMA '
+          + 'yapılamıyordu. Aynı hata köşk ve sarayda da vardı: eğitmen '
+          + 'atanamadığı için göçmen kuyruğu ilerlemiyordu. Üçü de düzeldi.',
+      },
+      {
+        id: '20260913-50-siniri',
+        tur: 'denge',
+        metin: 'Bir seferde en fazla 50 asker/ekipman sipariş edilebiliyordu. '
+          + 'Sınır kalktı — artık deponun, ekipmanın ve boş işçin ne kadarına '
+          + 'yetiyorsa o kadar sipariş verebilirsin.',
+      },
+      {
+        id: '20260913-maks-dugmesi',
+        tur: 'yenilik',
+        metin: 'MAKS düğmesi: şu an gerçekten üretebileceğin adedi yazıyor. '
+          + 'Askerde boş işçi, ekipman ve kaynaktan en küçüğü; ekipmanda '
+          + 'kaynak ile DEPODAKİ BOŞ YERDEN küçüğü.',
+      },
+      {
+        id: '20260913-adet-kutusu',
+        tur: 'duzeltme',
+        metin: 'Adet kutusundaki rakamı silemiyordun; sildiğin an yerine 1 '
+          + 'geliyordu. Artık kutu boş kalabiliyor, doğrudan yazabiliyorsun.',
+      },
+    ],
+  },
+  {
+    surum: '2026-09-13a',
+    tarih: '13 Eylül 2026',
+    baslik: 'Telefon ve tablet: her ekran elden geçti',
+    notlar: [
+      {
+        id: '20260913-mobil-tarama',
+        tur: 'duzeltme',
+        metin: 'Dokuz farklı telefon/tablet boyutunda her ekran ve her bina '
+          + 'paneli tek tek tarandı. Bulunan erişilemez düğmelerin hepsi '
+          + 'düzeltildi — 320 px\'den tablete kadar hepsi temiz.',
+      },
+      {
+        id: '20260913-ahir-at',
+        tur: 'duzeltme',
+        metin: 'Ahırda at siparişi telefonda HİÇ görünmüyordu. Silahçıda adet '
+          + 'kutusu ve YÜKSELT düğmesi de yan çevirince kayboluyordu. '
+          + 'İkisi de düzeldi.',
+      },
+      {
+        id: '20260913-tarla-yukselt',
+        tur: 'duzeltme',
+        metin: 'Haritada tarla panelinin YÜKSELT düğmesi ekranın dışında '
+          + 'kalıyordu. Panel artık sığdığı yere göre kayıyor ve düğmeye '
+          + 'ulaşılıyor.',
+      },
+      {
+        id: '20260913-kaydiricilar',
+        tur: 'duzeltme',
+        metin: 'İşçi kaydırıcıları 6 piksel yüksekliğindeydi, parmakla '
+          + 'tutulmuyordu. Dokunma alanı büyüdü; çubuk yine ince görünüyor.',
+      },
+      {
+        id: '20260913-cikis-tusu',
+        tur: 'duzeltme',
+        metin: 'Küçük ekranlarda (320 px) çıkış düğmesi tamamen ekranın '
+          + 'dışında kalıyordu; haritada KÖYÜME DÖN de taşıyordu. Bina '
+          + 'adları da kesiliyordu — artık tam görünüyor.',
+      },
+      {
+        id: '20260913-bina-tek-tarz',
+        tur: 'duzeltme',
+        metin: 'Bina panellerinde kartlar eziliyor, yanlarında boş alan '
+          + 'kalıyordu. Artık her binada aynı düzen: çalışan işçi, yükseltme '
+          + 've üretim satırları panelin tam genişliğinde.',
+      },
+      {
+        id: '20260913-sayilar-ziplamiyor',
+        tur: 'duzeltme',
+        metin: 'Sayaçlar ve süreler her saniye oynuyor, satırlar zıplıyordu. '
+          + 'Rakamlar artık sabit genişlikte. Düğmeler de basınca tepki '
+          + 'veriyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-12a',
     tarih: '12 Eylül 2026',
     baslik: 'Telefonda oynanabilirlik',

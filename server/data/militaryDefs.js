@@ -205,8 +205,13 @@ const UNIT_DEFS = {
   },
 
   // Kuşatma
+  /*
+    ANAHTAR `kaleKiran` KALIYOR, yalnız görünen ad değişti ("Kale Kıran"
+    → "Koçbaşı"). Anahtar oyuncuların ordusunda, kuyruklarında ve
+    kayıtlarında duruyor; değiştirilirse eldeki birimler sahipsiz kalır.
+  */
   kaleKiran: {
-    name: 'Kale Kıran',
+    name: 'Koçbaşı',
     category: 'kusatma',
     trainedAt: 'atolye',
     minLevel: 1,
