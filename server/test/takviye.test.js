@@ -148,6 +148,62 @@ test('varışta misafir listeye giriyor, sefer bitiyor, iki tarafa rapor', () =>
   assert.equal(hedef.reports[0].dir, 'in', 'ev sahibi de haberdar olmalı');
 });
 
+test('KISMÎ geri çağırma: istenen kadarı döner, kalanı orada savunur', () => {
+  const host = { takviyeler: [
+    { id: 1, userId: 7, slotKey: '0,0', fromName: 'Benim', units: { fjordvakt: 10 }, at: 1 },
+    { id: 2, userId: 7, slotKey: '0,0', fromName: 'Benim', units: { fjordvakt: 6, spydvakt: 4 }, at: 2 },
+  ] };
+  const benim = { name: 'Benim', marches: [], nextMarchId: 1 };
+
+  const r = ARMY.takviyeGeriCagir(host, benim,
+    { userId: 7, slotKey: '0,0', units: { fjordvakt: 12 } }, 3);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.march.units, { fjordvakt: 12 }, 'yalnız istenen kadar dönmeli');
+
+  /*
+    ESKİDEN YENİYE tüketiliyor: ilk girdi (10) tamamen, ikinciden 2 asker.
+    Sıra önemli — savunma kayıpları da geliş sırasına göre pay ediliyor.
+  */
+  assert.equal(host.takviyeler.length, 1, 'boşalan girdi listeden düşmeli');
+  assert.deepEqual(host.takviyeler[0].units, { fjordvakt: 4, spydvakt: 4 });
+});
+
+test('kısmî çağrıda olmayan birim istenirse yalnız var olan çekilir', () => {
+  const host = { takviyeler: [
+    { id: 1, userId: 7, slotKey: '0,0', fromName: 'B', units: { fjordvakt: 3 }, at: 1 },
+  ] };
+  const benim = { name: 'B', marches: [], nextMarchId: 1 };
+  const r = ARMY.takviyeGeriCagir(host, benim,
+    { userId: 7, slotKey: '0,0', units: { fjordvakt: 99, jernridder: 5 } }, 2);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.march.units, { fjordvakt: 3 });
+  assert.equal(host.takviyeler.length, 0);
+});
+
+test('BAŞKASININ takviyesi çekilemiyor', () => {
+  const host = { takviyeler: [
+    { id: 1, userId: 9, slotKey: '5,5', fromName: 'Yabanci', units: { fjordvakt: 5 }, at: 1 },
+  ] };
+  const benim = { name: 'B', marches: [], nextMarchId: 1 };
+  const r = ARMY.takviyeGeriCagir(host, benim, { userId: 7, slotKey: '0,0' }, 2);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'takviye_yok');
+  assert.equal(host.takviyeler.length, 1, 'yabancının askeri yerinde kalmalı');
+});
+
+test('AYNI hedefe iki köyden gönderilen asker karışmıyor', () => {
+  const host = { takviyeler: [
+    { id: 1, userId: 7, slotKey: '0,0', fromName: 'Koy A', units: { fjordvakt: 5 }, at: 1 },
+    { id: 2, userId: 7, slotKey: '4,4', fromName: 'Koy B', units: { spydvakt: 7 }, at: 2 },
+  ] };
+  const koyA = { name: 'Koy A', marches: [], nextMarchId: 1 };
+  const r = ARMY.takviyeGeriCagir(host, koyA, { userId: 7, slotKey: '0,0' }, 2);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.march.units, { fjordvakt: 5 }, 'yalnız A köyünün askeri dönmeli');
+  assert.equal(host.takviyeler.length, 1);
+  assert.equal(host.takviyeler[0].slotKey, '4,4', 'B köyünün askeri orada kalmalı');
+});
+
 test('geri çağırma: girdi silinir, dönüş seferi YOLA çıkar (ışınlanmaz)', () => {
   const host = koy({
     name: 'Ev sahibi',
@@ -158,7 +214,8 @@ test('geri çağırma: girdi silinir, dönüş seferi YOLA çıkar (ışınlanma
   });
   const sahip = koy({ name: 'Gönderen', army: {} });
 
-  const res = ARMY.takviyeGeriCagir(host, sahip, 3, 5);
+  // Miktar verilmezse HEPSİ çekilir (eski davranış korunuyor)
+  const res = ARMY.takviyeGeriCagir(host, sahip, { userId: 42, slotKey: '0,0' }, 5);
 
   assert.equal(res.ok, true);
   assert.equal(host.takviyeler.length, 0, 'misafir artık orada savunmuyor');
@@ -176,5 +233,7 @@ test('geri çağırma: girdi silinir, dönüş seferi YOLA çıkar (ışınlanma
 test('geri çağırma: olmayan takviye reddedilir', () => {
   const host = koy({ takviyeler: [] });
   const sahip = koy();
-  assert.equal(ARMY.takviyeGeriCagir(host, sahip, 99, 5).reason, 'takviye_yok');
+  assert.equal(
+    ARMY.takviyeGeriCagir(host, sahip, { userId: 42, slotKey: '0,0' }, 5).reason,
+    'takviye_yok');
 });

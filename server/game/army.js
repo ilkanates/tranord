@@ -855,21 +855,76 @@ function seferGeriCagir(village, marchId) {
  * Sefer SAHİBİNİN köyünde duruyor (bütün seferler çıktıkları köyde durur),
  * doğrudan `phase: 'return'` ile — gidiş ayağı yok, zaten oradalar.
  */
-function takviyeGeriCagir(hostVillage, ownerVillage, takviyeId, distance) {
+function takviyeGeriCagir(hostVillage, ownerVillage, { userId, slotKey, units = null }, distance) {
   const liste = hostVillage.takviyeler || [];
-  const idx = liste.findIndex(t => t.id === takviyeId);
-  if (idx < 0) return { ok: false, reason: 'takviye_yok' };
-  const t = liste[idx];
-  if (totalUnits(t.units) <= 0) { liste.splice(idx, 1); return { ok: false, reason: 'takviye_yok' }; }
 
-  const legHours = marchGameHours(t.units, Math.max(1, distance));
+  /*
+    AYNI KÖYE YAPILAN GÖNDERİMLER TEK HAVUZ SAYILIR.
+
+    Her varış ayrı bir girdi açıyor: aynı köye üç kez asker yollayan
+    oyuncu üç satır görüyor ve üçünü ayrı ayrı geri çağırıyordu. Artık
+    çağrı, o köydeki BENİM askerimin tamamına bakıyor ve istenen kadarını
+    çekiyor.
+
+    Girdiler BİRLEŞTİRİLMİYOR, yalnız sırayla tüketiliyor: savunma
+    kayıpları geliş sırasına göre pay ediliyor (savunmaKayiplariniPayEt),
+    kaydı birleştirmek o sırayı bozardı. Eskiden yeniye tüketmek de
+    doğru tarafı seçiyor — önce en uzun süredir orada duran asker döner.
+
+    `slotKey` sahibin HANGİ köyünden gönderdiği: çoklu köyde aynı hedefe
+    iki ayrı köyden asker yollanmış olabilir ve her biri kendi köyüne
+    dönmeli.
+  */
+  const benim = liste
+    .filter(t => t.userId === userId && t.slotKey === slotKey)
+    .sort((a, b) => a.id - b.id);
+  if (!benim.length) return { ok: false, reason: 'takviye_yok' };
+
+  // İstenen miktar verilmediyse HEPSİ çekilir (eski davranış)
+  const istenen = {};
+  if (units && typeof units === 'object') {
+    for (const [k, n] of Object.entries(units)) {
+      const adet = Math.max(0, Math.floor(Number(n) || 0));
+      if (adet > 0) istenen[k] = adet;
+    }
+  } else {
+    for (const t of benim) {
+      for (const [k, n] of Object.entries(t.units || {})) {
+        istenen[k] = (istenen[k] || 0) + (n || 0);
+      }
+    }
+  }
+  if (totalUnits(istenen) <= 0) return { ok: false, reason: 'asker_secilmedi' };
+
+  // Girdileri ESKİDEN YENİYE tüket
+  const cekilen = {};
+  for (const t of benim) {
+    for (const k of Object.keys(istenen)) {
+      const kalanIstek = istenen[k];
+      if (kalanIstek <= 0) continue;
+      const mevcut = t.units?.[k] || 0;
+      const al = Math.min(mevcut, kalanIstek);
+      if (al <= 0) continue;
+      t.units[k] = mevcut - al;
+      if (t.units[k] <= 0) delete t.units[k];
+      cekilen[k] = (cekilen[k] || 0) + al;
+      istenen[k] = kalanIstek - al;
+    }
+  }
+  if (totalUnits(cekilen) <= 0) return { ok: false, reason: 'takviye_yok' };
+
+  // Tamamen boşalan girdiler listeden düşer
+  hostVillage.takviyeler = liste.filter(t => totalUnits(t.units) > 0);
+
+  const ilk = benim[0];
+  const legHours = marchGameHours(cekilen, Math.max(1, distance));
   if (!ownerVillage.nextMarchId) ownerVillage.nextMarchId = 1;
   const march = {
     id: ownerVillage.nextMarchId++,
     mode: 'takviye', ownerKind: 'player',
-    fromKey: t.slotKey, fromName: t.fromName,
-    toKey: t.slotKey, toName: ownerVillage.name || t.fromName, toKind: 'player',
-    units: { ...t.units },
+    fromKey: ilk.slotKey, fromName: ilk.fromName,
+    toKey: ilk.slotKey, toName: ownerVillage.name || ilk.fromName, toKind: 'player',
+    units: cekilen,
     distance,
     phase: 'return',               // gidiş yok: asker zaten hedefteydi
     departAt: Date.now(),
@@ -880,7 +935,6 @@ function takviyeGeriCagir(hostVillage, ownerVillage, takviyeId, distance) {
     intel: null,
   };
   (ownerVillage.marches ||= []).push(march);
-  liste.splice(idx, 1);
   return { ok: true, march };
 }
 

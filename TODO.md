@@ -26,24 +26,6 @@ Kalan:
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
-### 0. Takviye listesi KÖY başına olsun, gönderim başına değil
-Ordu ekranında her takviye GÖNDERİMİ ayrı satır: aynı köye üç kez asker
-yolladıysan üç satır görüyorsun ve her birini ayrı ayrı geri çağırıyorsun.
-Sunucuda da her varış ayrı bir `takviyeler` girdisi açıyor.
-
-- Liste **köy başına TEK satır** olsun; o köydeki bütün askerin toplamı.
-- Geri çağırırken **istediğin kadarını** seçebil: hepsini değil, birim
-  birim miktar verebilmeli (ordu gönderme panelindeki gibi sayı kutusu).
-- Sunucu tarafı: `takviyeGeriCagir` şu an TEK girdiyi (`takviyeId`)
-  komple alıp yolluyor. Kısmî çekmede girdi bölünmeli — istenen kadarı
-  dönüş seferine, kalanı ev sahibinde kalmalı; girdi boşalırsa silinmeli.
-- Kayıplar gelişe göre pay ediliyor (`savunmaKayiplariniPayEt` geliş
-  sırasına bakıyor) — girdiler birleştirilirse o sıra da değişir,
-  **karar gerekiyor**: birleştirme yalnız GÖRÜNÜMDE mi olsun (sunucu
-  girdileri ayrı tutsun), yoksa kayıt da mı birleşsin?
-- Öneri: kayıt AYRI kalsın, arayüz köy başına toplasın, kısmî çekimde
-  sunucu girdileri eskiden yeniye tüketsin. Böylece kayıp payı bozulmaz.
-
 ### 0. Ev sahibi misafir askeri geri yollayabilsin
 Şu an takviyeyi YALNIZ SAHİBİ geri çağırabiliyor (`takviye_geri_cagir`,
 sahiplik denetimi var). Ev sahibinin elinde hiçbir düğme yok.
@@ -182,6 +164,15 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Takviye: köy başına tek satır + kısmî geri çağırma (13 Eylül 2026)
+- Her takviye GÖNDERİMİ ayrı satırdı: aynı köye üç kez asker yollayan oyuncu üç satır görüyor ve üçünü ayrı ayrı geri çağırıyordu. Artık **köy başına tek satır** — o köydeki bütün askerin toplamı, yanında "N sevkiyat" notu.
+- **Kısmî geri çağırma:** satır açılıp birim birim miktar veriliyor, kalanlar orada savunmaya devam ediyor. Tek düğme bırakmak, saldırı gelirken savunmanın yarısını orada tutmayı imkânsız kılıyordu.
+- **Kayıt BİRLEŞMİYOR, yalnız görünüm birleşiyor** (TODO'daki karar böyle çözüldü): savunma kayıpları geliş sırasına göre pay ediliyor (`savunmaKayiplariniPayEt`), girdileri kayıtta birleştirmek o sırayı bozardı. Kısmî çekimde sunucu girdileri **eskiden yeniye** tüketiyor — en uzun süredir orada duran asker önce döner.
+- Gruplama anahtarı (ev sahibi köy + benim hangi köyümden gittiği): çoklu köyde aynı hedefe iki ayrı köyden asker yollanmış olabilir, her biri kendi köyüne dönmeli.
+- Eski istemci uyumu korundu: `takviyeId` gönderen çağrı hâlâ çalışıyor, miktar verilmezse hepsi dönüyor.
+- **4 yeni test**: kısmî çekim ve eskiden-yeniye tüketim, olmayan birim isteği, başkasının takviyesi, aynı hedefe iki köyden gönderim.
+- Ölçüldü: 10 + 8 asker gönderildi → liste tek satır "18 asker · 2 sevkiyat" gösterdi → 7 çekildi → girdiler 3 ve 8 olarak kaldı (eski girdi önce tüketildi).
 
 ### Sekme amblemleri (13 Eylül 2026)
 - Sekmelerin çoğu genel bir ikon ya da BAŞKA bir sekmenin ikonuydu: Harita ile Seferler aynı, Görevler ile Yardım aynı, Mesajlar "bilgi" ikonundaydı. İkon sekmeyi ayırt etmiyorsa hiç yok sayılır — telefonda alt barda zaten yalnız ikon var.

@@ -797,13 +797,36 @@ let lastNpcRaidAt = 0;
  * o yüzden tarama yeterli ve ayrı bir dizin tutmaya gerek yok. Köy sayısı
  * büyürse burası dizine çevrilmeli.
  */
+/**
+ * BENİM ASKERİMİN DURDUĞU KÖYLER — KÖY BAŞINA TEK SATIR.
+ *
+ * Her varış sunucuda ayrı bir girdi açıyor; aynı köye üç kez asker
+ * yollayan oyuncu arayüzde üç satır görüyor ve üçünü ayrı ayrı geri
+ * çağırmak zorunda kalıyordu. Burada (ev sahibi köy + benim hangi köyümden
+ * gittiği) çiftine göre GRUPLANIYOR.
+ *
+ * Kayıt birleşmiyor, yalnız görünüm: savunma kayıpları geliş sırasına
+ * göre pay ediliyor (savunmaKayiplariniPayEt), girdileri birleştirmek o
+ * sırayı bozardı.
+ */
 function takviyelerimiBul(userId) {
-  const out = [];
+  const gruplar = new Map();
   for (const s of userSessions.values()) {
     for (const [slotKey, koy] of s.villages) {
       for (const t of koy.takviyeler || []) {
         if (t.userId !== userId) continue;
-        out.push({
+        const anahtar = `${slotKey}|${t.slotKey}`;
+        const onceki = gruplar.get(anahtar);
+        if (onceki) {
+          for (const [k, n] of Object.entries(t.units || {})) {
+            onceki.units[k] = (onceki.units[k] || 0) + (n || 0);
+          }
+          onceki.toplam = ARMY.totalUnits(onceki.units);
+          onceki.girdiSayisi += 1;
+          onceki.at = Math.min(onceki.at || t.at, t.at);
+          continue;
+        }
+        gruplar.set(anahtar, {
           id: t.id,
           hostKey: slotKey,
           /*
@@ -815,14 +838,17 @@ function takviyelerimiBul(userId) {
             || WORLD.slotByKey.get(slotKey)?.name || koy.name || slotKey,
           kendiKoyum: s.userId === userId,
           fromName: t.fromName,
+          // Sahibin HANGİ köyünden gittiği — geri çağırma buraya döner
+          slotKey: t.slotKey,
           units: { ...t.units },
           toplam: ARMY.totalUnits(t.units),
+          girdiSayisi: 1,
           at: t.at,
         });
       }
     }
   }
-  return out;
+  return [...gruplar.values()];
 }
 
 /** slotKey → köy nesnesi. Çevrimdışı oyuncu için village null döner. */
@@ -2890,34 +2916,49 @@ io.on('connection', async socket => {
    * kimliği. SAHİPLİK DENETİMİ ŞART: başkasının takviyesini geri çağırmak
    * (yani rakibin savunmasını dağıtmak) tek satırlık bir sömürü olurdu.
    */
-  socket.on('takviye_geri_cagir', ({ hostKey, takviyeId } = {}) => {
+  /**
+   * TAKVİYEYİ GERİ ÇAĞIR — KISMÎ de olabilir.
+   *
+   * `units` verilirse yalnız o kadarı çekilir, kalanı orada savunmaya
+   * devam eder; verilmezse hepsi döner (eski davranış). `slotKey` benim
+   * hangi köyümden gittiği — çoklu köyde aynı hedefe iki ayrı köyden
+   * asker yollanmış olabilir ve her biri kendi köyüne dönmeli.
+   *
+   * Geriye dönük: eski istemci `takviyeId` yolluyor; o kimlikten sahibi
+   * ve köyü çözülüyor.
+   */
+  socket.on('takviye_geri_cagir', ({ hostKey, takviyeId, slotKey, units = null } = {}) => {
     const fail = (reason) => socket.emit('army_error', { reason });
     const host = villageAtSlot(hostKey);
     if (!host?.village) return fail('gecersiz_hedef');
 
-    const girdi = (host.village.takviyeler || [])
-      .find(t => t.id === takviyeId);
-    if (!girdi) return fail('takviye_yok');
-    if (girdi.userId !== userId) return fail('senin_degil');
+    let kaynakSlot = slotKey;
+    if (!kaynakSlot) {
+      const girdi = (host.village.takviyeler || []).find(t => t.id === takviyeId);
+      if (!girdi) return fail('takviye_yok');
+      if (girdi.userId !== userId) return fail('senin_degil');
+      kaynakSlot = girdi.slotKey;
+    }
 
-    const benimKoy = session.villages.get(girdi.slotKey);
+    const benimKoy = session.villages.get(kaynakSlot);
     if (!benimKoy) return fail('konum_yok');
 
     const a = WORLD.slotByKey.get(hostKey);
-    const b = WORLD.slotByKey.get(girdi.slotKey);
+    const b = WORLD.slotByKey.get(kaynakSlot);
     const dist = (a && b) ? W.distanceBetween(a, b) : 1;
 
-    const res = ARMY.takviyeGeriCagir(host.village, benimKoy, takviyeId, dist);
+    const res = ARMY.takviyeGeriCagir(host.village, benimKoy,
+      { userId, slotKey: kaynakSlot, units }, dist);
     if (!res.ok) return fail(res.reason);
 
     if (host.userId) markUserDirty(host.userId, hostKey);
-    markUserDirty(userId, girdi.slotKey);
+    markUserDirty(userId, kaynakSlot);
     dirty(); emit();
     socket.emit('army_sent', {
       id: res.march.id, toName: benimKoy.name || 'Köyün', mode: 'takviye_donus',
       seconds: res.march.legSeconds, distance: dist,
     });
-    console.log(`[TAKVİYE GERİ] ${userEmail} ← ${girdi.fromName}`
+    console.log(`[TAKVİYE GERİ] ${userEmail} ← ${hostKey}`
       + ` (${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
   });
 

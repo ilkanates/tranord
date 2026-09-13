@@ -26,6 +26,27 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-13m',
+    tarih: '13 Eylül 2026',
+    baslik: 'Takviye listesi ve kısmî geri çağırma',
+    notlar: [
+      {
+        id: '20260913-takviye-koy-basina',
+        tur: 'duzeltme',
+        metin: 'Ordu ekranındaki takviye listesi artık KÖY BAŞINA tek satır. '
+          + 'Aynı köye üç kez asker yolladıysan üç satır değil, tek satır ve '
+          + 'toplam görüyorsun (yanında kaç sevkiyat olduğu yazıyor).',
+      },
+      {
+        id: '20260913-takviye-kismi',
+        tur: 'yenilik',
+        metin: 'Takviyeni artık İSTEDİĞİN KADAR geri çağırabiliyorsun. Satırı '
+          + 'aç, birim birim sayı ver; kalanlar o köyde savunmaya devam eder. '
+          + 'Önce en uzun süredir orada duran asker döner.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-13l',
     tarih: '13 Eylül 2026',
     baslik: 'Sekme amblemleri',

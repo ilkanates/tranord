@@ -50,7 +50,27 @@ function StatChip({ icon, label, value, color }) {
  * `takviyelerim` : benim askerimin durduğu köyler. Geri çağırma buradan.
  */
 function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCagir }) {
+  /*
+    AÇIK SATIR ve MİKTARLAR.
+
+    Liste artık KÖY BAŞINA tek satır (sunucu grupluyor). Geri çağırırken
+    "hepsi" tek seçenek değil: satır açılıp birim birim sayı verilebiliyor.
+    Tek düğme bırakmak, saldırı gelirken savunmanın yarısını orada
+    tutmayı imkânsız kılıyordu.
+  */
+  const [acik, setAcik] = useState(null);       // hostKey|slotKey
+  const [sec, setSec] = useState({});
+
   if (!takviyeler.length && !takviyelerim.length) return null;
+
+  const anahtar = (t) => `${t.hostKey}|${t.slotKey}`;
+  const ac = (t) => {
+    const k = anahtar(t);
+    if (acik === k) { setAcik(null); return; }
+    setAcik(k);
+    setSec({ ...t.units });                     // varsayılan: hepsi
+  };
+  const secTopla = () => Object.values(sec).reduce((s, n) => s + (n || 0), 0);
 
   const Satir = ({ baslik, alt, units, sag }) => (
     <div style={{
@@ -100,21 +120,105 @@ function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCag
           <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint }}>
             Askerim dışarıda — yemeğini o köy ödüyor
           </div>
-          {takviyelerim.map(t => (
-            <Satir key={`out-${t.id}-${t.hostKey}`}
-              baslik={t.hostName || t.hostKey}
-              alt={`${t.toplam} asker · ${t.kendiKoyum ? 'kendi köyüm' : 'müttefik köy'}`}
-              units={t.units}
-              sag={(
-                <button onClick={() => onGeriCagir?.(t.hostKey, t.id)}
-                  title="Yürüyerek döner — anında gelmez"
-                  style={btn('ghost', {
-                    flexShrink: 0, padding: '5px 10px', fontSize: 9, letterSpacing: 0.8,
-                  })}>
-                  GERİ ÇAĞIR
-                </button>
-              )} />
-          ))}
+          {takviyelerim.map(t => {
+            const k = anahtar(t);
+            const secili = acik === k;
+            return (
+              <div key={`out-${k}`}>
+                <Satir
+                  baslik={t.hostName || t.hostKey}
+                  alt={`${t.toplam} asker · ${t.kendiKoyum ? 'kendi köyüm' : 'müttefik köy'}`
+                    + (t.girdiSayisi > 1 ? ` · ${t.girdiSayisi} sevkiyat` : '')}
+                  units={t.units}
+                  sag={(
+                    <button onClick={() => ac(t)}
+                      title="Ne kadarını geri çağıracağını seç"
+                      style={btn(secili ? 'primary' : 'ghost', {
+                        flexShrink: 0, padding: '5px 10px', fontSize: 9, letterSpacing: 0.8,
+                      })}>
+                      {secili ? 'KAPAT' : 'GERİ ÇAĞIR'}
+                    </button>
+                  )} />
+
+                {secili && (
+                  <div style={{
+                    margin: '5px 0 2px', padding: '9px 11px', borderRadius: 6,
+                    background: 'rgba(6,12,20,0.7)', border: `1px solid ${C.lineBright}`,
+                    display: 'flex', flexDirection: 'column', gap: 7,
+                  }}>
+                    <div style={{
+                      fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.5,
+                    }}>
+                      Ne kadarını çağıracaksın? Kalanlar orada savunmaya devam eder.
+                      Dönen asker <b style={{ color: C.textDim }}>yürüyerek</b> gelir.
+                    </div>
+
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(min(200px, 100%), 1fr))',
+                      gap: 6,
+                    }}>
+                      {Object.entries(t.units).map(([u, have]) => (
+                        <div key={u} style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '4px 7px', borderRadius: 5,
+                          background: 'rgba(8,17,28,0.6)', border: `1px solid ${C.lineSoft}`,
+                        }}>
+                          <Icon name={unitDefs[u]?.category === 'suvari' ? 'at' : 'kalkan'}
+                            size={12} color={C.iceDeep} />
+                          <span style={{
+                            flex: 1, minWidth: 0, fontFamily: FONT.ui, fontSize: 10.5,
+                            color: C.textDim, overflow: 'hidden',
+                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{unitDefs[u]?.name || u}</span>
+                          <span style={num({ fontSize: 9, color: C.textMute })}>/{have}</span>
+                          <input type="number" min={0} max={have}
+                            value={sec[u] ?? 0}
+                            onChange={(e) => setSec(s => ({
+                              ...s,
+                              [u]: Math.max(0, Math.min(have, Math.floor(Number(e.target.value) || 0))),
+                            }))}
+                            style={{
+                              width: 56, flexShrink: 0, padding: '3px 5px', textAlign: 'right',
+                              fontFamily: FONT.num, fontSize: 11, color: C.frost,
+                              background: 'rgba(4,9,15,0.75)', border: `1px solid ${C.lineSoft}`,
+                              borderRadius: 4, outline: 'none',
+                            }} />
+                          <button onClick={() => setSec(s => ({ ...s, [u]: have }))}
+                            title="Tümünü seç"
+                            style={btn('ghost', {
+                              flexShrink: 0, padding: '3px 6px', fontSize: 8, letterSpacing: 0.6,
+                            })}>TÜM</button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button onClick={() => setSec({ ...t.units })}
+                        style={btn('ghost', { padding: '5px 9px', fontSize: 9 })}>HEPSİ</button>
+                      <button onClick={() => setSec({})}
+                        style={btn('ghost', { padding: '5px 9px', fontSize: 9 })}>TEMİZLE</button>
+                      <span style={num({ fontSize: 10.5, color: C.textDim, marginLeft: 'auto' })}>
+                        {secTopla()} asker
+                      </span>
+                      <button
+                        disabled={secTopla() <= 0}
+                        onClick={() => {
+                          onGeriCagir?.({ hostKey: t.hostKey, slotKey: t.slotKey, units: sec });
+                          setAcik(null);
+                        }}
+                        style={btn('primary', {
+                          padding: '6px 14px', fontSize: 9.5, letterSpacing: 1,
+                          opacity: secTopla() > 0 ? 1 : 0.5,
+                        })}>
+                        GERİ ÇAĞIR
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

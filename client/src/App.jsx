@@ -1059,8 +1059,12 @@ function Game({ token, onLogout }) {
                 unitStatsNow={village.unitStatsNow || {}}
                 takviyeler={village.takviyeler || []}
                 takviyelerim={village.takviyelerim || []}
-                onGeriCagir={(hostKey, takviyeId) =>
-                  socket?.emit('takviye_geri_cagir', { hostKey, takviyeId })}
+                /*
+                  Kısmî geri çağırma: panel { hostKey, slotKey, units }
+                  yolluyor. `units` verilmezse sunucu hepsini çekiyor.
+                */
+                onGeriCagir={(istek) =>
+                  socket?.emit('takviye_geri_cagir', istek)}
               />
             </div>
           )}
