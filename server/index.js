@@ -294,6 +294,14 @@ function structFingerprint(v) {
     + `|${v.festival ? v.festival.kind : '-'}`
     + `|${v.isCapital ? 'C' : '-'}`
     + `|${(v.marches || []).length}|${(v.reports || []).length}|${v.tickMs || 0}`
+    /*
+      TAKVİYE PARMAK İZİNE GİRMELİ. Yoksa misafir gelip gitmesi ekrana
+      ancak kalp atışında (FULL_SYNC_MS) yansırdı: oyuncu takviyenin
+      vardığını 30 saniye sonra görürdü. Sayı + toplam asker yeter —
+      hem varış/ayrılışı hem savaşta erimeyi yakalar.
+    */
+    + `|T${(v.takviyeler || []).length}:${(v.takviyeler || [])
+      .reduce((s2, t) => s2 + ARMY.totalUnits(t.units), 0)}`
     + `|${kuyrukOzeti(q.kisla)},${kuyrukOzeti(q.ahir)},${kuyrukOzeti(q.atolye)}`
     + `|${kuyrukOzeti(eq.silahci)},${kuyrukOzeti(eq.zirh)},${kuyrukOzeti(eq.ahir)}`
     // Rún Salonu ve ekipman yükseltmeleri
@@ -370,6 +378,7 @@ function emitVillage(session, { force = false, statics = false } = {}) {
 
   sock.emit('village_update', buildPayload(v, session.tickMs, {
     statics,
+    takviyelerim: takviyelerimiBul(session.userId),
     reports: statics || reportsChanged,
     culturePoints: cpTotal,
     culture,
@@ -753,6 +762,43 @@ const HEDEF_BEKLEME_SAAT = 6;
 
 let lastNpcRaidAt = 0;
 
+/**
+ * BENİM ASKERİM NEREDE — başka köylerde misafir duran birliklerim.
+ *
+ * Takviye girdisi ev sahibinin köyünde duruyor (savunma orada hesaplanıyor),
+ * dolayısıyla sahibinin bunu görmesi için ters yönde aramak gerekiyor.
+ * Bütün oyuncu köyleri zaten bellekte (çevrimdışı olanlar da tick alıyor),
+ * o yüzden tarama yeterli ve ayrı bir dizin tutmaya gerek yok. Köy sayısı
+ * büyürse burası dizine çevrilmeli.
+ */
+function takviyelerimiBul(userId) {
+  const out = [];
+  for (const s of userSessions.values()) {
+    for (const [slotKey, koy] of s.villages) {
+      for (const t of koy.takviyeler || []) {
+        if (t.userId !== userId) continue;
+        out.push({
+          id: t.id,
+          hostKey: slotKey,
+          /*
+            Köy nesnesinin `name`i boş olabiliyor; oyuncunun haritada
+            gördüğü ad dünya kaydında duruyor. Aksi hâlde listede
+            "0,0" gibi slot anahtarı yazıyordu.
+          */
+          hostName: WORLD.playerBySlot.get(slotKey)?.name
+            || WORLD.slotByKey.get(slotKey)?.name || koy.name || slotKey,
+          kendiKoyum: s.userId === userId,
+          fromName: t.fromName,
+          units: { ...t.units },
+          toplam: ARMY.totalUnits(t.units),
+          at: t.at,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 /** slotKey → köy nesnesi. Çevrimdışı oyuncu için village null döner. */
 function villageAtSlot(slotKey) {
   const npc = WORLD.npcs.get(slotKey);
@@ -1021,10 +1067,36 @@ function processMarches(hours) {
           entry.dirty();
           continue;
         }
-        ARMY.resolveArrival(m, v, tgt?.village || null, { targetName: tgt?.name });
+        ARMY.resolveArrival(m, v, tgt?.village || null, {
+          targetName: tgt?.name,
+          ownerUserId: m.ownerUserId ?? null,
+        });
         entry.dirty();
         if (tgt?.userId) markUserDirty(tgt.userId, m.toKey);
         else if (tgt?.kind === 'npc') markNpcDirty(m.toKey);
+
+        /*
+          MİSAFİR KAYBI SAHİBİNİN NÜFUSUNDAN DÜŞER.
+
+          Savaş ev sahibinin köyünde çözülüyor ama ölen misafir asker
+          sahibinin köyünün nüfusunda sayılıyordu. Orada düşülmezse
+          takviye gönderen oyuncu bedava nüfus kazanırdı (asker eğitirken
+          bir boş işçi tüketilmişti, ölünce geri gelmiyor).
+        */
+        for (const kayip of m.misafirKayip || []) {
+          const sahip = userSessions.get(kayip.userId);
+          const koy = sahip?.villages?.get(kayip.slotKey);
+          if (!koy) continue;
+          koy.population = Math.max(1, (koy.population || 0) - kayip.olu);
+          markUserDirty(kayip.userId, kayip.slotKey);
+        }
+        m.misafirKayip = null;
+
+        /*
+          TAKVİYE ve YERLEŞİM gibi tek yönlü: dönüş ayağı yok, sefer
+          listeden silinir (bkz. army.js · march.bitti).
+        */
+        if (m.bitti) { list.splice(i, 1); continue; }
       } else {
         const { caps, foodRoom } = lootRoom(v);
         ARMY.resolveReturn(m, v, caps, foodRoom);
@@ -2509,6 +2581,8 @@ io.on('connection', async socket => {
        */
       const npc = WORLD.npcs.get(targetKey);
       if (npc) {
+        // NPC'ye takviye gönderilmez — savunmasını güçlendirmenin anlamı yok
+        if (mode === 'takviye') return fail('takviye_yalniz_oyuncuya');
         tgtSlot = npc.slot; tgtKind = 'npc'; tgtName = npc.slot.name;
       } else {
         const p = WORLD.playerBySlot.get(targetKey);
@@ -2520,7 +2594,13 @@ io.on('connection', async socket => {
           çoklu köyde oyuncu ikinci köyünü kendine çiftlik yapabilirdi
           (yağma kendi kaynağını taşımak olurdu). Sahibe bakmak gerekiyor.
         */
-        if (p.userId === userId) return fail('kendi_koyun');
+        /*
+          TAKVİYE İSTİSNASI: kendi köyüne SALDIRAMAZSIN ama TAKVİYE
+          gönderebilirsin — çoklu köyde asıl kullanım bu (sınırdaki köyü
+          merkezden beslemek). Yağma kendi kaynağını taşımak olacağı için
+          saldırı yasağı aynen duruyor.
+        */
+        if (p.userId === userId && mode !== 'takviye') return fail('kendi_koyun');
         tgtSlot = slot; tgtKind = 'player'; tgtName = p.name || slot.name;
       }
     }
@@ -2534,15 +2614,59 @@ io.on('connection', async socket => {
       ownerKind: 'player',
     });
     if (!res.ok) return fail(res.reason);
+    // Varışta misafir girdisine sahibini yazabilmek için sefere iliştir
+    if (mode === 'takviye') res.march.ownerUserId = userId;
 
-    // İlk SALDIRI başlangıç korumasını kaldırır — göçmen seferi savaş değil
-    if (mode !== 'yerlesim') village.hasAttacked = true;
+    /*
+      İlk SALDIRI başlangıç korumasını kaldırır. Göçmen seferi ve TAKVİYE
+      savaş değil — takviye gönderen oyuncuyu NPC yağmasına açmak yanlış
+      olurdu (savunmaya yardım ediyor, saldırmıyor).
+    */
+    if (mode !== 'yerlesim' && mode !== 'takviye') village.hasAttacked = true;
     dirty(); emit();
     socket.emit('army_sent', {
       id: res.march.id, toName: tgtName, mode,
       seconds: res.march.legSeconds, distance: dist,
     });
     console.log(`[SEFER] ${userEmail} → ${tgtName} (${mode}, ${dist} hex, ${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
+  });
+
+  /**
+   * TAKVİYEYİ GERİ ÇAĞIR — askerim hangi köydeyse oradan alıp eve yollar.
+   *
+   * `hostKey` misafir olduğum köyün slotu, `takviyeId` o köydeki girdinin
+   * kimliği. SAHİPLİK DENETİMİ ŞART: başkasının takviyesini geri çağırmak
+   * (yani rakibin savunmasını dağıtmak) tek satırlık bir sömürü olurdu.
+   */
+  socket.on('takviye_geri_cagir', ({ hostKey, takviyeId } = {}) => {
+    const fail = (reason) => socket.emit('army_error', { reason });
+    const host = villageAtSlot(hostKey);
+    if (!host?.village) return fail('gecersiz_hedef');
+
+    const girdi = (host.village.takviyeler || [])
+      .find(t => t.id === takviyeId);
+    if (!girdi) return fail('takviye_yok');
+    if (girdi.userId !== userId) return fail('senin_degil');
+
+    const benimKoy = session.villages.get(girdi.slotKey);
+    if (!benimKoy) return fail('konum_yok');
+
+    const a = WORLD.slotByKey.get(hostKey);
+    const b = WORLD.slotByKey.get(girdi.slotKey);
+    const dist = (a && b) ? W.distanceBetween(a, b) : 1;
+
+    const res = ARMY.takviyeGeriCagir(host.village, benimKoy, takviyeId, dist);
+    if (!res.ok) return fail(res.reason);
+
+    if (host.userId) markUserDirty(host.userId, hostKey);
+    markUserDirty(userId, girdi.slotKey);
+    dirty(); emit();
+    socket.emit('army_sent', {
+      id: res.march.id, toName: benimKoy.name || 'Köyün', mode: 'takviye_donus',
+      seconds: res.march.legSeconds, distance: dist,
+    });
+    console.log(`[TAKVİYE GERİ] ${userEmail} ← ${girdi.fromName}`
+      + ` (${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
   });
 
   socket.on('simulate_battle', (payload = {}) => {

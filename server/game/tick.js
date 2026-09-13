@@ -771,12 +771,28 @@ function processUnitQueues(village, now) {
  * burada yeniden hesaplanıyor).
  */
 function getConsumptionRates(village) {
-  const army   = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
+  const kendiOrdu = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
   let seferde = 0;
   for (const m of village.marches || []) {
     for (const n of Object.values(m.units || {})) seferde += n || 0;
   }
-  const pop    = Math.max(0, (village.population || 0) - army - seferde);   // yalnız SİVİLLER
+  /*
+    TAKVİYEYİ EV SAHİBİ BESLER (İlkan'ın kararı).
+
+    Misafir asker bu köyün ORDUSUNDA değil ama bu köyün ekmeğini yiyor.
+    Kısıt zaten tahıl olduğu için bu, takviye almanın gerçek bedeli:
+    bedava kalkan değil, ambarından çıkan yem.
+
+    Misafir NÜFUSA eklenmiyor — o asker sahibinin köyünün nüfusunda
+    sayılıyor. Bu yüzden sivil hesabından da düşülmüyor; yalnız asker
+    yemeğine biniyor.
+  */
+  let misafir = 0;
+  for (const t of village.takviyeler || []) {
+    for (const n of Object.values(t.units || {})) misafir += n || 0;
+  }
+  const army   = kendiOrdu + misafir;
+  const pop    = Math.max(0, (village.population || 0) - kendiOrdu - seferde);   // yalnız SİVİLLER
   const horses = (village.equipment && village.equipment.at) || 0;
 
   const villagerFood = (pop    * FOOD_PER_VILLAGER_PER_DAY) / HOURS_PER_DAY;

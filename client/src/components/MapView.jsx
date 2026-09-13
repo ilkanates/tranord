@@ -1883,10 +1883,12 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           intel={intel[selVillage.key] || null}
           /*
             PvP AÇIK: NPC ve başka oyuncuların köyleri hedef olabilir.
-            'self' kendi köyün — panel zaten açılmıyor, sunucu da
-            sahibe bakıp reddediyor (kendi_koyun).
+            KENDİ köyüne saldıramazsın ama TAKVİYE gönderebilirsin — çoklu
+            köyde asıl kullanım bu (sınırdaki köyü merkezden beslemek).
+            Sunucu da aynı ayrımı yapıyor (mode !== 'takviye' ise reddediyor).
           */
           canAttack={selVillage.kind === 'npc' || selVillage.kind === 'player'}
+          canReinforce={selVillage.kind === 'self' || selVillage.kind === 'player'}
           onAttack={() => { setSendTarget(selVillage); setSelVillage(null); }}
           onClose={() => setSelVillage(null)} />
       )}

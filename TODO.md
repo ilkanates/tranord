@@ -21,7 +21,7 @@ Bu bölüm tek bir sistem — parçalarını ayrı ayrı yapmak mümkün değil,
 ### 0. ~~Önce mimari: bir kullanıcı = birden fazla köy~~ — YAPILDI
 Bkz. Tamamlandı · "Çoklu köy mimarisi". Bu maddede kalan tek iş:
 - **Kendi köyleri arasında kaynak/asker gönderimi.** Kaynak tarafı pazarla
-  çözüldü (tüccar yürüyüşü); asker tarafı için bkz. "Takviye" maddesi.
+  çözüldü (tüccar yürüyüşü); asker tarafı da yapıldı — bkz. Tamamlandı · "Takviye".
 
 ### 1. ~~Göçmen ve yeni köy kurma~~ — YAPILDI (uçtan uca oynanarak doğrulanmadı)
 Kod yolları yerinde: `gocmen` birimi (köşk/saray Lvl 10, 240 dk, maliyeti
@@ -105,33 +105,6 @@ Yapılacaklar:
 ya da depoyu vurabilsin mi (Travian'da ana bina Lvl 0'a inince köy yıkılır —
 bu oyunda köy yıkımı istiyor muyuz?).
 
-### Takviye — başka köye savunma askeri gönderme
-Yürüyüş altyapısı hazır; eksik olan yeni bir sefer **modu** ve askerin
-hedefte "misafir" olarak durması.
-
-- Şu anki modlar: `raid`, `scout`, `yerlesim` ve normal saldırı. `takviye` yok.
-- Takviye eden asker hedef köyde **savunmaya katılır**, ganimet almaz, geri
-  çağrılana kadar orada kalır.
-- Kendi köylerim arasında da, başka oyuncuya da gönderilebilmeli
-  (kime gönderilebileceği birlik sistemine bağlı → "Elçilik ve birlik").
-
-**Karar gerekiyor — en kritiği besleme:**
-- Misafir askerin tahılını **kim** öder? Travian'da ev sahibi köy besler.
-  Bu oyunda kısıt zaten tahıl (bkz. Tamamlandı · "Kısıt artık TAHIL"), yani
-  bu karar dengeyi doğrudan belirliyor: ev sahibi beslerse takviye gerçek
-  bir maliyet, gönderen beslerse bedava kalkan olur.
-- Ev sahibi köyün tahılı biterse ne olur — misafir asker mi ölür, önce ev
-  sahibinin askerleri mi?
-- Savaşta **kimin yükseltmeleri** uygulanır: askerin sahibi mi, ev sahibi mi?
-  (Ekipman yükseltmeleri köy bazlı; `unitStatsNow` buna göre hesaplanıyor.)
-- Geri çağırma: anında mı, yoksa yürüyüş süresi kadar mı?
-- Ev sahibi köy düşerse/yıkılırsa misafir askere ne olur?
-
-**Arayüz:**
-- Ev sahibi: köyümde kimin kaç askeri var.
-- Gönderen: askerim hangi köyde, geri çağır düğmesi.
-- Savaş raporunda takviye kayıpları ayrı satır (kimin askeri öldü).
-
 ### Sağlık çadırı
 - `saglikCadiri` binası tanımlı, mekaniği yok.
 - Savaş sonrası **savunanın** kayıplarının bir kısmı iyileştirilir.
@@ -186,6 +159,17 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Takviye — başka köye savunma askeri gönderme (13 Eylül 2026)
+- Yeni sefer modu `takviye`: çarpışma yok, ganimet yok, dönüş ayağı yok. Asker hedef köyde **misafir** kalır ve o köy saldırı alınca savunmaya katılır (`savunanBirlikler` = kendi ordu + misafirler).
+- **BESLEMEYİ EV SAHİBİ ÖDER** (İlkan'ın kararı). Kısıt zaten tahıl olduğu için takviye bedava kalkan değil, ambardan çıkan gerçek yem: `getConsumptionRates` misafiri asker yemeğine katıyor. Misafir NÜFUSA eklenmiyor — o nüfus sahibinin köyünde sayılıyor, yoksa iki kez sayılırdı.
+- **Kayıp önce ev sahibinden, artanı misafirlerden.** Tersi olsaydı "takviye çağır, kendi askerin ölmesin" sömürüsü doğardı. Misafir kaybı ev sahibinin nüfusundan düşmüyor; `processMarches` sahibinin köyüne işliyor.
+- **Geri çağırma ışınlamıyor** — yürüyüş süresi kadar yolda. Anında olsaydı takviye risksiz olurdu (saldırı gelince tek tuşla geri alınırdı). Sahiplik denetimi var: başkasının takviyesini geri çağırmak rakibin savunmasını dağıtmanın tek satırlık yolu olurdu.
+- Kendi köyüne **saldıramazsın ama takviye gönderebilirsin** — çoklu köyde asıl kullanım bu. NPC'ye takviye kapalı.
+- Ekipman yükseltmesi olarak **ev sahibinin** seviyeleri uygulanıyor (savaş tek orduyla çözülüyor; sur/hendek/kule de onun). Alternatifi savaş hesabını parçalamayı gerektirirdi.
+- Arayüz: gönderme ekranında TAKVİYE modu (tahmin ve taşıma kapasitesi gizli — çarpışma/ganimet yok), Ordu ekranında iki liste — "köyümde misafir, yemeklerini ben ödüyorum" ve "askerim dışarıda" + GERİ ÇAĞIR.
+- `structFingerprint`'e takviye eklendi, yoksa varış ekrana ancak kalp atışında (30 sn) yansıyordu.
+- **9 birim testi** (`test/takviye.test.js`) + uçtan uca doğrulandı: sefer gönderildi → vardı → `takviyelerim` dolu → geri çağrıldı → dönüş seferi yola çıktı → ordu 60 → **70**.
 
 ### Rún Salonu'na işçi atanamıyordu — araştırma tamamen tıkalıydı (13 Eylül 2026)
 - Hangi binaların işçi aldığını söyleyen `WORKER_ASSIGNABLE_MILITARY` kümesi sunucuda ve istemcide **ayrı ayrı** yazılıydı ve üçüncü kez ayrıştı: sunucu `runSalonu`, `kosk`, `saray`'ı kabul ediyor, istemci listesinde üçü de yoktu. İstemci bilmeyince atama arayüzü hiç çizilmiyor, sunucuya istek bile gitmiyor.

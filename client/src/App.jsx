@@ -956,6 +956,10 @@ function Game({ token, onLogout }) {
                 unitDefs={village.unitDefs || {}}
                 equipmentDefs={village.equipmentDefs || {}}
                 unitStatsNow={village.unitStatsNow || {}}
+                takviyeler={village.takviyeler || []}
+                takviyelerim={village.takviyelerim || []}
+                onGeriCagir={(hostKey, takviyeId) =>
+                  socket?.emit('takviye_geri_cagir', { hostKey, takviyeId })}
               />
             </div>
           )}

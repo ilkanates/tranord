@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { C, FONT, panel, label as lbl, num } from '../theme';
+import { C, FONT, panel, btn, label as lbl, num } from '../theme';
 import { useViewport } from '../responsive';
 import { EQ_LABEL } from '../flows';
 import { unitImage } from '../data/unitImages';
@@ -41,7 +41,90 @@ function StatChip({ icon, label, value, color }) {
  * güncel değerler. Kılıç Lvl 5'e çıkınca kılıçlı birimlerin saldırısı
  * burada da artmalı; tanımdaki temel değer yükseltmeleri bilmiyor.
  */
-export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}, unitStatsNow = {} }) {
+/**
+ * TAKVİYE BÖLÜMÜ — iki yön, iki ayrı liste.
+ *
+ * `takviyeler`   : bu köyde misafir duran birlikler. Ev sahibi bunları
+ *                  GERİ ÇAĞIRAMAZ (sahibinin işi) ama BESLİYOR — o yüzden
+ *                  kimi beslediğini görmesi şart.
+ * `takviyelerim` : benim askerimin durduğu köyler. Geri çağırma buradan.
+ */
+function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCagir }) {
+  if (!takviyeler.length && !takviyelerim.length) return null;
+
+  const Satir = ({ baslik, alt, units, sag }) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      padding: '8px 10px', borderRadius: 6,
+      background: 'rgba(8,17,28,0.6)', border: `1px solid ${C.lineSoft}`,
+    }}>
+      <div style={{ minWidth: 0, flex: '1 1 160px' }}>
+        <div style={{ fontFamily: FONT.ui, fontSize: 11.5, color: C.frost }}>{baslik}</div>
+        <div style={lbl({ fontSize: 8, marginTop: 1 })}>{alt}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: '1 1 auto' }}>
+        {Object.entries(units || {}).map(([k, n]) => (
+          <span key={k} title={unitDefs[k]?.name || k}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <Icon name={unitDefs[k]?.category === 'suvari' ? 'at' : 'kalkan'}
+              size={11} color={C.iceDeep} />
+            <span style={num({ fontSize: 10.5, color: C.text })}>{n}</span>
+          </span>
+        ))}
+      </div>
+      {sag}
+    </div>
+  );
+
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Icon name="kalkan" size={14} color={C.good} />
+        <span style={lbl({ fontSize: 9, letterSpacing: 1.6 })}>Takviye</span>
+      </div>
+
+      {takviyeler.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 10 }}>
+          <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint }}>
+            Köyümde misafir — <strong style={{ color: C.warn }}>yemeklerini ben ödüyorum</strong>
+          </div>
+          {takviyeler.map(t => (
+            <Satir key={`in-${t.id}`} baslik={t.fromName || 'Müttefik'}
+              alt={`${t.toplam} asker`} units={t.units} />
+          ))}
+        </div>
+      )}
+
+      {takviyelerim.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint }}>
+            Askerim dışarıda — yemeğini o köy ödüyor
+          </div>
+          {takviyelerim.map(t => (
+            <Satir key={`out-${t.id}-${t.hostKey}`}
+              baslik={t.hostName || t.hostKey}
+              alt={`${t.toplam} asker · ${t.kendiKoyum ? 'kendi köyüm' : 'müttefik köy'}`}
+              units={t.units}
+              sag={(
+                <button onClick={() => onGeriCagir?.(t.hostKey, t.id)}
+                  title="Yürüyerek döner — anında gelmez"
+                  style={btn('ghost', {
+                    flexShrink: 0, padding: '5px 10px', fontSize: 9, letterSpacing: 0.8,
+                  })}>
+                  GERİ ÇAĞIR
+                </button>
+              )} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ArmyPanel({
+  army = {}, unitDefs = {}, equipmentDefs = {}, unitStatsNow = {},
+  takviyeler = [], takviyelerim = [], onGeriCagir,
+}) {
   const stOf = (type) => unitStatsNow[type] || unitDefs[type]?.stats || {};
   const vp = useViewport();
   const [detail, setDetail] = useState(null);
@@ -91,6 +174,9 @@ export default function ArmyPanel({ army = {}, unitDefs = {}, equipmentDefs = {}
           <Summary label="Atlı savunma"  value={t.atliSav}    color={C.good}   icon="mizrak" />
           <Summary label="Taşıma kap."   value={t.kapasite}   color={C.iceSoft} icon="depo" />
         </div>
+
+        <TakviyeBolumu takviyeler={takviyeler} takviyelerim={takviyelerim}
+          unitDefs={unitDefs} onGeriCagir={onGeriCagir} />
 
         {total === 0 ? (
           <div style={panel({

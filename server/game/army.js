@@ -53,7 +53,17 @@ const LOOTABLE = [
  * orada yeni köy kurulur (bkz. server/index.js foundVillageAt). Gidiş tek
  * yön — dönüş ayağı hiç oluşmaz.
  */
-const MODES = new Set(['raid', 'attack', 'scout', 'yerlesim']);
+/**
+ * 'takviye' = savunma desteği: hedef köyde savaş YOK, asker orada misafir
+ * kalır ve o köy saldırı alınca savunmaya katılır. Dönüş ayağı kendiliğinden
+ * oluşmaz — sahibi geri çağırınca yeni bir dönüş seferi yaratılır.
+ *
+ * BESLEME KARARI: misafir askeri EV SAHİBİ köy besler (İlkan'ın kararı).
+ * Bu oyunda kısıt zaten tahıl olduğu için karar dengeyi doğrudan belirliyor:
+ * takviye almak bedava kalkan değil, ev sahibine gerçek bir yem maliyeti.
+ * Uygulaması tick.js · getConsumptionRates içinde.
+ */
+const MODES = new Set(['raid', 'attack', 'scout', 'yerlesim', 'takviye']);
 
 /**
  * Keşif seferi yalnızca bu birimlerle yapılır: yük taşıyan ama savaşmayan
@@ -164,6 +174,93 @@ function applyLossesToVillage(village, losses) {
   }
   if (dead > 0) village.population = Math.max(1, (village.population || 0) - dead);
   return dead;
+}
+
+// ── Takviye (misafir birlikler) ───────────────────────────────────────
+
+/**
+ * Köyde duran BÜTÜN misafir birlikleri tek nesnede topla.
+ *
+ * `village.takviyeler` her biri bir varıştan gelen girdiler:
+ *   { id, userId, slotKey, fromName, units: {...}, at }
+ * Aynı oyuncu birden fazla köyünden gönderebilir; girdiler birleşmez,
+ * çünkü geri çağırma köy köy yapılıyor.
+ */
+function takviyeBirlikleri(village) {
+  const out = {};
+  for (const t of village.takviyeler || []) {
+    for (const [k, n] of Object.entries(t.units || {})) {
+      if (n > 0) out[k] = (out[k] || 0) + n;
+    }
+  }
+  return out;
+}
+
+/** Köyün savunmaya çıkardığı her şey: kendi ordusu + misafirler */
+function savunanBirlikler(village) {
+  const out = { ...(village.army || {}) };
+  for (const [k, n] of Object.entries(takviyeBirlikleri(village))) {
+    out[k] = (out[k] || 0) + n;
+  }
+  return out;
+}
+
+/**
+ * SAVUNMA KAYIPLARINI PAY ET — önce ev sahibi, sonra misafirler.
+ *
+ * Savaş tek bir birleşik orduyla çözülüyor (savunanBirlikler), ama ölenler
+ * gerçek sahiplerinden düşmeli. Sıra ÖNEMLİ: kayıp önce ev sahibinin
+ * ordusundan alınıyor, artan misafirlere dağıtılıyor. Böylece "takviye
+ * çağır, kendi askerin ölmesin" gibi bir sömürü olmuyor — ev sahibi de
+ * bedelini ödüyor.
+ *
+ * Misafir kaybı ev sahibinin NÜFUSUNDAN düşmez: o asker sahibinin köyünün
+ * nüfusunda sayılıyor. Bu yüzden fonksiyon misafir kayıplarını sahibine
+ * göre döndürüyor; çağıran taraf (index.js · processMarches) sahibin
+ * köyüne işliyor.
+ *
+ * @returns {{ evSahibiOlu:number, misafirKayip:Array<{userId,slotKey,losses,olu}> }}
+ */
+function savunmaKayiplariniPayEt(village, losses) {
+  const kalan = {};
+  for (const [k, n] of Object.entries(losses || {})) {
+    const cnt = Math.max(0, Math.floor(n || 0));
+    if (cnt > 0) kalan[k] = cnt;
+  }
+
+  // 1) Ev sahibinin ordusu (nüfusu da burada düşer)
+  const evSahibiPay = {};
+  for (const [k, cnt] of Object.entries(kalan)) {
+    const have = village.army?.[k] || 0;
+    const kill = Math.min(have, cnt);
+    if (kill > 0) { evSahibiPay[k] = kill; kalan[k] = cnt - kill; }
+  }
+  const evSahibiOlu = applyLossesToVillage(village, evSahibiPay);
+
+  // 2) Artan kayıp misafirlere — geliş sırasına göre
+  const misafirKayip = [];
+  for (const t of village.takviyeler || []) {
+    const pay = {};
+    let olu = 0;
+    for (const [k, cnt] of Object.entries(kalan)) {
+      if (cnt <= 0) continue;
+      const have = t.units?.[k] || 0;
+      const kill = Math.min(have, cnt);
+      if (kill <= 0) continue;
+      t.units[k] = have - kill;
+      if (t.units[k] <= 0) delete t.units[k];
+      pay[k] = kill; olu += kill; kalan[k] = cnt - kill;
+    }
+    if (olu > 0) {
+      misafirKayip.push({ userId: t.userId, slotKey: t.slotKey, losses: pay, olu });
+    }
+  }
+  // Tamamen eriyen takviye girdisi listeden çıkar
+  if (village.takviyeler?.length) {
+    village.takviyeler = village.takviyeler.filter(t => totalUnits(t.units) > 0);
+  }
+
+  return { evSahibiOlu, misafirKayip };
 }
 
 // ── Keşif yardımcıları ────────────────────────────────────────────────
@@ -291,6 +388,14 @@ function createMarch(village, {
   } else if (mode === 'scout') {
     const bad = Object.keys(clean).find(k => !SCOUT_UNITS.has(k));
     if (bad) return { ok: false, reason: 'kesif_icin_izci_gerek' };
+  } else if (mode === 'takviye') {
+    /*
+      TAKVİYEDE SALDIRI GÜCÜ ARANMAZ — iş savunmak. Aksi hâlde saf savunma
+      birimleri (ve göçmen dışındaki her şey) gönderilemezdi. Tek koşul
+      savunmaya bir katkısının olması: göçmenin savunması 0, taşınması
+      anlamsız ve yerleşim hakkını kaçırmaya yol açar.
+    */
+    if (armyDefense(clean) <= 0) return { ok: false, reason: 'savunma_gucu_yok' };
   } else if (armyAttack(clean) <= 0) {
     return { ok: false, reason: 'saldiri_gucu_yok' };
   }
@@ -351,6 +456,46 @@ function resolveArrival(march, origin, target, opts = {}) {
       outcome: 'hedef_yok', winner: 'none',
       sent: { ...march.units }, myLosses: {}, theirLosses: {}, loot: {},
     });
+    return march;
+  }
+
+  /**
+   * ── TAKVİYE ──────────────────────────────────────────────────────
+   *
+   * Savaş yok, ganimet yok, dönüş yok. Asker hedef köyde misafir olarak
+   * duruyor ve o köy saldırı alınca savunmaya katılıyor (savunanBirlikler).
+   * Geri dönüşü sahibi `takviye_geri_cagir` ile başlatır.
+   *
+   * Sefer listeden SİLİNİR — çağıran taraf (processMarches) bunu
+   * `alindi: true` dönüşünden anlıyor.
+   */
+  if (march.mode === 'takviye') {
+    target.takviyeler ||= [];
+    if (!target.nextTakviyeId) target.nextTakviyeId = 1;
+    const girdi = {
+      id: target.nextTakviyeId++,
+      userId: opts.ownerUserId ?? null,
+      slotKey: march.fromKey,
+      fromName: march.fromName,
+      units: { ...march.units },
+      at: now,
+    };
+    target.takviyeler.push(girdi);
+
+    const ortak = {
+      id: `${march.id}-${now}`, at: now, mode: 'takviye',
+      fromName: march.fromName, toName, toKey: march.toKey,
+      outcome: 'takviye_vardi', winner: 'none',
+      sent: { ...march.units }, myLosses: {}, theirLosses: {}, loot: {},
+    };
+    pushReport(origin, { ...ortak, dir: 'out' });
+    pushReport(target, { ...ortak, dir: 'in' });
+    /*
+      Dönüş şekli her dalda `march` — çağıran zaten dönüşü kullanmıyor,
+      kararı bayraktan okuyor. `bitti` = bu seferin dönüş ayağı yok,
+      listeden silinmeli (yerleşimdeki gibi).
+    */
+    march.bitti = true;
     return march;
   }
 
@@ -472,7 +617,17 @@ function resolveArrival(march, origin, target, opts = {}) {
   }
 
   // ── SAVAŞ ────────────────────────────────────────────────────────
-  const defenderUnits = { ...(target.army || {}) };
+  /*
+    SAVUNMAYA MİSAFİRLER DE ÇIKAR. Tek birleşik orduyla hesaplanıyor;
+    kayıplar sonra gerçek sahiplerine pay ediliyor (savunmaKayiplariniPayEt).
+
+    Ekipman yükseltmesi olarak EV SAHİBİNİN seviyeleri kullanılıyor —
+    `simulateBattle` tek bir `defenderLevels` alıyor ve köy tek bir ordu
+    gibi savunuyor (sur, hendek, kule de ev sahibinin). Alternatif, her
+    misafiri kendi seviyeleriyle ayrı ayrı hesaplamak olurdu; savaş
+    hesabını parçalamayı gerektirir, şimdilik yapılmadı.
+  */
+  const defenderUnits = savunanBirlikler(target);
   /**
    * Ekipman yükseltmeleri KÖYE ait: saldıranınki `origin`den, savunanınki
    * `target`tan okunuyor. İkisi ayrı olmalı — saldıranın kılıç seviyesi
@@ -485,8 +640,15 @@ function resolveArrival(march, origin, target, opts = {}) {
     defenderLevels: target?.equipmentLevels || null,
   });
 
-  // Savunanın kaybı hedefin ordusundan düşer (+ nüfus)
-  const defenderDead = applyLossesToVillage(target, res.defenderLosses);
+  /*
+    Savunanın kaybı önce EV SAHİBİNİN ordusundan, artanı misafirlerden.
+    Misafir kaybı ev sahibinin nüfusundan düşmez — o asker sahibinin
+    köyünün nüfusunda sayılıyor. Sefere iliştiriliyor ki processMarches
+    sahibinin köyüne işlesin.
+  */
+  const pay = savunmaKayiplariniPayEt(target, res.defenderLosses);
+  const defenderDead = pay.evSahibiOlu;
+  march.misafirKayip = pay.misafirKayip;
 
   const survivors = res.attackerSurvivors || {};
   const survTotal = totalUnits(survivors);
@@ -582,6 +744,46 @@ function resolveReturn(march, origin, caps = null, foodRoom = null) {
 }
 
 /**
+ * TAKVİYEYİ GERİ ÇAĞIR — misafir birliği ev sahibinden alıp sahibine
+ * dönüş seferi olarak yola çıkarır.
+ *
+ * Dönüş anında ışınlanmıyor: yürüyüş süresi kadar yolda. Aksi hâlde
+ * takviye risksiz olurdu — saldırı gelince bir tuşla geri alınır, düşman
+ * boş köy bulurdu. Yolda olduğu sürece ne orada savunuyor ne burada.
+ *
+ * Sefer SAHİBİNİN köyünde duruyor (bütün seferler çıktıkları köyde durur),
+ * doğrudan `phase: 'return'` ile — gidiş ayağı yok, zaten oradalar.
+ */
+function takviyeGeriCagir(hostVillage, ownerVillage, takviyeId, distance) {
+  const liste = hostVillage.takviyeler || [];
+  const idx = liste.findIndex(t => t.id === takviyeId);
+  if (idx < 0) return { ok: false, reason: 'takviye_yok' };
+  const t = liste[idx];
+  if (totalUnits(t.units) <= 0) { liste.splice(idx, 1); return { ok: false, reason: 'takviye_yok' }; }
+
+  const legHours = marchGameHours(t.units, Math.max(1, distance));
+  if (!ownerVillage.nextMarchId) ownerVillage.nextMarchId = 1;
+  const march = {
+    id: ownerVillage.nextMarchId++,
+    mode: 'takviye', ownerKind: 'player',
+    fromKey: t.slotKey, fromName: t.fromName,
+    toKey: t.slotKey, toName: ownerVillage.name || t.fromName, toKind: 'player',
+    units: { ...t.units },
+    distance,
+    phase: 'return',               // gidiş yok: asker zaten hedefteydi
+    departAt: Date.now(),
+    legHours,
+    remainingHours: legHours,
+    legSeconds: Math.round(GT.gameHoursToRealMs(legHours) / 1000),
+    loot: {},                      // takviye ganimet taşımaz
+    intel: null,
+  };
+  (ownerVillage.marches ||= []).push(march);
+  liste.splice(idx, 1);
+  return { ok: true, march };
+}
+
+/**
  * Seferi `hours` oyun saati ilerlet. Varış/dönüş anı geldiyse true döner.
  * Eski kayıtlarda `remainingHours` yok, `arriveAt` var: bir kereye mahsus çevrilir.
  */
@@ -601,5 +803,6 @@ module.exports = {
   marchSeconds, marchGameHours, slowestSpeed, carryCapacity, armyAttack, armyDefense,
   totalUnits, buildingLevel, applyLossesToVillage, takeLoot, depositLoot,
   createMarch, resolveArrival, resolveReturn, pushReport,
+  takviyeBirlikleri, savunanBirlikler, savunmaKayiplariniPayEt, takviyeGeriCagir,
   SETTLER_UNIT, SETTLERS_REQUIRED,
 };

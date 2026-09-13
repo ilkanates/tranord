@@ -26,6 +26,9 @@ const MODES = [
     desc: 'Kayıplar tam. Kazanırsan savunması silinir, deposu tamamen yağmalanır.' },
   { key: 'scout',  label: 'KEŞİF',       icon: 'harita', color: C.ice,
     desc: 'Çarpışma yok. Ordusunu, surunu ve deposunu öğrenir. Yalnız izci gider.' },
+  { key: 'takviye', label: 'TAKVİYE',    icon: 'kalkan', color: C.good,
+    desc: 'Çarpışma yok. Askerin o köyde kalır ve saldırı gelince savunur. '
+      + 'Yemini O KÖY öder. Geri çağırınca yürüyerek döner.' },
 ];
 
 const ERR = {
@@ -43,6 +46,10 @@ const ERR = {
   kesif_icin_izci_gerek: 'Keşfe yalnızca izci gönderilebilir.',
   saldiri_gucu_yok: 'Seçtiğin birimlerin saldırı gücü yok.',
   gecersiz_koy: 'Hedef köy bulunamadı.',
+  savunma_gucu_yok: 'Seçtiğin birimlerin savunma gücü yok — takviye olamaz.',
+  takviye_yalniz_oyuncuya: 'NPC köyüne takviye gönderilmez.',
+  takviye_yok: 'Bu takviye artık orada değil.',
+  senin_degil: 'Bu takviye senin değil.',
 };
 
 /**
@@ -130,7 +137,19 @@ function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
 export default function SendArmyPanel({
   socket, target, army = {}, unitDefs = {}, unitStatsNow = {}, marchInfo = {}, intel = null, onClose,
 }) {
-  const [mode, setMode] = useState('raid');
+  /*
+    KENDİ KÖYÜNE YALNIZ TAKVİYE. Panel kendi köyün için de açılıyor (çoklu
+    köyde sınırdaki köyü beslemek asıl kullanım), ama yağma/saldırı/keşif
+    orada anlamsız — sunucu da zaten reddediyor. Mod listesi buna göre
+    daralıyor ve varsayılan takviye oluyor, yoksa oyuncu "YAĞMAYA GÖNDER"
+    düğmesini görüp sunucudan hata yiyordu.
+  */
+  const yalnizTakviye = target?.kind === 'self';
+  const moduller = useMemo(
+    () => (yalnizTakviye ? MODES.filter(m => m.key === 'takviye') : MODES),
+    [yalnizTakviye]);
+
+  const [mode, setMode] = useState(yalnizTakviye ? 'takviye' : 'raid');
   const [sel, setSel] = useState({});
   const [err, setErr] = useState(null);
   const [sent, setSent] = useState(null);
@@ -200,7 +219,7 @@ export default function SendArmyPanel({
 
   // ── Tahmin: keşif verisi varsa sunucudan sor ──
   useEffect(() => {
-    if (!socket || mode === 'scout' || !intel || chosenTotal <= 0) { setPred(null); return; }
+    if (!socket || mode === 'scout' || mode === 'takviye' || !intel || chosenTotal <= 0) { setPred(null); return; }
     const t = setTimeout(() => {
       socket.emit('simulate_battle', {
         tag: 'sendpanel', attacker: chosen, defender: intel.army || {},
@@ -221,7 +240,7 @@ export default function SendArmyPanel({
   }, [onClose]);
 
   if (!target) return null;
-  const modeDef = MODES.find(m => m.key === mode);
+  const modeDef = moduller.find(m => m.key === mode);
 
   const send = () => {
     setErr(null); setNoReply(false);
@@ -295,7 +314,7 @@ export default function SendArmyPanel({
           <>
             {/* Mod seçimi */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-              {MODES.map(m => {
+              {moduller.map(m => {
                 const on = m.key === mode;
                 return (
                   <button key={m.key} onClick={() => { setMode(m.key); setErr(null); }} style={{
@@ -374,13 +393,13 @@ export default function SendArmyPanel({
               <div style={box}>
                 <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>TAŞIMA</div>
                 <div style={num({ fontSize: 15, color: chosenTotal ? C.warn : C.textMute })}>
-                  {mode === 'scout' ? '—' : short(cap)}
+                  {(mode === 'scout' || mode === 'takviye') ? '—' : short(cap)}
                 </div>
               </div>
             </div>
 
             {/* Tahmin */}
-            {mode !== 'scout' && (
+            {mode !== 'scout' && mode !== 'takviye' && (
               intel ? (
                 <div style={{
                   ...box,
@@ -466,10 +485,12 @@ export default function SendArmyPanel({
             )}
 
             <button onClick={send} disabled={chosenTotal <= 0}
-              style={btn(chosenTotal > 0 ? (mode === 'scout' ? 'primary' : 'danger') : 'disabled', {
+              style={btn(chosenTotal > 0 ? (mode === 'takviye' ? 'good' : mode === 'scout' ? 'primary' : 'danger') : 'disabled', {
                 width: '100%', padding: 10, letterSpacing: 1.6, fontSize: 11,
               })}>
-              {mode === 'scout' ? 'İZCİ GÖNDER' : mode === 'raid' ? 'YAĞMAYA GÖNDER' : 'SALDIRIYA GÖNDER'}
+              {mode === 'scout' ? 'İZCİ GÖNDER'
+                : mode === 'takviye' ? 'TAKVİYEYE GÖNDER'
+                  : mode === 'raid' ? 'YAĞMAYA GÖNDER' : 'SALDIRIYA GÖNDER'}
             </button>
           </>
         )}

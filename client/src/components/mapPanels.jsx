@@ -535,7 +535,7 @@ export function BuildFieldPanel({
 
 // ── Başka bir köy (NPC / oyuncu) ────────────────────────────────────
 export function ForeignVillagePanel({
-  v, myArmy, popoverPos, onClose, onAttack, canAttack = false, intel = null,
+  v, myArmy, popoverPos, onClose, onAttack, canAttack = false, canReinforce = false, intel = null,
 }) {
   const color = v.kind === 'player' ? '#ff6f78' : C.ice;
   const ratio = myArmy && v.army ? v.army / Math.max(1, myArmy) : null;
@@ -599,12 +599,17 @@ export function ForeignVillagePanel({
           </div>
         )}
 
-        {canAttack ? (
+        {/*
+          KENDİ KÖYÜNE de düğme çıkar — saldırı değil TAKVİYE için.
+          Etiket buna göre değişiyor: aynı düğme "ORDU GÖNDER" diye
+          duruyor olsaydı oyuncu kendi köyüne saldırabileceğini sanardı.
+        */}
+        {(canAttack || canReinforce) ? (
           <button onClick={onAttack}
-            style={btn('danger', {
+            style={btn(canAttack ? 'danger' : 'good', {
               width: '100%', marginTop: 8, padding: 8, letterSpacing: 1.4, fontSize: 10,
             })}>
-            ORDU GÖNDER
+            {canAttack ? 'ORDU GÖNDER' : 'TAKVİYE GÖNDER'}
           </button>
         ) : (
           <div style={{

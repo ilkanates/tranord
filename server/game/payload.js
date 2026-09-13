@@ -233,6 +233,23 @@ function buildPayload(village, tickMs, opts = {}) {
       timeLeft: GT.clockToRealSeconds(
         GT.hoursToClock(Math.max(0, m.remainingHours ?? 0)), speed),
     })),
+    /*
+      TAKVİYE — İKİ AYRI GÖRÜNÜM.
+
+      `takviyeler`  : BU köyde misafir duran birlikler (ev sahibi görür —
+                      kimin kaç askeri burada, kimi besliyorum).
+      `takviyelerim`: BENİM askerimin durduğu köyler (sahibi görür — geri
+                      çağırma düğmesi bunu kullanır).
+
+      İkisi ayrı olmak zorunda: ev sahibi misafirin sahibini bilir ama
+      onu geri çağıramaz; sahibi de ev sahibinin köyünün içini görmez.
+    */
+    takviyeler: (village.takviyeler || []).map(t => ({
+      id: t.id, userId: t.userId, slotKey: t.slotKey,
+      fromName: t.fromName, units: { ...t.units }, at: t.at,
+      toplam: ARMY.totalUnits(t.units),
+    })),
+    takviyelerim: opts.takviyelerim || [],
     incoming: incomingMarchesFor(`${village.worldQ || 0},${village.worldR || 0}`),
     reports: (village.reports || []).slice(0, 25),
     intel: village.intel || {},
