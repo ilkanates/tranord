@@ -236,8 +236,18 @@ function UnitCard({
               : !costOk ? 'Yetersiz kaynak'
               : !workerOk ? 'Askere dönüşecek boş işçi yok'
               : 'Eğitim kuyruğuna ekle'}
+            /*
+              `minHeight` YOK.
+
+              Görünürlük hatasını çözerken buraya `minHeight: 26` yazılmıştı;
+              satır içi min-height, index.css'teki dokunmatik kuralını
+              (`button { min-height: 44px }`) EZER — düğme görünür oldu ama
+              telefonda 26 px'lik bir hedefe düştü. Satır içi `height`
+              olsaydı sorun olmazdı (min-height onu yener), asıl tuzak
+              AYNI özelliği satır içi vermek.
+            */
             style={btn(ready ? 'good' : 'disabled', {
-              flex: '1 1 52px', minWidth: 52, minHeight: 26,
+              flex: '1 1 52px', minWidth: 52,
               padding: '4px 4px', fontSize: 9, letterSpacing: 0.8,
             })}>
             {seviyeKilidi ? `LVL ${gereken}` : arastirmaKilidi ? 'RÚN' : 'EĞİT'}
