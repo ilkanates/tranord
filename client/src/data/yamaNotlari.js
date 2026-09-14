@@ -26,6 +26,52 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14f',
+    tarih: '14 Eylül 2026',
+    baslik: 'Dayanıklılık eşyaları ve pazar düzeltmesi',
+    notlar: [
+      {
+        id: '20260914-zirhlanma',
+        tur: 'yenilik',
+        metin: 'Artık ALINAN HASARI AZALTAN eşyalar var: Demir Kalkan, '
+          + 'Ayna Zırh, Demir Miğfer, Zincir Etek ve Kutup Tilkisi Postu. '
+          + 'Hem macerada hem savaşta işliyorlar. Toplam azaltmanın tavanı '
+          + '%50 — iyi kuşanmış kahraman iki kat dayanıklı, ölümsüz değil.',
+      },
+      {
+        id: '20260914-iyilesme-esya',
+        tur: 'yenilik',
+        metin: 'İyileşmeyi hızlandıran eşyalara Şifa Taşı (+3/sa) eklendi. '
+          + 'Zincir Zırh ve Demir Nallı Çizme de iyileşme veriyordu; artık '
+          + 'her slotta dayanıklılık seçeneği var.',
+      },
+      {
+        id: '20260914-guc-macera-hasari',
+        tur: 'denge',
+        metin: 'Kahramanın SALDIRI GÜCÜ macerada da işine yarıyor: güç '
+          + 'arttıkça macerada aldığı hasar azalıyor (her 200 güç için %1, '
+          + 'en çok %40). Macerada yıpratan şey yol boyunca karşılaştığı '
+          + 'tehlike; daha güçlü vuran kahraman onu daha çabuk bertaraf '
+          + 'ediyor. Macera kartlarında artık GERÇEK can kaybın yazıyor.',
+      },
+      {
+        id: '20260914-istatistik-kahraman',
+        tur: 'yenilik',
+        metin: 'İstatistiklere "En güçlü kahraman" tablosu eklendi — '
+          + 'kahraman seviyesine göre sıralama.',
+      },
+      {
+        id: '20260914-pazar-yukseltme',
+        tur: 'duzeltme',
+        metin: 'PAZAR YÜKSELTİLİRKEN TAKAS KAPANIYORDU. Artık mevcut '
+          + 'seviyesiyle çalışmaya devam ediyor — tıpkı tarla '
+          + 'yükseltilirken üretimin durmaması gibi. Aynı hata sarayda da '
+          + 'vardı: saray yükseltilirken merkez taşınamıyordu, o da '
+          + 'düzeldi.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14e',
     tarih: '14 Eylül 2026',
     baslik: 'Maceralar, eşyalar ve köyün sonu',

@@ -69,6 +69,18 @@ const NADIRLIK_SIRA = ['siradan', 'iyi', 'nadir', 'efsane'];
 const KAHRAMAN_BONUSLARI = {
   saldiri:     { ad: 'Kahraman saldırısı', birim: 'guc' },
   can:         { ad: 'Can tavanı',         birim: 'guc' },
+  /*
+    ZIRHLANMA — ALINAN HASARI yüzde azaltıyor (macerada da savaşta da).
+
+    Can tavanından FARKLI bir eksen: can tavanı "kaç darbe dayanırım",
+    zırhlanma "her darbe ne kadar acıtır". İkisi aynı şeyin iki ölçüsü
+    gibi görünse de birlikte çarpım etkisi yapıyor ve oyuncuya gerçek bir
+    tercih veriyor — büyük can havuzu mu, az yıpranma mı.
+
+    TAVANI VAR (bkz. kahraman.js · ZIRHLANMA_TAVANI): tavansız bir
+    yığılma kahramanı ölümsüz yapar ve macera riskini sıfırlardı.
+  */
+  zirhlanma:   { ad: 'Alınan hasar',       birim: 'yuzde' },
   iyilesme:    { ad: 'İyileşme hızı',      birim: 'saatlik' },
   maceraHizi:  { ad: 'Macera hızı',        birim: 'yuzde' },
   ganimet:     { ad: 'Ganimet',            birim: 'yuzde' },
@@ -136,6 +148,11 @@ const HERO_ITEMS = {
     aciklama: 'Kahramanın canını büyütür.',
     kahramanBonus: { can: 60 },
   },
+  demirKalkan: {
+    ad: 'Demir Kalkan', slot: 'solEl', ikon: 'kalkan',
+    aciklama: 'Kahramanın ALDIĞI HASARI azaltır — macerada da savaşta da.',
+    kahramanBonus: { zirhlanma: 6 },
+  },
   kuleKalkani: {
     ad: 'Kule Kalkanı', slot: 'solEl', ikon: 'kalkan',
     aciklama: 'Piyadenin savunmasını büyütür.',
@@ -147,6 +164,11 @@ const HERO_ITEMS = {
     ad: 'Zincir Zırh', slot: 'zirh', ikon: 'zirh',
     aciklama: 'Kahramanın canını ve iyileşmesini büyütür.',
     kahramanBonus: { can: 80, iyilesme: 1 },
+  },
+  aynaZirh: {
+    ad: 'Ayna Zırh', slot: 'zirh', ikon: 'zirh',
+    aciklama: 'Ağır levha zırh: alınan hasarı belirgin şekilde azaltır.',
+    kahramanBonus: { zirhlanma: 9 },
   },
   pulZirh: {
     ad: 'Pul Zırh', slot: 'zirh', ikon: 'zirh',
@@ -165,12 +187,22 @@ const HERO_ITEMS = {
     aciklama: 'Süvarinin savunmasını büyütür.',
     birimBonus: { suvari: { savunma: 6 } },
   },
+  demirMigfer: {
+    ad: 'Demir Miğfer', slot: 'migfer', ikon: 'migfer',
+    aciklama: 'Alınan hasarı azaltır ve canı biraz büyütür.',
+    kahramanBonus: { zirhlanma: 4, can: 25 },
+  },
 
   // ── Pantolon ─────────────────────────────────────────────────────
   deriPantolon: {
     ad: 'Deri Pantolon', slot: 'pantolon', ikon: 'zirh',
     aciklama: 'Kahramanın canını büyütür.',
     kahramanBonus: { can: 40 },
+  },
+  zincirEtek: {
+    ad: 'Zincir Etek', slot: 'pantolon', ikon: 'zirh',
+    aciklama: 'Alınan hasarı azaltır.',
+    kahramanBonus: { zirhlanma: 4 },
   },
   zirhliPantolon: {
     ad: 'Zırhlı Pantolon', slot: 'pantolon', ikon: 'zirh',
@@ -189,6 +221,12 @@ const HERO_ITEMS = {
     aciklama: 'Kahramanın iyileşmesini hızlandırır.',
     kahramanBonus: { iyilesme: 2 },
   },
+  kutupTilkisiPostu: {
+    ad: 'Kutup Tilkisi Postu', slot: 'ayakkabi', ikon: 'tekerlek',
+    aciklama: 'Hem iyileşmeyi hızlandırır hem alınan hasarı biraz azaltır — '
+      + 'uzun maceralar için.',
+    kahramanBonus: { iyilesme: 1.5, zirhlanma: 3 },
+  },
 
   // ── Bileklik ─────────────────────────────────────────────────────
   runBileklik: {
@@ -200,6 +238,11 @@ const HERO_ITEMS = {
     ad: 'Gümüş Bileklik', slot: 'bileklik', ikon: 'kilicKalkan',
     aciklama: 'Maceradan dönen ganimeti büyütür.',
     kahramanBonus: { ganimet: 20 },
+  },
+  sifaTasi: {
+    ad: 'Şifa Taşı', slot: 'bileklik', ikon: 'kupa',
+    aciklama: 'Kahramanın iyileşmesini belirgin şekilde hızlandırır.',
+    kahramanBonus: { iyilesme: 3 },
   },
 
   // ── Kolye ────────────────────────────────────────────────────────

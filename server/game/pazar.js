@@ -48,10 +48,24 @@ function takasOrani(veren, alan) {
   return null;                    // işl. -> ham       : KAPALI
 }
 
-/** Köydeki pazar binası (kurulmuş, seviye ≥ 1) */
+/**
+ * Köydeki pazar binası (kurulmuş, seviye ≥ 1).
+ *
+ * YÜKSELTME SIRASINDA PAZAR ÇALIŞMAYA DEVAM EDER.
+ *
+ * Eskiden `!b.building` şartı vardı ve pazar yükseltilirken takas
+ * tamamen kapanıyordu (İlkan bildirdi). Oysa bu, oyunun her yerindeki
+ * kuralın tersi: tarla yükseltilirken üretim durmuyor, kışla
+ * yükseltilirken eğitim durmuyor. Yükseltme MEVCUT seviyeden devam
+ * eden bir iyileştirme, hizmetin kesilmesi değil.
+ *
+ * `level >= 1` şartı duruyor: İLK inşaat (seviye 0) henüz bir pazar
+ * değil, o yüzden o gerçekten kapalı. Tüccar kapasitesi de mevcut
+ * seviyeden hesaplanıyor — yükseltme bitmeden yeni tüccar gelmiyor.
+ */
 function pazarBinasi(village) {
   return Object.values(village.villageBuildings || {})
-    .find((b) => b.type === 'pazar' && b.level >= 1 && !b.building) || null;
+    .find((b) => b.type === 'pazar' && b.level >= 1) || null;
 }
 
 /** Toplam tüccar sayısı — pazar seviyesi kadar. Pazar yoksa 0. */

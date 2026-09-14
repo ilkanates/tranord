@@ -961,7 +961,15 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
   m.kalanSaat = Math.max(0, (m.kalanSaat || 0) - gameHours);
   if (m.kalanSaat > 0) return;
 
-  const sonuc = MACERA.maceraSonucu(m.tip);
+  /*
+    SALDIRI GÜCÜ MACERADA HASARI AZALTIYOR. Gücü sefere çıkarken değil
+    DÖNÜŞTE ölçüyoruz: macera süresince oyuncu eşya değiştirmiş olabilir
+    ve buradaki soru "ne kadar yıprandı", "ne kadar güçlü yola çıktı"
+    değil. Savaşta tersi (güç çıkışta donuyor) çünkü orada güç karşı
+    tarafın hesabına giriyor.
+  */
+  const sonuc = MACERA.maceraSonucu(m.tip, undefined,
+    HERO.bonuslar(kahraman).saldiriGucu || 0);
   kahraman.macera = null;
   kahraman.nerede = 'koy';
 
@@ -1011,7 +1019,20 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
       fromName: MACERA.MACERA_TIPLERI[m.tip]?.ad || 'Macera',
       toName: usKoy.name, toKey: kahraman.usSlot,
       macera: {
-        tip: m.tip, xp: sonuc.xp, can: sonuc.can,
+        tip: m.tip, xp: sonuc.xp,
+        /*
+          RAPORDAKİ CAN KAYBI GERÇEK KAYIP — zırhlanma düşülmüş hâli.
+          Ham sayıyı yazsaydık oyuncu kuşandığı zırhın işe yarayıp
+          yaramadığını hiçbir yerde göremezdi. `hamCan` yanında duruyor
+          ki farkı da gösterebilelim.
+        */
+        /*
+          HAM CAN = maceranın TANIMLI hasarı (hiçbir azaltma öncesi).
+          Rapordaki "engellendi" satırı böylece İKİ etkiyi birden
+          gösteriyor: saldırı gücünün azaltması + zırhlanma. Yalnız
+          zırhı saysaydık saldırı gücüne yapılan yatırım görünmezdi.
+        */
+        can: hasar.uygulanan, hamCan: sonuc.hamCan ?? hasar.hamHasar,
         oldu: hasar.oldu, oduller: kazanilan,
       },
       myLosses: {}, theirLosses: {}, loot: {},
@@ -2519,8 +2540,14 @@ io.on('connection', async socket => {
     const village = session.villages.get(hedef);
     if (!village) return;
     if (session.capitalSlot === hedef) return;
+    /*
+      SARAY YÜKSELTİLİRKEN DE MERKEZ TAŞINABİLİR — pazarla aynı gerekçe
+      (bkz. pazar.js · pazarBinasi): yükseltme mevcut seviyeden devam
+      eden bir iyileştirme, hizmetin kesilmesi değil. İLK inşaat
+      (seviye 0) hâlâ saray sayılmıyor.
+    */
     const saray = Object.values(village.villageBuildings || {})
-      .find(b => b.type === 'saray' && b.level >= 1 && !b.building);
+      .find(b => b.type === 'saray' && b.level >= 1);
     if (!saray) {
       socket.emit('build_refused', { slotKey: hedef, buildingType: 'saray',
         reason: 'Merkez yapmak için bu köyde tamamlanmış bir saray gerekiyor.' });

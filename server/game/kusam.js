@@ -118,7 +118,9 @@ function elindeVarMi(k, key) {
  */
 function kusamBonuslari(k) {
   const out = {
-    kahraman: { saldiri: 0, can: 0, iyilesme: 0, maceraHizi: 0, ganimet: 0 },
+    kahraman: {
+      saldiri: 0, can: 0, zirhlanma: 0, iyilesme: 0, maceraHizi: 0, ganimet: 0,
+    },
     birim: { piyade: { saldiri: 0, savunma: 0 }, suvari: { saldiri: 0, savunma: 0 } },
   };
   if (!k || !k.var) return out;

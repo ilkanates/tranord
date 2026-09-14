@@ -141,6 +141,39 @@ test('eşya düşme oranı ölçülü — ne her macerada ne hiç', () => {
     `uzun macerada eşya oranı %${(oran * 100).toFixed(1)} — %10-40 aralığında olmalı`);
 });
 
+test('SALDIRI GÜCÜ macerada alınan hasarı azaltıyor', () => {
+  /*
+    İlkan'ın kararı: "kahramanın saldırı gücü arttıkça maceralarda daha
+    az hasar almalı". Mantığı: macerada yıpratan şey yol boyunca
+    karşılaşılan tehlike; daha güçlü vuran kahraman onu daha çabuk
+    bertaraf eder. Azaltma AYRI bir skile değil, saldırı gücünün
+    KENDİSİNE bağlı.
+  */
+  const ham = M.MACERA_TIPLERI.uzun.can;
+  assert.equal(M.maceraCanKaybi('uzun', 0), ham, 'güçsüz kahraman tam hasar alır');
+  assert.ok(M.maceraCanKaybi('uzun', 4000) < ham, 'güç hasarı azaltmalı');
+  assert.ok(M.maceraCanKaybi('uzun', 8000) < M.maceraCanKaybi('uzun', 2000),
+    'daha çok güç daha az hasar');
+});
+
+test('güç azaltmasının TAVANI var — macera risksizleşmiyor', () => {
+  assert.equal(M.gucAzaltmasi(1e9), M.GUC_AZALTMA_TAVANI);
+  assert.ok(M.GUC_AZALTMA_TAVANI < 100,
+    'tavan %100 olursa macera tamamen bedava olur');
+  assert.ok(M.maceraCanKaybi('uzun', 1e9) > 0,
+    'en güçlü kahraman bile macerada bir şey kaybetmeli');
+});
+
+test('maceraSonucu güç verilince AZALTILMIŞ canı döndürüyor, hamı da tutuyor', () => {
+  const zayif = M.maceraSonucu('uzun', sahteRnd([0.99]), 0);
+  const guclu = M.maceraSonucu('uzun', sahteRnd([0.99]), 8000);
+  assert.equal(zayif.hamCan, M.MACERA_TIPLERI.uzun.can);
+  assert.equal(guclu.hamCan, M.MACERA_TIPLERI.uzun.can,
+    'ham hasar raporda gösterilebilmeli — yatırımın karşılığı görünsün');
+  assert.ok(guclu.can < zayif.can);
+  assert.equal(zayif.xp, guclu.xp, 'güç XP kazancını değiştirmemeli');
+});
+
 test('nadirlik kurası: efsane SEYREK, sıradan sık', () => {
   const say = {};
   for (let i = 0; i < 5000; i++) {

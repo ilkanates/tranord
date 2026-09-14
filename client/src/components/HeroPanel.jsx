@@ -79,10 +79,20 @@ const ENGEL_METIN = {
 };
 
 const BONUS_ADI = {
-  saldiri: 'Kahraman saldırısı', can: 'Can tavanı', iyilesme: 'İyileşme',
+  saldiri: 'Kahraman saldırısı', can: 'Can tavanı',
+  zirhlanma: 'Alınan hasar', iyilesme: 'İyileşme',
   maceraHizi: 'Macera hızı', ganimet: 'Ganimet',
 };
-const BONUS_BIRIMI = { saldiri: '', can: '', iyilesme: '/sa', maceraHizi: '%', ganimet: '%' };
+const BONUS_BIRIMI = {
+  saldiri: '', can: '', zirhlanma: '%', iyilesme: '/sa',
+  maceraHizi: '%', ganimet: '%',
+};
+/*
+  ZIRHLANMA EKSİ İŞARETLE yazılıyor: "+%9 alınan hasar" hasarın ARTTIĞI
+  gibi okunurdu. Eşyanın iyi bir şey yaptığını göstermek için işaretin
+  doğru olması şart.
+*/
+const BONUS_ISARET = { zirhlanma: '−' };
 const SINIF_ADI = { piyade: 'Piyade', suvari: 'Süvari' };
 
 export default function HeroPanel({
@@ -675,6 +685,24 @@ function Maceralar({ kahraman, engel, sure, onMacera }) {
         </span>
       </div>
 
+      {/*
+        SALDIRI GÜCÜ MACERADA DA İŞE YARIYOR — bunu yazmazsak oyuncu
+        saldırıya yatırım yapmanın macerayı kolaylaştırdığını hiç
+        fark etmez; sayı sessizce iyileşir ve sebebi görünmez.
+      */}
+      {(kahraman.maceraGucAzaltma || 0) > 0 && (
+        <div style={{
+          fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint,
+          margin: '0 2px 9px',
+        }}>
+          Saldırı gücün macerada alınan hasarı{' '}
+          <b style={{ color: C.good }}>%{kahraman.maceraGucAzaltma}</b> azaltıyor
+          {(kahraman.bonuslar?.zirhlanmaYuzde || 0) > 0
+            && <>, kuşamın <b style={{ color: C.good }}>
+              %{kahraman.bonuslar.zirhlanmaYuzde}</b> daha</>}.
+        </div>
+      )}
+
       <div style={{
         display: 'grid', gap: 8,
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
@@ -698,9 +726,19 @@ function Maceralar({ kahraman, engel, sure, onMacera }) {
             <div style={{
               fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, margin: '3px 0 7px',
             }}>{def.aciklama}</div>
-            <div style={{ display: 'flex', gap: 14 }}>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
               <span style={num({ fontSize: 10, color: C.good })}>+{def.xp} XP</span>
-              <span style={num({ fontSize: 10, color: C.danger })}>−{def.can} can</span>
+              {/*
+                GERÇEK HASAR gösteriliyor, tanımdaki ham sayı değil:
+                saldırı gücü ve zırh düşülmüş hâli. Ham sayıyı yazsaydık
+                oyuncu hangi maceraya çıkacağını yanlış hesaplardı.
+              */}
+              <span style={num({ fontSize: 10, color: C.danger })}>
+                −{kahraman.maceraHasari?.[tip] ?? def.can} can
+                {(kahraman.maceraHasari?.[tip] ?? def.can) < def.can && (
+                  <span style={{ color: C.textFaint }}> (ham {def.can})</span>
+                )}
+              </span>
               <span style={num({ fontSize: 10, color: C.textMute })}>{def.odulSayisi} ödül</span>
             </div>
           </button>
@@ -740,7 +778,11 @@ function EsyaKarti({ esya, yer = 'sag' }) {
   if (!esya) return null;
   const bonuslar = [];
   for (const [alan, v] of Object.entries(esya.kahramanBonus || {})) {
-    if (v > 0) bonuslar.push([BONUS_ADI[alan] || alan, `+${v}${BONUS_BIRIMI[alan] || ''}`, C.frost]);
+    if (v > 0) {
+      bonuslar.push([BONUS_ADI[alan] || alan,
+        `${BONUS_ISARET[alan] || '+'}${v}${BONUS_BIRIMI[alan] || ''}`,
+        alan === 'zirhlanma' ? C.good : C.frost]);
+    }
   }
   for (const [sinif, b] of Object.entries(esya.birimBonus || {})) {
     for (const [tur, v] of Object.entries(b || {})) {
@@ -888,6 +930,15 @@ function ToplamBonus({ kahraman }) {
       padding: '10px 12px', marginTop: 10, borderRadius: 6,
       background: 'rgba(12,20,32,0.35)', border: `1px solid ${C.lineSoft}`,
     }}>
+      {/*
+        ZIRHLANMA ayrı gösteriliyor: tek eksi işaretli ölçü o ve tavana
+        kırpılmış hâli yazılıyor — oyuncu tavana dayandığını görebilmeli.
+      */}
+      {(toplam.zirhlanmaYuzde || 0) > 0 && (
+        <Olcu ad="Alınan hasar" deger={`−%${yuvarla(toplam.zirhlanmaYuzde)}`}
+          renk={C.good}
+          alt={toplam.zirhlanmaYuzde >= 50 ? 'tavanda' : 'eşyadan'} />
+      )}
       {satirlar.map(([ad, t, e, br]) => (
         <Olcu key={ad} ad={ad} deger={`${br === '%' ? '%' : ''}${yuvarla(t)}${
           br === '/sa' ? '/sa' : ''}`} renk={C.frost}
@@ -1024,7 +1075,10 @@ function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, o
 function bonusMetni(e) {
   const parcalar = [];
   for (const [alan, v] of Object.entries(e.kahramanBonus || {})) {
-    if (v > 0) parcalar.push(`${BONUS_ADI[alan] || alan} +${v}${BONUS_BIRIMI[alan] || ''}`);
+    if (v > 0) {
+      parcalar.push(`${BONUS_ADI[alan] || alan} ${
+        BONUS_ISARET[alan] || '+'}${v}${BONUS_BIRIMI[alan] || ''}`);
+    }
   }
   for (const [sinif, b] of Object.entries(e.birimBonus || {})) {
     for (const [tur, v] of Object.entries(b || {})) {

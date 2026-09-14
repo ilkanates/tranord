@@ -342,6 +342,7 @@ function skilleriSifirla(k) {
 function bonuslar(k) {
   const bos = {
     saldiriGucu: 0, saldiriYuzde: 0, savunmaYuzde: 0, uretimSaatlik: 0,
+    zirhlanmaYuzde: 0,
     birim: { piyade: { saldiri: 0, savunma: 0 }, suvari: { saldiri: 0, savunma: 0 } },
   };
   /*
@@ -367,6 +368,8 @@ function bonuslar(k) {
     saldiriYuzde: yuzdeKap(s.saldiriBonus, SKILLER.saldiriBonus),
     savunmaYuzde: yuzdeKap(s.savunmaBonus, SKILLER.savunmaBonus),
     uretimSaatlik: (s.uretim || 0) * SKILLER.uretim.puanBasina,
+    /** Alınan hasarı azaltan yüzde — yalnız eşyadan gelir, tavana kırpılı */
+    zirhlanmaYuzde: zirhlanmaYuzdesi(k),
     /*
       BİRİM BONUSU — İlkan'ın özel isteği: eşya tek tek birim
       sınıflarının saldırı ve savunmasını büyütüyor. Yüzde olarak
@@ -429,9 +432,22 @@ function savasSonucu(oldurulenBirim = 0, kayipOrani = 0) {
  * Ölüm kalıcı DEĞİL ama kendiliğinden de geçmiyor: oyuncu diriltmeli
  * (bkz. dirilt / dirilmeBedeli). Seviye ve eşya duruyor.
  */
+/**
+ * Hasar uygula.
+ *
+ * ZIRHLANMA BURADA işliyor, çağıranlarda değil: hasarın girdiği tek kapı
+ * bu fonksiyon (savaş, macera, ileride başka kaynaklar). Her çağırana
+ * ayrı ayrı azaltma yazmak, er geç birinde unutulacak bir tekrar olurdu.
+ *
+ * @returns {{oldu:boolean, can:number, hamHasar:number, uygulanan:number}}
+ *   `uygulanan` raporlara yazılıyor: oyuncu zırhın işe yaradığını
+ *   ancak gerçek sayıyı görerek anlar.
+ */
 function hasarVer(k, hasar) {
-  if (!k || !k.var || k.olu) return { oldu: false, can: 0 };
-  k.can = Math.max(0, (k.can || 0) - Math.max(0, hasar));
+  if (!k || !k.var || k.olu) return { oldu: false, can: 0, hamHasar: 0, uygulanan: 0 };
+  const ham = Math.max(0, hasar);
+  const uygulanan = Math.round(ham * (1 - zirhlanmaYuzdesi(k) / 100));
+  k.can = Math.max(0, (k.can || 0) - uygulanan);
   if (k.can <= 0) {
     k.olu = true;
     k.can = 0;
@@ -445,9 +461,25 @@ function hasarVer(k, hasar) {
     k.macera = null;
     k.misafirSlot = null;
     k.donusKalanSaat = 0;
-    return { oldu: true, can: 0 };
+    return { oldu: true, can: 0, hamHasar: ham, uygulanan };
   }
-  return { oldu: false, can: k.can };
+  return { oldu: false, can: k.can, hamHasar: ham, uygulanan };
+}
+
+/**
+ * ZIRHLANMA TAVANI — alınan hasar en çok bu kadar azalabilir (%).
+ *
+ * Tavansız olsaydı yeterince eşya yığan oyuncunun kahramanı hiç hasar
+ * almaz, macera ve savaş risksizleşirdi. %50: iyi kuşanmış bir kahraman
+ * iki kat dayanıklı, ölümsüz değil.
+ */
+const ZIRHLANMA_TAVANI = 50;
+
+/** Kuşamdan gelen hasar azaltması (%), tavana kırpılmış */
+function zirhlanmaYuzdesi(k) {
+  if (!k || !k.var) return 0;
+  return Math.min(ZIRHLANMA_TAVANI,
+    Math.max(0, KUSAM.kusamBonuslari(k).kahraman.zirhlanma || 0));
 }
 
 /** Diriltme bedeli — seviyeyle büyüyor. */
@@ -518,6 +550,21 @@ function ozet(k, konakSeviyesi = 0) {
     donusKalanSaat: Math.round((k.donusKalanSaat || 0) * 100) / 100,
     maceraTipleri: MACERA.MACERA_TIPLERI,
     maceraCanEsigi: MACERA.MACERA_CAN_ESIGI,
+    /*
+      MACERADA BEKLENEN GERÇEK HASAR — tanımdaki ham sayı değil.
+
+      Saldırı gücü macerada hasarı azaltıyor (bkz. macera.js ·
+      gucAzaltmasi) ve kuşamdaki zırhlanma da üstüne biniyor. Ekranda
+      ham sayıyı göstermek, oyuncuya yatırımının karşılığını gizlemek
+      olurdu: "−32 can" yazarken gerçekte 12 kaybediyorsa hangi
+      maceraya çıkacağını yanlış hesaplar.
+    */
+    maceraHasari: Object.fromEntries(
+      Object.keys(MACERA.MACERA_TIPLERI).map(tip => [tip,
+        Math.round(MACERA.maceraCanKaybi(tip, bonuslar(k).saldiriGucu)
+          * (1 - zirhlanmaYuzdesi(k) / 100))])),
+    maceraGucAzaltma: Math.round(
+      MACERA.gucAzaltmasi(bonuslar(k).saldiriGucu) * 10) / 10,
   };
 }
 
@@ -527,6 +574,7 @@ module.exports = {
   DIRILTME_TABAN, DIRILTME_PER_SEVIYE, DIRILME_CAN_ORANI,
   dirilmeBedeli, dirilt,
   SIFIRLAMA_TABAN, SIFIRLAMA_CARPANI, duzelt,
+  ZIRHLANMA_TAVANI, zirhlanmaYuzdesi,
   XP_OLDURULEN_BASINA, SAVAS_HASAR_TAVANI, savasSonucu,
   seviyeIcinToplamXp, xpSeviyesi, seviyeIlerlemesi,
   canTavani, iyilesmeHizi,

@@ -134,14 +134,14 @@ test('can ve iyileşme eşyayla büyüyor', () => {
   assert.ok(o.iyilesmeSaatlik > onceIyi, 'zırh iyileşmeyi hızlandırmalı');
 });
 
-test('BAYGIN kahramanın eşya bonusları da işlemiyor', () => {
+test('ÖLÜ kahramanın eşya bonusları da işlemiyor', () => {
   const k = kahramanla([{ key: 'savasBaltasi', nadirlik: 'efsane' }]);
   KUSAM.kusan(k, 0);
   assert.ok(HERO.bonuslar(k).birim.piyade.saldiri > 0);
   HERO.hasarVer(k, 99999);
   const b = HERO.bonuslar(k);
   assert.equal(b.birim.piyade.saldiri, 0,
-    'bayılmanın canı yakmalı — eşya bonusu da durmalı');
+    'ölümün canı yakmalı — eşya bonusu da durmalı');
 });
 
 test('bozuk envanter girdisi çökertmiyor, sessizce yok sayılıyor', () => {
@@ -158,6 +158,78 @@ test('bozuk envanter girdisi çökertmiyor, sessizce yok sayılıyor', () => {
   k.kusanilan = { sagEl: { key: 'yok', nadirlik: 'yok' } };
   assert.deepEqual(KUSAM.kusamBonuslari(k).birim.piyade, { saldiri: 0, savunma: 0 });
   assert.deepEqual(KUSAM.kusanilanOzeti(k), {});
+});
+
+test('ZIRHLANMA alınan hasarı azaltıyor — macerada da savaşta da', () => {
+  /*
+    Tek kapı `hasarVer`: savaş da macera da oradan geçiyor, o yüzden
+    azaltma da orada. Her çağırana ayrı azaltma yazmak er geç birinde
+    unutulacak bir tekrar olurdu.
+  */
+  const zirhsiz = kahramanla();
+  zirhsiz.can = 300;
+  const a = HERO.hasarVer(zirhsiz, 100);
+  assert.equal(a.uygulanan, 100, 'zırhsız kahraman hasarın tamamını alır');
+
+  const zirhli = kahramanla([{ key: 'aynaZirh', nadirlik: 'siradan' }]);
+  KUSAM.kusan(zirhli, 0);
+  zirhli.can = 300;
+  const b = HERO.hasarVer(zirhli, 100);
+  assert.ok(b.uygulanan < 100, 'zırh hasarı azaltmalı');
+  assert.equal(b.hamHasar, 100, 'ham hasar raporlanabilmeli');
+  assert.equal(zirhli.can, 300 - b.uygulanan);
+});
+
+test('ZIRHLANMA TAVANI aşılamıyor — kahraman ölümsüz olmuyor', () => {
+  /*
+    Tavansız olsaydı yeterince eşya yığan oyuncunun kahramanı hiç hasar
+    almaz, macera ve savaş risksizleşirdi.
+  */
+  const k = kahramanla([
+    { key: 'aynaZirh', nadirlik: 'efsane' },
+    { key: 'demirKalkan', nadirlik: 'efsane' },
+    { key: 'demirMigfer', nadirlik: 'efsane' },
+    { key: 'zincirEtek', nadirlik: 'efsane' },
+  ]);
+  for (let i = 0; i < 4; i++) KUSAM.kusan(k, 0);
+
+  const ham = KUSAM.kusamBonuslari(k).kahraman.zirhlanma;
+  assert.ok(ham > HERO.ZIRHLANMA_TAVANI,
+    'bu set tavanı aşmalı ki kırpma gerçekten ölçülsün');
+  assert.equal(HERO.zirhlanmaYuzdesi(k), HERO.ZIRHLANMA_TAVANI);
+  assert.ok(HERO.ZIRHLANMA_TAVANI < 100, 'tavan %100 olursa kahraman ölümsüz olur');
+
+  k.can = 1000;
+  assert.equal(HERO.hasarVer(k, 100).uygulanan,
+    Math.round(100 * (1 - HERO.ZIRHLANMA_TAVANI / 100)));
+});
+
+test('zırhlanma bonusu ÖLÜ kahramanda da hesaba girmiyor', () => {
+  // Bonusların tamamı ölümle duruyor; zırhlanma da o kuralın dışında değil
+  const k = kahramanla([{ key: 'aynaZirh', nadirlik: 'efsane' }]);
+  KUSAM.kusan(k, 0);
+  assert.ok(HERO.bonuslar(k).zirhlanmaYuzde > 0);
+  HERO.hasarVer(k, 99999);
+  assert.equal(HERO.bonuslar(k).zirhlanmaYuzde, 0);
+});
+
+test('her slotta hasar azaltan ya da iyileştiren bir seçenek var', () => {
+  /*
+    İlkan sordu: "sağlık yenileme hızını ya da aldığı hasarı azaltan
+    eşyalar var mı?" Bu test o cevabı kilitliyor — dayanıklılık ekseni
+    tek bir slota sıkışmasın, oyuncu ne kuşanacağını seçebilsin.
+  */
+  const dayaniklilik = new Set();
+  for (const def of Object.values(HERO_ITEMS)) {
+    const b = def.kahramanBonus || {};
+    if ((b.zirhlanma || 0) > 0 || (b.iyilesme || 0) > 0 || (b.can || 0) > 0) {
+      dayaniklilik.add(def.slot);
+    }
+  }
+  for (const slot of ['migfer', 'zirh', 'solEl', 'pantolon', 'ayakkabi', 'bileklik']) {
+    assert.ok(dayaniklilik.has(slot),
+      `${slot} slotunda dayanıklılık veren hiç eşya yok`);
+  }
 });
 
 test('özetteki slot listesi tanımla aynı — istemci ızgarası bundan besleniyor', () => {

@@ -285,6 +285,26 @@ test('ÖLÜM misafirliği de bitiriyor', () => {
   assert.equal(k.nerede, 'koy');
 });
 
+test('özet MACERADA BEKLENEN GERÇEK hasarı veriyor', () => {
+  /*
+    Ekranda ham sayıyı göstermek oyuncuya yatırımının karşılığını
+    gizlemek olurdu: "−32 can" yazarken gerçekte 13 kaybediyorsa hangi
+    maceraya çıkacağını yanlış hesaplar.
+  */
+  const zayif = yeni();
+  const guclu = yeni();
+  guclu.harcanmamisPuan = 100;
+  K.puanDagit(guclu, 'saldiriPuani', 100);
+
+  const a = K.ozet(zayif, 5);
+  const b = K.ozet(guclu, 5);
+  assert.ok(a.maceraHasari.uzun > 0);
+  assert.ok(b.maceraHasari.uzun < a.maceraHasari.uzun,
+    'güçlü kahraman macerada daha az yıpranmalı');
+  assert.ok(b.maceraGucAzaltma > 0, 'azaltma yüzdesi ekranda yazılabilmeli');
+  assert.equal(a.maceraGucAzaltma, 0, 'güçsüz kahramanda azaltma yok');
+});
+
 test('özet istemciye gereken her şeyi veriyor', () => {
   const k = yeni();
   K.xpEkle(k, 1000);
@@ -293,7 +313,7 @@ test('özet istemciye gereken her şeyi veriyor', () => {
     'canTavan', 'skiller', 'harcanmamisPuan', 'bonuslar', 'nerede',
     'kusanilan', 'envanter', 'sifirlamaBedeli', 'iyilesmeSaatlik',
     'olu', 'dirilmeBedeli', 'maceraSayisi', 'maceraTavan', 'slotlar',
-    'misafirSlot', 'donusKalanSaat']) {
+    'misafirSlot', 'donusKalanSaat', 'maceraHasari', 'maceraGucAzaltma']) {
     assert.ok(alan in o, `özette ${alan} eksik`);
   }
   assert.equal(K.ozet(null).var, false, 'konağı olmayan oyuncunun kahramanı yok');

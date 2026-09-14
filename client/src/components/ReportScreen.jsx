@@ -445,6 +445,16 @@ function Detail({ r, unitDefs }) {
             <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
               <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>CAN KAYBI</div>
               <div style={num({ fontSize: 18, color: C.danger })}>−{r.macera.can}</div>
+              {/*
+                ZIRH İŞE YARADIYSA GÖSTER. Yalnız son sayıyı yazsaydık
+                oyuncu kuşandığı zırhın bir işe yarayıp yaramadığını
+                hiçbir yerde göremezdi.
+              */}
+              {r.macera.hamCan > r.macera.can && (
+                <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.good }}>
+                  gücün ve zırhın {r.macera.hamCan - r.macera.can} hasarı engelledi
+                </div>
+              )}
             </div>
           </div>
 

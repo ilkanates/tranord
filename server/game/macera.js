@@ -99,6 +99,37 @@ const MACERA_TIPLERI = {
 };
 
 /**
+ * SALDIRI GÜCÜ MACERADA KALKAN GİBİ DE ÇALIŞIYOR (İlkan'ın kararı).
+ *
+ * Mantığı: macerada kahramanı yıpratan şey yol boyunca karşılaştığı
+ * tehlikeler. Daha güçlü vuran bir kahraman aynı tehlikeyi daha çabuk
+ * bertaraf eder, dolayısıyla daha az yara alır. Bu yüzden azaltma AYRI
+ * bir skile değil, saldırı gücünün KENDİSİNE bağlı: oyuncu saldırıya
+ * yatırım yaparken dayanıklılık da alıyor.
+ *
+ * SAVAŞTA İŞLEMİYOR — orada yıpranmayı ordunun kayıp oranı belirliyor
+ * (bkz. kahraman.js · savasSonucu). Saldırı gücü savaşta zaten kendi
+ * kanalından işliyor; ikinci kez saymak onu iki katı değerli yapardı.
+ *
+ * TAVANI VAR: tavansız bir yatırım macerayı tamamen risksiz kılardı.
+ * Kuşamdan gelen ZIRHLANMA ile ÇARPIM hâlinde birleşiyor (toplama
+ * değil) — ikisi de tavanındayken bile hasar sıfırlanmıyor.
+ */
+const GUC_AZALTMA_BOLEN = 200;   // her 200 saldırı gücü → %1
+const GUC_AZALTMA_TAVANI = 40;   // en çok %40
+
+function gucAzaltmasi(saldiriGucu = 0) {
+  return Math.min(GUC_AZALTMA_TAVANI, Math.max(0, saldiriGucu) / GUC_AZALTMA_BOLEN);
+}
+
+/** Bir maceranın GERÇEK can kaybı — saldırı gücü düşüldükten sonra */
+function maceraCanKaybi(tip, saldiriGucu = 0) {
+  const def = MACERA_TIPLERI[tip];
+  if (!def) return 0;
+  return Math.round(def.can * (1 - gucAzaltmasi(saldiriGucu) / 100));
+}
+
+/**
  * MACERAYA ÇIKABİLİR Mİ?
  *
  * Can eşiği var: canı bu oranın altındaki kahraman maceraya gönderilemez.
@@ -173,7 +204,11 @@ function nadirlikSec(rnd) {
  * @param {string} tip 'kisa' | 'uzun'
  * @param {() => number} rnd [0,1) üreten fonksiyon
  */
-function maceraSonucu(tip, rnd = varsayilanRnd) {
+/**
+ * @param {number} saldiriGucu Kahramanın toplam saldırı gücü — can kaybını
+ *   azaltıyor (bkz. gucAzaltmasi). Verilmezse tam hasar uygulanıyor.
+ */
+function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0) {
   const def = MACERA_TIPLERI[tip];
   if (!def) return null;
 
@@ -210,7 +245,12 @@ function maceraSonucu(tip, rnd = varsayilanRnd) {
     }
   }
 
-  return { tip, xp: def.xp, can: def.can, oduller };
+  return {
+    tip, xp: def.xp,
+    can: maceraCanKaybi(tip, saldiriGucu),
+    hamCan: def.can,
+    oduller,
+  };
 }
 
 /** Eşyanın oyuncuya görünen adı — nadirlik öneki ile */
@@ -227,4 +267,5 @@ module.exports = {
   MACERA_TAVAN_TABAN, MACERA_TAVAN_PER_SEVIYE, MACERA_SAAT_TABAN, IKSIR_SANSI,
   maceraTavani, maceraSaati, maceraBiriktir,
   maceraUygunMu, maceraSonucu, nadirlikSec, esyaAdi,
+  GUC_AZALTMA_BOLEN, GUC_AZALTMA_TAVANI, gucAzaltmasi, maceraCanKaybi,
 };

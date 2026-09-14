@@ -19,7 +19,14 @@
  *
  * NPC'ler sıralamaya girmiyor: burası oyuncu tablosu. NPC köyleri
  * haritada zaten puanıyla görünüyor.
+ *
+ * KAHRAMAN SEVİYESİ SIRALAMADA VAR (İlkan'ın isteği). Ordu bilgisinden
+ * farkı: seviye bir SONUÇ, gizli bir kuvvet değil — kaç asker olduğunu
+ * sızdırmıyor, yalnız oyuncunun kahramanına ne kadar emek verdiğini
+ * söylüyor. Kahraman kaydı merkez köyün state'inde durduğu için
+ * ölçüler toplanırken oradan okunuyor.
  */
+const HERO = require('./kahraman');
 
 /** Bir köyün üretim tarlası sayısı — "alan" ölçüsü */
 function tarlaSayisi(village) {
@@ -52,7 +59,7 @@ function koyPuani(village) {
 function oyuncuOlculeri(koyler) {
   const t = {
     population: 0, land: 0, killsOffense: 0, killsDefense: 0, lootTotal: 0,
-    koySayisi: 0,
+    koySayisi: 0, kahramanSeviye: 0,
   };
   for (const k of koyler) {
     const v = k?.v;
@@ -64,6 +71,16 @@ function oyuncuOlculeri(koyler) {
     t.killsDefense += st.killsDefense || 0;
     t.lootTotal += st.lootTotal || 0;
     t.koySayisi += 1;
+    /*
+      KAHRAMAN TEK: köyler üzerinde TOPLAMIYORUZ, en yükseğini alıyoruz.
+      Kayıt normalde yalnız merkez köyde durur ama merkez taşınmış bir
+      hesapta bir süre iki yerde görünebilir; toplasaydık o oyuncu iki
+      kat seviyeliymiş gibi görünürdü.
+    */
+    if (v.kahraman?.var) {
+      t.kahramanSeviye = Math.max(t.kahramanSeviye,
+        HERO.xpSeviyesi(v.kahraman.xp || 0));
+    }
   }
   return t;
 }
@@ -83,6 +100,8 @@ const TABLOLAR = [
     desc: 'Seferlerden getirdiği toplam ganimet' },
   { key: 'land',         label: 'En büyük alan',   icon: 'harita', unit: 'tarla',
     desc: 'Bütün köylerindeki üretim tarlası' },
+  { key: 'kahramanSeviye', label: 'En güçlü kahraman', icon: 'migfer', unit: 'seviye',
+    desc: 'Kahramanının seviyesi — macera ve savaşla yükselir' },
 ];
 
 const ILK_N = 10;

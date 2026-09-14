@@ -209,6 +209,17 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Dayanıklılık eşyaları, güç–hasar bağı ve pazar düzeltmesi (14 Eylül 2026)
+- İlkan sordu: *"itemler arasında sağlık yenileme hızını ya da aldığı hasarı azaltan itemler var mı?"* — İYİLEŞME vardı (Zincir Zırh, Demir Nallı Çizme), HASAR AZALTMA yoktu. Eklendi.
+- **ZIRHLANMA** yeni bonus türü: alınan hasarı yüzde azaltıyor, hem macerada hem savaşta. Azaltma `hasarVer` içinde — hasarın girdiği TEK kapı orası; her çağırana ayrı azaltma yazmak er geç birinde unutulacak bir tekrar olurdu. **Tavan %50**: tavansız yığılma kahramanı ölümsüz yapar, macera riskini sıfırlardı.
+- Yeni eşyalar: **Demir Kalkan** (−%6), **Ayna Zırh** (−%9), **Demir Miğfer** (−%4 + can), **Zincir Etek** (−%4), **Kutup Tilkisi Postu** (iyileşme + −%3), **Şifa Taşı** (+3/sa iyileşme). Artık her slotta bir dayanıklılık seçeneği var — test bunu kilitliyor.
+- **SALDIRI GÜCÜ MACERADA HASARI AZALTIYOR** (İlkan'ın kararı): her 200 güç için %1, tavan %40. Mantığı: macerada yıpratan şey yol boyunca karşılaşılan tehlike; daha güçlü vuran kahraman onu daha çabuk bertaraf eder. Azaltma ayrı bir skile değil, saldırı gücünün KENDİSİNE bağlı. **Savaşta işlemiyor** — orada yıpranmayı ordunun kayıp oranı belirliyor ve saldırı gücü zaten kendi kanalından sayılıyor; ikinci kez saymak onu iki katı değerli yapardı.
+- Zırhlanma ve güç azaltması **ÇARPIM** hâlinde birleşiyor (toplama değil): ikisi de tavanındayken bile hasar sıfırlanmıyor.
+- Macera kartlarında ve raporda artık **GERÇEK** can kaybı yazıyor, ham sayı parantezde. Ham sayıyı göstermek oyuncuya yatırımının karşılığını gizlemek olurdu.
+- **İstatistiklere "En güçlü kahraman"** tablosu eklendi. Ordu bilgisinden farkı: seviye bir SONUÇ, gizli bir kuvvet değil — kaç asker olduğunu sızdırmıyor. Köyler üzerinde TOPLANMIYOR, en yükseği alınıyor (kahraman tek; merkez taşınmış hesapta kayıt bir süre iki yerde görünebilir).
+- **HATA: pazar yükseltilirken takas kapanıyordu** (İlkan bildirdi). `pazarBinasi` `!b.building` arıyordu; oysa oyunun her yerindeki kural bunun tersi — tarla yükseltilirken üretim, kışla yükseltilirken eğitim durmuyor. **Aynı hata sarayda da vardı**: saray yükseltilirken merkez taşınamıyordu. İkisi de düzeldi; ilk inşaat (seviye 0) hâlâ kapalı.
+- Ölçüldü: tam yatırımlı kahraman (8.000 güç + efsane zırh seti) uzun macerada 32 yerine 13 can kaybediyor. Ekranda "Saldırı gücün macerada alınan hasarı %23,4 azaltıyor" ve kuşam özetinde "ALINAN HASAR −%9" görüldü. 211 test geçiyor.
+
 ### Kahraman: maceralar, eşyalar, ölüm ve diriltme (14 Eylül 2026)
 - **MACERA** (`game/macera.js`): Kahraman Konağında zamanla macera hakkı birikiyor — konak seviyesi hem tavanı (Lvl 1'de 3, Lvl 20'de 12) hem birikme hızını (6 → 2 oyun saati) büyütüyor. Tavan doluyken ilerleme **saklanmıyor**: saklansaydı bir hafta girmeyen oyuncu onlarca macerayı tek seferde patlatırdı.
 - **Kısa / uzun macera.** Uzun macera kısanın ~3 katı XP veriyor ama ~4 katı can götürüyor — oran bilerek aleyhte; "her zaman daha iyi" olsaydı seçim diye bir şey kalmazdı. Ödül kurası: hammadde ~%60, asker ~%28, eşya ~%12 (4.000 ödül üzerinde ölçüldü). **XP garanti**, ödül kura: boş dönen macera "zamanımı boşa harcadım" dedirtirdi.

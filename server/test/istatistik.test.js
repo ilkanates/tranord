@@ -26,11 +26,41 @@ const koy = (o = {}) => ({
 });
 
 test('tablolar istenen sırada', () => {
+  /*
+    SIRA oyuncunun umursadığı sıra: önce büyüme, sonra savaş, sonra
+    toprak, sonra kahraman, en sonda tek köy. Kahraman sona yakın:
+    herkeste yok (konak gerekiyor) ve bir sonuç, bir güç ölçüsü değil.
+  */
   const b = IST.tablolariKur(new Map([[1, { name: 'A', koyler: [koy()] }]]), 1);
   assert.deepEqual(b.map((x) => x.label), [
     'En büyük nüfus', 'En iyi saldıran', 'En iyi savunan',
-    'En çok yağma', 'En büyük alan', 'En büyük köy',
+    'En çok yağma', 'En büyük alan', 'En güçlü kahraman', 'En büyük köy',
   ]);
+});
+
+test('kahraman seviyesi sıralamaya giriyor ve TOPLANMIYOR', () => {
+  /*
+    Kahraman TEK. Kayıt normalde yalnız merkez köyde durur ama merkez
+    taşınmış bir hesapta bir süre iki yerde görünebilir; toplasaydık o
+    oyuncu iki kat seviyeliymiş gibi görünürdü.
+  */
+  const HERO = require('../game/kahraman');
+  const kahramanli = (xp) => {
+    const v = koy();
+    v.v.kahraman = HERO.yeniKahraman('0,0');
+    v.v.kahraman.xp = xp;
+    return v;
+  };
+  const seviye = HERO.xpSeviyesi(5000);
+
+  const tekKoy = IST.oyuncuOlculeri([kahramanli(5000)]);
+  assert.equal(tekKoy.kahramanSeviye, seviye);
+
+  const ikiKoy = IST.oyuncuOlculeri([kahramanli(5000), kahramanli(5000)]);
+  assert.equal(ikiKoy.kahramanSeviye, seviye, 'iki kopya toplanmamalı');
+
+  assert.equal(IST.oyuncuOlculeri([koy()]).kahramanSeviye, 0,
+    'kahramanı olmayan oyuncu 0 olmalı');
 });
 
 test('ordu hiçbir tabloda yok', () => {

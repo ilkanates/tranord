@@ -189,3 +189,30 @@ test('özet depodaki boş yeri de bildiriyor', () => {
   assert.equal(ozet.bosYer.ekmek, 50);
   assert.equal(ozet.bosYer.tugla, null, 'tavanı bilinmeyen kaynak null kalır');
 });
+
+/**
+ * PAZAR YÜKSELTİLİRKEN ÇALIŞMAYA DEVAM EDER.
+ *
+ * İlkan bildirdi: pazar yükseltilirken takas yapılamıyordu. Oysa bu,
+ * oyunun her yerindeki kuralın tersi — tarla yükseltilirken üretim,
+ * kışla yükseltilirken eğitim durmuyor. Yükseltme MEVCUT seviyeden
+ * devam eden bir iyileştirme, hizmetin kesilmesi değil.
+ */
+test('pazar YÜKSELTİLİRKEN de takas açık, ilk inşaatta kapalı', () => {
+  const koy = (bina) => ({ villageBuildings: { '1,0': bina } });
+
+  assert.equal(
+    P.tuccarKapasitesi(koy({ type: 'pazar', level: 3 })), 3,
+    'normal pazar seviyesi kadar tüccar verir');
+
+  assert.equal(
+    P.tuccarKapasitesi(koy({ type: 'pazar', level: 3, building: { endTime: 1 } })), 3,
+    'yükseltme sırasında pazar MEVCUT seviyesiyle çalışmaya devam etmeli');
+
+  assert.equal(
+    P.tuccarKapasitesi(koy({ type: 'pazar', level: 0, building: { endTime: 1 } })), 0,
+    'İLK inşaat henüz bir pazar değil — o gerçekten kapalı');
+
+  assert.equal(P.tuccarKapasitesi(koy({ type: 'kisla', level: 5 })), 0,
+    'pazar olmayan köyde tüccar yok');
+});
