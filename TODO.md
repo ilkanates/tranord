@@ -222,6 +222,16 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Oyun tasarım dökümanı üretildi — `docs/OYUN-TASARIMI.md` (14 Eylül 2026)
+- İlkan: *"oyunun mekanikleri askerleri binaları genel dokusu hakkında bilgi dökümanı üret, başka bir sessionda AI'a okutup oyunun sonu nasıl olacak fikir alayım"* + *"bina maliyetleri süreleri, birimlerin ve araçların maliyetleri süreleri herşeyi olmalı"* + *"bütün bu veriler oyunun 1x hızına göre olmalı"*.
+- **1510 satır.** 13 anlatı bölümü (bir bakışta → kaynaklar → nüfus → binalar → ekipman → birimler → savaş → kahraman → ticaret → çoklu köy → dünya → BUGÜN OLMAYAN ŞEYLER → KARAR SORUSU) + altı tablo eki.
+- **Tablolar koddan üretildi, elle yazılmadı**: 33 binanın her seviyesi, 5 tarla × 20 seviye, bütün ekipmanlar ve seviye yükseltmeleri, 16 birimin ekipmandan türeyen kaynak maliyeti, şölen/kahraman diriliş/yıkım bedelleri. Tahmin yok.
+- **BÜTÜN SÜRELER 1×**: oyun içi süreler "oyun saati" cinsinden tanımlı ve canlı sunucu 10× çalışıyor. 10× sayılarını verseydik dökümanı okuyacak AI dengeyi tamamen yanlış ölçerdi. Hem başlıkta hem ekin başında yazılı.
+- **13. bölüm karar sorusu**: 6 kısıt (ticari ürün, tek dünya, az oyuncu çok yer, eleme zaten var, elde hazır malzemeler, Türkçe/İskandinav tema) + 6 somut soru (bitiş olmalı mı, bireysel mi ittifak mı, dünya merkezi özel mi, kültür puanı zafer ölçüsü olsun mu, kaybedene ne olsun, hedef inşa/askerî/ekonomik mi).
+- **Acemi korumasının boşluğu yazıldı**: `PROTECT_MIN_ARMY = 20` yalnız NPC akınını engelliyor; gerçek oyuncu bir günlük acemiyi ilk dakikadan yağmalayabiliyor. Eleme/bitiş tasarlanacaksa bu boşluk doğrudan konuyla ilgili — dökümanda saklanmadı.
+- Yalnız döküman; koda dokunulmadı, dağıtım gerekmiyor.
+
+
 ### Bina açıklamaları derinleştirildi + yardımda maliyet tekrarı kalktı (14 Eylül 2026)
 - İlkan: *"bütün bina tanımlarını ve yardım menüsündeki bina açıklamalarını derinleştir. yardım menüsünde zaten her lvl için gerekli malzemeler yazıyor lvl 1 için bir daha ek yazma."*
 - **Otuz üç binanın açıklaması baştan yazıldı.** Eskiler çoğunlukla tek cümlelik etiketlerdi (en kısası 18 karakter: *"Ham tahıl depolar"*); artık her biri gerçek mekaniği sayısıyla anlatıyor — dönüşüm oranları, kapasite formülleri, neyin neyi kilitlediği, hangi kaynağın darboğaz olduğu.
