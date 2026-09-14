@@ -115,42 +115,42 @@ const UNIT_DEFS = {
     name: 'Fjordvakt',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 5,
+    minLevel: 1,
     equipment: ['kilic']
   },
   skjoldvakt: {
     name: 'Skjoldvakt',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 10,
+    minLevel: 4,
     equipment: ['kilic', 'kalkan']
   },
   nordkamper: {
     name: 'Nordkamper',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 10,
+    minLevel: 4,
     equipment: ['kilic', 'zirh']
   },
   ulvSavasci: {
     name: 'Ulv Savaşçısı',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 15,
+    minLevel: 7,
     equipment: ['kilic', 'zirh', 'kalkan']
   },
   spydvakt: {
     name: 'Spydvakt',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 5,
+    minLevel: 1,
     equipment: ['mizrak']
   },
   isbjorn: {
     name: 'Isbjørn',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 10,
+    minLevel: 4,
     equipment: ['mizrak', 'zirh']
   },
 
@@ -159,7 +159,7 @@ const UNIT_DEFS = {
     name: 'Kuzey İzcisi',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 5,
+    minLevel: 1,
     equipment: ['at'],
     /*
       KEŞİF BİRİMİ — bu bayrak keşif seferine kimin gidebileceğini
@@ -187,42 +187,42 @@ const UNIT_DEFS = {
     name: 'Demir Atlı',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 10,
+    minLevel: 4,
     equipment: ['at', 'kilic']
   },
   skjoldreiter: {
     name: 'Skjoldreiter',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 15,
+    minLevel: 7,
     equipment: ['at', 'kilic', 'kalkan']
   },
   buzSuvarisi: {
     name: 'Buz Süvarisi',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 15,
+    minLevel: 7,
     equipment: ['at', 'kilic', 'zirh']
   },
   jernridder: {
     name: 'Jernridder',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 20,
+    minLevel: 10,
     equipment: ['at', 'kilic', 'kalkan', 'zirh']
   },
   vindreiter: {
     name: 'Vindreiter',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 10,
+    minLevel: 4,
     equipment: ['at', 'mizrak']
   },
   stormridder: {
     name: 'Stormridder',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 15,
+    minLevel: 7,
     equipment: ['at', 'mizrak', 'zirh']
   },
 
@@ -237,7 +237,7 @@ const UNIT_DEFS = {
     category: 'kusatma',
     trainedAt: 'atolye',
     /*
-      KUŞATMA ARAÇLARI 5×parça KADEME KURALININ DIŞINDA (madde 15).
+      KUŞATMA ARAÇLARI KADEME KURALININ DIŞINDA (madde 15).
       Tek 'ekipman' taşıyorlar ama bir kademe-1 birimi değiller; kurala
       soksaydık mancınık Atölye Lvl 10 yerine Lvl 5 te açılırdı, yani
       kural geç oyun birimini ERKENE çekerdi.

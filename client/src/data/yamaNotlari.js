@@ -26,6 +26,28 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-15a',
+    tarih: '15 Eylül 2026',
+    baslik: 'Üst kademe birimler yeniden eğitilebiliyor',
+    notlar: [
+      {
+        id: '20260915-kademe-lvl10',
+        tur: 'duzeltme',
+        metin: 'ÜST KADEME BİRİMLER ARAŞTIRILAMAZ HÂLE GELMİŞTİ — '
+          + 'düzeltildi. Kademe kapısı bir önceki sürümde ekipman '
+          + 'başına Lvl 5 yapılmıştı (Jernridder Ahır Lvl 20). Ama '
+          + 'birimin RÚN SALONU araştırma seviyesi bu kapıdan '
+          + 'türetiliyor ve Rún Salonu en fazla Lvl 10 e çıkıyor: Ulv '
+          + 'Savaşçısı, Skjoldreiter, Buz Süvarisi, Stormridder ve '
+          + 'Jernridder araştırılamaz, yani HİÇ eğitilemez olmuştu. '
+          + 'Yeni kapı Lvl 10 da bitiyor: tek ekipmanlı birim Lvl 1, '
+          + 'iki ekipmanlı Lvl 4, üç ekipmanlı Lvl 7, dört ekipmanlı '
+          + '(Jernridder) Lvl 10. Beşi de yeniden araştırılabiliyor ve '
+          + 'en güçlü birimler artık Lvl 10 kışla/ahır ile basılıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14z',
     tarih: '14 Eylül 2026',
     baslik: 'Maceradan daha sık eşya düşüyor',

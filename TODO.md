@@ -222,6 +222,15 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Kademe kapısı Lvl 10 a indi — beş birim EĞİTİLEMEZ olmuştu (15 Eylül 2026)
+- İlkan: *"bazı askerleri kışla ve ahır Lvl 20 de basabiliyorum bu ağır olmuş, Lvl 10 binalarla max basılsın"*.
+- **SORUN AĞIRLIKTAN İBARET DEĞİLDİ.** Birimin Rún Salonu araştırma seviyesi `minLevel` den TÜRETİLİYOR (`researchFor(def.minLevel)`) ve Rún Salonu nun tavanı Lvl 10. Bir önceki sürümdeki `5×n` kuralı beş birimin araştırma seviyesini 15 ve 20 ye çıkarmıştı: **Ulv Savaşçısı, Skjoldreiter, Buz Süvarisi, Stormridder ve Jernridder hiç araştırılamıyordu** — zor değil, imkânsız. Jernridder in araştırma maliyeti 337.190 kaynak, süresi 213 saat çıkıyordu.
+- Yeni kural `1 + 3×(n−1)`: tek ekipmanlı Lvl 1, iki Lvl 4, üç Lvl 7, dört Lvl 10. Hem İlkan ın istediği tavan, hem araştırma seviyesi Rún Salonu tavanının altında.
+- Kışla görevi Lvl 1 e geri döndü (kademe-1 birimi yine Lvl 1 de açılıyor), metni yeni eşikleri anlatıyor.
+- **TESTİN NEDEN KAÇIRDIĞI** önemli: `denge-paketi.test.js` yalnız *"minLevel kurala uyuyor mu"* diye bakıyordu — KURALI kilitliyordu ama SONUCUNU değil. Yeni test sonucu kilitliyor: bir birimin kapısı, o kapıyı açan binanın tavanını geçemez (hem Rún Salonu hem kışla/ahır/atölye için). Testler 306 → 307.
+- Kuşatma araçları ve göçmen kuralın dışında kalmaya devam ediyor.
+
+
 ### Macera eşya düşüşü düzeltildi + ölü sabit ayıklandı (14 Eylül 2026)
 - İlkan: *"çok maceraya çıktım ama birkaç birim bir de attan başka bir şey düşmedi"*.
 - **ÖLÇÜLDÜ (200.000 macera)**: kısa macerada eşya %5,0 düşüyordu ve bunun %18 i diriltme iksiriydi — yani KUŞANILABİLİR parça **24 macerada bir**. Kahramanın on küsur slotu var; bir seti toplamak yüzlerce macera ediyordu. Şikâyet birebir doğruydu.

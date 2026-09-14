@@ -223,13 +223,48 @@ test('boş işçi birikince büyüme duruyor, işe koşunca açılıyor', () => 
 
 // ══ MADDE 15 — kademe kapısı ═════════════════════════════════════
 test('eğitim binası seviyesi ekipman sayısının kapısı', () => {
+  /*
+    İlkan: *"Lvl 10 binalarla max basılsın"* — kademe tam Lvl 10'da
+    bitiyor: 1 ekipman Lvl 1, 2 → Lvl 4, 3 → Lvl 7, 4 → Lvl 10.
+  */
   for (const [k, u] of Object.entries(UNIT_DEFS)) {
     if (u.category === 'kusatma' || u.category === 'gocmen') continue;
     const n = (u.equipment || []).length;
-    assert.equal(u.minLevel, Math.max(1, 5 * n),
-      `${k}: ${n} ekipman için Lvl ${5 * n} bekleniyordu, ${u.minLevel} yazılı`);
+    const beklenen = Math.max(1, 1 + 3 * (n - 1));
+    assert.equal(u.minLevel, beklenen,
+      `${k}: ${n} ekipman için Lvl ${beklenen} bekleniyordu, ${u.minLevel} yazılı`);
   }
-  assert.equal(UNIT_DEFS.jernridder.minLevel, 20, 'Jernridder Ahır Lvl 20 istemeli');
+  assert.equal(UNIT_DEFS.jernridder.minLevel, 10, 'Jernridder Ahır Lvl 10 istemeli');
+});
+
+test('HER birim gerçekten araştırılabiliyor — Rún Salonu tavanı aşılmıyor', () => {
+  /*
+    GERÇEK BİR HATANIN KİLİDİ, ve pahalı bir dersin.
+
+    `research` alanı `minLevel`den TÜRETİLİYOR. Kademe kapısı 5×n
+    yapıldığında altı birimin araştırma seviyesi 15 ve 20'ye çıktı ama
+    Rún Salonu'nun tavanı Lvl 10: Ulv Savaşçısı, Skjoldreiter, Buz
+    Süvarisi, Stormridder ve Jernridder HİÇ araştırılamaz oldu — zor
+    değil, imkânsız. Oyuncu bunu oyunda fark etti, test etmedi.
+
+    Önceki test yalnız "minLevel kurala uyuyor mu" diye bakıyordu, yani
+    KURALI kilitliyordu ama SONUCUNU değil. Bu test sonucu kilitliyor:
+    bir birimin kapısı, o kapıyı açan binanın tavanını geçemez.
+  */
+  const salonTavani = VILLAGE_DEFS.runSalonu.maxLevel;
+  const ulasilmaz = [];
+  for (const [k, u] of Object.entries(UNIT_DEFS)) {
+    if (u.research && u.research.level > salonTavani) {
+      ulasilmaz.push(`${k} → Rún Salonu Lvl ${u.research.level} (tavan ${salonTavani})`);
+    }
+    const bina = Array.isArray(u.trainedAt) ? u.trainedAt[0] : u.trainedAt;
+    const binaTavani = VILLAGE_DEFS[bina]?.maxLevel;
+    if (binaTavani && u.minLevel > binaTavani) {
+      ulasilmaz.push(`${k} → ${bina} Lvl ${u.minLevel} (tavan ${binaTavani})`);
+    }
+  }
+  assert.deepEqual(ulasilmaz, [],
+    'bu birimler hiç eğitilemez:\n  ' + ulasilmaz.join('\n  '));
 });
 
 test('ahır at deposu günlük üretimi taşıyabiliyor', () => {
