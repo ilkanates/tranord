@@ -60,7 +60,7 @@ test('varsayılan yükseltme çarpanı iki tarafta aynı', async () => {
   const istemci = await istemciYukle('villageDefs.js');
   // Beklenen değer burada AÇIKÇA yazılı: iki taraf birlikte değiştirilip
   // sessizce kayarsa bu sabit yakalasın diye üçüncü bir tanık.
-  const SUNUCU_VARSAYILAN = 1.25;
+  const SUNUCU_VARSAYILAN = 1.28;
   assert.equal(istemci.UPGRADE_MULT_DEFAULT, SUNUCU_VARSAYILAN,
     'istemcideki UPGRADE_MULT_DEFAULT sunucudakiyle aynı olmalı');
 

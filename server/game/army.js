@@ -75,15 +75,15 @@ const LOOTABLE = [
 const MODES = new Set(['raid', 'attack', 'scout', 'yerlesim', 'takviye']);
 
 /**
- * Keşif seferi yalnızca bu birimlerle yapılır: yük taşıyan ama savaşmayan
- * birimler (kapasite ≥ 100, saldırı ≤ 10). Bugün yalnız Kuzey İzcisi'ni
- * kapsıyor; eşik 20 olsaydı Vindreiter (saldırı 20) de girer, keşif ucuz bir
- * saldırı yolu hâline gelirdi.
+ * Keşif seferi yalnızca `kesif: true` işaretli birimlerle yapılır.
+ *
+ * Eskiden "kapasite ≥ 100 ve saldırı ≤ 10" diye TÜRETİLİYORDU. İzcinin
+ * yükü dengeleme sırasında 0'a indirilince izci bu kümeden düştü ve
+ * keşif tamamen bozuldu (testten yakalandı). Bir birimin ROLÜ taşıma
+ * kapasitesinden türetilmemeli — tanımda açıkça yazmalı.
  */
 const SCOUT_UNITS = new Set(
-  Object.entries(UNIT_DEFS)
-    .filter(([, d]) => (d.stats?.kapasite || 0) >= 100 && (d.stats?.saldiri || 0) <= 10)
-    .map(([k]) => k)
+  Object.entries(UNIT_DEFS).filter(([, d]) => d.kesif === true).map(([k]) => k)
 );
 
 const MAX_REPORTS = 40;

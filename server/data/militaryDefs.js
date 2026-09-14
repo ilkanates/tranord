@@ -157,12 +157,26 @@ const UNIT_DEFS = {
     minLevel: 1,
     equipment: ['at'],
     /*
+      KEŞİF BİRİMİ — bu bayrak keşif seferine kimin gidebileceğini
+      belirliyor (bkz. game/army.js · SCOUT_UNITS). Eskiden "yükü çok,
+      saldırısı az" diye TÜRETİLİYORDU; izcinin yükü 0'a inince izci
+      keşif birimi olmaktan çıktı ve keşif tamamen bozuldu. Rol,
+      taşıma kapasitesinden türetilecek bir şey değil.
+    */
+    kesif: true,
+    /*
       SALDIRI = SAVUNMA = 10. Savunma eskiden 30'du, yani izci savunmada
       saldırısının üç katı güçlüydü; casus düellosunda 5 izci 2 izciye
       yeniliyordu. İzci bir savaşçı değil: köye ordu geldiğinde de
       savunmaya ciddi katkı vermemeli.
+
+      KAPASİTE 0 (eskiden 110). İzci en ucuz, EN HIZLI ve EN ÇOK TAŞIYAN
+      birimdi: kaynak başına 5,5 yük taşıyordu, ikinci sıradaki Spydvakt
+      3,67. Yağmanın tek doğru cevabı izci sürüsüydü ve bütün tier
+      sistemini atlatıyordu. Travian da izcilere tam bu yüzden 0 yük
+      verir: izci bilgi getirir, ganimet değil.
     */
-    stats: { saldiri: 10, yayaSav: 10, atliSav: 10, hiz: 14, kapasite: 110 }
+    stats: { saldiri: 10, yayaSav: 10, atliSav: 10, hiz: 14, kapasite: 0 }
   },
   demirAtli: {
     name: 'Demir Atlı',

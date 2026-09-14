@@ -81,11 +81,11 @@ function getVillageDemolishMinutes(type, level) {
  * binanın her seviye artışının bir bedeli var.
  *
  * Maliyet = taban × çarpan^(mevcut seviye - 1). Çarpan bina tanımında
- * verilmezse UPGRADE_MULT_DEFAULT. 1.25 seçildi: Lvl 10'da ~7.5×, Lvl 20'de
- * ~73× taban — depo kapasitesinin (seviye × 500) ulaşabileceği aralıkta kalır.
+ * verilmezse UPGRADE_MULT_DEFAULT. 1.28 seçildi: Lvl 10'da ~9.2×, Lvl 20'de
+ * ~106× taban — depo kapasitesinin (seviye × 500) ulaşabileceği aralıkta kalır.
  * anaBina kendi çarpanını (1.7) korur, dengesi elle ayarlanmış.
  */
-const UPGRADE_MULT_DEFAULT = 1.25;
+const UPGRADE_MULT_DEFAULT = 1.28;
 
 function getScaledUpgradeCost(type, currentLevel) {
   const def = VILLAGE_DEFS[type];

@@ -222,6 +222,26 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Denge düzeltmesi 1. parça — eğri, izci ve taşıma (14 Eylül 2026)
+- İlkan dış bir AI ya `OYUN-TASARIMI.md` yi okutup bir denge raporu aldı (`TRANORD-DENGE-DUZELTME.md`, 16 madde) ve *"kontrol et, test et, uygunsa uygula, yanlış bir şey varsa beni uyar"* dedi. Bu sürümde yalnız **tartışmasız ve kendi başına duran** maddeler uygulandı.
+- **MADDE 1+2+3 — eğri birleştirildi (`kc = kt = 1,28`).** Süre çarpanı beş aileye (1,40–2,00), maliyet çarpanı üç aileye (1,25/1,60/1,70) dağılmıştı ve ikisi birbirini tutmuyordu. **Ölçüm**: Sur Lvl 19→20 tek işçiyle **24,9 yıl**; Saray Lvl 10→11 maliyeti **32.019 tuğla**, maksimum depo 26.000 — yani kaynak hiç biriktirilemiyor, bina orada duruyordu. On bir binanın gerçek tavanı Lvl 11–15 arasıydı. Sonrası: hiçbir yükseltme tek depoyu aşmıyor, en pahalı bina son seviyesine tek işçiyle 3,5 günde çıkıyor. **Taban maliyetler değişmedi** — binalar arası sıralama aynı.
+- Tarla tabloları elle yazılı olduğu için 100 satır (5 tarla × 20 seviye) Lvl 1 tabanından yeniden üretildi; işçi sayıları korundu. Sunucu ve istemci ikizleri birlikte.
+- **TAŞIMA**: eski eğriyle başlamış inşaatlar mutlak bitiş anı taşıyor; dokunmasaydık oyuncu artık var olmayan bir süreyi beklerdi. `villageState.egriTasimasi` her yüklemede kalan süreyi yeni formülün tamamına kırpıyor — **yalnız kısaltıyor**, yarısı geçmiş inşaatı yeniden başlatmıyor. Kendi kendini kapatıyor.
+- **MADDE 8 — Kuzey İzcisi yük 110 → 0.** İzci oyunun en ucuz, en hızlı ve en çok taşıyan birimiydi aynı anda (kaynak başına 5,5 yük; ikinci sıradaki Spydvakt 3,67), yani yağmanın tek doğru cevabıydı ve bütün tier sistemini atlatıyordu. Travian da izcilere tam bu yüzden 0 yük verir.
+- **GİZLİ BAĞLANTI TESTTEN YAKALANDI**: `SCOUT_UNITS` "kapasite ≥ 100 ve saldırı ≤ 10" diye TÜRETİLİYORDU. İzcinin yükü 0 a inince izci keşif birimi olmaktan çıktı ve **keşif tamamen bozuldu**. Rol artık tanımdaki `kesif: true` bayrağından geliyor; bir birimin ROLÜ taşıma kapasitesinden türetilmemeli. Regresyon testi eklendi.
+- Yeni test dosyası `server/test/denge-egrisi.test.js` (5 test): çarpan ailesine geri dönülmüş mü, herhangi bir yükseltme tek depoyu aşıyor mu, son seviye 5 günü geçiyor mu, bina sıralaması korunuyor mu. Testler 287 → **293**.
+
+#### Raporda yanlış çıkan ve UYGULANMAYAN maddeler
+- **Madde 10 (soğuk başlangıç kilidi) YANLIŞ.** Rapor "külçe olmadan demir madeni, demir madeni olmadan külçe kurulamaz" diyor ve bu tek maddeyi koddan doğrulanmak üzere bırakmış. `villageState.js` başlangıç stoğu her işlenmiş maldan **300**, demirden 200 veriyor; ilk Orman 12/30/18/15 istiyor. Kilit yok.
+- **Madde 11 (slot havuzu) kod sorunu değil**, `OYUN-TASARIMI.md` nin ifade hatası. Havuzlar kodda zaten ayrı: tarla slotu `min(25, 5 + anaBinaSeviyesi)` (`insaat.js · getMaxProductionSlots`), bina slotu köy sahnesinin kendi hexleri, sur/hendek/6 kule ayrı isimli slotlar.
+- **Raporun tüm zaman ve maliyet tabloları bir seviye kaymış.** Formül `çarpan^(seviye-1)`, rapor `çarpan^seviye` saymış. Sonuç: raporun süreleri **iki katına kadar abartılı** (Sur 49,9 yıl yazmış, gerçek 24,9), maliyet duvarları ise **bir seviye geç** görünüyor (Ana Bina için L13 demiş, gerçek L12). Yön doğru, büyüklükler değil.
+- **Raporun kendi içinde iki çelişkisi var.** EK D adım 5 set bonusunu `0,12` yazıyor ama madde 6 `0,04` seçip 0,12 yi *açıkça reddediyor*; EK D adım 6 beslenmeyi `6 × n` yazıyor ama madde 7 `6 × n` i *açıkça reddedip* `6 + 2×(n−1)` seçiyor. Uygulanırsa madde metinleri esas alınmalı.
+- **Madde 15 in "eğitim binası ölü" kısmı eksik bilgi**: birimlerin `minLevel` kapısı zaten var (Fjordvakt 1, Skjoldvakt 3, Jernridder 10) ve işçi sayısı eğitim süresini kısaltıyor. Süre/ekipman oranındaki 31 kat uyumsuzluk ise gerçek.
+- **Madde 7 atı kaçırmış**: atlar zaten ayrıca günde 3 HAM TAHıL yiyor (`GRAIN_PER_HORSE_PER_DAY`), yani süvari tüketimi rapordaki hesabın üzerinde.
+- Geri kalan maddeler (4 ön koşul ağacı, 5 ekipman, 6 set bonusu, 7 yiyecek, 9 kule işçisi, 12 acemi kalkanı/moral, 13 işleme, 14 nüfus freni, 15 ekipman süreleri, 16 ev tavanı) **birbirine bağlı** — parça parça uygulanırsa denge ilk sürümden kötü olur. İlkanın kararı bekleniyor.
+- **Uygulanmayacak**: köy mesafesi 6→10 hex (mevcut dünyanın yeniden kurulması gerekir, oyuncu köyleri gider) ve dünya hızı 10×→2–3× (oyun hissini kökten değiştirir — İlkanın kararı).
+
+
 ### Haritada sefer rozeti türüne göre çiziliyor (14 Eylül 2026)
 - İlkan: *"saldırıda haritada kılıç, yağmada turuncu kılıç, destekte yeşil kalkan, casuslamada beyaz dürbün çıkart"*.
 - Eskiden **beş sefer türü de aynı kılıcı** çiziyordu, yalnız rengi değişiyordu. ŞEKİL RENKTEN ÖNCE OKUNUYOR — kalkan destektir, dürbün keşiftir; renk körü oyuncu için de tek ayırt edici renk kalmıyor.

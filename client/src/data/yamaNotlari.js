@@ -26,6 +26,50 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14x',
+    tarih: '14 Eylül 2026',
+    baslik: 'Büyük denge düzeltmesi — üst seviyeler açıldı',
+    notlar: [
+      {
+        id: '20260914-egri-1-28',
+        tur: 'denge',
+        metin: 'BİNALARIN ÜST SEVİYELERİ ARTIK GERÇEKTEN VAR. Maliyet ve '
+          + 'süre seviye başına farklı hızlarda büyüyordu (süre binaya '
+          + 'göre 1,6 ile 2,0 kat, maliyet 1,25 ile 1,70 kat) ve ikisi '
+          + 'birbirini tutmuyordu. Sonuç: SUR un son seviyesi tek '
+          + 'işçiyle 24,9 YIL sürüyordu, Saray ın Lvl 10 dan sonraki '
+          + 'maliyeti ise MAKSİMUM DEPODAN büyük olduğu için kaynak hiç '
+          + 'biriktirilemiyordu. On bir binanın gerçek tavanı Lvl 11-15 '
+          + 'arasıydı; üstündeki her şey ulaşılamaz içerikti. Artık '
+          + 'ikisi de seviye başına 1,28 kat: en pahalı bina bile son '
+          + 'seviyesine tek işçiyle 3-4 günde, tam kadroyla 8-9 saatte '
+          + 'çıkıyor ve hiçbir yükseltme tek deponun üstüne çıkmıyor. '
+          + 'TABAN maliyetler değişmedi — bina sıralaması aynı, yalnız '
+          + 'eğri düzeldi.',
+      },
+      {
+        id: '20260914-egri-tasima',
+        tur: 'duzeltme',
+        metin: 'DEVAM EDEN İNŞAATLARIN SÜRESİ KIRPILDI. Eski eğriyle '
+          + 'başlamış bir yükseltme artık var olmayan bir süreyi '
+          + 'bekliyordu; kalan süresi yeni formülün tamamından uzun olan '
+          + 'her inşaat yeni süreye çekildi. Yalnız kısaltıldı, hiçbir '
+          + 'inşaat uzamadı.',
+      },
+      {
+        id: '20260914-izci-yuk-sifir',
+        tur: 'denge',
+        metin: 'KUZEY İZCİSİ ARTIK GANİMET TAŞIMIYOR (yük 110 → 0). '
+          + 'İzci oyunun en ucuz, EN HIZLI ve EN ÇOK TAŞIYAN birimiydi '
+          + 'aynı anda: kaynak başına 5,5 yük taşıyordu, ikinci '
+          + 'sıradaki Spydvakt 3,67. Yağmanın tek doğru cevabı izci '
+          + 'sürüsüydü ve bütün birim kademelerini anlamsız kılıyordu. '
+          + 'İzci bilgi getirir, ganimet değil — keşif görevi ve hızı '
+          + 'aynen duruyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14w',
     tarih: '14 Eylül 2026',
     baslik: 'Haritada her sefer türünün kendi simgesi',

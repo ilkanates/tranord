@@ -196,3 +196,39 @@ test('savunmasız köye keşifte çarpışma bilgisi SIFIR', () => {
   assert.equal((hedef.reports || []).length, 0,
     'izcisi olmayan köy keşfedildiğini fark etmemeli');
 });
+
+/**
+ * İZCİNİN ROLÜ YÜKÜNDEN TÜRETİLMİYOR — gerçek bir hatanın kilidi.
+ *
+ * SCOUT_UNITS bir zamanlar "kapasite >= 100 && saldiri <= 10" diye
+ * hesaplanıyordu. Denge düzeltmesinde izcinin yükü 110'dan 0'a
+ * indirilince izci bu kümeden düştü ve KEŞİF TAMAMEN BOZULDU: keşif
+ * seferi hiç gönderilemiyordu. Artık rol tanımdaki `kesif` bayrağından
+ * geliyor; bu test bayrağın yerinde durduğunu ve yükten bağımsız
+ * olduğunu kilitliyor.
+ */
+test('keşif birimi yükünden değil kesif bayrağından tanınır', () => {
+  const { UNIT_DEFS } = require('../data');
+
+  const izci = UNIT_DEFS.kuzeyIzcisi;
+  assert.equal(izci.kesif, true, 'Kuzey İzcisi keşif birimi olarak işaretli olmalı');
+  assert.equal(izci.stats.kapasite, 0,
+    'İzci ganimet taşımaz — en ucuz, en hızlı ve en çok taşıyan birim aynı anda olamaz');
+
+  const kesifciler = Object.entries(UNIT_DEFS)
+    .filter(([, d]) => d.kesif === true).map(([k]) => k);
+  assert.deepEqual(kesifciler, ['kuzeyIzcisi'],
+    'keşif birimi listesi beklenmedik şekilde değişmiş');
+
+  // Ve gerçekten gönderilebiliyor mu: kabul kapısı ROL'e bakmalı
+  const ARMY = require('../game/army');
+  const { createVillage } = require('../game/villageState');
+  const saldiran = createVillage(0, 0);
+  saldiran.army = { kuzeyIzcisi: 5 };
+  const sonuc = ARMY.createMarch(saldiran, {
+    mode: 'scout', units: { kuzeyIzcisi: 5 }, distance: 3,
+    fromKey: '0,0', fromName: 'A', toKey: '4,4', toName: 'B',
+  });
+  assert.ok(sonuc?.ok !== false,
+    'yükü 0 olan izciyle keşif gönderilebilmeli: ' + (sonuc && sonuc.reason));
+});

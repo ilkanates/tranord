@@ -13,6 +13,7 @@
  * o yüzden isimli slotlar mevcut mekanikle olduğu gibi çalışıyor.
  */
 const PRODUCTION_DEFS = require('../data/productionDefs');
+const GT = require('./gameTime');
 const { UNIT_DEFS } = require('../data/militaryDefs');
 const { VILLAGE_DEFS: VILLAGE_DEFS_ALL, maxLevelOf } = require('../data/villageDefs');
 
@@ -20,6 +21,44 @@ const TOWER_SLOTS_ARR    = ['kule1', 'kule2', 'kule3', 'kule4', 'kule5', 'kule6'
 const WALL_SLOTS_ARR     = ['sur', 'hendek'];
 const DEFENCE_TYPES      = new Set(['sur', 'hendek', 'kule']);
 const PRODUCTION_RING_1  = ['1,0', '1,-1', '0,-1', '-1,0', '-1,1', '0,1'];
+
+/**
+ * EĞRİ DÜZELTMESİ TAŞIMASI — devam eden inşaatların bitiş anını kırpar.
+ *
+ * Bina süre çarpanı 1,6–2,0 iken 1,28'e indi. Diskteki devam eden
+ * yükseltmeler ESKİ formülle hesaplanmış mutlak bir bitiş anı taşıyor;
+ * dokunmasaydık oyuncu artık var olmayan bir süreyi beklerdi — kimi
+ * binada haftalarca, surda yıllarca. Yeni formülün TAMAMINDAN uzun olan
+ * her bitiş anı bugüne + yeni süreye çekiliyor.
+ *
+ * YALNIZ KISALTIYOR, hiçbir zaman uzatmıyor: yarısı geçmiş bir inşaatı
+ * yeniden başlatmak oyuncunun aleyhine olurdu.
+ *
+ * Kendi kendini kapatan bir taşıma: kırpılacak bir şey kalmayınca
+ * hiçbir şey yapmıyor, bu yüzden her yüklemede güvenle çalışabilir.
+ */
+function egriTasimasi(raw) {
+  const simdi = typeof raw.clockMs === 'number' ? raw.clockMs : Date.now();
+
+  for (const b of Object.values(raw.villageBuildings || {})) {
+    if (!b || !b.building || !(b.buildEndTime > 0)) continue;
+    const def = VILLAGE_DEFS_ALL[b.type];
+    if (!def) continue;
+    const isci = Math.max(1, b.buildWorkers || 1);
+    const dakika = def.buildBaseWork * Math.pow(def.buildMultiplier, (b.level || 0)) / isci;
+    const tavan = simdi + GT.minutesToClock(dakika);
+    if (b.buildEndTime > tavan) b.buildEndTime = tavan;
+  }
+
+  for (const t of Object.values(raw.productionTiles || {})) {
+    if (!t || !t.upgrading || !(t.upgradeEndTime > 0)) continue;
+    const sure = PRODUCTION_DEFS[t.type]?.levels?.[t.level || 0]?.sureSaat;
+    if (!(sure > 0)) continue;
+    const isci = Math.max(1, t.upgradeWorkersAssigned || 1);
+    const tavan = simdi + GT.minutesToClock(sure / isci);
+    if (t.upgradeEndTime > tavan) t.upgradeEndTime = tavan;
+  }
+}
 
 function createVillage(worldQ = 0, worldR = 0) {
   return {
@@ -215,6 +254,8 @@ function hydrateVillage(raw) {
    * iptal ediyordu.
    */
   raw.TOWER_SLOTS = new Set(TOWER_SLOTS_ARR);
+
+  egriTasimasi(raw);
 
   // Araştırma sistemi öncesi kayıtlar
   if (!raw.research || typeof raw.research !== 'object') raw.research = {};
@@ -448,5 +489,6 @@ function migrateResearch(v) {
 }
 
 module.exports = { createVillage, hydrateVillage, repairWorkerAccounting, migrateResearch,
+  egriTasimasi,
   clampWorkersToCapacity, clampBuildingLevels, civilianCount,
   TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };
