@@ -206,6 +206,23 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Bina açıklamaları derinleştirildi + yardımda maliyet tekrarı kalktı (14 Eylül 2026)
+- İlkan: *"bütün bina tanımlarını ve yardım menüsündeki bina açıklamalarını derinleştir. yardım menüsünde zaten her lvl için gerekli malzemeler yazıyor lvl 1 için bir daha ek yazma."*
+- **Otuz üç binanın açıklaması baştan yazıldı.** Eskiler çoğunlukla tek cümlelik etiketlerdi (en kısası 18 karakter: *"Ham tahıl depolar"*); artık her biri gerçek mekaniği sayısıyla anlatıyor — dönüşüm oranları, kapasite formülleri, neyin neyi kilitlediği, hangi kaynağın darboğaz olduğu.
+- **Sayılar koddan doğrulanarak yazıldı**, tahminle değil: depo tavanları `tick.js · getStorageCaps`, tüccar sayısı `pazar.js`, kule doluluk çarpanı `combat.js · towerBonusPct`, nüfus hızı `koyKurallari.js · popPerGameHour`, kuşatma `kusatma.js`.
+- Bu sırada **iki yanlış bilgi yakalandı ve düzeltildi**: koç başı hendeğe DOKUNMUYOR (yalnız suru kırıyor, sur sıfırlanınca artan güç boşa gidiyor) — ilk taslak tersini yazmıştı; ve büyük şölen bütün köylerin günlük üretiminin İKİ KATI veriyor, bir katı değil.
+- **Maliyet iki kere yazılıyordu**: yardım menüsünde üstte *"İnşa (Lvl 1)"* ve *"Yükseltme (Lvl 1 → 2)"* satırları, hemen altında da her seviyeyi tek tek veren tablo vardı. Üstteki blok kaldırıldı; çarpan notu kaybolmasın diye tablonun başına taşındı — açıkladığı şey zaten tablonun kendisi.
+- Atölyenin **kuşatma kapasitesi** (`siegeCapPerLevel`) yardım ekranında hiç görünmüyordu, satır eklendi. Ahırın at satırına da atların günde 3 ham tahıl yediği notu kondu.
+- `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
+- Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
+
+### Görevlerde "bitenleri gizle" (14 Eylül 2026)
+- İlkan: *"görevlerde yaptığım görevleri gizle gibi birşey olsun"*.
+- Ödülü alınmış görevler zaten listenin sonunda duruyordu ama sayıları arttıkça kaydırma mesafesini uzatıyordu: 48 görevin 42'si bitmişken oyuncu sıradaki işi görmek için listeyi sürekli aşağı çekiyordu.
+- **Sayaçlar SÜZÜLMÜYOR** — 42/48 gizlemeyle 0/6'ya dönseydi oyuncu kaç görev kaldığını göremezdi; gizlemenin amacı listeyi kısaltmak, ilerlemeyi saklamak değil.
+- Varsayılan AÇIK ve tercih `localStorage`'da: biten görev bir kazanç kaydı, oyuncu istemeden ekrandan silmek doğru olmazdı; ama her sekme açılışında yeniden işaretlemek de gerekmemeli.
+- Hepsi bittiğinde boş kutu kalmıyor: *"Ana hattın tamamı bitti — 29 görev"* yazıyor. Oyuncu listenin kaybolduğunu değil, işi bitirdiğini görmeli.
+
 ### Eşya nadirliği beş sınıfa çıktı + at gerçek süvari hızı veriyor (14 Eylül 2026)
 - İlkan: *"hero itemleri gri yeşil mavi mor ve turuncu olarak sınıflansın... düşme şanslarına göre olsun. efsanevi çok nadir düşsün"* ve *"kahramana at verince normal birimler attan ne hız bonusu alıyorsa alsın. atın nadirliği daha da hızlandırsın ve macera da kısalsın hıza göre"*.
 - **Beş nadirlik sınıfı**: gri Sıradan (1×) · yeşil **Ustaişi** (1,5×) · mavi Nadir (2,1×) · mor **Epik** (2,8×) · turuncu Efsanevi (3,6×). Mor kademe yeni: dört sınıfta nadir ile efsanevi arasındaki uçurum (11'de bir → 3'te bir) tek adımda atlanıyordu.

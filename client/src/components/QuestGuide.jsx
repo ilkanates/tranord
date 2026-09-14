@@ -289,6 +289,30 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
   */
   const [yanAcik, setYanAcik] = useState(!!quests && quests.zorunluKalan === 0);
 
+  /*
+    BİTENLERİ GİZLE (İlkan'ın isteği: "görevlerde yaptığım görevleri
+    gizle gibi bir şey olsun").
+
+    Ödülü alınmış görevler listenin sonunda duruyor ama sayıları
+    arttıkça kaydırma mesafesini uzatıyor: elli görevin kırkı bitmişken
+    oyuncu sıradaki işi görmek için listeyi sürekli aşağı çekiyor.
+
+    VARSAYILAN AÇIK: biten görev bir kazanç kaydı; oyuncu istemeden onu
+    ekrandan silmek, ilerlemesini görünmez yapardı. Karar oyuncunun ve
+    TARAYICIDA saklanıyor (sağ raydaki katlamalar gibi) — her sekme
+    açılışında yeniden işaretlemek gerekmesin.
+  */
+  const [bitenGizli, setBitenGizli] = useState(() => {
+    try { return localStorage.getItem('tranord.gorevBitenGizli') === '1'; }
+    catch { return false; }
+  });
+  const bitenGizliCevir = () => setBitenGizli(v => {
+    const yeni = !v;
+    try { localStorage.setItem('tranord.gorevBitenGizli', yeni ? '1' : '0'); }
+    catch { /* gizli sekmede yazamayabiliriz — tercih o oturumda yaşar */ }
+    return yeni;
+  });
+
   if (!quests) {
     return (
       <div style={{ padding: 20, fontFamily: FONT.ui, fontSize: 11, color: C.textMute }}>
@@ -330,6 +354,14 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
   const anaHat = siralaGrup(quests.liste.filter(q => q.zorunlu));
   const yanHedefler = siralaGrup(quests.liste.filter(q => !q.zorunlu));
   const yanAlinan = yanHedefler.filter(q => q.alindi).length;
+  /*
+    SÜZME GÖRÜNTÜDE, sayaçlarda DEĞİL. Sayaçlar hep bütün listeyi
+    sayıyor: "12/46" gizlemeyle "12/12"ye dönseydi oyuncu kaç görev
+    kaldığını göremezdi — oysa gizlemenin amacı listeyi kısaltmak,
+    ilerlemeyi saklamak değil.
+  */
+  const suz = (liste) => (bitenGizli ? liste.filter(q => !q.alindi) : liste);
+  const bitenSayisi = quests.liste.filter(q => q.alindi).length;
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '12px 0 24px' }}>
@@ -363,6 +395,19 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
               : 'ana hat tamam'}
           </div>
         </div>
+        {/*
+          Düğme yalnız BİTMİŞ GÖREV VARKEN görünüyor: hiçbiri yokken
+          "bitenleri gizle" hiçbir işe yaramayan bir düğme olurdu.
+        */}
+        {bitenSayisi > 0 && (
+          <button onClick={bitenGizliCevir}
+            title={bitenGizli
+              ? 'Tamamlanan görevleri listede yeniden göster'
+              : 'Ödülü alınmış görevleri listeden gizle'}
+            style={btn(bitenGizli ? 'primary' : 'ghost', { padding: '6px 10px', fontSize: 9.5 })}>
+            {bitenGizli ? `BİTENLERİ GÖSTER · ${bitenSayisi}` : 'BİTENLERİ GİZLE'}
+          </button>
+        )}
         <button onClick={() => onToggle(!quests.hidden)}
           style={btn(quests.hidden ? 'primary' : 'ghost', { padding: '6px 10px', fontSize: 9.5 })}>
           {quests.hidden ? 'REHBERİ AÇ' : 'REHBERİ KAPAT'}
@@ -387,8 +432,22 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
         </span>
       </div>
 
-      <QuestListesi liste={anaHat} focus={focus} quests={quests}
-        onClaim={onClaim} onGoTab={onGoTab} onFocus={onFocus} />
+      {/*
+        HEPSİ BİTTİYSE VE GİZLİYSE boş bir kutu kalmasın — oyuncu
+        listenin kaybolduğunu değil, işi bitirdiğini görmeli.
+      */}
+      {suz(anaHat).length === 0 ? (
+        <div style={{
+          padding: '10px 12px', borderRadius: 6,
+          border: `1px solid ${C.lineSoft}`, background: 'rgba(8,17,28,0.4)',
+          fontFamily: FONT.ui, fontSize: 10, color: C.good,
+        }}>
+          Ana hattın tamamı bitti — {anaHat.length} görev.
+        </div>
+      ) : (
+        <QuestListesi liste={suz(anaHat)} focus={focus} quests={quests}
+          onClaim={onClaim} onGoTab={onGoTab} onFocus={onFocus} />
+      )}
 
       {/* ── YAN HEDEFLER ── */}
       {yanHedefler.length > 0 && (
@@ -421,10 +480,18 @@ export default function QuestScreen({ quests, onClaim, onToggle, onGoTab, onFocu
             </svg>
           </div>
 
-          {yanAcik && (
-            <QuestListesi liste={yanHedefler} focus={focus} quests={quests}
+          {yanAcik && (suz(yanHedefler).length === 0 ? (
+            <div style={{
+              padding: '10px 12px', borderRadius: 6,
+              border: `1px solid ${C.lineSoft}`, background: 'rgba(8,17,28,0.4)',
+              fontFamily: FONT.ui, fontSize: 10, color: C.good,
+            }}>
+              Yan hedeflerin tamamı bitti — {yanHedefler.length} görev.
+            </div>
+          ) : (
+            <QuestListesi liste={suz(yanHedefler)} focus={focus} quests={quests}
               onClaim={onClaim} onGoTab={onGoTab} onFocus={onFocus} />
-          )}
+          ))}
         </>
       )}
     </div>

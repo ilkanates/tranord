@@ -118,7 +118,6 @@ const buildMinutes = (def, level, workers) =>
 
 function BuildingDetail({ id, def, hourSeconds, worldSpeed, equipmentByBuilding, unitDefs }) {
   const secs = (mins) => fmtTime(gameMinutesToRealSeconds(mins, hourSeconds, worldSpeed));
-  const maxLv = def.maxLevel || 20;
   const bonusTable = def.bonusTable
     || (id === 'sur' ? SUR_BONUS : id === 'hendek' ? HENDEK_BONUS : id === 'kule' ? KULE_BONUS : null);
 
@@ -146,13 +145,12 @@ function BuildingDetail({ id, def, hourSeconds, worldSpeed, equipmentByBuilding,
           note={`Lvl 1: ${def.workersPerLevel} · Lvl 10: ${def.workersPerLevel * 10} kişi`} />
       )}
 
-      <Head>Maliyet</Head>
-      <Row k="İnşa (Lvl 1)" v={<Cost cost={def.cost} />} />
-      <Row k="Yükseltme (Lvl 1 → 2)" v={<Cost cost={upgradeCostAt(id, 1)} />}
-        note={`Her seviyede × ${def.upgradeCostMultiplier || UPGRADE_MULT_DEFAULT} artar.`
-          + (def.upgradeCostBase ? '' : ' Tabanı binanın inşa maliyeti.')} />
-
       <Head>Seviye seviye maliyet ve süre</Head>
+      <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, margin: '0 0 6px' }}>
+        Maliyet her seviyede × {def.upgradeCostMultiplier || UPGRADE_MULT_DEFAULT} artar
+        {def.upgradeCostBase ? '' : '; tabanı binanın inşa maliyetidir'}.
+        Süre sütunları kaç İŞÇİ atadığına göre değişir.
+      </div>
       <Table
         cols={['Seviye', 'Maliyet', 'Süre (1 işçi)', '3 işçi', '10 işçi']}
         rows={allLv.map(lv => {
@@ -259,7 +257,12 @@ function BuildingDetail({ id, def, hourSeconds, worldSpeed, equipmentByBuilding,
           note="Kılıç, mızrak, kalkan ve zırh bu ORTAK havuzu paylaşır." />
       )}
       {def.horseCapPerLevel > 0 && (
-        <Row k="At kapasitesi" v={`seviye × ${def.horseCapPerLevel}`} />
+        <Row k="At kapasitesi" v={`seviye × ${def.horseCapPerLevel}`}
+          note="Her süvari bir at tüketir; atlar günde 3 HAM tahıl yer." />
+      )}
+      {def.siegeCapPerLevel > 0 && (
+        <Row k="Kuşatma kapasitesi" v={`seviye × ${def.siegeCapPerLevel}`}
+          note="Koç başı ve mancınık bu ORTAK sayıyı paylaşır; cephanelik havuzunu kullanmazlar." />
       )}
       {def.equipmentCapPerLevel > 0 && (
         <Row k="Ekipman kapasitesi" v={`seviye × ${def.equipmentCapPerLevel}`} />

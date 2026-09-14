@@ -26,6 +26,48 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14k',
+    tarih: '14 Eylül 2026',
+    baslik: 'Bina açıklamaları ve görev listesi',
+    notlar: [
+      {
+        id: '20260914-bina-aciklamalari',
+        tur: 'yenilik',
+        metin: 'OTUZ ÜÇ BİNANIN AÇIKLAMASI baştan yazıldı. Artık her bina '
+          + 'ne yaptığını gerçek sayılarla anlatıyor: dönüşüm oranları, '
+          + 'kapasite formülleri, neyin neyi kilitlediği ve hangi kaynağın '
+          + 'darboğaz olduğu. Yardım menüsünde ve bina panelinde aynı metin '
+          + 'görünüyor.',
+      },
+      {
+        id: '20260914-yardim-maliyet-tekrari',
+        tur: 'duzeltme',
+        metin: 'Yardım menüsünde maliyet İKİ KERE yazıyordu: üstte "İnşa (Lvl 1)" '
+          + 've "Yükseltme (Lvl 1 → 2)" satırları, hemen altında da her '
+          + 'seviyeyi tek tek veren tablo. Üstteki tekrar kaldırıldı; '
+          + 'tablonun başına maliyetin her seviyede kaçla çarpıldığını '
+          + 'söyleyen bir satır eklendi. Atölyenin kuşatma kapasitesi de '
+          + 'artık yardımda yazıyor.',
+      },
+      {
+        id: '20260914-gorev-bitenleri-gizle',
+        tur: 'yenilik',
+        metin: 'Görevler ekranına BİTENLERİ GİZLE düğmesi eklendi: ödülü '
+          + 'alınmış görevler listeden kalkıyor, sıradaki iş yukarı geliyor. '
+          + 'Sayaçlar değişmiyor (42/48 hâlâ 42/48) — gizlemenin amacı '
+          + 'listeyi kısaltmak, ilerlemeyi saklamak değil. Tercih '
+          + 'tarayıcıda saklanıyor.',
+      },
+      {
+        id: '20260914-erzak-ambari-ad',
+        tur: 'duzeltme',
+        metin: 'Un ve ekmeği depolayan binanın adı İngilizce kalmıştı '
+          + '("Granary"); artık ERZAK AMBARI. Bina, içeriği ve seviyeleri '
+          + 'aynı — yalnız adı Türkçeleşti.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14j',
     tarih: '14 Eylül 2026',
     baslik: 'Beş nadirlik sınıfı ve hızlı atlar',
