@@ -26,6 +26,64 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14h',
+    tarih: '14 Eylül 2026',
+    baslik: 'Sağlık Çadırı artık çalışıyor',
+    notlar: [
+      {
+        id: '20260914-saglik-cadiri',
+        tur: 'yenilik',
+        metin: 'SAĞLIK ÇADIRI bugüne kadar kurulabiliyor ama hiçbir şey '
+          + 'yapmıyordu. Artık köyün SAVUNULDUĞU savaşlarda kaybettiğin '
+          + 'askerlerin bir kısmı yaralı sayılıp orduna geri dönüyor: her '
+          + 'seviye %2, Lvl 20 de %40. Savaşın sonucunu değiştirmiyor — '
+          + 'kazanan belli, çadır yalnız yaralıları topluyor.',
+      },
+      {
+        id: '20260914-saglik-yalniz-savunma',
+        tur: 'denge',
+        metin: 'Çadır SALDIRIDA işlemiyor: çadır köyde, saldırıda ölen asker '
+          + 'günlerce uzakta. Köyünde duran MİSAFİR askerler de '
+          + 'iyileşmeden payını alıyor — çadır kimin askeri olduğuna '
+          + 'bakmadan yaralıyı topluyor.',
+      },
+    ],
+  },
+  {
+    surum: '2026-09-14g',
+    tarih: '14 Eylül 2026',
+    baslik: 'Kahraman atlanıyor',
+    notlar: [
+      {
+        id: '20260914-kahraman-hiz',
+        tur: 'yenilik',
+        metin: 'Kahramanın artık bir HIZI var (yaya 7) ve bunu sadece AT '
+          + 'büyütüyor. Tek başına yola çıktığında bu hızla gidiyor; '
+          + 'orduyla giderse yine en yavaş birim belirliyor — kahraman '
+          + 'orduyu bekler.',
+      },
+      {
+        id: '20260914-kahraman-suvari',
+        tur: 'denge',
+        metin: 'AT KUŞANIRSAN KAHRAMAN SÜVARİ OLUR ve savaşta atlı gibi '
+          + 'vurur; at yoksa yaya askeri gibi. Bu, savunanın atlı/yaya '
+          + 'dengesini değiştiriyor: atlı kahramana karşı mızrakçı, yaya '
+          + 'kahramana karşı kalkancı işe yarıyor. Sınıf sefer çıkarken '
+          + 'donuyor — yolda at çıkarıp dengeyi sonradan kaydıramazsın.',
+      },
+      {
+        id: '20260914-at-cesitleri',
+        tur: 'yenilik',
+        metin: 'ALTI FARKLI AT var ve her birinin hızı ayrı: Zırhlı At '
+          + '(en yavaş, binicisini koruyor) · Köy Beygiri · Savaş Atı '
+          + '(vuruyor) · Fiyort Midillisi (iyileştiriyor) · Bozkır Atı '
+          + '(maceraları hızlandırıyor) · Kuzey Rüzgârı (en hızlı, savaşa '
+          + 'hiçbir şey katmıyor). Tek bir "en iyi at" yok — hız istersen '
+          + 'savaştan, güç istersen hızdan vazgeçiyorsun.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14f',
     tarih: '14 Eylül 2026',
     baslik: 'Dayanıklılık eşyaları ve pazar düzeltmesi',

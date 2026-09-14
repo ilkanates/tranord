@@ -342,7 +342,7 @@ function skilleriSifirla(k) {
 function bonuslar(k) {
   const bos = {
     saldiriGucu: 0, saldiriYuzde: 0, savunmaYuzde: 0, uretimSaatlik: 0,
-    zirhlanmaYuzde: 0,
+    zirhlanmaYuzde: 0, hiz: KAHRAMAN_TABAN_HIZ, suvari: false,
     birim: { piyade: { saldiri: 0, savunma: 0 }, suvari: { saldiri: 0, savunma: 0 } },
   };
   /*
@@ -370,6 +370,9 @@ function bonuslar(k) {
     uretimSaatlik: (s.uretim || 0) * SKILLER.uretim.puanBasina,
     /** Alınan hasarı azaltan yüzde — yalnız eşyadan gelir, tavana kırpılı */
     zirhlanmaYuzde: zirhlanmaYuzdesi(k),
+    /** Yürüyüş hızı ve savaş sınıfı — ikisi de AT slotuna bağlı */
+    hiz: hizi(k),
+    suvari: suvariMi(k),
     /*
       BİRİM BONUSU — İlkan'ın özel isteği: eşya tek tek birim
       sınıflarının saldırı ve savunmasını büyütüyor. Yüzde olarak
@@ -467,6 +470,41 @@ function hasarVer(k, hasar) {
 }
 
 /**
+ * KAHRAMANIN YAYA HIZI.
+ *
+ * Hızlı bir piyade kadar (fjordvakt 7). At kuşanınca büyüyor — hızın TEK
+ * kaynağı at (bkz. heroItemDefs · hiz). Tek başına yürüyen kahraman bu
+ * hızla gidiyor; orduyla giderse her zamanki gibi EN YAVAŞ birim
+ * belirliyor, çünkü kahraman orduyu bekler.
+ */
+const KAHRAMAN_TABAN_HIZ = 7;
+
+/**
+ * HIZ TAVANI. Nadirlik bütün bonusları ölçeklediği için efsane bir at
+ * kahramanı oyunun EN HIZLI biriminden (kuzey izcisi, 14) da hızlı
+ * yapabiliyordu — ölçüldü: 21. Haritada hiçbir şeyin yakalayamadığı bir
+ * birim, keşif ve savunma tepkisini anlamsız kılardı.
+ *
+ * 16: izcinin biraz üstü. Kahraman hızlı olabilir, ulaşılmaz olamaz.
+ */
+const KAHRAMAN_HIZ_TAVANI = 16;
+
+/** Kahramanın güncel hızı — yaya tabanı + attan gelen ek, tavana kırpılı */
+function hizi(k) {
+  if (!k || !k.var) return KAHRAMAN_TABAN_HIZ;
+  return Math.min(KAHRAMAN_HIZ_TAVANI,
+    KAHRAMAN_TABAN_HIZ + Math.max(0, KUSAM.kusamBonuslari(k).kahraman.hiz || 0));
+}
+
+/**
+ * SÜVARİ Mİ? At slotu doluysa evet — savaşta ham gücü süvari tarafına
+ * yazılıyor (bkz. combat.js · kahramanSuvari).
+ */
+function suvariMi(k) {
+  return KUSAM.suvariMi(k);
+}
+
+/**
  * ZIRHLANMA TAVANI — alınan hasar en çok bu kadar azalabilir (%).
  *
  * Tavansız olsaydı yeterince eşya yığan oyuncunun kahramanı hiç hasar
@@ -522,6 +560,8 @@ function ozet(k, konakSeviyesi = 0) {
     canTavan: canTavani(ilerleme.seviye, KUSAM.kusamBonuslari(k).kahraman.can),
     olu: !!k.olu,
     olumSayisi: k.olumSayisi || 0,
+    hiz: hizi(k),
+    suvari: suvariMi(k),
     dirilmeBedeli: dirilmeBedeli(k),
     iyilesmeSaatlik: Math.round(
       iyilesmeHizi(konakSeviyesi, KUSAM.kusamBonuslari(k).kahraman.iyilesme) * 10) / 10,
@@ -575,6 +615,7 @@ module.exports = {
   dirilmeBedeli, dirilt,
   SIFIRLAMA_TABAN, SIFIRLAMA_CARPANI, duzelt,
   ZIRHLANMA_TAVANI, zirhlanmaYuzdesi,
+  KAHRAMAN_TABAN_HIZ, KAHRAMAN_HIZ_TAVANI, hizi, suvariMi,
   XP_OLDURULEN_BASINA, SAVAS_HASAR_TAVANI, savasSonucu,
   seviyeIcinToplamXp, xpSeviyesi, seviyeIlerlemesi,
   canTavani, iyilesmeHizi,

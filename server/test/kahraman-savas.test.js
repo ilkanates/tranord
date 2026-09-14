@@ -40,15 +40,32 @@ test('kahramanın ham gücü saldırı toplamına EKLENİYOR', () => {
     'ham güç doğrudan toplama girmeli');
 });
 
-test('ham güç PİYADE sayılıyor — süvari oranı kaymıyor', () => {
+test('ATSIZ kahraman PİYADE sayılıyor', () => {
   const yok = simulateBattle({ demirAtli: 20 }, SAVUNMA, {});
   const var_ = simulateBattle({ demirAtli: 20 }, SAVUNMA, { kahramanSaldiriGucu: 1000 });
   assert.ok(var_.infRatio > yok.infRatio,
-    'kahraman yaya savaşıyor; piyade oranı artmalı');
-  assert.ok(var_.cavRatio < yok.cavRatio,
-    'süvari oranı kahraman yüzünden düşmeli — aksi hâlde savunanın '
-    + 'atlı/yaya dengesi bedavaya kayardı');
+    'at kuşanmamış kahraman yaya savaşıyor; piyade oranı artmalı');
+  assert.ok(var_.cavRatio < yok.cavRatio);
   assert.ok(Math.abs(var_.infRatio + var_.cavRatio - 1) < 1e-6, 'oranlar 1 etmeli');
+});
+
+test('ATLI kahraman SÜVARİ sayılıyor — savunanın dengesi kayıyor', () => {
+  /*
+    İlkan'ın kararı: "kahraman atlı ise atlı gibi vursun, at yoksa yaya
+    askeri gibi". Sınıf savunanın atlı/yaya dengesini belirliyor: atlı
+    kahramana karşı mızrakçı, yaya kahramana karşı kalkancı işe yarıyor.
+    Hep piyade saysaydık at kuşanmanın savaşta hiçbir anlamı olmazdı.
+  */
+  const yaya = simulateBattle({ fjordvakt: 50 }, SAVUNMA, { kahramanSaldiriGucu: 1000 });
+  const atli = simulateBattle({ fjordvakt: 50 }, SAVUNMA, {
+    kahramanSaldiriGucu: 1000, kahramanSuvari: true,
+  });
+  assert.ok(atli.cavRatio > yaya.cavRatio, 'atlı kahraman süvari oranını büyütmeli');
+  assert.equal(yaya.cavRatio, 0, 'yaya kahraman + yaya ordu: hiç süvari yok');
+  assert.equal(atli.attackTotal, yaya.attackTotal,
+    'sınıf TOPLAM gücü değiştirmemeli — yalnız hangi tarafa yazıldığını');
+  assert.equal(atli.kahramanSuvari, true, 'sınıf raporlanabilmeli');
+  assert.equal(yaya.kahramanSuvari, false);
 });
 
 test('saldırı yüzdesi ORDUNUN TOPLAMINA işliyor', () => {

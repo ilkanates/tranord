@@ -2530,7 +2530,7 @@ io.on('connection', async socket => {
     const oradan = WORLD.slotByKey.get(kah.misafirSlot);
     const dist = (me && oradan) ? W.distanceBetween(me, oradan) : 1;
     kah.nerede = 'donuyor';
-    kah.donusKalanSaat = ARMY.marchGameHours({}, dist, true);
+    kah.donusKalanSaat = ARMY.marchGameHours({}, dist, HERO.hizi(kah));
     dirty(); emit();
     console.log(`[KAHRAMAN] ${userEmail} kahramanını geri çağırdı (${kah.misafirSlot})`);
   });
@@ -3488,6 +3488,7 @@ io.on('connection', async socket => {
       fromKey: mySlot, fromName: WORLD.playerBySlot.get(mySlot)?.name || 'Köyün',
       toKey: targetKey, toName: tgtName, toKind: tgtKind,
       ownerKind: 'player', kahramanVar: kahHazir,
+      kahramanHiz: kahHazir ? HERO.hizi(kahAday) : 0,
     });
     if (!res.ok) return fail(res.reason);
     // Varışta misafir girdisine sahibini yazabilmek için sefere iliştir
@@ -3515,6 +3516,12 @@ io.on('connection', async socket => {
         const b = HERO.bonuslar(kah);
         res.march.kahraman = {
           gucu: b.saldiriGucu, saldiriYuzde: b.saldiriYuzde,
+          /*
+            SINIF DA DONDURULUYOR: yola çıktıktan sonra at çıkarıp
+            savunanın atlı/yaya dengesini sonradan değiştirmek mümkün
+            olmasın (güç ve birim bonusuyla aynı gerekçe).
+          */
+          suvari: HERO.suvariMi(kah),
           // Eşyaların birim bonusu da DONDURULUYOR — yolda eşya
           // değiştirip saldırıyı büyütmek mümkün olmasın
           birim: b.birim || null,

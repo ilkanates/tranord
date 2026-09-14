@@ -81,6 +81,15 @@ const KAHRAMAN_BONUSLARI = {
     yığılma kahramanı ölümsüz yapar ve macera riskini sıfırlardı.
   */
   zirhlanma:   { ad: 'Alınan hasar',       birim: 'yuzde' },
+  /*
+    HIZ — YALNIZ AT SLOTUNDAN gelir (İlkan'ın kararı: "kahramanın bir hızı
+    olsun ve at bu hızı artırsın SADECE").
+
+    Başka slotlara dağıtılsaydı hız görünmez bir yerden birikir ve oyuncu
+    kahramanının neden hızlandığını anlamazdı. Kural testle kilitli:
+    at dışındaki hiçbir eşya `hiz` taşıyamaz.
+  */
+  hiz:         { ad: 'Hız',                 birim: 'guc' },
   iyilesme:    { ad: 'İyileşme hızı',      birim: 'saatlik' },
   maceraHizi:  { ad: 'Macera hızı',        birim: 'yuzde' },
   ganimet:     { ad: 'Ganimet',            birim: 'yuzde' },
@@ -258,16 +267,53 @@ const HERO_ITEMS = {
   },
 
   // ── At ───────────────────────────────────────────────────────────
-  bozkirAti: {
-    ad: 'Bozkır Atı', slot: 'at', ikon: 'at',
-    aciklama: 'Maceraları belirgin şekilde kısaltır.',
-    kahramanBonus: { maceraHizi: 25 },
+  /*
+    ATLAR — hem kahramanı SÜVARİ yapıyor hem hızını büyütüyor.
+
+    HER ATIN HIZI FARKLI (İlkan'ın kararı) ve hız tek eksen değil: hızlı
+    at savaşa bir şey katmıyor, ağır at yavaş ama vuruyor ya da koruyor.
+    Tek bir "en iyi at" olsaydı diğerleri çöp olur, at slotu bir seçim
+    olmaktan çıkardı. Sıralama yavaştan hızlıya:
+
+      Zırhlı At 0,5 · Köy Beygiri 1 · Savaş Atı 1 · Fiyort Midillisi 1,5
+      · Bozkır Atı 2 · Kuzey Rüzgârı 3
+
+    Taban hız 7 (bkz. kahraman.js) ve nadirlik bu ekleri de ölçeklediği
+    için gerçek aralık 7,5 ile tavandaki 16 arasında.
+  */
+  koyBeygiri: {
+    ad: 'Köy Beygiri', slot: 'at', ikon: 'at',
+    aciklama: 'Sıradan bir yük atı — ama yürümekten iyidir. Kahramanı '
+      + 'SÜVARİ yapar ve biraz dayanıklılık katar.',
+    kahramanBonus: { hiz: 1, can: 20 },
+  },
+  zirhliAt: {
+    ad: 'Zırhlı At', slot: 'at', ikon: 'at',
+    aciklama: 'Örtü zırhlı ağır at: yavaş ama binicisini koruyor.',
+    kahramanBonus: { hiz: 0.5, zirhlanma: 5 },
   },
   savasAti: {
     ad: 'Savaş Atı', slot: 'at', ikon: 'at',
-    aciklama: 'Kahramanın saldırısını ve süvarinin saldırısını büyütür.',
-    kahramanBonus: { saldiri: 60 },
+    aciklama: 'Ağır savaş atı: kahramanın ve süvarinin saldırısını büyütür. '
+      + 'Hızı vasat.',
+    kahramanBonus: { hiz: 1, saldiri: 60 },
     birimBonus: { suvari: { saldiri: 3 } },
+  },
+  fiyortMidillisi: {
+    ad: 'Fiyort Midillisi', slot: 'at', ikon: 'at',
+    aciklama: 'Dayanıklı dağ midillisi: orta hızlı, kahramanın iyileşmesini '
+      + 'hızlandırır.',
+    kahramanBonus: { hiz: 1.5, iyilesme: 1 },
+  },
+  bozkirAti: {
+    ad: 'Bozkır Atı', slot: 'at', ikon: 'at',
+    aciklama: 'Hızlı bozkır atı: yolu kısaltır ve maceraları hızlandırır.',
+    kahramanBonus: { hiz: 2, maceraHizi: 25 },
+  },
+  kuzeyRuzgari: {
+    ad: 'Kuzey Rüzgârı', slot: 'at', ikon: 'at',
+    aciklama: 'En hızlı at. Savaşa hiçbir şey katmaz — tek işi yolu yutmak.',
+    kahramanBonus: { hiz: 3 },
   },
 };
 

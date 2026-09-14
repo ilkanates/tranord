@@ -135,7 +135,7 @@ const VILLAGE_DEFS = {
                    unique:true,  maxLevel:20, equipmentCapPerLevel:50, poolCapPerLevel:200,
                    buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:60, yontmaTas:70, demirKulce:35 },
                    upgradeCostBase:{ kereste:60, yontmaTas:70, demirKulce:35 }, upgradeCostMultiplier:1.6 },
-  saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Savaşta yaralanan askerleri iyileştiren bina.',
+  saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Köyün SAVUNULDUĞU savaşlarda kaybettiğin askerlerin bir kısmı yaralı sayılır ve orduna geri döner. Her seviye %2, Lvl 20 de %40. Saldırıda ölen askere işlemez — çadır köyde.',
                    unique:true,  maxLevel:20, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:35, tahil:30 } },
   /*
     KAHRAMAN KONAĞI — kahraman burada DOĞAR, burada iyileşir, eşyaları

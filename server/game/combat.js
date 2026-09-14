@@ -110,14 +110,26 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
      *   kahramanSaldiriYuzde saldıran ordunun TOPLAMINA yüzde ek
      *   kahramanSavunmaYuzde savunanın toplamına yüzde ek
      *
-     * Ham güç PİYADE sayılıyor: kahraman yaya savaşıyor, süvari oranını
-     * kaydırıp savunanın atlı/yaya dengesini bozmamalı.
+     * Ham güç KAHRAMANIN SINIFINA yazılıyor: at kuşanmışsa SÜVARİ,
+     * kuşanmamışsa PİYADE (İlkan'ın kararı). Sınıf savunanın atlı/yaya
+     * dengesini kaydırıyor — atlı bir kahramana karşı mızrakçı, yaya bir
+     * kahramana karşı kalkancı işe yarıyor. Hep piyade saysaydık at
+     * kuşanmanın savaşta hiçbir anlamı olmazdı.
      *
      * Yüzde ekler SUR bonusundan AYRI çarpan: sur bonusuyla toplansaydı
      * ikisinin tavanı tek bir tavana sıkışır ve "surum yüksek, kahraman
      * hiçbir şey katmıyor" gibi görünmez bir tavan etkisi doğardı.
      */
     kahramanSaldiriGucu = 0, kahramanSaldiriYuzde = 0, kahramanSavunmaYuzde = 0,
+    /**
+     * KAHRAMAN ATLI MI? At kuşanmışsa ham gücü SÜVARİ, değilse PİYADE
+     * tarafına yazılıyor (İlkan'ın kararı: "kahraman atlı ise atlı gibi
+     * vursun, at yoksa yaya askeri gibi"). Sınıf savunanın atlı/yaya
+     * dengesini kaydırıyor: atlı kahramana karşı mızrakçı, yaya
+     * kahramana karşı kalkancı işe yarıyor. Hep piyade saysaydık at
+     * kuşanmanın savaşta hiçbir anlamı olmazdı.
+     */
+    kahramanSuvari = false,
     /**
      * KAHRAMAN EŞYALARININ BİRİM BONUSU — İlkan'ın özel isteği:
      * *"itemler tek tek birimlerin saldırı ve def puanlarını arttırabilsin"*.
@@ -170,10 +182,11 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
     attackerClean[key] = count;
   }
 
-  // Kahramanın kendi vuruşu — piyade tarafına yazılıyor (bkz. yukarıdaki not)
+  // Kahramanın kendi vuruşu — SINIFINA yazılıyor (bkz. yukarıdaki not)
   if (kahramanSaldiriGucu > 0) {
     attackTotal += kahramanSaldiriGucu;
-    infAttack += kahramanSaldiriGucu;
+    if (kahramanSuvari) cavAttack += kahramanSaldiriGucu;
+    else infAttack += kahramanSaldiriGucu;
   }
   // Ordunun tamamına yüzde ek: kahraman orduyu GÜÇLENDİRİR, yerine geçmez
   if (kahramanSaldiriYuzde > 0 && attackTotal > 0) {
@@ -305,6 +318,7 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
       yatırım yapmanın işe yarayıp yaramadığı hiç ölçülemez.
     */
     kahramanSaldiriGucu: +(kahramanSaldiriGucu || 0).toFixed(2),
+    kahramanSuvari: !!kahramanSuvari,
     kahramanSaldiriYuzde: +(kahramanSaldiriYuzde || 0).toFixed(2),
     kahramanSavunmaYuzde: +(kahramanSavunmaYuzde || 0).toFixed(2),
     infRatio:     +infRatio.toFixed(4),

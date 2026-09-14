@@ -154,11 +154,6 @@ Bu zincir sırayla ilerlemek zorunda:
 
 ## 🟢 Oyun mekaniği
 
-### Sağlık çadırı
-- `saglikCadiri` binası tanımlı, mekaniği yok.
-- Savaş sonrası **savunanın** kayıplarının bir kısmı iyileştirilir.
-- Öneri: `iyileşme = min(0.5, seviye × 0.05)` → Lvl 10'da %50 tavan.
-
 ### Moral bonusu
 - Küçük köy büyüğe saldırırsa saldırgana bonus (Travian mantığı).
 - Formül: `moral = min(1, (saldıran_nüfus / savunan_nüfus)^0.2)`.
@@ -208,6 +203,28 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Sağlık çadırı artık çalışıyor (14 Eylül 2026)
+- Bina aylardır tanımlıydı ve HİÇBİR ŞEY YAPMIYORDU: oyuncu kuruyor, kaynak harcıyor, karşılığında hiçbir şey almıyordu. Satılan bir oyunda duran ama işlemeyen bir bina, eksik bir özellikten daha kötü.
+- **Savunanın kayıplarının bir kısmı iyileşiyor**: seviye başına %2, Lvl 20 de %40 (game/saglik.js). TODO'daki ilk öneri (seviye × 0,05, tavan %50) Lvl 10'da tavana dayanıyordu — o hâlde 11-20 arası seviyelerin hiçbir karşılığı olmazdı; test bunu kilitliyor.
+- **YALNIZ SAVUNANA** işliyor: çadır köyde, saldırıda ölen asker günlerce uzakta. Saldırana da işleseydi saldırmanın bedeli düşer ve savunma avantajı ters dönerdi.
+- **Savaşın SONUCUNU değiştirmiyor** — kazanan, ganimet ve kuşatma aynı. Değiştirseydi savaş hesabı iki aşamalı olur, oyuncu saldırmadan önce ne olacağını kestiremezdi.
+- İyileşme **pay edilmeden ÖNCE** uygulanıyor: çadır kimin askeri olduğuna bakmadan TOPLAM kaybı azaltıyor; kalan kaybın kime yazılacağını yine eski kural belirliyor (önce ev sahibi, artanı misafirler). Yani ev sahibinin tamamen kırıldığı bir savaşta kazanç misafire yansıyor — yan etki değil, iki kuralın doğru birleşimi.
+- **Yuvarlama AŞAĞI**: 1 kayıplı bir savaşta Lvl 1 çadır (%2) kimseyi kurtarmıyor. Yukarı yuvarlasaydık oranın elli katı bir etki doğardı.
+- **DÖNGÜSEL REQUIRE TUZAĞI**: kural önce koyKurallari.jse yazıldı ama o dosya army.jsi require ediyor; karşılıklı require yükleme sırasına göre bağlantıyı boş bırakıp savaşı çökertti (ölçüldü: *"KOY.saglikIyilesmeOrani is not a function"*). Kural hiçbir şey require etmeyen game/saglik.jse alındı.
+- Raporda ayrı bölüm: "SAĞLIK ÇADIRI — %X İYİLEŞTİ" + iyileşen birimler. Yalnız kalan kaybı gösterseydik oyuncu çadırın işe yarayıp yaramadığını göremez, onu yükseltmek için sebep bulamazdı. Bina açıklaması da gerçek etkiyi yazıyor (iki tanımda birden).
+- **Doğrulama:** 9 test, gerçek resolveArrival üzerinden (savunanın ordusu gerçekten kurtarılıyor, saldıran etkilenmiyor, sonuç değişmiyor, misafirler pay alıyor, çadırsız raporda alan hiç yazılmıyor). **Rapor bölümü EKRANDA GÖRÜLMEDİ** — savunan taraf olmak için ikinci bir hesapla PvP kurmak gerekiyordu; sunucu tarafı testlerle doğrulandı.
+
+### Kahraman hızı ve atlı/yaya sınıfı (14 Eylül 2026)
+- İlkan'ın kararı: *"kahramanın bir hızı olsun ve at bu hızı artırsın sadece. Eğer kahraman atlı ise atlı gibi vursun, at yoksa yaya askeri gibi."*
+- **HIZ**: yaya tabanı 7 (hızlı bir piyade kadar), tek kaynağı AT. Başka slotlara dağıtılsaydı hız görünmez bir yerden birikir ve oyuncu kahramanının neden hızlandığını anlamazdı — test kilitliyor: at dışındaki hiçbir eşya hız bonusu taşıyamaz.
+- **HIZ TAVANI 16**: nadirlik bütün bonusları ölçeklediği için efsane bir at kahramanı oyunun en hızlı biriminden (izci 14) de hızlı yapabiliyordu — ölçüldü, 21 çıktı. Haritada hiçbir şeyin yakalayamadığı bir birim keşfi ve savunma tepkisini anlamsız kılardı.
+- **ORDUYLA GİDERSE hızı sayılmıyor**: kahraman orduyu bekler, en yavaş birim yine belirleyici. Aksi hâlde atlı kahraman mancınıkları da kendi hızında uçururdu.
+- **SINIF**: at slotu doluysa SÜVARİ, boşsa PİYADE. Ham gücü o tarafa yazılıyor ve savunanın atlı/yaya dengesini kaydırıyor — atlı kahramana karşı mızrakçı, yaya kahramana karşı kalkancı işe yarıyor. Hep piyade saysaydık at kuşanmanın savaşta hiçbir anlamı olmazdı. Sınıf da sefer çıkarken **donduruluyor** (güç ve birim bonusuyla aynı gerekçe).
+- **ALTI AT, ALTI FARKLI HIZ** (İlkan: *"her atın hızı aynı olmayacak"*): Zırhlı At 0,5 (zırhlanma) · Köy Beygiri 1 (can) · Savaş Atı 1 (saldırı) · Fiyort Midillisi 1,5 (iyileşme) · Bozkır Atı 2 (macera hızı) · Kuzey Rüzgârı 3 (başka hiçbir şey). Gerçek hız aralığı 7,5–16.
+- **EN HIZLI AT BAŞKA HİÇBİR FAYDA VERMİYOR** — test bunu kilitliyor. Verseydi diğer beş at çöp olur, at slotu bir seçim olmaktan çıkardı.
+- Arayüz: kimlik şeridinde "SÜVARİ · hız 9,4" rozeti, kuşam özetinde HIZ satırı, at slotu boşken açıklama, sefer panelinde ve savaş raporunda sınıf yazıyor.
+- Ölçüldü: Nadir Savaş Atı → SÜVARİ · hız 9,4; at çıkarılınca → YAYA · hız 7.
 
 ### Dayanıklılık eşyaları, güç–hasar bağı ve pazar düzeltmesi (14 Eylül 2026)
 - İlkan sordu: *"itemler arasında sağlık yenileme hızını ya da aldığı hasarı azaltan itemler var mı?"* — İYİLEŞME vardı (Zincir Zırh, Demir Nallı Çizme), HASAR AZALTMA yoktu. Eklendi.

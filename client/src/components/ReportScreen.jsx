@@ -549,6 +549,16 @@ function Detail({ r, unitDefs }) {
               <span style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.iceSoft }}>
                 {inc ? 'KAHRAMAN' : 'KAHRAMANIM'}
               </span>
+              {/*
+                SINIF raporda da yazıyor: savunan oyuncu bir dahaki sefere
+                hangi savunma birimini üreteceğine buna bakarak karar verir.
+              */}
+              {r.kahraman.suvari != null && (
+                <span style={{
+                  fontFamily: FONT.ui, fontSize: 8.5,
+                  color: r.kahraman.suvari ? '#ffd98a' : C.textMute,
+                }}>{r.kahraman.suvari ? 'süvari' : 'yaya'}</span>
+              )}
               <div style={{
                 display: 'flex', gap: 16, flexWrap: 'wrap', marginLeft: 'auto',
                 fontFamily: FONT.ui, fontSize: 9.5,
@@ -595,6 +605,23 @@ function Detail({ r, unitDefs }) {
           <Section title="KAYBIM">
             <UnitGrid units={r.myLosses} unitDefs={unitDefs} color={C.danger} />
           </Section>
+
+          {/*
+            SAĞLIK ÇADIRI. Yalnız kalan kaybı gösterseydik oyuncu çadırın
+            işe yarayıp yaramadığını hiçbir yerde göremez, onu yükseltmek
+            için bir sebep bulamazdı.
+          */}
+          {r.saglikCadiri?.toplam > 0 && (
+            <Section title={`SAĞLIK ÇADIRI — %${r.saglikCadiri.oran} İYİLEŞTİ`}>
+              <UnitGrid units={r.saglikCadiri.iyilesen} unitDefs={unitDefs} color={C.good} />
+              <div style={{
+                fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, marginTop: 5,
+              }}>
+                Bu {r.saglikCadiri.toplam} asker yaralı sayıldı ve orduya geri döndü —
+                yukarıdaki kayıp listesine dahil değil.
+              </div>
+            </Section>
+          )}
 
           <Section title={inc ? 'SALDIRANIN KAYBI' : 'KARŞI TARAFIN KAYBI'}>
             <UnitGrid units={r.theirLosses} unitDefs={unitDefs} color={C.good} />

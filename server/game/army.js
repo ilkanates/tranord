@@ -27,6 +27,13 @@ const { SETTLER_UNIT, SETTLERS_REQUIRED } = require('../data/militaryDefs');
 const { simulateBattle, towerBonusPct } = require('./combat');
 const KUSATMA = require('./kusatma');
 const HERO = require('./kahraman');
+/*
+  SAĞLIK ÇADIRI kendi dosyasında. Kural önce koyKurallari.js'e yazılmıştı
+  ama o dosya bu dosyayı require ediyor; karşılıklı require DÖNGÜ kurdu ve
+  yükleme sırasına göre bağlantı boş kalıp savaşı çökertti (ölçüldü).
+  saglik.js hiçbir şeyi require etmiyor — döngü kurulamaz.
+*/
+const SAGLIK = require('./saglik');
 const GT = require('./gameTime');
 
 // ── Ölçek sabitleri ────────────────────────────────────────────────────
@@ -113,19 +120,19 @@ function slowestSpeed(units) {
 }
 
 /**
- * KAHRAMANIN HIZI — tek başına yürürken.
+ * Tek yön yürüyüş süresi — OYUN SAATİ (en yavaş birime göre).
  *
- * Süvariden hızlı, çünkü tek atlı bir yolcu; ama ışınlanmıyor. Sabit
- * olması bilinçli: kahramanın hızını eşyaya bağlamak, "at" slotunu
- * zorunlu kılardı.
+ * @param {number} kahramanHiz Kahraman bu seferde YALNIZ yürüyorsa hızı.
+ *   0 verilirse kahraman yok sayılıyor. Kahramanın hızı artık sabit
+ *   değil: yaya tabanı + attan gelen ek (bkz. kahraman.js · hizi).
+ *
+ * ORDUYLA GİDERSE HIZI SAYILMIYOR. Kahraman orduyu bekler; en yavaş
+ * birim yine belirleyici. Aksi hâlde atlı bir kahraman mancınıkları da
+ * kendi hızında uçururdu.
  */
-const KAHRAMAN_HIZ = 14;
-
-/** Tek yön yürüyüş süresi — OYUN SAATİ (en yavaş birime göre) */
-function marchGameHours(units, distance, kahramanVar = false) {
-  // Askersiz sefer = kahraman tek başına; hız onun hızı
-  const hiz = (kahramanVar && totalUnits(units) <= 0)
-    ? KAHRAMAN_HIZ : slowestSpeed(units);
+function marchGameHours(units, distance, kahramanHiz = 0) {
+  const askerVar = totalUnits(units) > 0;
+  const hiz = (!askerVar && kahramanHiz > 0) ? kahramanHiz : slowestSpeed(units);
   return Math.max(MIN_MARCH_MINUTES / 60, distance / hiz);
 }
 /** Tek yön yürüyüş süresi — GERÇEK saniye */
@@ -384,10 +391,12 @@ function depositLoot(village, loot, caps = null, foodRoom = null) {
  *   normalde reddediliyor ("asker_secilmedi", "saldiri_gucu_yok"), ama
  *   kahraman başlı başına bir savaşçı. Bu bayrak o üç denetimi gevşetiyor
  *   — kaldırmıyor: kahraman da yoksa sefer yine reddediliyor.
+ * @param {number} kahramanHiz  Kahramanın hızı — yalnız askersiz seferde
+ *   kullanılıyor (bkz. marchGameHours).
  */
 function createMarch(village, {
   mode, units, distance, fromKey, fromName, toKey, toName, toKind, ownerKind = 'player',
-  kahramanVar = false,
+  kahramanVar = false, kahramanHiz = 0,
 }) {
   if (!MODES.has(mode)) return { ok: false, reason: 'gecersiz_mod' };
   if (!(distance > 0)) return { ok: false, reason: 'gecersiz_hedef' };
@@ -463,7 +472,7 @@ function createMarch(village, {
     if (village.army[k] <= 0) delete village.army[k];
   }
 
-  const legHours = marchGameHours(clean, distance, kahramanVar);
+  const legHours = marchGameHours(clean, distance, kahramanVar ? kahramanHiz : 0);
   if (!village.nextMarchId) village.nextMarchId = 1;
   const march = {
     id: village.nextMarchId++,
@@ -707,10 +716,25 @@ function resolveArrival(march, origin, target, opts = {}) {
     defenderLevels: target?.equipmentLevels || null,
     kahramanSaldiriGucu: kahSald?.gucu || 0,
     kahramanSaldiriYuzde: kahSald?.saldiriYuzde || 0,
+    kahramanSuvari: !!kahSald?.suvari,
     kahramanBirimSaldiri: kahSald?.birim || null,
     kahramanSavunmaYuzde: opts.kahramanSavunmaYuzde || 0,
     kahramanBirimSavunma: opts.kahramanBirimSavunma || null,
   });
+
+  /*
+    SAĞLIK ÇADIRI — kayıpların bir kısmı iyileşiyor.
+
+    PAY ETMEDEN ÖNCE uygulanıyor: böylece ev sahibi ve misafirler
+    iyileşmeden kendi kayıpları oranında faydalanıyor. Pay ettikten
+    sonra yapsaydık "kimin askeri iyileşsin" diye keyfî bir sıra
+    gerekirdi; oysa çadır kimin olduğuna bakmadan yaralıyı topluyor.
+
+    Sonuç (kazanan, ganimet, kuşatma) DEĞİŞMİYOR — savaş çoktan bitti.
+  */
+  const saglik = SAGLIK.saglikIyilesmeOrani(buildingLevel(target, 'saglikCadiri'));
+  const tedavi = SAGLIK.saglikIyilestir(res.defenderLosses, saglik);
+  res.defenderLosses = tedavi.kalanKayip;
 
   /*
     Savunanın kaybı önce EV SAHİBİNİN ordusundan, artanı misafirlerden.
@@ -787,6 +811,7 @@ function resolveArrival(march, origin, target, opts = {}) {
       kahraman: {
         gucu: res.kahramanSaldiriGucu || 0,
         saldiriYuzde: res.kahramanSaldiriYuzde || 0,
+        suvari: !!res.kahramanSuvari,
         xp: march.kahramanSonuc?.xp || 0,
         hasar: march.kahramanSonuc?.hasar || 0,
       },
@@ -826,6 +851,19 @@ function resolveArrival(march, origin, target, opts = {}) {
     loot, wallBonusPct: res.wallBonusPct,
     attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
     /*
+      SAĞLIK ÇADIRI RAPORDA. Yalnız kalan kaybı gösterseydik oyuncu
+      çadırın işe yarayıp yaramadığını hiçbir yerde göremez, onu
+      yükseltmek için bir sebep bulamazdı. Alan yoksa hiç yazılmıyor;
+      eski raporlar bozulmuyor.
+    */
+    ...(tedavi.iyilesenToplam > 0 ? {
+      saglikCadiri: {
+        oran: Math.round(saglik * 100),
+        iyilesen: tedavi.iyilesen,
+        toplam: tedavi.iyilesenToplam,
+      },
+    } : {}),
+    /*
       SAVUNAN da kahramanı gördüğünü bilmeli: saldıranın kahramanı geldiyse
       "neden bu kadar güçlüydü" sorusunun cevabı burada. Kendi savunma
       bonusu da yazılıyor — kahramanını köyde tutmanın işe yaradığını
@@ -835,6 +873,7 @@ function resolveArrival(march, origin, target, opts = {}) {
       kahraman: {
         saldiranGucu: res.kahramanSaldiriGucu || 0,
         saldiranYuzde: res.kahramanSaldiriYuzde || 0,
+        suvari: !!res.kahramanSuvari,
         savunmamYuzde: res.kahramanSavunmaYuzde || 0,
       },
     } : {}),
@@ -1043,7 +1082,7 @@ module.exports = {
   RAID_LOOT_SHARE, LOOTABLE, SCOUT_UNITS, MAX_REPORTS, MIN_MARCH_MINUTES,
   marchSeconds, marchGameHours, slowestSpeed, carryCapacity, armyAttack, armyDefense,
   totalUnits, buildingLevel, applyLossesToVillage, takeLoot, depositLoot,
-  createMarch, resolveArrival, resolveReturn, pushReport, KAHRAMAN_HIZ,
+  createMarch, resolveArrival, resolveReturn, pushReport,
   takviyeBirlikleri, savunanBirlikler, savunmaKayiplariniPayEt, takviyeGeriCagir,
   seferGeriCagir, geriCagirmaKalan, GERI_CAGIRMA_SANIYE,
   SETTLER_UNIT, SETTLERS_REQUIRED,

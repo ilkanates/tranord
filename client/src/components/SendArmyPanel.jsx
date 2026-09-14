@@ -484,7 +484,7 @@ export default function SendArmyPanel({
                     {kahramanEngeli || (mode === 'takviye'
                       ? `Lvl ${kahraman.seviye} · o köye savunma +%${
                         kahraman.bonuslar?.savunmaYuzde || 0} · geri çağırana kadar orada kalır`
-                      : `Lvl ${kahraman.seviye} · +${
+                      : `Lvl ${kahraman.seviye} · ${kahraman.suvari ? 'süvari' : 'yaya'} · +${
                         Math.round(kahraman.bonuslar?.saldiriGucu || 0)} güç`
                         + ((kahraman.bonuslar?.saldiriYuzde || 0) > 0
                           ? ` · orduya +%${kahraman.bonuslar.saldiriYuzde}` : ''))}

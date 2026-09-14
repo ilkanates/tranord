@@ -80,11 +80,11 @@ const ENGEL_METIN = {
 
 const BONUS_ADI = {
   saldiri: 'Kahraman saldırısı', can: 'Can tavanı',
-  zirhlanma: 'Alınan hasar', iyilesme: 'İyileşme',
+  zirhlanma: 'Alınan hasar', hiz: 'Hız', iyilesme: 'İyileşme',
   maceraHizi: 'Macera hızı', ganimet: 'Ganimet',
 };
 const BONUS_BIRIMI = {
-  saldiri: '', can: '', zirhlanma: '%', iyilesme: '/sa',
+  saldiri: '', can: '', zirhlanma: '%', hiz: '', iyilesme: '/sa',
   maceraHizi: '%', ganimet: '%',
 };
 /*
@@ -227,6 +227,19 @@ export default function HeroPanel({
               Kahraman
             </span>
             <span style={num({ fontSize: 12.5, color: C.iceSoft })}>Lvl {kahraman.seviye}</span>
+            {/*
+              SINIF VE HIZ yan yana: ikisi de AT slotuna bağlı ve
+              oyuncunun savaş öncesi bilmesi gereken şeyler — atlı
+              kahramana mızrakçı, yaya kahramana kalkancı çıkıyor.
+            */}
+            <span style={{
+              padding: '1px 7px', borderRadius: 8,
+              fontFamily: FONT.ui, fontSize: 8.5, letterSpacing: 0.6,
+              color: kahraman.suvari ? '#f2bb60' : C.iceSoft,
+              border: `1px solid ${kahraman.suvari ? 'rgba(242,187,96,0.45)' : C.lineSoft}`,
+            }}>
+              {kahraman.suvari ? 'SÜVARİ' : 'YAYA'} · hız {kahraman.hiz}
+            </span>
             <span style={{
               marginLeft: 'auto', fontFamily: FONT.ui, fontSize: 9.5,
               color: olu ? C.danger : C.textMute,
@@ -382,6 +395,23 @@ export default function HeroPanel({
           );
         })}
       </div>
+
+      {segment === 'kusam' && !kahraman.suvari && (
+        /*
+          AT SLOTU BOŞKEN uyarı: "kahraman neden yaya savaşıyor" sorusunun
+          cevabı burada. Slotun boş olduğunu görmek yetmiyor — at kuşanmanın
+          savaşta SINIF değiştirdiğini bilmeyen oyuncu onu sadece bir hız
+          eşyası sanar.
+        */
+        <div style={{
+          fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint,
+          margin: '0 2px 8px', lineHeight: 1.6,
+        }}>
+          Kahramanın <b style={{ color: C.iceSoft }}>yaya</b> savaşıyor.
+          At kuşanırsan <b style={{ color: '#ffd98a' }}>süvari</b> olur —
+          hem daha hızlı yürür hem savaşta atlı gibi vurur.
+        </div>
+      )}
 
       {segment === 'kusam' && (
         /*
@@ -910,6 +940,7 @@ function ToplamBonus({ kahraman }) {
     ['Kaynak üretimi', toplam.uretimSaatlik || 0, 0, '/sa'],
     ['Can tavanı', kahraman?.canTavan || 0, esyaKah.can || 0, ''],
     ['İyileşme', kahraman?.iyilesmeSaatlik || 0, esyaKah.iyilesme || 0, '/sa'],
+    ['Hız', kahraman?.hiz || 0, esyaKah.hiz || 0, ''],
   ].filter(([, t]) => t > 0);
 
   const birim = Object.entries(toplam.birim || {})

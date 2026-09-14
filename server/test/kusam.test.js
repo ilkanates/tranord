@@ -232,6 +232,89 @@ test('her slotta hasar azaltan ya da iyileştiren bir seçenek var', () => {
   }
 });
 
+test('HIZ yalnız AT slotundan gelir', () => {
+  /*
+    İlkan'ın kararı: "kahramanın bir hızı olsun ve at bu hızı artırsın
+    SADECE". Başka slotlara dağıtılsaydı hız görünmez bir yerden birikir
+    ve oyuncu kahramanının neden hızlandığını anlamazdı.
+  */
+  for (const [key, def] of Object.entries(HERO_ITEMS)) {
+    if ((def.kahramanBonus?.hiz || 0) > 0) {
+      assert.equal(def.slot, 'at', `${key} hız veriyor ama at slotunda değil`);
+    }
+  }
+  const atlar = Object.entries(HERO_ITEMS).filter(([, d]) => d.slot === 'at');
+  assert.ok(atlar.length >= 2, 'en az iki at olmalı ki seçim olsun');
+  for (const [key, def] of atlar) {
+    assert.ok((def.kahramanBonus?.hiz || 0) > 0, `${key} bir at ama hız vermiyor`);
+  }
+});
+
+test('HER ATIN HIZI FARKLI ve hız tek eksen değil', () => {
+  /*
+    İlkan'ın kararı: "farklı atlar düşme ihtimalini de unutma, her atın
+    hızı aynı olmayacak". Ayrıca tek bir "en iyi at" olmamalı — en hızlı
+    at savaşa bir şey katmamalı, yoksa diğerleri çöp olur.
+  */
+  const atlar = Object.entries(HERO_ITEMS).filter(([, d]) => d.slot === 'at');
+  assert.ok(atlar.length >= 4, 'at çeşidi en az dört olmalı');
+
+  const hizlar = atlar.map(([, d]) => d.kahramanBonus.hiz);
+  assert.ok(new Set(hizlar).size >= 3,
+    'atların hızları birbirinden ayrışmalı: ' + hizlar.join(', '));
+
+  // EN HIZLI AT en güçlü at OLMAMALI — yoksa seçim diye bir şey kalmaz
+  const enHizli = atlar.reduce((a, b) =>
+    (b[1].kahramanBonus.hiz > a[1].kahramanBonus.hiz ? b : a));
+  const baskaFayda = Object.entries(enHizli[1].kahramanBonus)
+    .filter(([alan, v]) => alan !== 'hiz' && v > 0);
+  assert.deepEqual(baskaFayda, [],
+    `en hızlı at (${enHizli[0]}) başka bir fayda da veriyor — diğer atlar çöp olur`);
+});
+
+test('AT KUŞANINCA kahraman SÜVARİ olur ve hızlanır', () => {
+  const k = kahramanla([{ key: 'bozkirAti', nadirlik: 'siradan' }]);
+  assert.equal(HERO.suvariMi(k), false, 'at kuşanmadan yaya');
+  const yayaHiz = HERO.hizi(k);
+  assert.equal(yayaHiz, HERO.KAHRAMAN_TABAN_HIZ);
+
+  KUSAM.kusan(k, 0);
+  assert.equal(HERO.suvariMi(k), true, 'at slotu dolunca süvari');
+  assert.ok(HERO.hizi(k) > yayaHiz, 'at hızlandırmalı');
+
+  KUSAM.cikar(k, 'at');
+  assert.equal(HERO.suvariMi(k), false, 'at çıkarılınca yine yaya');
+  assert.equal(HERO.hizi(k), yayaHiz);
+});
+
+test('HIZ TAVANI aşılamıyor — kahraman yakalanamaz olmuyor', () => {
+  /*
+    Nadirlik bütün bonusları ölçeklediği için efsane bir at kahramanı
+    oyunun en hızlı biriminden de hızlı yapabiliyordu (ölçüldü: 21).
+    Haritada hiçbir şeyin yakalayamadığı bir birim, keşif ve savunma
+    tepkisini anlamsız kılardı.
+  */
+  const k = kahramanla([{ key: 'bozkirAti', nadirlik: 'efsane' }]);
+  KUSAM.kusan(k, 0);
+  assert.ok(HERO.hizi(k) <= HERO.KAHRAMAN_HIZ_TAVANI);
+
+  // Tavanı zorlayan uydurma bir bonusla da kırpılmalı
+  k.kusanilan.at = { key: 'bozkirAti', nadirlik: 'efsane' };
+  const sahte = { ...k, kusanilan: k.kusanilan };
+  assert.ok(HERO.hizi(sahte) <= HERO.KAHRAMAN_HIZ_TAVANI);
+});
+
+test('iki at arasında GERÇEK bir tercih var', () => {
+  // Biri diğerinin üstün hâli olsaydı seçim diye bir şey kalmazdı
+  const bozkir = kahramanla([{ key: 'bozkirAti', nadirlik: 'siradan' }]);
+  const savas = kahramanla([{ key: 'savasAti', nadirlik: 'siradan' }]);
+  KUSAM.kusan(bozkir, 0);
+  KUSAM.kusan(savas, 0);
+  assert.ok(HERO.hizi(bozkir) > HERO.hizi(savas), 'bozkır atı daha hızlı');
+  assert.ok(HERO.bonuslar(savas).saldiriGucu > HERO.bonuslar(bozkir).saldiriGucu,
+    'savaş atı daha çok vuruyor');
+});
+
 test('özetteki slot listesi tanımla aynı — istemci ızgarası bundan besleniyor', () => {
   const o = HERO.ozet(kahramanla(), 1);
   assert.deepEqual(Object.keys(o.slotlar).sort(), Object.keys(HERO_SLOTS).sort());

@@ -43,6 +43,7 @@ import koskImg from '../assets/buildings/kosk.jpg';
 import sarayImg from '../assets/buildings/saray.jpg';
 import tavernaImg from '../assets/buildings/taverna.jpg';
 import runSalonuImg from '../assets/buildings/runSalonu.jpg';
+import kahramanKonagiImg from '../assets/buildings/kahramanKonagi.jpg';
 
 import anaBinaVideo from '../assets/buildings/videos/anaBina.mp4';
 import loncaDemirVideo from '../assets/buildings/videos/loncaDemir.mp4';
@@ -154,6 +155,11 @@ export const TEXTURE_EMBLEM = {
   kosk:       { icon: 'koskAmblem', rot: 0, size: 18 },
   saray:      { icon: 'sarayAmblem', rot: 0, size: 18 },
   taverna:    { icon: 'tavernaAmblem', rot: 0, size: 18 },
+  /*
+    Kahraman Konagi: portre amblem, 18 px'te okunsun diye ic bosluklarin
+    yalniz en buyuk 12'si korundu (tam detay gri lekeye donuyordu).
+  */
+  kahramanKonagi: { icon: 'kahramanAmblem', rot: 0, size: 18 },
 };
 
 export const BUILDING_TEXTURE = {
@@ -189,6 +195,7 @@ export const BUILDING_TEXTURE = {
   saray: sarayImg,
   taverna: tavernaImg,
   runSalonu: runSalonuImg,
+  kahramanKonagi: kahramanKonagiImg,
 };
 
 // Merkez hex'i (0,0) icin gorsel - eski merkez2.png yerine

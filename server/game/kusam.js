@@ -101,6 +101,18 @@ function kullan(k, key) {
   return { ok: true, kullanilan };
 }
 
+/**
+ * KAHRAMAN SÜVARİ Mİ? — at slotunda bir eşya varsa evet.
+ *
+ * Savaşta ham gücünün piyadeye mi süvariye mi yazılacağını bu belirliyor
+ * (İlkan'ın kararı: "kahraman atlı ise atlı gibi vursun, at yoksa yaya
+ * askeri gibi"). At slotunun dolu olması tek ölçü — ayrı bir bayrak
+ * tutmak, eşya çıkarılınca unutulabilecek ikinci bir gerçek olurdu.
+ */
+function suvariMi(k) {
+  return gecerli((k?.kusanilan || {}).at);
+}
+
 /** Çantada bu kullanılabilir eşyadan var mı? */
 function elindeVarMi(k, key) {
   return (Array.isArray(k?.envanter) ? k.envanter : []).some(e => e && e.key === key);
@@ -119,7 +131,8 @@ function elindeVarMi(k, key) {
 function kusamBonuslari(k) {
   const out = {
     kahraman: {
-      saldiri: 0, can: 0, zirhlanma: 0, iyilesme: 0, maceraHizi: 0, ganimet: 0,
+      saldiri: 0, can: 0, zirhlanma: 0, hiz: 0,
+      iyilesme: 0, maceraHizi: 0, ganimet: 0,
     },
     birim: { piyade: { saldiri: 0, savunma: 0 }, suvari: { saldiri: 0, savunma: 0 } },
   };
@@ -206,7 +219,7 @@ function kusanilanOzeti(k) {
 }
 
 module.exports = {
-  kusan, cikar, at, kullan, elindeVarMi,
+  kusan, cikar, at, kullan, elindeVarMi, suvariMi,
   kusamBonuslari, envanterOzeti, kusanilanOzeti,
   HERO_SLOTS, HERO_ITEMS, NADIRLIK,
 };

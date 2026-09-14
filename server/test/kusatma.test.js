@@ -334,7 +334,15 @@ test('kahraman TEK BAŞINA sefere çıkabiliyor', () => {
     assert.equal(dene(mode, true).ok, true, `${mode}: kahraman tek başına gidebilmeli`);
     assert.equal(dene(mode, false).ok, false, `${mode}: kahramansız boş sefer reddedilmeli`);
   }
-  // Kahramanın hızı sabit: tek başına yürürken askerlere bağlı değil
-  assert.ok(A.KAHRAMAN_HIZ > 0);
-  assert.equal(A.marchGameHours({}, 14, true), 14 / A.KAHRAMAN_HIZ);
+  /*
+    KAHRAMANIN HIZI artık sabit değil — yaya tabanı + attan gelen ek
+    (bkz. kahraman.js · hizi). marchGameHours o hızı dışarıdan alıyor.
+  */
+  assert.equal(A.marchGameHours({}, 14, 14), 1, 'askersiz sefer kahramanın hızıyla');
+  assert.equal(A.marchGameHours({}, 14, 7), 2, 'yaya kahraman iki katı sürede');
+  const HERO2 = require('../game/kahraman');
+  assert.equal(A.marchGameHours({ fjordvakt: 10 }, 14, 99),
+    A.marchGameHours({ fjordvakt: 10 }, 14, 0),
+    'ORDUYLA giderse kahramanın hızı sayılmamalı — orduyu bekler');
+  assert.ok(HERO2.KAHRAMAN_TABAN_HIZ > 0);
 });
