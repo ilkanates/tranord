@@ -1041,6 +1041,7 @@ function Game({ token, onLogout }) {
               unitDefs={village.unitDefs || {}}
               unitStatsNow={village.unitStatsNow || {}}
               intel={village.intel || {}}
+              saldirilarim={village.saldirilarim || {}}
               marchInfo={village.marchInfo || {}}
               onBuild={buildProduction}
               onUpgrade={upgradeProduction}

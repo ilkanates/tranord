@@ -18,6 +18,7 @@ import { RES_LABEL } from '../flows';
 import { RES_COLOR } from '../theme';
 import Icon from './Icons';
 import PazarTeklifler from './PazarTeklifler';
+import Kervanlar from './Kervanlar';
 import HammaddeGonder from './HammaddeGonder';
 
 const HAM = ['odun', 'kil', 'tas', 'demir', 'tahil'];
@@ -128,6 +129,15 @@ export default function PazarPanel({
           {(pazar.tuccarBos * pazar.tuccarKapasitesi).toLocaleString('tr-TR')}
         </span> — pazar her seviyede bir tüccar ekler.
       </div>
+
+      {/*
+        KERVANLAR SEKMELERİN ÜSTÜNDE. Hangi sekmede olursan ol
+        tüccarlarının nerede olduğunu görüyorsun — gönderiyi yaptığın
+        sekmede kervanın görünmemesi, yaptığın işin karşılığını
+        gizlemek olurdu.
+      */}
+      <Kervanlar gonderiler={pazar.gonderiler || []}
+        tuccarToplam={pazar.tuccarToplam} />
 
       {/* ── Sekmeler ── */}
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>

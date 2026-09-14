@@ -588,7 +588,62 @@ function FieldHex({
 }
 
 // ── Köy işareti (her zoom'da) ────────────────────────────────────────
-function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onClick }) {
+/**
+ * SALDIRI ROZETİ — bu köye vurmuştum.
+ *
+ * İlkan: *"harita üzerinde saldırdığım yağmaladığım yerleri görmek
+ * istiyorum, üzerinde bir kılıç vs olsun"*.
+ *
+ * Harita bugüne kadar yalnız "kim nerede" diyordu; oyuncunun kendi
+ * geçmişi hiç görünmüyordu. Hangi köye vurduğunu hatırlamak için
+ * raporları tek tek gezmek gerekiyordu.
+ *
+ * RENK SONUCU SÖYLÜYOR: kazandığın hedef kırmızı (yine vurulabilir),
+ * kaybettiğin hedef gri (oraya bir daha aynı orduyla gitme). Tek renk
+ * olsaydı rozet yalnız "buraya gitmiştim" derdi; asıl bilgi sonuç.
+ *
+ * YAĞMA ile SALDIRI ayrılmıyor: ikisi de "vurdum" demek ve haritada iki
+ * ayrı simge okunmuyor — ayrıntı zaten hover kartında yazıyor.
+ */
+function SaldiriRozeti({ x, y, r, iz, scale }) {
+  if (!iz) return null;
+  const kazandim = iz.winner === 'attacker';
+  const renk = kazandim ? '#ff6f78' : '#93a1ad';
+  /*
+    Ölçekle KÜÇÜLMÜYOR gibi duruyor: SVG bütün katmanı ölçeklediği için
+    boyut ölçeğe BÖLÜNÜYOR — rozet her zumda aynı piksel büyüklüğünde
+    kalıyor, yoksa uzaklaşınca görünmez olurdu.
+  */
+  const k = 1 / Math.max(0.5, scale);
+  const bx = x + r * 0.72;
+  const by = y - r * 0.72;
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <circle cx={bx} cy={by} r={6 * k} fill="rgba(8,14,24,0.85)"
+        stroke={renk} strokeWidth={1.1 * k} />
+      {/* Kılıç: namlu + çapraz balçak */}
+      <g transform={`translate(${bx} ${by}) scale(${k}) rotate(45)`}>
+        <path d="M 0 -4.2 L 0 2.2" stroke={renk} strokeWidth="1.5"
+          strokeLinecap="round" fill="none" />
+        <path d="M -2 2.2 L 2 2.2" stroke={renk} strokeWidth="1.5"
+          strokeLinecap="round" fill="none" />
+        <path d="M 0 2.2 L 0 4" stroke={renk} strokeWidth="1.1"
+          strokeLinecap="round" fill="none" />
+      </g>
+      {/*
+        KAÇ KEZ vurduğum — bir kereyi ayrıca yazmaya gerek yok, sayı
+        ancak tekrar varsa bilgi.
+      */}
+      {iz.kez > 1 && (
+        <text x={bx} y={by + 11 * k} textAnchor="middle"
+          fontFamily={FONT.num} fontSize={7 * k} fill={renk}
+          style={{ userSelect: 'none' }}>×{iz.kez}</text>
+      )}
+    </g>
+  );
+}
+
+function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onClick, saldiriIzi = null }) {
   const { x, y } = hexToPixel(v.q, v.r, S);
   const isSelf = v.kind === 'self';
   const on = hovered || selected;
@@ -620,6 +675,7 @@ function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onC
         <path d={`M ${x - 6} ${y + 4} L ${x - 6} ${y - 2} L ${x} ${y - 7} L ${x + 6} ${y - 2} L ${x + 6} ${y + 4} Z`}
           fill="none" stroke={color} strokeWidth={1.2} opacity={0.85} />
       )}
+      <SaldiriRozeti x={x} y={y} r={rad} iz={saldiriIzi} scale={scale} />
       {scale > 0.72 && (
         <text x={x} y={y + rad + 9 / Math.max(0.5, scale)} textAnchor="middle"
           fontFamily={FONT.ui} fontSize={8 / Math.max(0.5, scale)}
@@ -863,6 +919,11 @@ export default function MapView({
   socket, world, productionTiles = {}, maxProductionSlots = 6, anaBina,
   freeWorkers = 0, resources = {}, flows = {}, railInset = 0, myArmy = 0,
   army = {}, unitDefs = {}, unitStatsNow = {}, intel = {}, marchInfo = {},
+  /*
+    SALDIRI İZLERİ — hangi köye vurmuştum (bkz. army.js · saldirilarim).
+    Keşif verisi gibi köyde duruyor ve haritaya rozet olarak düşüyor.
+  */
+  saldirilarim = {},
   // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
   kahraman = null, activeSlot = null,
   // Hammadde gönderme kısayolu tüccar sayısını pazardan okuyor
@@ -1533,6 +1594,17 @@ export default function MapView({
         iconColor: colorOf(v),
         rows: [
           ...(v.kind === 'player' && v.owner ? [['Sahibi', v.owner, PLAYER_COL.line]] : []),
+          /*
+            ROZET NE ANLATIYOR — kılıç tek başına "vurmuştum" diyor,
+            ayrıntıyı kart veriyor: kaç kez, sonuç ne, ne kadar ganimet.
+          */
+          ...(saldirilarim[v.key] ? [[
+            'Saldırdım',
+            `${saldirilarim[v.key].kez}× · ${saldirilarim[v.key].winner === 'attacker' ? 'kazandım' : 'kaybettim'}`
+            + (saldirilarim[v.key].ganimet > 0
+              ? ` · ${short(saldirilarim[v.key].ganimet)} ganimet` : ''),
+            saldirilarim[v.key].winner === 'attacker' ? '#ff6f78' : '#93a1ad',
+          ]] : []),
           ['Mesafe', v.distance != null ? `${v.distance} hex` : '—', C.iceSoft],
           ['Nüfus', v.population != null ? short(v.population) : '—'],
           /*
@@ -1789,6 +1861,7 @@ export default function MapView({
           */}
           {scale < Z_TERRAIN && shownVillages.map(v => (
             <VillageMark key={v.key} v={v} scale={scale}
+              saldiriIzi={saldirilarim[v.key] || null}
               color={v.kind === 'self' ? CLAIM_GREEN : colorOf(v)}
               hovered={hoverVillage?.key === v.key}
               selected={selVillage?.key === v.key}

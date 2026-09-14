@@ -232,6 +232,17 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
 
+### Kervan listesi + haritada saldırı izleri (14 Eylül 2026)
+- İlkan: *"markette yolladığım pazarcıları görebilmem lazım"* ve *"harita üzerinde saldırdığım yağmaladığım yerleri görmek istiyorum, üzerinde bir kılıç vs olsun"*.
+- **KERVAN LİSTESİ YANLIŞ YERDEYDİ VE EKSİKTİ.** Liste vardı ama yalnız "Oyuncu Pazarı" sekmesinde çiziliyordu: hammadde gönderen oyuncu, gönderiyi yaptığı sekmede kervanını göremiyordu ve başka sekmeye geçmesi gerektiğini bilmesinin bir yolu yoktu. Artık sekmelerin ÜSTÜNDE, her sekmede (`Kervanlar.jsx`).
+- Üç eksik daha kapandı: (1) tek kaynak gösteriyordu, çok kaynaklı hediye gönderileri listede **boş** görünüyordu; (2) kalan süre ham saniyeydi ("4210 sn"); (3) tüccar sayısı hiç yazmıyordu — oysa asıl merak edilen "kaç tüccarım bağlı, ne zaman serbest kalacak".
+- **GİDİŞ ve DÖNÜŞ ayrı gösteriliyor**: gidişte "mal ne zaman varır", dönüşte "tüccarım ne zaman boşalır". Dönüş fazında yük hiç yazılmıyor — kervan boş dönüyor, yükü göstermek "mal hâlâ yolda" izlenimi verirdi.
+- **HARİTADA KILIÇ ROZETİ** (`army.js · saldirilarim` → `MapView · SaldiriRozeti`). Harita bugüne kadar yalnız "kim nerede" diyordu; oyuncunun kendi geçmişi hiç görünmüyordu, hangi köye vurduğunu hatırlamak için raporları tek tek gezmek gerekiyordu.
+- **Rapordan TÜRETİLEMEZDİ**: raporlar son 25 ile sınırlı (`MAX_REPORTS`), yani yirmi beş yeni rapordan sonra rozet sebepsizce kaybolurdu. Hedef başına TEK kayıt tutuluyor; keşif verisi gibi saldıranın köyünde duruyor — "ben kime vurdum" benim bilgim, hedefin değil.
+- **Renk sonucu söylüyor**: kazandığın hedef kırmızı, kaybettiğin gri. Tek renk olsaydı rozet yalnız "buraya gitmiştim" derdi; asıl bilgi sonuç. Tekrar vurduysan rozetin altında ×N, hover kartında kaç kez / sonuç / toplam ganimet.
+- **Kayıt tavanı 60 hedef**: aktif bir oyuncu yüzlerce köye vurabiliyor, hepsini süresiz tutmak kaydı şişirir ve haritayı kılıç tarlasına çevirirdi. En eski dokunulan hedefler düşüyor — harita "son zamanlarda nerelere vurdum" sorusunu cevaplıyor, ömür boyu sicil tutmuyor.
+- Yağma ile saldırı haritada AYRILMIYOR: ikisi de "vurdum" demek ve iki ayrı simge o boyutta okunmuyor; ayrıntı zaten hover kartında.
+
 ### Hammadde gönderme + harita kısayolları (14 Eylül 2026)
 - İlkan: *"pazardan istediğime hammadde yollayabilmeliyim. oyuncu köy ismi girerek yada oyuncuda bularak yollayabilmeliyim. ek olarak haritada bir köye tıkladığımda saldır, destek gönder, hammadde gönder, keşfet gibi kısayollar olsun"*.
 - **KARŞILIKSIZ GÖNDERİ** (`pazar_hammadde_gonder`). Pazar bugüne kadar yalnız TAKAS yapıyordu: birine bir şey vermek için ondan karşılığında bir şey istemek ve onun da kabul etmesi gerekiyordu. Müttefiki beslemek, yeni köye yardım etmek, borç ödemek — hiçbiri mümkün değildi.

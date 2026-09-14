@@ -334,6 +334,11 @@ function buildPayload(village, tickMs, opts = {}) {
     incoming: incomingMarchesFor(`${village.worldQ || 0},${village.worldR || 0}`),
     reports: (village.reports || []).slice(0, 25),
     intel: village.intel || {},
+    /*
+      SALDIRI İZLERİ — haritada vurduğum köylerin üstünde kılıç çıksın
+      (bkz. army.js · saldirilarim).
+    */
+    saldirilarim: village.saldirilarim || {},
     marchInfo: {
       // İstemci yürüyüş süresini bunlarla hesaplar: hız = saatte hex,
       // bir oyun saati de hourSeconds gerçek saniye sürer.

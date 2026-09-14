@@ -86,7 +86,6 @@ export default function PazarTeklifler({
   }, [socket]);
 
   const benim = pazar?.teklifler || [];
-  const gonderiler = pazar?.gonderiler || [];
   const bosTuccar = pazar?.tuccarBos ?? 0;
   const kapasite = pazar?.tuccarKapasitesi || 2000;
 
@@ -230,32 +229,13 @@ export default function PazarTeklifler({
         </div>
       )}
 
-      {/* ── Yoldaki gönderiler ── */}
-      {gonderiler.length > 0 && (
-        <div>
-          <div style={lbl({ fontSize: 8, marginBottom: 6 })}>Yoldaki kervanlar</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {gonderiler.map((g) => (
-              <div key={g.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '6px 9px', borderRadius: 6,
-                background: 'rgba(8,17,28,0.5)', border: `1px solid ${C.lineSoft}`,
-              }}>
-                <Icon name={g.faz === 'gidis' ? 'yukari' : 'asagi'} size={11}
-                  color={g.faz === 'gidis' ? C.warn : C.iceSoft} strokeWidth={2.3} />
-                <Mal kaynak={g.kaynak} miktar={g.miktar} renk={C.iceSoft} boyut={18} />
-                <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute }}>
-                  {g.faz === 'gidis' ? `→ ${g.hedefAd}` : 'dönüyor'}
-                </span>
-                <span style={{ flex: 1 }} />
-                <span style={num({ fontSize: 10.5, color: C.good })}>
-                  {Math.max(0, Math.round(g.kalanSn))} sn
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/*
+        YOLDAKİ KERVANLAR BURADAN KALKTI — artık pazarın ÜSTÜNDE, her
+        sekmede görünüyor (bkz. Kervanlar.jsx). Burada dururken hammadde
+        gönderen oyuncu kervanını göremiyordu: liste yalnız bu sekmede
+        çiziliyordu ve başka sekmeye geçmesi gerektiğini bilmesinin bir
+        yolu yoktu.
+      */}
     </div>
   );
 }

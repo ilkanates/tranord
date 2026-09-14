@@ -26,6 +26,40 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14s',
+    tarih: '14 Eylül 2026',
+    baslik: 'Kervanlar ve haritada saldırı izleri',
+    notlar: [
+      {
+        id: '20260914-kervan-listesi',
+        tur: 'duzeltme',
+        metin: 'YOLDAKİ KERVANLARIN artık pazarın üstünde, HER SEKMEDE '
+          + 'görünüyor. Liste yalnız "Oyuncu Pazarı" sekmesinde vardı: '
+          + 'hammadde gönderen oyuncu gönderiyi yaptıktan sonra '
+          + 'kervanını göremiyordu. Ayrıca çok kaynaklı gönderiler '
+          + 'listede BOŞ görünüyordu — artık yükün tamamı, kaç tüccarın '
+          + 'bağlı olduğu ve kalan süre düzgün yazıyor.',
+      },
+      {
+        id: '20260914-kervan-fazlar',
+        tur: 'yenilik',
+        metin: 'Kervanın GİDİŞ ve DÖNÜŞ fazları ayrı gösteriliyor: '
+          + 'gidişte "malım ne zaman varır", dönüşte "tüccarım ne zaman '
+          + 'serbest kalır". Tüccar ancak eve dönünce boşa çıkıyor.',
+      },
+      {
+        id: '20260914-harita-saldiri-izi',
+        tur: 'yenilik',
+        metin: 'HARİTADA SALDIRDIĞIN KÖYLERİN üstünde artık KILIÇ rozeti '
+          + 'var. Kazandığın hedefte kırmızı, kaybettiğinde gri — '
+          + 'nereye bir daha gidebileceğini tek bakışta görüyorsun. '
+          + 'Aynı köye birden çok vurduysan rozetin altında ×2, ×3 '
+          + 'yazıyor; üstüne gelince kaç kez vurduğun, sonucu ve '
+          + 'topladığın toplam ganimet çıkıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14r',
     tarih: '14 Eylül 2026',
     baslik: 'Hammadde gönderme ve harita kısayolları',

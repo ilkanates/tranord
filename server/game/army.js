@@ -494,6 +494,25 @@ function createMarch(village, {
   return { ok: true, march };
 }
 
+/**
+ * SALDIRI İZİ TAVANI — kaç hedefin kaydı tutulur.
+ *
+ * Aktif bir oyuncu yüzlerce köye vurabiliyor; hepsini süresiz tutmak
+ * kaydı şişirir ve haritayı kılıç tarlasına çevirir. En ESKİ dokunulan
+ * hedefler düşüyor: harita "son zamanlarda nerelere vurdum" sorusunu
+ * cevaplıyor, ömür boyu bir sicil tutmuyor.
+ */
+const MAX_SALDIRI_IZI = 60;
+
+function budaSaldiriIzi(iz) {
+  const anahtarlar = Object.keys(iz);
+  if (anahtarlar.length <= MAX_SALDIRI_IZI) return;
+  anahtarlar
+    .sort((a, b) => (iz[a].at || 0) - (iz[b].at || 0))
+    .slice(0, anahtarlar.length - MAX_SALDIRI_IZI)
+    .forEach(k => delete iz[k]);
+}
+
 // ── Çözüm ─────────────────────────────────────────────────────────────
 function pushReport(village, report) {
   const list = (village.reports ||= []);
@@ -843,6 +862,31 @@ function resolveArrival(march, origin, target, opts = {}) {
   so.lossesOffense += attackerDead;
   so.lootTotal     += lootSum;
 
+  /*
+    SALDIRI İZİ — haritada hangi köye vurduğum görünsün (İlkan'ın isteği:
+    *"harita üzerinde saldırdığım yağmaladığım yerleri görmek istiyorum,
+    üzerinde bir kılıç vs olsun"*).
+
+    RAPORDAN TÜRETİLEMEZ: raporlar son 25 ile sınırlı (MAX_REPORTS), yani
+    yirmi beş yeni rapordan sonra işaret sebepsizce kaybolurdu. Hedef
+    başına TEK kayıt tutmak hem kalıcı hem küçük.
+
+    KEŞİF GİBİ origin'de duruyor (bkz. origin.intel): "ben kime vurdum"
+    benim bilgim, hedefin değil.
+  */
+  if (march.mode === 'attack' || march.mode === 'raid') {
+    const iz = (origin.saldirilarim ||= {});
+    const onceki = iz[march.toKey];
+    iz[march.toKey] = {
+      at: now, mode: march.mode, toName,
+      winner: res.winner,
+      kez: (onceki?.kez || 0) + 1,
+      ganimet: (onceki?.ganimet || 0) + lootSum,
+      kayip: (onceki?.kayip || 0) + attackerDead,
+    };
+    budaSaldiriIzi(iz);
+  }
+
   const st = statsOf(target);
   st.defensesTotal += 1;
   st.defensesWon   += res.winner === 'defender' ? 1 : 0;
@@ -1096,6 +1140,7 @@ function advanceMarch(march, hours) {
 module.exports = {
   advanceMarch, statsOf,
   RAID_LOOT_SHARE, LOOTABLE, SCOUT_UNITS, MAX_REPORTS, MIN_MARCH_MINUTES,
+  MAX_SALDIRI_IZI,
   marchSeconds, marchGameHours, slowestSpeed, carryCapacity, armyAttack, armyDefense,
   totalUnits, buildingLevel, applyLossesToVillage, takeLoot, depositLoot,
   createMarch, resolveArrival, resolveReturn, pushReport,
