@@ -1062,6 +1062,7 @@ function Game({ token, onLogout }) {
           {tab === 'koy' && (
             <VillageCenter
               onPanelChange={setPanelAcik}
+              productionTiles={village.productionTiles || {}}
               world={village.world}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}
               worldSpeed={village.worldSpeed || 1}

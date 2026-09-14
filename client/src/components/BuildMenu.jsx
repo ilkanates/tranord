@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt } from '../data/villageDefs';
+import VILLAGE_DEFS, { towerSlotBonus, upgradeCostAt, eksikOnKosullar } from '../data/villageDefs';
+import BUILDING_DEFS from '../data/buildingDefs';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm,
   takesWorkers, maxWorkersOf, maxBuilders, yikimOnayi } from '../flows';
@@ -149,6 +150,8 @@ function EffectStrip({ type, level, def, processingRates, flows }) {
 export default function BuildMenu({
   slotKey, building, isTower, slotKind = 'hex', isCenter,
   placedBuildings, freeWorkers, resources = {}, processingRates = {}, flows = {},
+  // ÖN KOŞUL ağacında tarla şartları da var (değirmen Lvl 3 tahıl, ahır Lvl 5)
+  productionTiles = {},
   onBuild, onUpgrade, onDemolish, onAssignVillageWorkers, onCancelBuild, onCancelDemolish, onClose,
   hourSeconds = 3600, worldSpeed = 1,
   onOpenHelp,
@@ -224,6 +227,14 @@ export default function BuildMenu({
    * oyuncu sarayın var olduğunu ve neden kurulamadığını görsün.
    */
   const blockReason = (key, d) => {
+    /*
+      ÖN KOŞUL önce bakılıyor: en sık karşılaşılan ve en öğretici sebep
+      bu. "Saray kuramıyorum" diyen oyuncuya önce neyin eksik olduğunu
+      söylemek gerekiyor.
+    */
+    const eksik = eksikOnKosullar(placedBuildings, productionTiles, key,
+      Object.fromEntries(Object.entries(BUILDING_DEFS).map(([k2, v]) => [k2, v.name])));
+    if (eksik.length) return `Önce gerekli: ${eksik.join(' · ')}`;
     if (d.excludes && builtTypes.has(d.excludes)) {
       return `${VILLAGE_DEFS[d.excludes]?.name || d.excludes} ile aynı köyde olamaz`;
     }

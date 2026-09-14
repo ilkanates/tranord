@@ -287,10 +287,12 @@ const QUESTS = [
   // ══ 6. ASKERİ HAT: ekipman → asker → savunma ═════════════════════
   {
     id: 'kisla', title: 'İlk Mızrak', zorunlu: true,
-    text: 'Kışla kur. Askersiz köy, komşunun ambarıdır.',
-    hint: 'Köy Merkezi > boş arazi > Askeri > Kışla.',
+    text: 'Kışla kur ve Lvl 5 e çıkar. Askersiz köy, komşunun ambarıdır. '
+      + 'Kışlanın seviyesi hangi birimi eğitebileceğini belirler: Lvl 5 tek '
+      + 'ekipmanlı, Lvl 10 iki, Lvl 15 üç, Lvl 20 dört ekipmanlı birimi açar.',
+    hint: 'Köy Merkezi > boş arazi > Askeri > Kışla; sonra aynı binadan yükselt.',
     tab: 'koy', anchor: 'bina-bos',
-    cond: { tur: 'bina', tip: 'kisla', seviye: 1 },
+    cond: { tur: 'bina', tip: 'kisla', seviye: 5 },
     reward: { res: { demirKulce: 150, kereste: 150 } },
   },
   {

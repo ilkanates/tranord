@@ -17,26 +17,37 @@ const EQUIPMENT_DEFS = {
   kilic: {
     name: 'Kılıç', icon: '🗡️',
     saldiri: +30, yayaSav: +20, atliSav: +10, hiz: -3, kapasite: -10,
-    cost: { demirKulce: 10, kereste: 5 }, productionHours: 2,
+    // Eskiden 10 külçe + 5 kereste: kaynak başına 4,00 stat ile
+    // listenin en verimlisiydi, zırhın üç katı. Süre 2 sa idi.
+    cost: { demirKulce: 16, kereste: 8 }, productionHours: 4,
     producedAt: 'silahci'
   },
   mizrak: {
     name: 'Mızrak', icon: '🔱',
     saldiri: +10, yayaSav: +10, atliSav: +30, hiz: -2, kapasite: -5,
-    cost: { demirKulce: 5, kereste: 10 }, productionHours: 1,
+    // Eskiden 5 külçe + 10 kereste (3,33 stat/kaynak), süre 1 sa.
+    cost: { demirKulce: 8, kereste: 12 }, productionHours: 3.5,
     producedAt: 'silahci'
   },
   kalkan: {
     name: 'Kalkan', icon: '🛡️',
     saldiri: +5,  yayaSav: +25, atliSav: +15, hiz: -2, kapasite: -10,
-    cost: { kereste: 15, demirKulce: 5 }, productionHours: 1.5,
+    // Eskiden 15 kereste + 5 külçe (2,25 stat/kaynak), süre 1,5 sa.
+    cost: { kereste: 13, demirKulce: 5 }, productionHours: 2,
     producedAt: 'zirh',
     kural: 'Yalnızca kılıçlı askerlerle kullanılabilir'
   },
   zirh: {
     name: 'Zırh', icon: '🎽',
-    saldiri: +20, yayaSav: +5,  atliSav: +5,  hiz: -2, kapasite: -5,
-    cost: { demirKulce: 20, kereste: 5 }, productionHours: 3,
+    /*
+      ZIRHIN STATI YÜKSELTİLDİ (eski: 20/5/5). Maliyet aynı kaldı ama
+      kaynak başına 1,20 stat veriyordu — kılıcın ÜÇTE BİRİ — ve üstelik
+      en uzun süren ekipmandı. Zırh giymek hiçbir koşulda mantıklı
+      değildi, dolayısıyla Nordkamper, Ulv, Buz Süvarisi ve Jernridder
+      de mantıklı değildi. Yeni değerlerle oranı 2,48.
+    */
+    saldiri: +40, yayaSav: +12, atliSav: +10, hiz: -2, kapasite: -5,
+    cost: { demirKulce: 20, kereste: 5 }, productionHours: 2,
     producedAt: 'zirh'
   },
   /*
@@ -104,49 +115,43 @@ const UNIT_DEFS = {
     name: 'Fjordvakt',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 1,
-    equipment: ['kilic'],
-    stats: { saldiri: 30, yayaSav: 30, atliSav: 20, hiz: 7, kapasite: 50 }
+    minLevel: 5,
+    equipment: ['kilic']
   },
   skjoldvakt: {
     name: 'Skjoldvakt',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 3,
-    equipment: ['kilic', 'kalkan'],
-    stats: { saldiri: 35, yayaSav: 55, atliSav: 35, hiz: 5, kapasite: 40 }
+    minLevel: 10,
+    equipment: ['kilic', 'kalkan']
   },
   nordkamper: {
     name: 'Nordkamper',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 7,
-    equipment: ['kilic', 'zirh'],
-    stats: { saldiri: 50, yayaSav: 35, atliSav: 25, hiz: 5, kapasite: 45 }
+    minLevel: 10,
+    equipment: ['kilic', 'zirh']
   },
   ulvSavasci: {
     name: 'Ulv Savaşçısı',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 10,
-    equipment: ['kilic', 'zirh', 'kalkan'],
-    stats: { saldiri: 55, yayaSav: 60, atliSav: 40, hiz: 3, kapasite: 35 }
+    minLevel: 15,
+    equipment: ['kilic', 'zirh', 'kalkan']
   },
   spydvakt: {
     name: 'Spydvakt',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 1,
-    equipment: ['mizrak'],
-    stats: { saldiri: 10, yayaSav: 20, atliSav: 40, hiz: 8, kapasite: 55 }
+    minLevel: 5,
+    equipment: ['mizrak']
   },
   isbjorn: {
     name: 'Isbjørn',
     category: 'piyade',
     trainedAt: 'kisla',
-    minLevel: 5,
-    equipment: ['mizrak', 'zirh'],
-    stats: { saldiri: 30, yayaSav: 25, atliSav: 45, hiz: 6, kapasite: 50 }
+    minLevel: 10,
+    equipment: ['mizrak', 'zirh']
   },
 
   // Süvari
@@ -154,7 +159,7 @@ const UNIT_DEFS = {
     name: 'Kuzey İzcisi',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 1,
+    minLevel: 5,
     equipment: ['at'],
     /*
       KEŞİF BİRİMİ — bu bayrak keşif seferine kimin gidebileceğini
@@ -176,55 +181,49 @@ const UNIT_DEFS = {
       sistemini atlatıyordu. Travian da izcilere tam bu yüzden 0 yük
       verir: izci bilgi getirir, ganimet değil.
     */
-    stats: { saldiri: 10, yayaSav: 10, atliSav: 10, hiz: 14, kapasite: 0 }
+    statSabit: { saldiri: 10, yayaSav: 10, atliSav: 10, hiz: 14, kapasite: 0 }
   },
   demirAtli: {
     name: 'Demir Atlı',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 3,
-    equipment: ['at', 'kilic'],
-    stats: { saldiri: 40, yayaSav: 50, atliSav: 40, hiz: 11, kapasite: 100 }
+    minLevel: 10,
+    equipment: ['at', 'kilic']
   },
   skjoldreiter: {
     name: 'Skjoldreiter',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 6,
-    equipment: ['at', 'kilic', 'kalkan'],
-    stats: { saldiri: 45, yayaSav: 75, atliSav: 55, hiz: 9, kapasite: 90 }
+    minLevel: 15,
+    equipment: ['at', 'kilic', 'kalkan']
   },
   buzSuvarisi: {
     name: 'Buz Süvarisi',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 8,
-    equipment: ['at', 'kilic', 'zirh'],
-    stats: { saldiri: 60, yayaSav: 55, atliSav: 45, hiz: 9, kapasite: 95 }
+    minLevel: 15,
+    equipment: ['at', 'kilic', 'zirh']
   },
   jernridder: {
     name: 'Jernridder',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 10,
-    equipment: ['at', 'kilic', 'kalkan', 'zirh'],
-    stats: { saldiri: 65, yayaSav: 80, atliSav: 60, hiz: 7, kapasite: 85 }
+    minLevel: 20,
+    equipment: ['at', 'kilic', 'kalkan', 'zirh']
   },
   vindreiter: {
     name: 'Vindreiter',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 4,
-    equipment: ['at', 'mizrak'],
-    stats: { saldiri: 20, yayaSav: 40, atliSav: 60, hiz: 12, kapasite: 105 }
+    minLevel: 10,
+    equipment: ['at', 'mizrak']
   },
   stormridder: {
     name: 'Stormridder',
     category: 'suvari',
     trainedAt: 'ahir',
-    minLevel: 7,
-    equipment: ['at', 'mizrak', 'zirh'],
-    stats: { saldiri: 30, yayaSav: 45, atliSav: 65, hiz: 10, kapasite: 100 }
+    minLevel: 15,
+    equipment: ['at', 'mizrak', 'zirh']
   },
 
   // Kuşatma
@@ -237,9 +236,15 @@ const UNIT_DEFS = {
     name: 'Koçbaşı',
     category: 'kusatma',
     trainedAt: 'atolye',
+    /*
+      KUŞATMA ARAÇLARI 5×parça KADEME KURALININ DIŞINDA (madde 15).
+      Tek 'ekipman' taşıyorlar ama bir kademe-1 birimi değiller; kurala
+      soksaydık mancınık Atölye Lvl 10 yerine Lvl 5 te açılırdı, yani
+      kural geç oyun birimini ERKENE çekerdi.
+    */
     minLevel: 1,
     equipment: ['koc_basi'],
-    stats: { saldiri: 60, yayaSav: 30, atliSav: 75, hiz: 4, kapasite: 0 }
+    statSabit: { saldiri: 60, yayaSav: 30, atliSav: 75, hiz: 4, kapasite: 0 }
   },
   alevMancınıgı: {
     name: 'Alev Mancınığı',
@@ -247,7 +252,7 @@ const UNIT_DEFS = {
     trainedAt: 'atolye',
     minLevel: 10,
     equipment: ['mancinik'],
-    stats: { saldiri: 75, yayaSav: 60, atliSav: 10, hiz: 3, kapasite: 0 }
+    statSabit: { saldiri: 75, yayaSav: 60, atliSav: 10, hiz: 3, kapasite: 0 }
   },
 
   /**
@@ -269,9 +274,60 @@ const UNIT_DEFS = {
     equipment: [],
     cost: { kereste: 400, tugla: 350, yontmaTas: 350, demirKulce: 200 },
     trainMinutes: 240,
-    stats: { saldiri: 0, yayaSav: 0, atliSav: 0, hiz: 5, kapasite: 0 }
+    statSabit: { saldiri: 0, yayaSav: 0, atliSav: 0, hiz: 5, kapasite: 0 }
   }
 };
+
+/**
+ * SET BONUSU — ekipman sayısı arttıkça stat çarpanı.
+ *
+ * Birim statları ekipmanların DÜZ TOPLAMIydı. Ölçüm: aynı bütçeyle
+ * (100 külçe + 100 kereste) 10 Fjordvakt 300 saldırı + 300 yaya
+ * savunma veriyor, 2,9 Ulv Savaşçısı ise 157 + 171. Yani en ucuz birim
+ * her rolde en verimliydi ve kademe sistemi TERSİNE çalışıyordu.
+ *
+ * KATSAYI NEDEN 0,04 — ÇİFT PARA BİRİMİ (Travian modeli). Bonus büyük
+ * tutulursa bu sefer ucuz birim tamamen ölür. Doğru hedef iki ayrı
+ * kıtlığın ZIT yönde sıralanması:
+ *   · KAYNAK başına ucuz birim önde  → erken oyunda bağlayıcı olan bu
+ *   · TAHIL başına pahalı birim önde → geç oyunda ordu tavanını tahıl
+ *     belirler (bkz. tick.js · birimYemi, madde 7)
+ * Oyuncu büyüdükçe kıtlık kaynaktan tahıla kayıyor ve üst kademeye
+ * geçmek zorunda kalıyor. Krossover buradan doğuyor; 0,12 denendi ve
+ * pahalı birimi HER eksende öne geçirdiği için reddedildi.
+ *
+ * Yalnız savaş statlarına uygulanır — hız ve kapasite ekipmanın düz
+ * toplamıdır, taşıma ve yürüyüş bir "set" işi değil.
+ */
+const SET_BONUS_ADIM = 0.04;
+
+/**
+ * Birimin taban statı = (temel + Σ ekipman) × set bonusu.
+ * `statSabit` taşıyan birimler bunun DIŞINDA: izci ve kuşatma
+ * araçlarının değerleri bilinçli olarak ekipman toplamı değil.
+ */
+function turetilmisStat(def) {
+  const s = { ...BASE_STATS };
+  for (const eq of def.equipment || []) {
+    const e = EQUIPMENT_DEFS[eq];
+    if (!e) continue;
+    s.saldiri += e.saldiri || 0;
+    s.yayaSav += e.yayaSav || 0;
+    s.atliSav += e.atliSav || 0;
+    s.hiz += e.hiz || 0;
+    s.kapasite += e.kapasite || 0;
+  }
+  const n = (def.equipment || []).length;
+  const kat = 1 + SET_BONUS_ADIM * Math.max(0, n - 1);
+  s.saldiri = Math.round(s.saldiri * kat);
+  s.yayaSav = Math.round(s.yayaSav * kat);
+  s.atliSav = Math.round(s.atliSav * kat);
+  return s;
+}
+
+for (const def of Object.values(UNIT_DEFS)) {
+  def.stats = def.statSabit || turetilmisStat(def);
+}
 
 /** Yeni köy için gereken göçmen sayısı — tek doğruluk kaynağı */
 const SETTLER_UNIT = 'gocmen';
@@ -418,4 +474,5 @@ module.exports = {
   unitStats, equipmentUpgradeCost, equipmentUpgradeMinutes,
   UPGRADABLE_EQUIPMENT, EQUIPMENT_MAX_LEVEL, EQUIPMENT_UPGRADE_STEP,
   SETTLER_UNIT, SETTLERS_REQUIRED,
+  SET_BONUS_ADIM, turetilmisStat,
 };

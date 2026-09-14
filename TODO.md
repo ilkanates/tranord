@@ -222,6 +222,38 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Denge düzeltmesi 2. parça — kalan 10 madde + ön koşul ağacı (14 Eylül 2026)
+- İlkan: *"madde 4 ü ve kalan 10 maddeyi birlikte yap ama hex olayına girme"*. Harita/mesafe maddesi (6→10 hex) ve dünya hızı dışındaki her şey uygulandı.
+- **1× SORUSU**: İlkan *"sen her şeyi 1x deki gibi düzelt, bizim hız 10x kalsın, sunucuyu 1x başlatınca önerilendeki gibi olur değil mi"* diye sordu — **evet**. Bütün tanımlar oyun saati/dakikası cinsinden; `TRANORD_HOUR_SECONDS` bunun üzerine çarpan. Seferler de dünya döngüsünden ilerlediği için aynı oranda ölçekleniyor.
+
+**MADDE 4 — ÖN KOŞUL AĞACI.** 32 binaya `requires` yazıldı (`{tip,seviye}` · `{tarla,seviye}` · `{biri:[...],seviye}`). `insaat.js · eksikOnKosullar` hem `canBuildAt` i hem red cümlesini besliyor; istemci aynı kuralın ikizini `villageDefs.js` te tutuyor ve menüde kilit sebebini yazıyor. **DÖNGÜ TESTİ** eklendi: bir A→B→A döngüsü iki binayı sonsuza kadar kilitler ve hata hiçbir yerde görünmez — oyuncu ikisini de kuramaz, sebep olarak da birbirlerini görür.
+- Yan etki: `dev_setup` artık ön koşul OMURGASINI da kuruyor (keresteci → demirci → rún salonu → değirmen → fırın → kışla). Testler binaları GERÇEK `build_village` olayıyla kuruyordu ve altısı ön koşula takıldı — kuralın çalıştığının kanıtı.
+- Görev zinciri: `kisla` görevi artık Lvl 5 istiyor (ilk birim orada açılıyor), yoksa oyuncu "10 asker eğit" görevinde takılıp kalırdı.
+
+**MADDE 5+6+7 — ÇİFT PARA BİRİMİ (paketin çekirdeği).**
+- Ekipman verimi 3,3 kat farklıydı (kılıç 4,00 · zırh 1,20). Zırh 20/5/5 ten **40/12/10** a çıktı, kılıç 16 külçe + 8 kereste, mızrak 8+12, kalkan 13+5 oldu — beşi de 2,48–2,50 stat/kaynak.
+- Birim statları artık **TÜRETİLİYOR**: `(taban + Σ ekipman) × (1 + 0,04×(n−1))`. Elle yazılıyken ekipman dengesi değişince 13 satırı elle güncellemek gerekiyordu ve sessizce ayrışabilirdi. İzci ve kuşatma araçları `statSabit` ile dışarıda (değerleri bilinçli olarak ekipman toplamı değil).
+- Asker yemeği `6 + 2×(n−1)`, tarla işçi verimi 32→16.
+- **KROSSOVER ÖLÇÜLDÜ**: `stat/kaynak` 3,50 → 3,00 (ucuz önde), `stat/ekmek` 11,7 → 22,1 (pahalı önde). İki eksen **zıt yönde** sıralanıyor; dengenin doğru olduğunun testi bu ve teste yazıldı.
+- Raporun EK D si set bonusunu `0,12`, beslenmeyi `6×n` yazıyordu ama madde metinleri ikisini de **açıkça reddediyor**. Madde metinleri esas alındı (0,04 ve 6+2×(n−1)); EK D nin değerleri krossoveru yok ediyor.
+
+**MADDE 13+14+16 — İŞÇİ EKONOMİSİ.**
+- İşleme dönüşüm hacmi 9 kat (8→6 oldu 72→54; demirci 50→40; değirmen 120→96; fırın 96→72), **kayıp oranları aynı**. Ölçüm: Lvl 20 Keresteci (800 odun/sa) Lvl 20 Ormanı (924 odun/sa) yetiştiremiyordu; artık işçi oranı beş zincirde de ~0,30.
+- Nüfus büyümesi boş işçiye bağlandı: `tampon = 20 + 0,10 × işçiKapasitesi`, `çarpan = clamp(1 − boş/tampon, 0, 1)`. Ekranda **gerçek** hız gösteriliyor, ham hız değil — yoksa oyuncu büyümenin neden durduğunu hiçbir yerde göremezdi.
+- Ev nüfus tavanı 100→150 (9 ev × 750 = 6.750 ≥ max köyün ~6.640 ihtiyacı). Bu olmasa kıt olan şey tahıl değil **nüfus slotu** olur ve madde 6+7 deki krossover çökerdi.
+- Pazar kervanı artık 1 boş işçi tutuyor, dönüşte iade ediyor. İşçi yoksa kervan **yine çıkıyor** — ticareti bloklamak oyuncunun malını çürütürdü; amaç fren değil, nüfusa bir maliyet bağlamak.
+
+**MADDE 12 — ACEMİ KALKANI + MORAL.**
+- Kalkan: ilk **7 oyun günü** VEYA **nüfus 200**, ilk saldırıda düşüyor ve geri gelmiyor. Saldırı/yağma/**keşif** kapalı, takviye ve hammadde açık — keşif de kapalı çünkü kalkanlı köyün ordusunu görüp kalkan düşer düşmez vurmak kalkanı yalnız **erteleme** hâline getirirdi. Süre OYUN zamanı: dünya hızıyla ölçekleniyor.
+- `PROTECT_MIN_ARMY` kapısı da kalkana bağlandı: asker basan ama hâlâ bir günlük olan oyuncu NPC yağmasına açılıyordu.
+- Moral: `(saldıranNüfus / savunanNüfus)^0,2 − 1`, tavan %50. **Sur bonusuna EKLENMİYOR**, ayrı çarpan — toplansaydı `DEF_BONUS_CAP` (%150) ikisini birden yutardı ve tam da korumak istediğimiz oyuncu korumasız kalırdı. Ölçüm: 2× büyük saldırgana %14,9 · 5× e %38 · 10× e %50.
+
+**MADDE 9b+15 — ASKERÎ YAPILAR.** Kule okçu yeri seviye başına 4→2 (altı kule Lvl 20 de 480 okçu istiyordu, bir köyün bütün nüfusu); ahır at deposu 5→20; ekipman süreleri kılıç 4 · at 4 · mızrak 3,5 · kalkan 2 · zırh 2 saat; eğitim binası kademe kapısı `5×n` (Jernridder Ahır Lvl 20). **Kuşatma araçları kuralın dışında**: tek "ekipman" taşıyorlar ama kademe-1 birimi değiller, kurala soksaydık mancınık Lvl 10 yerine Lvl 5 te açılırdı — yani kural geç oyun birimini ERKENE çekerdi.
+
+- Yeni test dosyası `server/test/denge-paketi.test.js` (12 test) — tek tek sayıları değil maddelerin kurduğu **ilişkiyi** kilitliyor: krossover yönü, ekipman verim yelpazesi, işleme/tarla işçi oranı, ön koşul döngüsüz mü, moral monotonluğu, büyüme freni.
+- **UYGULANMADI**: köy mesafesi 6→10 hex (İlkan "hex olayına girme" dedi) ve dünya hızı 10×→2–3× (İlkanın kararı).
+
+
 ### Denge düzeltmesi 1. parça — eğri, izci ve taşıma (14 Eylül 2026)
 - İlkan dış bir AI ya `OYUN-TASARIMI.md` yi okutup bir denge raporu aldı (`TRANORD-DENGE-DUZELTME.md`, 16 madde) ve *"kontrol et, test et, uygunsa uygula, yanlış bir şey varsa beni uyar"* dedi. Bu sürümde yalnız **tartışmasız ve kendi başına duran** maddeler uygulandı.
 - **MADDE 1+2+3 — eğri birleştirildi (`kc = kt = 1,28`).** Süre çarpanı beş aileye (1,40–2,00), maliyet çarpanı üç aileye (1,25/1,60/1,70) dağılmıştı ve ikisi birbirini tutmuyordu. **Ölçüm**: Sur Lvl 19→20 tek işçiyle **24,9 yıl**; Saray Lvl 10→11 maliyeti **32.019 tuğla**, maksimum depo 26.000 — yani kaynak hiç biriktirilemiyor, bina orada duruyordu. On bir binanın gerçek tavanı Lvl 11–15 arasıydı. Sonrası: hiçbir yükseltme tek depoyu aşmıyor, en pahalı bina son seviyesine tek işçiyle 3,5 günde çıkıyor. **Taban maliyetler değişmedi** — binalar arası sıralama aynı.

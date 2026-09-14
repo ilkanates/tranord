@@ -28,6 +28,11 @@ function bosSlotBul(koy, kullanilan) {
 
 /** Binayı kur, anında bitir ve seviyesini yükselt */
 async function binaKur(oturum, tip, kullanilan) {
+  // Tekil bina zaten kuruluysa (dev_setup omurgası) onun slotunu ver
+  const mevcut = Object.entries(oturum.koy.villageBuildings)
+    .find(([, b]) => b && b.type === tip);
+  if (mevcut) { kullanilan.add(mevcut[0]); return mevcut[0]; }
+
   const slot = bosSlotBul(oturum.koy, kullanilan);
   assert.ok(slot, `${tip} için boş hex bulunamadı`);
   kullanilan.add(slot);

@@ -42,6 +42,51 @@ function popPerGameHour(anaBinaLevel) {
 }
 
 /**
+ * KÖYÜN TOPLAM İŞÇİ KAPASİTESİ — tarlalar + işçi alan binalar.
+ *
+ * Nüfus büyüme frenini bundan türetiyoruz (bkz. isciTamponu). Dolu ya
+ * da boş olmasına bakmıyor: kapasite, köyün "kaç kişiye iş verebildiği".
+ */
+function isciKapasitesi(village) {
+  let toplam = 0;
+  for (const t of Object.values(village?.productionTiles || {})) {
+    if (!t || !(t.level >= 1)) continue;
+    toplam += PRODUCTION_DEFS[t.type]?.levels?.[t.level - 1]?.workers || 0;
+  }
+  for (const b of Object.values(village?.villageBuildings || {})) {
+    if (!b || !(b.level >= 1)) continue;
+    toplam += b.level * (VILLAGE_DEFS[b.type]?.workersPerLevel || 3);
+  }
+  return toplam;
+}
+
+/**
+ * BOŞ İŞÇİ TAMPONU — köyün taşımasına izin verilen işsiz sayısı.
+ *
+ * Sabit bir sayı olsaydı büyük köyde anlamsız kalırdı; kapasiteyle
+ * ölçekleniyor. 600 kapasitelik bir köyde 80 kişilik rezerv: yeni bir
+ * bina dikince hemen adam bulunur ama binlerce kişi istiflenemez.
+ */
+const ISCI_TAMPON_TABAN = 20;
+const ISCI_TAMPON_ORAN  = 0.10;
+
+function isciTamponu(village) {
+  return ISCI_TAMPON_TABAN + ISCI_TAMPON_ORAN * isciKapasitesi(village);
+}
+
+/**
+ * NÜFUS BÜYÜME ÇARPANI — boş işçi tamponu doldukça 1'den 0'a iner.
+ * Tampon dolunca büyüme tamamen durur; asker basıp sivil tüketince
+ * kendiliğinden yeniden açılır.
+ */
+function buyumeCarpani(village) {
+  const tampon = isciTamponu(village);
+  if (!(tampon > 0)) return 1;
+  const bos = Math.max(0, village?.freeWorkers || 0);
+  return Math.min(1, Math.max(0, 1 - bos / tampon));
+}
+
+/**
  * Köy binası inşa/yükseltme süresi — oyun DAKİKASI.
  * `buildBaseWork` bir "iş" sayısı; işçi sayısına bölünür. Değerler dakika
  * cetveline oturuyor (ana bina lvl1→2: 50 dk / işçi sayısı).
@@ -221,6 +266,8 @@ function tarlalariTavanaKirp(village, tavan) {
 module.exports = {
   TARLA_TAVANI, TARLA_TAVANI_MERKEZ, tarlaTavani, tarlalariTavanaKirp,
   POP_PER_HOUR_BASE, POP_PER_HOUR_STEP, popPerGameHour,
+  isciKapasitesi, isciTamponu, buyumeCarpani,
+  ISCI_TAMPON_TABAN, ISCI_TAMPON_ORAN,
   getVillageBuildMinutes, getVillageDemolishMinutes, YIKIM_ORANI,
   UPGRADE_MULT_DEFAULT, getScaledUpgradeCost,
   refreshExpansionCredits, expansionFree, settlerCapacity, MAX_BUILDERS,

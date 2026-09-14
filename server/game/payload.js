@@ -26,7 +26,7 @@ const { incomingMarchesFor } = require('./seferTakip');
 const PAZAR = require('./pazar');
 const PAZAR_YOL = require('./pazarYol');
 const { getMaxProductionSlots } = require('./insaat');
-const { popPerGameHour, getVillageBuildMinutes, getScaledUpgradeCost, refreshExpansionCredits, expansionFree, settlerCapacity, tarlaTavani, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./koyKurallari');
+const { popPerGameHour, buyumeCarpani, isciTamponu, getVillageBuildMinutes, getScaledUpgradeCost, refreshExpansionCredits, expansionFree, settlerCapacity, tarlaTavani, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./koyKurallari');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('../sabitler');
 const { TRAINABLE_UNITS, UNITS_BY_BUILDING } = require('./birimler');
 
@@ -345,6 +345,11 @@ function buildPayload(village, tickMs, opts = {}) {
     */
     yoldakiSeferler: opts.yoldakiSeferler || {},
     merkezTasimaBedeli: opts.merkezTasimaBedeli || null,
+    /*
+      ACEMİ KALKANI. Görünmeyen bir koruma korumak değil güven sorunu:
+      oyuncu ne kadar güvende olduğunu ve ne zaman biteceğini bilmeli.
+    */
+    acemiKalkani: opts.acemiKalkani || null,
     tarlaTavani: tarlaTavani(village),
     tarlaTavanlari: { normal: TARLA_TAVANI, merkez: TARLA_TAVANI_MERKEZ },
     intel: village.intel || {},
@@ -381,7 +386,15 @@ function buildPayload(village, tickMs, opts = {}) {
     productionPerHour, depotCapacities, granaryCapacity, processingRates,
     populationGrowthRate: village.population < village.maxPopulation ? 1 : 0,
     // Gerçek artış hızı — arayüz "+X/sa" ve "+1 nüfus için kalan süre" gösteriyor
-    populationPerHour: popPerGameHour(village.villageBuildings['0,0']?.level),
+    /*
+      GERÇEK büyüme hızı gönderiliyor — ham `popPerGameHour` değil.
+      Boş işçi tamponu dolunca büyüme duruyor (madde 14); ekranda hâlâ
+      "19/saat" yazsaydı oyuncu durmanın sebebini hiçbir yerde göremezdi.
+    */
+    populationPerHour: Math.round(
+      popPerGameHour(village.villageBuildings['0,0']?.level) * buyumeCarpani(village) * 10) / 10,
+    populationPerHourTavan: popPerGameHour(village.villageBuildings['0,0']?.level),
+    isciTamponu: Math.round(isciTamponu(village)),
 
     /**
      * KÜLTÜR PUANI ve genişleme durumu. `culture` tek nesnede geliyor:

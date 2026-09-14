@@ -46,7 +46,7 @@ function saat(mesafe) {
  * böylece tek biçim görüyor, eski kayıtlar için de `kaynak` alanı
  * yerinde duruyor.
  */
-function gonderi({ hedefSlot, hedefAd, kaynak, miktar, yuk, tuccar, saat: sure, mesafe }) {
+function gonderi({ hedefSlot, hedefAd, kaynak, miktar, yuk, tuccar, saat: sure, mesafe, isci = 0 }) {
   const gercekYuk = yuk && Object.keys(yuk).length
     ? Object.fromEntries(Object.entries(yuk)
       .map(([k, n]) => [k, Math.max(0, Math.floor(n) || 0)])
@@ -56,6 +56,8 @@ function gonderi({ hedefSlot, hedefAd, kaynak, miktar, yuk, tuccar, saat: sure, 
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     hedefSlot, hedefAd, kaynak, miktar, yuk: gercekYuk, tuccar,
+    // Kervanın tuttuğu BOŞ İŞÇİ — dönüşte iade ediliyor (madde 14)
+    isci: Math.max(0, Math.floor(isci) || 0),
     mesafe: mesafe || 0,
     faz: 'gidis',
     legSaat: sure,
@@ -100,6 +102,12 @@ function ilerlet(village, hours, teslimEt) {
       g.faz = 'donus';
       g.kalanSaat = g.legSaat;
     } else {
+      /*
+        TÜCCAR İŞÇİSİ GERİ DÖNÜYOR. Gönderi açılırken 1 boş işçi
+        alınmıştı (bkz. index.js · kervanIsciAl); dönüşte iade
+        edilmezse nüfus muhasebesi sessizce erir.
+      */
+      if (g.isci > 0) village.freeWorkers = (village.freeWorkers || 0) + g.isci;
       liste.splice(i, 1);          // tüccarlar serbest
     }
   }

@@ -45,7 +45,15 @@ const MAX_MARCHES_PER_TOWN  = 8;     // aynı anda yolda olabilecek sefer sayıs
  */
 const PROTECT_MIN_ARMY = 20;
 
+/**
+ * ACEMİ KALKANI — oyuncu saldırılarına da kapalı olunan dönem.
+ * Süre OYUN saati cinsinden (7 gün × 24), nüfus eşiği mutlak.
+ */
+const KALKAN_OYUN_SAATI = 7 * 24;
+const KALKAN_NUFUS      = 200;
+
 module.exports = {
   DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS,
   FULL_SYNC_MS, MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY,
+  KALKAN_OYUN_SAATI, KALKAN_NUFUS,
 };

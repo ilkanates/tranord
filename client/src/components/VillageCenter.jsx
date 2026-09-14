@@ -848,6 +848,8 @@ function ExpansionInfo({ exp }) {
 
 export default function VillageCenter({
   villageBuildings = {}, towerSlots = [], freeWorkers = 0, resources = {},
+  // ÖN KOŞUL ağacında tarla şartları var (değirmen Lvl 3 tahıl, ahır Lvl 5)
+  productionTiles = {},
   processingRates = {}, flows = {}, railInset = 0,
   equipment = {}, equipmentCaps = {}, equipmentPool = { capacity: 0, used: 0, free: 0 },
   equipmentQueues = {}, equipmentByBuilding = {}, equipmentDefs = {},
@@ -1969,6 +1971,7 @@ export default function VillageCenter({
               slotKind={selectedKind}
               isCenter={selected === '0,0'}
               placedBuildings={villageBuildings}
+              productionTiles={productionTiles}
               freeWorkers={freeWorkers}
               resources={resources}
               processingRates={processingRates}

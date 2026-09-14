@@ -26,6 +26,124 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14y',
+    tarih: '14 Eylül 2026',
+    baslik: 'Büyük denge paketi — kademeler, tahıl freni, ön koşullar',
+    notlar: [
+      {
+        id: '20260914-onkosul-agaci',
+        tur: 'yenilik',
+        metin: 'BİNALARIN ARTIK ÖN KOŞULU VAR. Otuz üç binanın hiçbirinde '
+          + 'bağımlılık yoktu: ilk günden saray dikilebiliyordu ve oyunun '
+          + '"sıradaki adım ne" hissi yalnız görevlerden geliyordu. Artık '
+          + 'Kışla için Ana Bina 3 + Rún Salonu 1, Silahçı için Demirci 3, '
+          + 'Ahır için Kışla 3 + Rún Salonu 3 + Lvl 5 tahıl tarlası gibi '
+          + 'kapılar var. Menüde bina yine görünüyor ama üstünde neyin '
+          + 'eksik olduğu yazıyor — ne kuracağını değil, hangi sırayla '
+          + 'kuracağını seçiyorsun.',
+      },
+      {
+        id: '20260914-set-bonusu',
+        tur: 'denge',
+        metin: 'ÇOK EKİPMANLI BİRİMLER ARTIK GERÇEKTEN DAHA İYİ. Birim '
+          + 'gücü ekipmanlarının DÜZ TOPLAMIydı; kaynak başına verim '
+          + 'artmadığı için en ucuz birim her rolde en verimliydi ve '
+          + 'kademe sistemi tersine çalışıyordu (aynı bütçeyle 10 '
+          + 'Fjordvakt, 2,9 Ulv Savaşçısının iki katı güç veriyordu). '
+          + 'Artık her ek ekipman parçası birimin savaş değerlerini %4 '
+          + 'büyütüyor.',
+      },
+      {
+        id: '20260914-zirh-guclendi',
+        tur: 'denge',
+        metin: 'ZIRH GÜÇLENDİ, KILIÇ VE MIZRAK PAHALILAŞTI. Ekipmanların '
+          + 'kaynak başına verdiği stat 3,3 kat farklıydı: zırh kılıcın '
+          + 'üçte biri kadar verimliydi ve en uzun süren ekipmandı, yani '
+          + 'zırh giymek hiçbir koşulda mantıklı değildi — zırhlı bütün '
+          + 'üst kademe birimler bu yüzden çöptü. Zırhın katkısı 20/5/5 '
+          + 'ten 40/12/10 a çıktı; kılıç 16 külçe + 8 kereste, mızrak 8 '
+          + 'külçe + 12 kereste, kalkan 13 kereste + 5 külçe oldu. Beş '
+          + 'ekipman da artık kaynak başına aynı değeri veriyor.',
+      },
+      {
+        id: '20260914-tahil-freni',
+        tur: 'denge',
+        metin: 'TAHIL ARTIK GERÇEK BİR FREN. Bir tarla işçisi 77 asker '
+          + 'besliyordu ve ordunun hiçbir üst sınırı yoktu. Tarla işçi '
+          + 'verimi 32 den 16 tahıl/saate indi ve asker yemeği kademeye '
+          + 'bağlandı: tek ekipmanlı 6, Jernridder 12 ekmek/gün. Böylece '
+          + 'ucuz birim KAYNAK başına, pahalı birim TAHIL başına verimli '
+          + 'oluyor — erken oyunda ucuz birim basıyorsun, ordun büyüyüp '
+          + 'darboğaz tahıla kayınca üst kademeye geçmek zorunda '
+          + 'kalıyorsun.',
+      },
+      {
+        id: '20260914-isleme-hizi',
+        tur: 'denge',
+        metin: 'İŞLEME BİNALARI DOKUZ KAT HIZLANDI. Lvl 20 Keresteci (100 '
+          + 'işçi × 8 odun) saatte 800 odun işliyordu ama Lvl 20 Orman (42 '
+          + 'işçi × 22) 924 odun üretiyordu: maksimum işleme binası tek bir '
+          + 'maksimum tarlayı bile yetiştiremiyor, odun zincirinde '
+          + 'işçilerinin %73 ü keresteci de oturuyordu. Artık işçi başına '
+          + '72 odun → 54 kereste (kayıp oranı AYNI). Ekonominin freni '
+          + 'dışarıdaki tarlalar olmalı, içerideki bina değil.',
+      },
+      {
+        id: '20260914-nufus-freni',
+        tur: 'denge',
+        metin: 'BOŞ İŞÇİ ARTIK BİRİKMİYOR. Nüfus sınırsız büyüyordu ama '
+          + 'işçi yerleri yalnız bina yükseltince artıyordu; aradaki fark '
+          + 'boş insan olarak yığılıyordu (Ana Bina Lvl 10 günde 456 kişi '
+          + 'getiriyor, orta bir köyün toplam ihtiyacı ~260). Artık boş '
+          + 'işçi sayısı tampona dayanınca büyüme yavaşlayıp duruyor; '
+          + 'asker eğitip sivil tüketince yeniden açılıyor. Ana Bina '
+          + 'seviyesi böylece ordu üretim hızının tavanı oldu. Ev in '
+          + 'nüfus tavanı da seviye başına 100 den 150 e çıktı. Pazar '
+          + 'kervanı da artık 1 işçi tutuyor, dönünce iade ediyor.',
+      },
+      {
+        id: '20260914-acemi-kalkani',
+        tur: 'yenilik',
+        metin: 'ACEMİ KALKANI ARTIK OYUNCULARA KARŞI DA GEÇERLİ. Koruma '
+          + 'yalnız NPC akınını engelliyordu; bir oyuncu, bir günlük '
+          + 'acemiyi ilk dakikadan yağmalayabiliyordu. Yeni köy ilk 7 '
+          + 'oyun günü ya da nüfusu 200 e ulaşana kadar korunuyor — '
+          + 'hangisi önce olursa. İlk saldırını gönderdiğin an kalkan '
+          + 'düşüyor ve geri gelmiyor. Kalkanlı köye takviye ve hammadde '
+          + 'gönderilebiliyor.',
+      },
+      {
+        id: '20260914-moral',
+        tur: 'yenilik',
+        metin: 'MORAL BONUSU GELDİ. Küçük oyuncunun büyüğe karşı hiçbir '
+          + 'avantajı yoktu. Artık saldıran savunandan ne kadar büyükse '
+          + 'savunan o kadar savunma bonusu alıyor: iki katı büyük bir '
+          + 'saldırgana karşı %15, on katı büyüğe karşı tavan olan %50. '
+          + 'Küçük saldırırsa ceza yok — moral ezileni korumak için var.',
+      },
+      {
+        id: '20260914-kademe-kapisi',
+        tur: 'denge',
+        metin: 'KIŞLA VE AHIR SEVİYESİ ARTIK GERÇEK BİR KAPI. Jernridder '
+          + 'Ahır Lvl 10 da açılıyordu, yani binanın üst on seviyesinin '
+          + 'hiçbir amacı yoktu. Yeni kural: tek ekipmanlı birim Lvl 5, '
+          + 'iki ekipmanlı Lvl 10, üç ekipmanlı Lvl 15, dört ekipmanlı '
+          + '(Jernridder) Lvl 20. Ahırın at deposu da seviye başına 5 ten '
+          + '20 ye çıktı — üretim depoyu 6,7 saatte dolduruyordu. Ekipman '
+          + 'süreleri de dengelendi: kılıç 4, at 4, mızrak 3,5, kalkan 2, '
+          + 'zırh 2 saat.',
+      },
+      {
+        id: '20260914-kule-okcu',
+        tur: 'denge',
+        metin: 'KULELER YARI OKÇUYLA DOLUYOR. Altı kulenin tamamını Lvl '
+          + '20 de doldurmak 480 okçu istiyordu — bir köyün bütün nüfusu. '
+          + 'Seviye başına okçu yeri 4 ten 2 ye indi; bonus aynı kaldı, '
+          + 'yani aynı savunmayı yarı insanla alıyorsun.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14x',
     tarih: '14 Eylül 2026',
     baslik: 'Büyük denge düzeltmesi — üst seviyeler açıldı',

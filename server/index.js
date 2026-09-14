@@ -49,7 +49,8 @@ const KUYRUK = require('./game/kuyruk');
 const ADET_TAVANI = 10000;
 const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
-        MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('./sabitler');
+        MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY,
+        KALKAN_OYUN_SAATI, KALKAN_NUFUS } = require('./sabitler');
 const { buildPayload } = require('./game/payload');
 const { questState, questSync, questTamam, questPayload, questFingerprint,
         egitimGoruldu, egitimBitir } = require('./game/quests');
@@ -114,7 +115,8 @@ app.use('/auth', authRouter);
 // Oturumlar (userId -> session) ve dünya durumu tek yerde: durum.js
 const { userSessions, WORLD, markNpcDirty, markUserDirty } = require('./durum');
 const { marchingVillages, gelenSeferSayilari } = require('./game/seferTakip');
-const { popPerGameHour, getVillageBuildMinutes, getVillageDemolishMinutes, getScaledUpgradeCost,
+const { popPerGameHour, buyumeCarpani,
+        getVillageBuildMinutes, getVillageDemolishMinutes, getScaledUpgradeCost,
         expansionFree, settlerCapacity, MAX_BUILDERS,
         tarlaTavani, tarlalariTavanaKirp, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./game/koyKurallari');
 
@@ -442,6 +444,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     yoldakiSeferler: yoldakiSeferlerim(session),
     // Merkez taşınırsa eski merkezde kaç tarla düşecek — uyarı için
     merkezTasimaBedeli: merkezTasimaBedeli(session),
+    // Acemi kalkanı — oyuncu ne kadar korunduğunu görmeli (madde 12)
+    acemiKalkani: acemiKalkani(v),
     reports: statics || reportsChanged,
     culturePoints: cpTotal,
     culture,
@@ -549,7 +553,14 @@ function advanceVillage(village, gameHours, userId, slotKey = null) {
    * Varsayılan hızda ikisi birebir aynı değer (ölçüldü), o yüzden normal
    * oyun temposu değişmiyor — yalnız hızlandırılmış modda doğru davranıyor.
    */
-  const popRate = popPerGameHour(village.villageBuildings['0,0']?.level);
+  /*
+    BÜYÜME BOŞ İŞÇİYE BAĞLI (madde 14). Boş işçi tamponu dolduğunda
+    çarpan 0'a iner ve köy büyümeyi durdurur; asker eğitilip sivil
+    tükenince yeniden açılır. Ana Bina seviyesi böylece ordu üretim
+    hızının tavanı oluyor.
+  */
+  const popRate = popPerGameHour(village.villageBuildings['0,0']?.level)
+    * buyumeCarpani(village);
   village.popAccum = (village.popAccum || 0) + gameHours * popRate;
   while (village.popAccum >= 1) {
     village.popAccum -= 1;
@@ -951,6 +962,16 @@ let lastNpcRaidAt = 0;
  *
  * Yalnız SAYIYOR, hiçbir şeye dokunmuyor.
  */
+/**
+ * Kervan için boş işçi ayır — yoksa 0 döner, gönderi yine çıkar.
+ * Dönüşte `pazarYol.ilerlet` aynı sayıyı havuza iade ediyor.
+ */
+function kervanIsciAl(village, adet = 1) {
+  const alinan = Math.min(adet, Math.max(0, village.freeWorkers || 0));
+  village.freeWorkers = (village.freeWorkers || 0) - alinan;
+  return alinan;
+}
+
 function merkezTasimaBedeli(session) {
   const merkez = session.villages.get(session.capitalSlot);
   if (!merkez) return { tarla: 0, seviye: 0 };
@@ -1710,11 +1731,58 @@ function processMarches(hours) {
 // böylece dünya hızıyla tek adımda kalırlar.
 
 
+/**
+ * ACEMİ KALKANI — bu köye SALDIRILAMAZ mı? (madde 12)
+ *
+ * Eskiden koruma yalnız NPC akınına karşıydı ve ölçütü "ordusu 20'nin
+ * altında" idi. Bir OYUNCU, bir günlük acemiyi ilk dakikadan
+ * yağmalayabiliyordu; ticari üründe bu, yeni oyuncunun ilk gün
+ * bırakması demek.
+ *
+ * Kalkan üç koşuldan biri bozulunca düşer ve GERİ GELMEZ:
+ *   · köy 7 oyun gününü doldurdu
+ *   · nüfusu 200'e ulaştı
+ *   · oyuncu ilk saldırısını gönderdi
+ *
+ * Son madde önemli: kalkan arkasından saldırmak mümkün olsaydı acemi
+ * kalkanı bir istismar aracı olurdu.
+ *
+ * @returns {{aktif:boolean, kalanSaat:number, nufus:number}}
+ */
+function acemiKalkani(village) {
+  if (!village || village.hasAttacked) return { aktif: false, kalanSaat: 0, nufus: 0 };
+  const nufus = village.population || 0;
+  if (nufus >= KALKAN_NUFUS) return { aktif: false, kalanSaat: 0, nufus };
+  const yasSaat = GT.clockToHours((village.clockMs || 0) - (village.kurulusClockMs || 0));
+  const kalanSaat = KALKAN_OYUN_SAATI - yasSaat;
+  if (!(kalanSaat > 0)) return { aktif: false, kalanSaat: 0, nufus };
+  return { aktif: true, kalanSaat: Math.round(kalanSaat * 10) / 10, nufus };
+}
+
+/** Bu slot bir OYUNCU köyü ve kalkanı açık mı? */
+function slotKalkanli(slotKey) {
+  const sahip = WORLD.playerBySlot.get(slotKey);
+  if (!sahip) return null;
+  const s = userSessions.get(sahip);
+  const koy = s?.villages?.get(slotKey);
+  if (!koy) return null;
+  const k = acemiKalkani(koy);
+  return k.aktif ? k : null;
+}
+
 /** Oyuncu NPC saldırılarına açık mı? */
 function playerRaidable(userId) {
   const s = userSessions.get(userId);
   if (!s) return false;
   const v = s.village;
+  /*
+    ACEMİ KALKANI NPC'yi de kapsıyor. Eskiden buradaki ölçüt yalnız
+    "ordusu 20'yi geçti mi" idi: asker basan ama hâlâ bir günlük olan
+    oyuncu NPC yağmasına açılıyordu.
+  */
+  for (const koy of s.villages.values()) {
+    if (acemiKalkani(koy).aktif) return false;
+  }
   if (v.hasAttacked) return true;
   return ARMY.totalUnits(v.army) >= PROTECT_MIN_ARMY;
 }
@@ -3007,12 +3075,14 @@ io.on('connection', async socket => {
     (village.gonderiler ||= []).push(PAZAR_YOL.gonderi({
       hedefSlot: slotKey, hedefAd: hedef.name,
       kaynak: t.alan, miktar: t.alanMiktar, tuccar: gereken, saat, mesafe,
+      isci: kervanIsciAl(village),
     }));
 
     // Teklif sahibinin malı (zaten ayrılmıştı) kabul edene yola çıkıyor
     (hedef.village.gonderiler ||= []).push(PAZAR_YOL.gonderi({
       hedefSlot: mySlot, hedefAd: WORLD.playerBySlot.get(mySlot)?.name || mySlot,
       kaynak: t.veren, miktar: t.verenMiktar, tuccar: t.tuccar, saat, mesafe,
+      isci: kervanIsciAl(hedef.village),
     }));
     liste.splice(liste.indexOf(t), 1);
 
@@ -3094,6 +3164,7 @@ io.on('connection', async socket => {
     (village.gonderiler ||= []).push(PAZAR_YOL.gonderi({
       hedefSlot: targetKey, hedefAd: hedef.name,
       yuk, tuccar: gereken, saat: sure, mesafe,
+      isci: kervanIsciAl(village),
     }));
 
     /*
@@ -3747,6 +3818,16 @@ io.on('connection', async socket => {
           saldırı yasağı aynen duruyor.
         */
         if (p.userId === userId && mode !== 'takviye') return fail('kendi_koyun');
+        /*
+          ACEMİ KALKANI (madde 12). Saldırı, yağma ve KEŞİF kapalı;
+          takviye ile hammadde açık. Keşif de kapalı çünkü kalkanlı
+          köyün ordusunu görüp kalkan düşer düşmez vurmak, kalkanı
+          yalnız ERTELEME hâline getirirdi.
+        */
+        const kalkan = p.userId !== userId ? slotKalkanli(targetKey) : null;
+        if (kalkan && mode !== 'takviye') {
+          return fail(`acemi_kalkani:${Math.ceil(kalkan.kalanSaat)}`);
+        }
         tgtSlot = slot; tgtKind = 'player'; tgtName = p.name || slot.name;
       }
     }
@@ -4149,6 +4230,35 @@ io.on('connection', async socket => {
           delete b.building; delete b.buildEndTime; delete b.buildWorkers;
           kurulan.push(`${type} lvl${b.level}`);
         }
+      }
+
+      /*
+        ÖN KOŞUL OMURGASI — bağımlılık sırasına göre. Ana bina dahil her
+        biri en az `lv` seviyesine çekiliyor; böylece kısayoldan sonra
+        HERHANGİ bir bina gerçek kurallarla kurulabiliyor.
+      */
+      const OMURGA = ['keresteci', 'tuglaci', 'tasci', 'demirci', 'runSalonu',
+        'degirmen', 'firin', 'kisla'];
+      const anaBina = village.villageBuildings['0,0'];
+      if (anaBina) anaBina.level = Math.max(anaBina.level || 1, lv);
+      for (const type of OMURGA) {
+        const entry = Object.entries(village.villageBuildings).find(([, b]) => b.type === type);
+        if (entry) {
+          const b = entry[1];
+          if (b.building && b.buildWorkers) village.freeWorkers += b.buildWorkers;
+          delete b.building; delete b.buildEndTime; delete b.buildWorkers;
+          b.level = Math.max(b.level || 0, lv);
+          kurulan.push(`${type} lvl${b.level}`);
+          continue;
+        }
+        const spot = free.shift();
+        if (!spot) { console.warn(`[DEV] boş hex kalmadı, ${type} kurulamadı`); continue; }
+        village.villageBuildings[spot.key] = { type, level: lv, workers: 0 };
+        kurulan.push(`${type}@${spot.key} yeni lvl${lv}`);
+      }
+      /* Tarla ön koşulları (değirmen Lvl 3 tahıl, ahır Lvl 5 tahıl) */
+      for (const t of Object.values(village.productionTiles || {})) {
+        if (t?.type === 'tahil') t.level = Math.max(t.level || 0, Math.min(lv, 10));
       }
 
       if (fill) {

@@ -17,6 +17,11 @@ const BOS_SLOTLAR = ['2,0', '1,1', '2,-2', '1,-2', '-1,-1', '-2,0', '-2,2', '-1,
 const KULE_SLOTLARI = new Set(['0,-2', '2,-1', '0,2', '-2,1']);
 
 async function binaKur(oturum, tip, kullanilan) {
+  // Tekil bina zaten kuruluysa (dev_setup omurgası) onun slotunu ver
+  const mevcut = Object.entries(oturum.koy.villageBuildings)
+    .find(([, b]) => b && b.type === tip);
+  if (mevcut) { kullanilan.add(mevcut[0]); return mevcut[0]; }
+
   const slot = BOS_SLOTLAR.find((k) =>
     !KULE_SLOTLARI.has(k) && !oturum.koy.villageBuildings[k] && !kullanilan.has(k));
   assert.ok(slot, `${tip} için boş hex yok`);

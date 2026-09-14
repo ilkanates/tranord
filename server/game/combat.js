@@ -75,6 +75,29 @@ function towerBonusPct(village) {
  * ölçekli) toplamı, DEF_BONUS_CAP ile sert şekilde sınırlanır: tablolar
  * elle değiştirilse bile toplam tavanı geçemez.
  */
+/**
+ * MORAL BONUSU (%) — savunana giden ek savunma.
+ *
+ * Travian mantığı: saldıran savunandan ne kadar büyükse savunanın
+ * morali o kadar yüksek. `(saldıranNüfus / savunanNüfus)^0,2` üsteli
+ * bilerek küçük: iki katı büyük bir saldırgan %15, on katı büyük olan
+ * tavan olan %50 alıyor. Doğrusal olsaydı büyük oyuncu küçüğe hiç
+ * dokunamaz, oyun donardı.
+ *
+ * SALDIRAN KÜÇÜKSE BONUS YOK (0'da kesiliyor): moral ezileni korumak
+ * için var, küçük saldırganı cezalandırmak için değil.
+ */
+const MORAL_USTEL = 0.2;
+const MORAL_TAVAN = 50;
+
+function moralBonusPct(saldiranNufus, savunanNufus) {
+  const a = Number(saldiranNufus) || 0;
+  const d = Number(savunanNufus) || 0;
+  if (!(a > 0) || !(d > 0) || a <= d) return 0;
+  const oran = Math.pow(a / d, MORAL_USTEL) - 1;
+  return Math.min(MORAL_TAVAN, Math.round(oran * 100 * 10) / 10);
+}
+
 function wallBonusPct(surLevel, hendekLevel, kulePct = 0) {
   const s = SUR_BONUS[clampLevel(surLevel, SUR_BONUS)] || 0;
   const h = HENDEK_BONUS[clampLevel(hendekLevel, HENDEK_BONUS)] || 0;
@@ -148,6 +171,13 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
      */
     kahramanBirimSaldiri = null, kahramanBirimSavunma = null,
   } = options;
+
+  /*
+    MORAL — saldıran ile savunanın NÜFUS oranından.
+    Değeri bir yüzde (savunmaya ek). Hesabı moralBonusPct yapıyor;
+    burada yalnız okunuyor.
+  */
+  const moralPct = Math.max(0, Number(options.moralPct) || 0);
 
   /** Birim sınıfına göre yüzde çarpanı (bonus yoksa 1) */
   const sinifCarpani = (bonus, key, tur) => {
@@ -251,8 +281,16 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
   const bonusPct = kesif
     ? wallBonusPct(0, 0, kulePct)
     : wallBonusPct(surLevel, hendekLevel, kulePct);
+  /*
+    MORAL AYRI ÇARPAN, sur bonusuna EKLENMİYOR.
+
+    Toplansaydı DEF_BONUS_CAP (%150) ikisini birden yutardı: surunu
+    yükseltmiş küçük oyuncu moralden hiçbir şey görmezdi — yani tam da
+    korumak istediğimiz oyuncu korumasız kalırdı.
+  */
   const defenseTotal = defenseRaw
     * (1 + bonusPct / 100)
+    * (1 + moralPct / 100)
     * (1 + Math.max(0, kahramanSavunmaYuzde) / 100);
 
   // ── 3. Kazanan ve kayıp oranı ───────────────────────────────────
@@ -414,5 +452,6 @@ function savunmaOzeti(village) {
 
 module.exports = {
   simulateBattle, wallBonusPct, towerBonusPct, savunmaOzeti,
+  moralBonusPct, MORAL_USTEL, MORAL_TAVAN,
   K_LOSS_EXPONENT, RAID_LOSS_MULT,
 };

@@ -37,6 +37,15 @@ const PRODUCTION_RING_1  = ['1,0', '1,-1', '0,-1', '-1,0', '-1,1', '0,1'];
  * Kendi kendini kapatan bir taşıma: kırpılacak bir şey kalmayınca
  * hiçbir şey yapmıyor, bu yüzden her yüklemede güvenle çalışabilir.
  */
+/**
+ * KURULUŞ ANI — acemi kalkanının yaşı buradan ölçülüyor (madde 12).
+ * Eski kayıtlarda yok; o köyler zaten yaşlı sayılmalı, bu yüzden
+ * eksikse "çok eski" anlamına gelen 0 yazılıyor ve kalkan kapalı başlar.
+ */
+function kurulusTasimasi(raw) {
+  if (typeof raw.kurulusClockMs !== 'number') raw.kurulusClockMs = 0;
+}
+
 function egriTasimasi(raw) {
   const simdi = typeof raw.clockMs === 'number' ? raw.clockMs : Date.now();
 
@@ -77,6 +86,8 @@ function createVillage(worldQ = 0, worldR = 0) {
 
     isStarving: false,
     starveCounter: 0,
+    // Acemi kalkanının başlangıcı — köyün kendi sanal saatiyle
+    kurulusClockMs: Date.now(),
 
     /*
       BASLANGIC STOGU.
@@ -256,6 +267,7 @@ function hydrateVillage(raw) {
   raw.TOWER_SLOTS = new Set(TOWER_SLOTS_ARR);
 
   egriTasimasi(raw);
+  kurulusTasimasi(raw);
 
   // Araştırma sistemi öncesi kayıtlar
   if (!raw.research || typeof raw.research !== 'object') raw.research = {};
@@ -489,6 +501,6 @@ function migrateResearch(v) {
 }
 
 module.exports = { createVillage, hydrateVillage, repairWorkerAccounting, migrateResearch,
-  egriTasimasi,
+  egriTasimasi, kurulusTasimasi,
   clampWorkersToCapacity, clampBuildingLevels, civilianCount,
   TOWER_SLOTS_ARR, WALL_SLOTS_ARR, DEFENCE_TYPES };

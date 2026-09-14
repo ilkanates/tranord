@@ -116,7 +116,17 @@ const PRODUCTION_DEFS = {
 
   tahil: {
     name: 'Tarla', icon: '🌾', color: '#8a7818', slots: 6,
-    baseProductionPerWorker: 32,
+    /*
+      TAHIL İŞÇİ VERİMİ 32 → 16 (madde 7).
+
+      Travian'da ordu boyutunun tek gerçek freni tahıl. Burada fren
+      yoktu: 1 tarla işçisi 32 tahıl/sa = 768/gün üretiyor, 1 asker
+      günde 6 ekmek yiyor ve ekmek zinciri 90 tahılı 54 ekmeğe
+      çevirdiği için askerin maliyeti 10 tahıl/gün. Yani BİR tarla
+      işçisi 77 ASKER besliyordu (Travian karşılığı ~5-10) ve tek
+      bir Lvl 20 tarla 3.226 asker. Ordunun hiçbir üst sınırı yoktu.
+    */
+    baseProductionPerWorker: 16,
     levels: [
       { workers:3, cost:{ kereste:6, tugla:21, yontmaTas:11, demirKulce:6 }, sureSaat:4.25 },
       { workers:5, cost:{ kereste:8, tugla:27, yontmaTas:14, demirKulce:8 }, sureSaat:5.44 },

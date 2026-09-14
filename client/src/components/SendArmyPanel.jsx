@@ -67,6 +67,25 @@ const ERR = {
 };
 
 /**
+ * ACEMİ KALKANI sebebi KALAN SÜREYİ de taşıyor: "acemi_kalkani:37".
+ * Düz bir sözlük araması bunu yakalayamaz, sayıyı da göstermek gerek —
+ * "saldıramazsın" demek yetmez, oyuncu NE ZAMAN saldırabileceğini
+ * bilmeli, yoksa her gün yeniden deneyip aynı duvara çarpar.
+ */
+function hataMetni(reason) {
+  if (typeof reason === 'string' && reason.startsWith('acemi_kalkani')) {
+    const saat = Number(reason.split(':')[1]) || 0;
+    const sure = saat >= 24
+      ? `${Math.ceil(saat / 24)} oyun günü`
+      : `${Math.max(1, Math.round(saat))} oyun saati`;
+    return `Bu köy ACEMİ KALKANI altında — yeni oyuncu. Kalkan ${sure} `
+      + 'sonra ya da nüfusu 200 e ulaşınca düşer. Takviye ve hammadde '
+      + 'gönderebilirsin.';
+  }
+  return ERR[reason] || reason || 'Sefer açılamadı.';
+}
+
+/**
  * Yürüyüş süresi — sunucudaki army.js ile AYNI kural.
  * Birim hızı = saatte kaç hex; en yavaş birim belirler. Oyun saati gerçek
  * saniyeye `hourSeconds` ile çevrilir (1× → 3600).
@@ -350,7 +369,7 @@ export default function SendArmyPanel({
     if (!socket) return;
     const onErr = ({ reason }) => {
       pending.current = false; setNoReply(false);
-      setErr(ERR[reason] || reason || 'Sefer açılamadı.');
+      setErr(hataMetni(reason));
     };
     const onSentOk = (d) => { pending.current = false; setNoReply(false); setSent(d); };
     const onBattle = (d) => { if (d?.tag === 'sendpanel') setPred(d.ok ? d.result : null); };

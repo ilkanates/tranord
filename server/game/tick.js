@@ -21,10 +21,31 @@ const MIN_PRODUCTION_MINUTES = 1;
 // ─── Beslenme dengeleri (GÜN başına; gün = 24 oyun saati) ────────
 const HOURS_PER_DAY             = 24;
 const FOOD_PER_VILLAGER_PER_DAY = 3;   // köylü günde 3 ekmek
-const FOOD_PER_SOLDIER_PER_DAY  = 6;   // asker köylünün 2 katı (günde 6)
+const FOOD_PER_SOLDIER_PER_DAY  = 6;   // TEK ekipmanlı asker (taban)
+const FOOD_PER_EQUIPMENT_STEP   = 2;   // her ek ekipman parçası +2 ekmek/gün
 const GRAIN_PER_HORSE_PER_DAY   = 3;   // at günde 3 ham tahıl
 /** Kesintisiz bu kadar oyun saati aç kalınca 1 nüfus/asker ölür */
 const STARVE_HOURS_PER_LOSS     = 10;
+
+/**
+ * BİR ASKERİN GÜNLÜK EKMEĞİ — taşıdığı ekipman sayısına göre.
+ * 6 + 2×(n−1); ekipmansız/bilinmeyen birim tabanı yer.
+ */
+function birimYemi(unitType) {
+  const n = (UNIT_DEFS[unitType]?.equipment || []).length;
+  return FOOD_PER_SOLDIER_PER_DAY + FOOD_PER_EQUIPMENT_STEP * Math.max(0, n - 1);
+}
+
+/**
+ * Bir ordu nesnesinin ({ birim: adet }) GÜNLÜK toplam ekmek tüketimi.
+ * Tek yerde toplanıyor: gerçek tüketim ile ekranda yazan sayı eskiden
+ * iki ayrı yerde hesaplanıp ayrışmıştı.
+ */
+function orduYemi(army) {
+  let toplam = 0;
+  for (const [k, n] of Object.entries(army || {})) toplam += birimYemi(k) * (Number(n) || 0);
+  return toplam;
+}
 
 /**
  * Birim eğitim süresi — oyun DAKİKASI (1 eğitmen referansı).
@@ -364,6 +385,8 @@ function processRevir(village, hours) {
 // Yeterli yiyecek yoksa isStarving=true → her STARVE_HOURS_PER_LOSS oyun saatinde 1 nüfus.
 function processFoodConsumption(village, hours = GT.HOURS_PER_TICK) {
   const army    = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
+  // Tüketim artık BİRİM BAŞINA (madde 7) — sayıya değil kademeye bakıyor
+  const orduGunluk = orduYemi(village.army);
   /**
    * DÜZELTME — asker yemeği İKİ KEZ sayılıyordu: sivil payı `population`
    * üzerinden hesaplanıyordu ama `population` askerleri de içeriyor, yani
@@ -380,7 +403,7 @@ function processFoodConsumption(village, hours = GT.HOURS_PER_TICK) {
 
   // Günlük tüketim → bu adımda geçen oyun saati kadarı
   const villagerRate = (pop    * FOOD_PER_VILLAGER_PER_DAY / HOURS_PER_DAY) * hours;
-  const soldierRate  = (army   * FOOD_PER_SOLDIER_PER_DAY  / HOURS_PER_DAY) * hours;
+  const soldierRate  = (orduGunluk / HOURS_PER_DAY) * hours;
   const horseRate    = (horses * GRAIN_PER_HORSE_PER_DAY   / HOURS_PER_DAY) * hours;
 
   let foodDebt = villagerRate + soldierRate;
@@ -872,7 +895,13 @@ function getConsumptionRates(village) {
   const horses = (village.equipment && village.equipment.at) || 0;
 
   const villagerFood = (pop    * FOOD_PER_VILLAGER_PER_DAY) / HOURS_PER_DAY;
-  const soldierFood  = (army   * FOOD_PER_SOLDIER_PER_DAY)  / HOURS_PER_DAY;
+  /*
+    MİSAFİR ASKER de kendi kademesinden yiyor: takviye birimleri tek tek
+    toplanıyor, "misafir sayısı × 6" değil.
+  */
+  let misafirGunluk = 0;
+  for (const t of village.takviyeler || []) misafirGunluk += orduYemi(t.units);
+  const soldierFood  = (orduYemi(village.army) + misafirGunluk) / HOURS_PER_DAY;
   const horseGrain   = (horses * GRAIN_PER_HORSE_PER_DAY)   / HOURS_PER_DAY;
 
   return {
@@ -969,6 +998,7 @@ function getFoodOutlook(village) {
 
 module.exports = {
   processTick,
+  birimYemi, orduYemi,
   processRevir,
   getFoodOutlook,
   processUnitQueues,

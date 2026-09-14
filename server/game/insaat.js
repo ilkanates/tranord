@@ -11,7 +11,7 @@
  * bırakıyordu ("saray kuramıyorum, sebep yok"), o yüzden her red dalının
  * okunabilir bir karşılığı var.
  */
-const { VILLAGE_DEFS, maxLevelOf } = require('../data');
+const { VILLAGE_DEFS, PRODUCTION_DEFS, maxLevelOf } = require('../data');
 const { TOWER_SLOTS_ARR: TOWER_SLOT_NAMES, DEFENCE_TYPES } = require('./villageState');
 const { WORLD, userSessions } = require('../durum');
 const W = require('./world');
@@ -19,6 +19,59 @@ function getMaxProductionSlots(village) {
   // Ana Bina her seviyede +1 tarla slotu; Lvl 20'de 25 (tavan)
   const anaBina = village.villageBuildings['0,0'];
   return Math.min(25, 5 + (anaBina?.level || 1));
+}
+
+/**
+ * ÖN KOŞUL DENETİMİ.
+ *
+ * Bir koşul üç biçimden biri olabilir:
+ *   { tip:'anaBina', seviye:3 }                  bu bina en az Lvl 3
+ *   { tarla:'tahil', seviye:3 }                  bu türden bir tarla Lvl 3
+ *   { biri:['silahci','zirh'], seviye:1 }        listeden HERHANGİ biri
+ *
+ * `biri` ayrı bir biçim çünkü "silahçı VEYA zırhçı" gerçek bir tasarım
+ * kararı: cephanelik iki üretim hattından hangisini kurduğuna
+ * bakmaksızın açılmalı, yoksa oyuncu ikisini birden kurmaya zorlanır.
+ *
+ * Seviye sayarken İNŞA HÂLİNDEKİ bina sayılmıyor (level 0 + building):
+ * henüz ayakta değil.
+ */
+function binaSeviyesi(village, tip) {
+  let en = 0;
+  for (const b of Object.values(village?.villageBuildings || {})) {
+    if (b?.type === tip && b.level > en) en = b.level;
+  }
+  return en;
+}
+
+function tarlaSeviyesi(village, tip) {
+  let en = 0;
+  for (const t of Object.values(village?.productionTiles || {})) {
+    if (t?.type === tip && t.level > en) en = t.level;
+  }
+  return en;
+}
+
+function kosulAdi(kosul) {
+  if (kosul.tarla) return PRODUCTION_DEFS[kosul.tarla]?.name || kosul.tarla;
+  if (kosul.biri) {
+    return kosul.biri.map(t => VILLAGE_DEFS[t]?.name || t).join(' ya da ');
+  }
+  return VILLAGE_DEFS[kosul.tip]?.name || kosul.tip;
+}
+
+function kosulSaglandi(village, kosul) {
+  const gereken = kosul.seviye || 1;
+  if (kosul.tarla) return tarlaSeviyesi(village, kosul.tarla) >= gereken;
+  if (kosul.biri) return kosul.biri.some(t => binaSeviyesi(village, t) >= gereken);
+  return binaSeviyesi(village, kosul.tip) >= gereken;
+}
+
+/** Eksik ön koşulların okunabilir listesi — boşsa bina açık demek */
+function eksikOnKosullar(village, buildingType) {
+  const liste = VILLAGE_DEFS[buildingType]?.requires || [];
+  return liste.filter(k => !kosulSaglandi(village, k))
+    .map(k => `${kosulAdi(k)} Lvl ${k.seviye || 1}`);
 }
 
 const HEX_NEIGHBORS = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
@@ -86,6 +139,9 @@ function canBuildAt(village, slotKey, buildingType, otherVillages = null) {
   const maxKule = VILLAGE_DEFS.kule?.maxInstances || TOWER_SLOT_NAMES.length;
   if (buildingType === 'kule'
     && Object.values(village.villageBuildings).filter(b => b.type === 'kule').length >= maxKule) return false;
+
+  // ÖN KOŞUL AĞACI (madde 4) — reddin CÜMLESİ buildRefusalReason'da
+  if (eksikOnKosullar(village, buildingType).length) return false;
   return true;
 }
 
@@ -150,6 +206,8 @@ function buildRefusalReason(village, slotKey, buildingType, otherVillages = null
     && Object.values(village.villageBuildings).filter(b => b.type === 'kule').length >= maxKule) {
     return `En fazla ${maxKule} kule kurulabilir.`;
   }
+  const eksik = eksikOnKosullar(village, buildingType);
+  if (eksik.length) return `Önce gerekli: ${eksik.join(' · ')}.`;
   if (!workers || workers < 1) return 'En az 1 inşaat işçisi gerekiyor.';
   if (workers > village.freeWorkers) return `Yeterli boş işçi yok (${village.freeWorkers} boş).`;
   return 'İnşa edilemedi.';
@@ -237,6 +295,7 @@ function canBuildProductionAt(village, slotKey, type, userId) {
 
 module.exports = {
   getMaxProductionSlots, canBuildAt, buildRefusalReason, canBuildProductionAt,
+  eksikOnKosullar, binaSeviyesi, tarlaSeviyesi,
   // içeriden kullanılıyor, testte işe yarar diye dışa da açık:
   getNeighbors, slotKind, canRepeat, hexOwnedByOther, hexOwnedByMyOtherVillage,
   VALID_PRODUCTION_TYPES,
