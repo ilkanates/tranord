@@ -26,6 +26,34 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14z',
+    tarih: '14 Eylül 2026',
+    baslik: 'Maceradan daha sık eşya düşüyor',
+    notlar: [
+      {
+        id: '20260914-macera-esya-orani',
+        tur: 'denge',
+        metin: 'MACERADAN EŞYA DÜŞME ORANI YÜKSELDİ. Ölçüm: kısa '
+          + 'macerada kuşanılabilir bir parça ortalama 24 MACERADA BİR '
+          + 'geliyordu — kahramanın on küsur slotu düşünülünce bir seti '
+          + 'toplamak yüzlerce macera demekti. Artık kısa macerada ~10, '
+          + 'uzun macerada ~3 macerada bir parça geliyor. Uzun macera '
+          + 'eşya avının asıl yolu: iki ödül çekiyor ve canın dört '
+          + 'katını götürüyor, karşılığı bu olmalı. Nadirlik kurası '
+          + 'değişmedi — efsanevi hâlâ çok seyrek, ama artık ulaşılabilir.',
+      },
+      {
+        id: '20260914-macera-iksir-orani',
+        tur: 'duzeltme',
+        metin: 'DİRİLTME İKSİRİ EŞYA DÜŞÜŞÜNÜ BOĞMUYOR. Düşen her beş '
+          + 'eşyadan biri iksir çıkıyordu; bu, oyuncunun asıl peşinde '
+          + 'olduğu kuşanılabilir eşya oranını görünmeden beşte bir '
+          + 'azaltıyordu. İksir oranı %18 den %12 ye indi — ölümün '
+          + 'bedeli anlamını koruyor ama eşya avını gölgelemiyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14y',
     tarih: '14 Eylül 2026',
     baslik: 'Büyük denge paketi — kademeler, tahıl freni, ön koşullar',

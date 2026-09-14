@@ -126,19 +126,52 @@ test('ödül türleri geçerli ve tanımlı şeyler veriyor', () => {
   }
 });
 
-test('eşya düşme oranı ölçülü — ne her macerada ne hiç', () => {
+test('KUŞANILABİLİR eşya makul bir tempoda düşüyor', () => {
   /*
-    Sık olsaydı oyuncu bir haftada bütün slotları doldurur ve eşya
-    toplamak biterdi; seyrek olsaydı macera "hammadde düğmesi"ne dönerdi.
+    OYUNCUNUN GÖRDÜĞÜ SAYI BU. Eski test yalnız "eşya düştü mü" diye
+    bakıyordu ama düşenlerin bir kısmı diriltme iksiri; oyuncunun
+    peşinde olduğu kuşanılabilir parça değil. İlkan'ın şikâyeti tam
+    buradaydı: *"çok maceraya çıktım ama birkaç birim bir de attan
+    başka bir şey düşmedi"* — ölçüm onu doğruladı, kısa macerada
+    kuşanılabilir eşya 24 macerada bir geliyordu.
+
+    Kahramanın on küsur slotu var; bir seti toplamak makul sürmeli ama
+    bir haftada bitmemeli.
   */
-  let esyali = 0;
-  const N = 3000;
-  for (let i = 0; i < N; i++) {
-    if (M.maceraSonucu('uzun').oduller.some(o => o.tur === 'esya')) esyali++;
-  }
-  const oran = esyali / N;
-  assert.ok(oran > 0.10 && oran < 0.40,
-    `uzun macerada eşya oranı %${(oran * 100).toFixed(1)} — %10-40 aralığında olmalı`);
+  const N = 20000;
+  const tempo = (tip) => {
+    let parca = 0;
+    for (let i = 0; i < N; i++) {
+      for (const o of M.maceraSonucu(tip).oduller) {
+        if (o.tur === 'esya' && o.key !== 'diriltmeIksiri') parca++;
+      }
+    }
+    return N / parca;                       // kaç macerada bir parça
+  };
+
+  const kisa = tempo('kisa');
+  const uzun = tempo('uzun');
+  assert.ok(kisa > 6 && kisa < 14,
+    `kısa macerada parça ${kisa.toFixed(1)} macerada bir — 6-14 aralığında olmalı`);
+  assert.ok(uzun > 1.8 && uzun < 4,
+    `uzun macerada parça ${uzun.toFixed(1)} macerada bir — 1,8-4 aralığında olmalı`);
+  assert.ok(uzun < kisa,
+    'uzun macera eşya avının asıl yolu olmalı: canın dört katını götürüyor');
+});
+
+test('ödül havuzunda ÖLÜ eşya ağırlığı yok', () => {
+  /*
+    GERÇEK BİR HATANIN KİLİDİ. ODUL_AGIRLIK bir zamanlar `esya: 15`
+    taşıyordu ama ağırlıklı kura yalnız hammadde ile asker arasında
+    çekiliyordu — sabit kuraya HİÇ girmiyordu. Dengeyi okuyan herkese
+    eşyanın havuzda %15 ağırlığı varmış gibi görünüyor, oysa eşyanın
+    tek kapısı macera tipindeki `esyaSansi`.
+
+    Ağırlık geri eklenecekse kuraya da girmeli; bu test ikisinin
+    ayrışmasını engelliyor.
+  */
+  assert.deepEqual(Object.keys(M.ODUL_AGIRLIK).sort(), ['asker', 'hammadde'],
+    'ODUL_AGIRLIK yalnız kuraya GİREN türleri taşımalı');
 });
 
 test('SALDIRI GÜCÜ macerada alınan hasarı azaltıyor', () => {

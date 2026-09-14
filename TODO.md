@@ -222,6 +222,15 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Macera eşya düşüşü düzeltildi + ölü sabit ayıklandı (14 Eylül 2026)
+- İlkan: *"çok maceraya çıktım ama birkaç birim bir de attan başka bir şey düşmedi"*.
+- **ÖLÇÜLDÜ (200.000 macera)**: kısa macerada eşya %5,0 düşüyordu ve bunun %18 i diriltme iksiriydi — yani KUŞANILABİLİR parça **24 macerada bir**. Kahramanın on küsur slotu var; bir seti toplamak yüzlerce macera ediyordu. Şikâyet birebir doğruydu.
+- **ÖLÜ SABİT**: `ODUL_AGIRLIK` içinde `esya: 15` yazıyordu ama ağırlıklı kura yalnız hammadde ile asker arasında çekiliyordu — sabit kuraya HİÇ girmiyordu. Dengeyi okuyan herkese eşyanın havuzda %15 ağırlığı varmış gibi görünüyordu. Kaldırıldı ve yorumda neden olmadığı yazıldı.
+- `esyaSansi` kısa 0,05→0,12 · uzun 0,12→0,22; `IKSIR_SANSI` 0,18→0,12.
+- **YENİ ÖLÇÜM**: kuşanılabilir parça kısada ~9,5 macerada bir, uzunda ~2,6 macerada bir. Efsanevi uzun macerada ~209 da bir (İlkan "efsanevi çok nadir düşsün" demişti, seyrek kaldı ama artık ulaşılabilir).
+- Test yenilendi: eski test yalnız "eşya düştü mü" diye bakıyordu, oysa düşenin bir kısmı iksir. Yeni test OYUNCUNUN GÖRDÜĞÜ sayıyı ölçüyor (iksir hariç parça temposu) ve ayrı bir test ölü ağırlık sabitinin geri gelmesini engelliyor. Testler 305 → 306.
+
+
 ### Denge düzeltmesi 2. parça — kalan 10 madde + ön koşul ağacı (14 Eylül 2026)
 - İlkan: *"madde 4 ü ve kalan 10 maddeyi birlikte yap ama hex olayına girme"*. Harita/mesafe maddesi (6→10 hex) ve dünya hızı dışındaki her şey uygulandı.
 - **1× SORUSU**: İlkan *"sen her şeyi 1x deki gibi düzelt, bizim hız 10x kalsın, sunucuyu 1x başlatınca önerilendeki gibi olur değil mi"* diye sordu — **evet**. Bütün tanımlar oyun saati/dakikası cinsinden; `TRANORD_HOUR_SECONDS` bunun üzerine çarpan. Seferler de dünya döngüsünden ilerlediği için aynı oranda ölçekleniyor.

@@ -87,13 +87,13 @@ const MACERA_TIPLERI = {
   kisa: {
     ad: 'Kısa Macera', saat: 2,
     xp: 40, can: 8,
-    odulSayisi: 1, esyaSansi: 0.05,
+    odulSayisi: 1, esyaSansi: 0.12,
     aciklama: 'Yakın çevre. Az deneyim, az risk.',
   },
   uzun: {
     ad: 'Uzun Macera', saat: 6,
     xp: 130, can: 32,
-    odulSayisi: 2, esyaSansi: 0.12,
+    odulSayisi: 2, esyaSansi: 0.22,
     aciklama: 'Uzak diyarlar. Çok deneyim, ciddi yıpranma.',
   },
 };
@@ -197,15 +197,30 @@ function maceraUygunMu(k, tip, canTavan) {
  * Ödül havuzu ağırlıkları. Hammadde en sık, asker ortada, eşya en seyrek
  * — eşya maceranın hikâyesi, hammadde ise her seferki teselli.
  *
- * ÖLÇÜLDÜ (4.000 uzun macera ödülü): hammadde ~%60, asker ~%28, eşya ~%12.
- * Yani uzun maceraların dörtte birinde bir eşya düşüyor. Daha sık olsaydı
- * oyuncu bir haftada bütün slotları doldurur ve eşya toplamak biterdi;
- * daha seyrek olsaydı macera "hammadde düğmesi"ne dönerdi.
+ * ÖLÇÜLDÜ (200.000 macera, yeni oranlar): kısa maceraların %12'sinde,
+ * uzun maceraların %39'unda eşya düşüyor. Diriltme iksiri düşüldükten
+ * sonra KUŞANILABİLİR eşya kısada ~10 macerada bir, uzunda ~3 macerada
+ * bir geliyor. Uzun macera eşya avının asıl yolu olarak duruyor: iki
+ * ödül çekiyor ve canın dört katını götürüyor, karşılığı bu olmalı.
  */
-const ODUL_AGIRLIK = { hammadde: 55, asker: 30, esya: 15 };
+/*
+  DİKKAT — BURADA EŞYA YOK, BİLEREK.
 
-/** Düşen eşyanın diriltme iksiri olma olasılığı */
-const IKSIR_SANSI = 0.18;
+  Eşyanın tek kapısı macera tipindeki `esyaSansi`; bu ağırlıklar yalnız
+  "eşya çıkmadı" dalında hammadde ile askeri paylaştırıyor. Eskiden
+  burada bir de `esya: 15` yazıyordu ama kuraya HİÇ girmiyordu — dengeyi
+  okuyan herkese eşyanın havuzda %15 ağırlığı varmış gibi görünüyordu.
+*/
+const ODUL_AGIRLIK = { hammadde: 55, asker: 30 };
+
+/**
+ * Düşen eşyanın diriltme iksiri olma olasılığı.
+ *
+ * %18 idi: her beş eşyadan biri iksir çıkıyordu ve oyuncunun asıl
+ * peşinde olduğu KUŞANILABİLİR eşya oranını görünmez şekilde beşte bir
+ * azaltıyordu. Ölümün bedeli anlamını korusun diye sıfırlanmadı.
+ */
+const IKSIR_SANSI = 0.12;
 /** Kura yalnız KUŞANILABİLİR eşyalardan çekiyor; iksir ayrı zar */
 const KUSANILABILIR = HERO_ITEM_KEYS.filter(k => HERO_ITEMS[k].slot);
 
@@ -256,7 +271,7 @@ function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0) {
     // Eşya için ayrı zar: havuz ağırlığı eşyayı seyrek tutuyor, bu zar
     // da macera tipine göre ikinci bir süzgeç.
     const tur = rnd() < def.esyaSansi ? 'esya' : agirlikliSec(
-      { hammadde: ODUL_AGIRLIK.hammadde, asker: ODUL_AGIRLIK.asker }, rnd);
+      ODUL_AGIRLIK, rnd);
 
     if (tur === 'esya') {
       /*
