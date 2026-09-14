@@ -26,6 +26,39 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14p',
+    tarih: '14 Eylül 2026',
+    baslik: 'Savunma yapıları ve simülatörün yeri',
+    notlar: [
+      {
+        id: '20260914-savunma-yapilari-yuzde',
+        tur: 'yenilik',
+        metin: 'ORDU EKRANINDA yeni bir SAVUNMA YAPILARI bölümü: surun, '
+          + 'hendeğin ve HER KULENİN katkısı AYRI AYRI yüzde olarak '
+          + 'yazıyor. Bu sayı bugüne kadar yalnız savaş raporunda, üçü '
+          + 'toplanmış tek bir sayı olarak görünüyordu — saldırıya '
+          + 'uğramadan savunmanı göremiyor, gördüğünde de hangisinin '
+          + 'işe yaradığını bilemiyordun.',
+      },
+      {
+        id: '20260914-bos-kule-uyarisi',
+        tur: 'yenilik',
+        metin: 'BOŞ KULE artık açıkça uyarıyor: kuleye okçu koymadıysan '
+          + 'katkısı SIFIR ve kart "dolu olsa +%X" diye kaybettiğin '
+          + 'bonusu yazıyor. Kulesi olup okçusu olmayan bir köyde '
+          + 'yükseltmeden önce bakılacak ilk yer orası.',
+      },
+      {
+        id: '20260914-simulator-ordu-altinda',
+        tur: 'yenilik',
+        metin: 'SAVAŞ SİMÜLATÖRÜ üst bardan kalktı, ORDU sekmesinin altına '
+          + 'geçti. Simülatör ordunun bir aracı — "bu orduyla ne olur" '
+          + 'sorusu ordunun kendisine baktığın yerde sorulur. Üst bar da '
+          + 'on bir sekmeyle taşıyordu.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14n',
     tarih: '14 Eylül 2026',
     baslik: 'Keşif raporu ve ölçek düzeltmesi',

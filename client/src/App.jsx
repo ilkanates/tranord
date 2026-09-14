@@ -167,12 +167,56 @@ const TABS = [
   { key: 'raporlar',  label: 'Raporlar',         icon: 'parsomen' },
   { key: 'mesajlar',  label: 'Mesajlar',         icon: 'mektup' },
   { key: 'istatistik', label: 'İstatistik',      icon: 'grafik' },
-  { key: 'simulator', label: 'Savaş Simülatörü', icon: 'kilicKalkan' },
+  /*
+    SAVAŞ SİMÜLATÖRÜ ÜST BARDAN KALKTI — artık Ordu sekmesinin altında
+    (İlkan'ın isteği). İki sebep: üst bar on bir sekmeyle taşıyordu ve
+    simülatör zaten ORDUNUN bir aracı — "bu orduyla ne olur" sorusu,
+    ordunun kendisine baktığın yerde sorulur.
+  */
   { key: 'yardim',    label: 'Yardım',           icon: 'bilgi' },
 ];
 
 const SPEED_STEPS = [0.1, 0.5, 1, 2, 4, 8, 16, 32, 64, 128];
 // Ray genişliği artık ekrana göre: bkz. responsive.js -> useViewport().railW
+
+/**
+ * ORDU ALT SEKMELERİ — ordu listesi ve savaş simülatörü.
+ *
+ * Simülatör üst barda ayrı bir sekmeydi; İlkan Ordu'nun altına aldırdı.
+ * Doğru yer: simülatör ORDUNUN bir aracı — "bu orduyla ne olur" sorusu
+ * ordunun kendisine baktığın yerde sorulur. Üst bar da on bir sekmeyle
+ * taşıyordu.
+ */
+function OrduSekmesi({ alt, setAlt }) {
+  const SEKME = [
+    { id: 'ordu', ad: 'Ordum', ikon: 'ordu' },
+    { id: 'simulator', ad: 'Savaş simülatörü', ikon: 'kilicKalkan' },
+  ];
+  return (
+    <div style={{
+      maxWidth: 1240, margin: '0 auto', padding: '14px 24px 0',
+      display: 'flex', gap: 6,
+    }}>
+      {SEKME.map(s => {
+        const secili = alt === s.id;
+        return (
+          <button key={s.id} type="button" onClick={() => setAlt(s.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+              padding: '7px 13px', borderRadius: 5,
+              background: secili ? 'rgba(143,220,255,0.10)' : 'transparent',
+              border: '1px solid ' + (secili ? C.ice : C.lineSoft),
+              fontFamily: FONT.ui, fontSize: 10.5, letterSpacing: 0.8,
+              color: secili ? C.frost : C.textMute,
+            }}>
+            <Icon name={s.ikon} size={13} color={secili ? C.ice : C.textMute} />
+            {s.ad}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function emailFromToken(tok) {
   try { return JSON.parse(atob(tok.split('.')[1])).email || ''; } catch { return ''; }
@@ -625,6 +669,12 @@ function Game({ token, onLogout }) {
    * uyguladıktan sonra geri temizliyor, yoksa sekmeye her dönüşte zıplardı.
    */
   const [helpTopic, setHelpTopic] = useState(null);
+  /*
+    ORDU SEKMESİNİN ALT SEKMESİ — ordu listesi mi, simülatör mü.
+    Durum App'te: sekmeler arasında gezinirken seçim korunsun, oyuncu
+    simülatöre her dönüşünde baştan tıklamasın.
+  */
+  const [orduAlt, setOrduAlt] = useState('ordu');
   const openHelp = (topic) => { setHelpTopic(topic); setTab('yardim'); };
   const [connected, setConnected] = useState(socket.connected);
   /**
@@ -1109,8 +1159,16 @@ function Game({ token, onLogout }) {
               */
               paddingBottom: vp.mobile ? 64 : 0,
             }}>
+              <OrduSekmesi
+                alt={orduAlt} setAlt={setOrduAlt}
+                socket={socket}
+                unitDefs={village.unitDefs || {}}
+                army={village.army || {}} />
+              {orduAlt === 'ordu' && (
               <ArmyPanel
                 army={village.army || {}}
+                savunmaYapilari={village.savunmaYapilari || null}
+                kahraman={village.kahraman || null}
                 unitDefs={village.unitDefs || {}}
                 equipmentDefs={village.equipmentDefs || {}}
                 unitStatsNow={village.unitStatsNow || {}}
@@ -1130,6 +1188,11 @@ function Game({ token, onLogout }) {
                 onGeriYolla={(istek) =>
                   socket?.emit('takviye_geri_yolla', istek)}
               />
+              )}
+              {orduAlt === 'simulator' && (
+                <BattleSimulator socket={socket}
+                  unitDefs={village.unitDefs || {}} army={village.army || {}} />
+              )}
             </div>
           )}
 
@@ -1298,21 +1361,7 @@ function Game({ token, onLogout }) {
             </div>
           )}
 
-          {tab === 'simulator' && (
-            <div className="tn-scroll" style={{
-              height: '100%', overflowY: 'auto',
-              paddingLeft: railInset, paddingRight: railInset,
-              /*
-                TELEFONDA ALT BOŞLUK. Rehber rozeti ekranın sol-altında
-                yüzüyor; boşluk olmadan listenin son satırları onun altında
-                kalıyor ve işçi +/- düğmeleri tıklanamıyordu (ölçüldü:
-                Köylüler'de 3, Köy Merkezi'nde 2 denetim örtülüydü).
-              */
-              paddingBottom: vp.mobile ? 64 : 0,
-            }}>
-              <BattleSimulator socket={socket} unitDefs={village.unitDefs || {}} army={village.army || {}} />
-            </div>
-          )}
+
         </div>
 
         {/* SOL RAY — sahnenin üstünde yüzen cam panel (telefonda üstteki şerit) */}

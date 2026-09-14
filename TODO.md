@@ -230,6 +230,16 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
 
+### Savunma yapılarının katkısı + simülatör Ordu'nun altına (14 Eylül 2026)
+- İlkan: *"savaş simülatörü menüsünü ordu menüsünün altına taşı, bir de ordu menüsünde mevcut defans binalarımın katkısını yüzde olarak ayrı ayrı göster"*.
+- **SAVUNMA YAPILARI bölümü** (`ArmyPanel` · `SavunmaYapilari`): sur, hendek ve HER KULE ayrı satır, her birinin yüzde katkısı, seviyesi ve karşılaştırma çubuğu. Sayı bugüne kadar yalnız savaş raporunda ve ÜÇÜ TOPLANMIŞ tek bir `wallBonusPct` olarak vardı — oyuncu saldırıya uğramadan savunmasını göremiyor, gördüğünde de hangisini yükselteceğini bilemiyordu.
+- **Boş kule uyarısı**: katkısı sıfır yazılıyor ve "dolu olsa +%X" diye kaybedilen bonus gösteriliyor. Kulesi olup okçusu olmayan köyde yükseltmeden önce bakılacak ilk yer orası.
+- **Kahraman AYRI satırda**, sur tavanının dışında: savaşta ayrı bir çarpan olarak biniyor, aynı listede toplanmış gibi göstermek yanlış olurdu. Köyde değilse "döndüğünde işler" diye yazıyor.
+- **TEST BİR TUTARSIZLIK YAKALADI**: özet kule katkılarını tek tek yuvarlayıp topluyordu; altı dolu Lvl 20 kulede bu %34,8 veriyor, savaşta kullanılan `towerBonusPct` ise %35. Ekranda %149,8 yazıp savaşta %150 uygulamak ekranı yalancı yapardı. Toplam artık savaşın kendi fonksiyonundan geliyor; satırlardaki sayılar yalnız gösterim için yuvarlı.
+- **Ölçüm — tavan ulaşılamaz**: sur 20 (%80) + hendek 20 (%35) + altı dolu kule (%35) = **%149,8**, yani `DEF_BONUS_CAP` (%150) bugün hiç devreye girmiyor. Tablolar zaten oraya nişan almış; tavan elle yapılacak bir dengelemeye karşı duran emniyet. Test hem kırpma kuralını hem dengenin tavana yaslandığını tutuyor.
+- **Savaş simülatörü üst bardan kalktı**, Ordu sekmesinin altına alt sekme oldu. Simülatör ordunun bir aracı; üst bar da on bir sekmeyle taşıyordu. Alt sekme seçimi App'te tutuluyor — oyuncu her dönüşünde baştan tıklamasın.
+- Dev kısayolu düzeltildi: "Binaları son seviyeye" yalnız VAR OLAN binaları yükseltiyordu, yani suru olmayan bir köyde çalıştırdıktan sonra hâlâ sur yoktu ve savunma ekranını denemek imkânsızdı. Artık eksik sur, hendek ve ilk üç kuleyi de kuruyor.
+
 ### Keşif raporu kaybı gösteriyor + ölçek kesilmesi (14 Eylül 2026)
 - İlkan: *"keşife adam yolladım ama çoğu gelmedi ve raporda kaçı öldü ya da karşıda kaç keşifçi vardı yazmıyor"* ve *"yazıyı büyütünce ekran sağdan soldan kesiliyor, yazılarda çok büyümüyor"*.
 - **Keşif raporu**: sunucu kaybı ve karşı izci sayısını zaten gönderiyordu (`myLosses`, `savunanIzci`), ekran göstermiyordu. Çarpışma bloğu `outcome !== 'kesif'` ile sınırlıydı — yani tam da BAŞARILI keşifte hiç çizilmiyordu. Oysa bilgiyi almak ile bedelini görmek aynı raporun iki yarısı.

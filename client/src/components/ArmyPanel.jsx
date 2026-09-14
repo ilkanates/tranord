@@ -10,6 +10,151 @@ const CAT_LABEL = { piyade: 'Piyade', suvari: 'Süvari', kusatma: 'Kuşatma', go
 const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069', gocmen: '#8fdcb0', diger: C.textDim };
 const CAT_ICON  = { piyade: 'kalkan', suvari: 'at', kusatma: 'atolye', gocmen: 'koy', diger: 'ordu' };
 
+/**
+ * SAVUNMA YAPILARI — sur, hendek ve her kule AYRI AYRI.
+ *
+ * İlkan: *"ordu menüsünde mevcut defans binalarımın katkısını yüzde
+ * olarak ayrı ayrı göster"*.
+ *
+ * Bugüne kadar bu sayı yalnız SAVAŞ RAPORUNDA, üçü toplanmış tek bir
+ * "sur %57" olarak görünüyordu: oyuncu saldırıya uğramadan savunmasını
+ * göremiyor, gördüğünde de hangisinin katkı yaptığını bilemiyordu.
+ * Yükseltme kararı tam olarak bu ayrımı gerektiriyor.
+ *
+ * BONUS ASKERİN SAVUNMASINI ÇARPIYOR, düz sayı eklemiyor: kalabalık
+ * savunmada mutlak kazanç çok daha büyük. Bu yüzden yüzde gösteriliyor.
+ */
+function SavunmaYapilari({ s, kahraman }) {
+  if (!s) return null;
+
+  const satirlar = [];
+  if (s.sur.var) {
+    satirlar.push({
+      ad: 'Sur', ikon: 'sur', seviye: s.sur.seviye, maxSeviye: s.sur.maxSeviye,
+      katki: s.sur.katki, not: null,
+    });
+  }
+  if (s.hendek.var) {
+    satirlar.push({
+      ad: 'Hendek', ikon: 'hendek', seviye: s.hendek.seviye, maxSeviye: s.hendek.maxSeviye,
+      katki: s.hendek.katki,
+      not: 'Koç başı hendeğe dokunmaz — yalnız suru kırar.',
+    });
+  }
+  s.kuleler.forEach((k, i) => satirlar.push({
+    ad: `Kule ${i + 1}`, ikon: 'kule', seviye: k.seviye, maxSeviye: 20,
+    katki: k.katki,
+    /*
+      EKSİK OKÇU AYRI YAZILIYOR. Boş kule sıfır veriyor; kulesi olup
+      okçusu olmayan oyuncunun kaybettiği bonus, yükseltmeden önce
+      bakması gereken ilk yer.
+    */
+    not: k.okcu < k.maxOkcu
+      ? `${k.okcu}/${k.maxOkcu} okçu — dolu olsa +%${k.tamKatki}`
+      : `${k.okcu}/${k.maxOkcu} okçu · tam kadro`,
+    eksik: k.okcu < k.maxOkcu,
+  }));
+
+  const enBuyuk = Math.max(1, ...satirlar.map(x => x.katki));
+
+  return (
+    <div style={panel({ padding: '13px 15px', background: 'rgba(11,23,37,0.72)', marginBottom: 22 })}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Icon name="sur" size={15} color={C.good} />
+        <span style={lbl({ fontSize: 8.5, letterSpacing: 1.6, flex: 1 })}>SAVUNMA YAPILARI</span>
+        <span style={num({ fontSize: 17, color: C.good })}>+%{s.etkin}</span>
+      </div>
+
+      {satirlar.length === 0 ? (
+        <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textFaint, lineHeight: 1.6 }}>
+          Hiç savunma yapın yok. Sur, hendek ve kule savunan BÜTÜN birliklerinin
+          savunmasını yüzde olarak çarpar — kalabalık savunmada kazanç çok daha büyük.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {satirlar.map((x, i) => (
+            <div key={`${x.ad}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <Icon name={x.ikon} size={13}
+                color={x.katki > 0 ? C.good : C.textMute} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontFamily: FONT.ui, fontSize: 11, color: C.text }}>{x.ad}</span>
+                  <span style={num({
+                    fontSize: 9.5,
+                    color: x.seviye >= x.maxSeviye ? C.gold : C.textMute,
+                  })}>
+                    Lvl {x.seviye}{x.seviye >= x.maxSeviye ? ' · son' : ''}
+                  </span>
+                </div>
+                {/* Çubuk: hangi yapının ne kadar taşıdığı tek bakışta */}
+                <div style={{
+                  height: 3, borderRadius: 2, marginTop: 3,
+                  background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${Math.min(100, (x.katki / enBuyuk) * 100)}%`, height: '100%',
+                    background: x.eksik ? C.warn : C.good,
+                  }} />
+                </div>
+                {x.not && (
+                  <div style={{
+                    fontFamily: FONT.ui, fontSize: 8.5, marginTop: 2,
+                    color: x.eksik ? C.warn : C.textFaint,
+                  }}>{x.not}</div>
+                )}
+              </div>
+              <span style={num({
+                fontSize: 13, color: x.katki > 0 ? C.good : C.textMute, flexShrink: 0,
+              })}>+%{x.katki}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/*
+        TAVANA DAYANDIYSA SÖYLE. Tavana varmış bir oyuncunun surunu
+        yükseltmesi hiçbir işe yaramaz ve bunu bilmeden kaynak yakar.
+      */}
+      {s.kirpilan > 0 && (
+        <div style={{
+          marginTop: 9, padding: '7px 9px', borderRadius: 5,
+          background: 'rgba(242,187,96,0.10)', border: `1px solid ${C.warn}55`,
+          fontFamily: FONT.ui, fontSize: 9.5, color: C.warn, lineHeight: 1.6,
+        }}>
+          TAVAN DOLDU — yapıların toplamı %{s.ham}, ama savunma bonusu en çok
+          %{s.tavan} olabiliyor. %{s.kirpilan} boşa gidiyor; bu yapıları
+          yükseltmek artık savunmanı büyütmüyor.
+        </div>
+      )}
+
+      {/*
+        KAHRAMAN AYRI BİR ÇARPAN — sur tavanına girmiyor (bkz. combat.js).
+        Aynı listede toplanmış gibi göstermek yanlış olurdu.
+      */}
+      {(kahraman?.var && !kahraman?.olu && (kahraman.bonuslar?.savunmaYuzde || 0) > 0) && (
+        <div style={{
+          marginTop: 9, paddingTop: 8, borderTop: `1px solid ${C.lineSoft}`,
+          display: 'flex', alignItems: 'center', gap: 9,
+        }}>
+          <Icon name="migfer" size={13} color={C.frost} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FONT.ui, fontSize: 11, color: C.text }}>Kahraman</div>
+            <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint, marginTop: 2 }}>
+              {kahraman.nerede === 'koy'
+                ? 'Köyde — savunmaya AYRI bir çarpan olarak biniyor, sur tavanına girmiyor.'
+                : 'Şu an köyde değil; döndüğünde bu bonus işler.'}
+            </div>
+          </div>
+          <span style={num({
+            fontSize: 13, flexShrink: 0,
+            color: kahraman.nerede === 'koy' ? C.good : C.textMute,
+          })}>+%{kahraman.bonuslar.savunmaYuzde}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Summary({ label, value, color, icon }) {
   return (
     <div style={panel({
@@ -296,6 +441,8 @@ function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCag
 export default function ArmyPanel({
   army = {}, unitDefs = {}, equipmentDefs = {}, unitStatsNow = {},
   takviyeler = [], takviyelerim = [], onGeriCagir, onGeriYolla,
+  // Savunma yapılarının yüzde katkısı — bkz. combat.js · savunmaOzeti
+  savunmaYapilari = null, kahraman = null,
 }) {
   const stOf = (type) => unitStatsNow[type] || unitDefs[type]?.stats || {};
   const vp = useViewport();
@@ -346,6 +493,8 @@ export default function ArmyPanel({
           <Summary label="Atlı savunma"  value={t.atliSav}    color={C.good}   icon="mizrak" />
           <Summary label="Taşıma kap."   value={t.kapasite}   color={C.iceSoft} icon="depo" />
         </div>
+
+        <SavunmaYapilari s={savunmaYapilari} kahraman={kahraman} />
 
         <TakviyeBolumu takviyeler={takviyeler} takviyelerim={takviyelerim}
           onGeriYolla={onGeriYolla}

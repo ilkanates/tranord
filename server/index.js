@@ -3973,6 +3973,24 @@ io.on('connection', async socket => {
       const tavan = Math.max(1, Math.min(20, Math.floor(Number(level) || 20)));
       let bina = 0, tarla = 0, iadeIsci = 0;
 
+      /*
+        EKSİK SAVUNMA YAPILARINI DA KURUYOR.
+
+        Kısayol yalnız VAR OLAN binaları yükseltiyordu; suru olmayan bir
+        köyde "binaları son seviyeye" dedikten sonra hâlâ sur yoktu ve
+        savunma ekranını denemek imkânsızdı (ölçüldü). Sur, hendek ve ilk
+        üç kule kendi sabit slotlarında duruyor.
+      */
+      const savunmaSlotlari = [
+        ['sur', 'sur'], ['hendek', 'hendek'],
+        ['kule1', 'kule'], ['kule2', 'kule'], ['kule3', 'kule'],
+      ];
+      for (const [slotKey, tip] of savunmaSlotlari) {
+        if (village.villageBuildings[slotKey]) continue;
+        village.villageBuildings[slotKey] = { type: tip, level: 1, workers: 0 };
+        bina++;
+      }
+
       for (const b of Object.values(village.villageBuildings)) {
         if (b.building && b.buildWorkers) { iadeIsci += b.buildWorkers; village.freeWorkers += b.buildWorkers; }
         delete b.building; delete b.buildEndTime; delete b.buildWorkers;

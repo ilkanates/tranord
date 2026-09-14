@@ -332,4 +332,87 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
   };
 }
 
-module.exports = { simulateBattle, wallBonusPct, towerBonusPct, K_LOSS_EXPONENT, RAID_LOSS_MULT };
+/**
+ * SAVUNMA YAPILARININ KATKISI — YAPI YAPI, YÜZDE OLARAK.
+ *
+ * İlkan: *"ordu menüsünde mevcut defans binalarımın katkısını yüzde
+ * olarak ayrı ayrı göster"*.
+ *
+ * Rapordaki tek `wallBonusPct` sayısı "surum mu kulem mi işe yarıyor"
+ * sorusunu cevaplamıyordu: üçünün toplamı tek bir sayıya eriyordu ve
+ * oyuncu hangisini yükseltmesi gerektiğini göremiyordu.
+ *
+ * TAVAN AYRI GÖSTERİLİYOR. Üçünün toplamı DEF_BONUS_CAP'i aşabilir;
+ * o durumda `kirpilan` alanı kaç puanın boşa gittiğini söylüyor —
+ * tavana dayanmış bir oyuncunun surunu yükseltmesi hiçbir işe yaramaz
+ * ve bunu bilmesi gerekir.
+ *
+ * KULE DOLULUKLA ÖLÇEKLİ: boş kule sıfır veriyor. Kaç okçu eksik
+ * olduğu da yazılıyor — kulesi olup okçusu olmayan oyuncunun kaybettiği
+ * bonus, yükseltmeden önce bakması gereken ilk yer.
+ */
+function savunmaOzeti(village) {
+  const bina = (tip) => Object.values(village?.villageBuildings || {})
+    .find(b => b?.type === tip && b.level >= 1) || null;
+
+  const sur = bina('sur');
+  const hendek = bina('hendek');
+  const surLv = sur?.level || 0;
+  const henLv = hendek?.level || 0;
+
+  const surPct = SUR_BONUS[clampLevel(surLv, SUR_BONUS)] || 0;
+  const henPct = HENDEK_BONUS[clampLevel(henLv, HENDEK_BONUS)] || 0;
+
+  /*
+    KULELER TEK TEK. Toplam yeterli değil: altı kulenin biri boşsa
+    oyuncu hangisini dolduracağını bilmeli.
+  */
+  const kuleler = [];
+  let kuleToplam = 0;
+  for (const [slotKey, b] of Object.entries(village?.villageBuildings || {})) {
+    if (b?.type !== 'kule' || !(b.level >= 1)) continue;
+    const maxOkcu = b.level * TOWER_ARCHERS_PER_LEVEL;
+    const okcu = Math.max(0, Math.min(maxOkcu, b.workers || 0));
+    const doluluk = maxOkcu > 0 ? okcu / maxOkcu : 0;
+    const tamPct = (KULE_BONUS[clampLevel(b.level, KULE_BONUS)] || 0) / TOWER_SLOTS;
+    const pct = Math.round(tamPct * doluluk * 10) / 10;
+    kuleToplam += pct;
+    kuleler.push({
+      slotKey, seviye: b.level, okcu, maxOkcu,
+      doluluk: Math.round(doluluk * 100),
+      katki: pct,
+      tamKatki: Math.round(tamPct * 10) / 10,
+    });
+  }
+  /*
+    TOPLAM, SAVAŞIN KENDİ FONKSİYONUNDAN geliyor — tek tek kulelerin
+    toplamından DEĞİL.
+
+    Ölçüldü: altı dolu Lvl 20 kulede tek tek yuvarlama %34,8 veriyor,
+    savaşta kullanılan towerBonusPct ise %35. Ekranda 149,8 yazıp
+    savaşta 150 uygulamak, ekranı yalancı yapardı. Satırlardaki sayılar
+    GÖSTERİM için yuvarlı; toplam savaşla birebir.
+  */
+  kuleToplam = towerBonusPct(village);
+
+  const ham = Math.round((surPct + henPct + kuleToplam) * 10) / 10;
+  const etkin = Math.min(DEF_BONUS_CAP, ham);
+
+  return {
+    sur: { var: !!sur, seviye: surLv, katki: surPct, maxSeviye: SUR_BONUS.length - 1 },
+    hendek: { var: !!hendek, seviye: henLv, katki: henPct, maxSeviye: HENDEK_BONUS.length - 1 },
+    kuleler,
+    kuleToplam,
+    kuleSlot: TOWER_SLOTS,
+    okcuPerSeviye: TOWER_ARCHERS_PER_LEVEL,
+    ham,
+    etkin,
+    tavan: DEF_BONUS_CAP,
+    kirpilan: Math.round((ham - etkin) * 10) / 10,
+  };
+}
+
+module.exports = {
+  simulateBattle, wallBonusPct, towerBonusPct, savunmaOzeti,
+  K_LOSS_EXPONENT, RAID_LOSS_MULT,
+};

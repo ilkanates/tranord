@@ -13,6 +13,7 @@
 const { WALL_SLOTS_ARR: WALL_SLOT_NAMES, civilianCount } = require('./villageState');
 const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEquipmentCap, getEquipmentPool, getConsumptionRates, getSiegeCap, SIEGE_KEYS, getFoodOutlook } = require('./tick');
 const ARMY = require('./army');
+const { savunmaOzeti } = require('./combat');
 const KUSATMA = require('./kusatma');
 const GT = require('./gameTime');
 const SAGLIK = require('./saglik');
@@ -318,6 +319,12 @@ function buildPayload(village, tickMs, opts = {}) {
       return [...gruplar.values()];
     })(),
     takviyelerim: opts.takviyelerim || [],
+    /*
+      SAVUNMA YAPILARI — sur, hendek ve her kule AYRI AYRI yüzde olarak.
+      Tek bir toplam sayı "hangisini yükselteyim" sorusunu
+      cevaplamıyordu (bkz. combat.js · savunmaOzeti).
+    */
+    savunmaYapilari: savunmaOzeti(village),
     /*
       REVİR — çadırda yatan yaralılar. Oyuncu "kaç askerim iyileşiyor,
       ne kadar kaldı, çadırım dolu mu" sorularının hiçbirini raporun
