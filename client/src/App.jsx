@@ -1042,6 +1042,7 @@ function Game({ token, onLogout }) {
               unitStatsNow={village.unitStatsNow || {}}
               intel={village.intel || {}}
               saldirilarim={village.saldirilarim || {}}
+              yoldakiSeferler={village.yoldakiSeferler || {}}
               tarlaTavani={village.tarlaTavani || 20}
               tarlaTavanlari={village.tarlaTavanlari || null}
               merkezMi={!!village.isCapital}

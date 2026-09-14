@@ -26,6 +26,39 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14u',
+    tarih: '14 Eylül 2026',
+    baslik: 'Haritada yoldaki seferler',
+    notlar: [
+      {
+        id: '20260914-harita-canli-sefer',
+        tur: 'yenilik',
+        metin: 'HARİTADAKİ KILIÇ artık ŞU AN yolda olan seferini '
+          + 'gösteriyor: hedefin üstünde nabız gibi atan bir rozet ve '
+          + 'altında varışa kalan süre. Rengi kipi söylüyor — saldırı '
+          + 'kırmızı, yağma amber, keşif buz mavisi, takviye yeşil. '
+          + 'Sefer varınca rozet kendiliğinden kayboluyor.',
+      },
+      {
+        id: '20260914-harita-tum-koyler',
+        tur: 'duzeltme',
+        metin: 'Rozet HANGİ KÖYDEN çıktığına bakmıyor: başka köyünden '
+          + 'yolladığın sefer de haritada görünüyor. Aynı hedefe birden '
+          + 'çok sefer yolladıysan kılıç tek, üstünde sayı ve EN YAKIN '
+          + 'varışın süresi yazıyor.',
+      },
+      {
+        id: '20260914-harita-gecmis-yazi',
+        tur: 'duzeltme',
+        metin: 'Önceki sürümde kılıç GEÇMİŞTE vurduğun köyleri '
+          + 'işaretliyordu; saldırmadığın köyde kılıç duruyor, tam o an '
+          + 'saldırdığın köyde hiçbir şey çıkmıyordu. Geçmiş kayıt '
+          + 'duruyor ama artık yalnız köyün üstüne gelince yazı olarak: '
+          + '"1× · kazandım · 50k ganimet".',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14t',
     tarih: '14 Eylül 2026',
     baslik: 'Tarla tavanı ve kılıç rozeti düzeltmesi',

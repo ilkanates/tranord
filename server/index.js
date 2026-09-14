@@ -309,6 +309,15 @@ function structFingerprint(v) {
     + `|${v.isCapital ? 'C' : '-'}`
     + `|${(v.marches || []).length}|${(v.reports || []).length}|${v.tickMs || 0}`
     /*
+      SEFER HEDEFLERİ parmak izinde: harita rozeti sefer çıkar çıkmaz
+      görünmeli, kalp atışını (30 sn) beklememeli. Kalan süre TAM DAKİKAYA
+      yuvarlanıyor — ham değer her tikte değişir ve tam paketi saniyede
+      bir yollardık.
+    */
+    + `|S${(v.marches || []).filter(m => m.phase === 'outbound')
+      .map(m => `${m.toKey}:${m.mode}:${Math.ceil((m.remainingHours || 0) * 60)}`)
+      .sort().join(',')}`
+    /*
       TAKVİYE PARMAK İZİNE GİRMELİ. Yoksa misafir gelip gitmesi ekrana
       ancak kalp atışında (FULL_SYNC_MS) yansırdı: oyuncu takviyenin
       vardığını 30 saniye sonra görürdü. Sayı + toplam asker yeter —
@@ -429,6 +438,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
   sock.emit('village_update', buildPayload(v, session.tickMs, {
     statics,
     takviyelerim: takviyelerimiBul(session.userId),
+    // Haritadaki canlı kılıç rozeti bunu kullanıyor
+    yoldakiSeferler: yoldakiSeferlerim(session),
     reports: statics || reportsChanged,
     culturePoints: cpTotal,
     culture,
@@ -912,6 +923,55 @@ let lastNpcRaidAt = 0;
  * göre pay ediliyor (savunmaKayiplariniPayEt), girdileri birleştirmek o
  * sırayı bozardı.
  */
+/**
+ * YOLDAKİ BÜTÜN SEFERLERİM — hangi köyden çıkmış olursa olsun.
+ *
+ * İlkan: *"o an nereye saldırı gidiyor görebilmeliyim"*.
+ *
+ * Paketteki `marches` YALNIZ AKTİF KÖYÜN seferleri. Haritada ise
+ * oyuncu bütün dünyayı görüyor: B köyünden çıkan saldırı, A köyüne
+ * bakarken haritada görünmüyordu ve "şu an nereye saldırıyorum"
+ * sorusunun cevabı köy köy gezmeyi gerektiriyordu.
+ *
+ * YALNIZ GİDİŞ FAZI: dönen sefer artık bir saldırı değil, eve yürüyen
+ * askerdir. Hedefin üstünde kılıç bırakmak yanlış bilgi olurdu.
+ *
+ * Hedef başına TEK satır: aynı köye üç sefer yolladıysan kılıç bir
+ * tane, üstünde sayı. En yakın varış zamanı gösteriliyor — oyuncunun
+ * sorduğu "ilk ne zaman vuracak".
+ */
+function yoldakiSeferlerim(session) {
+  const out = {};
+  for (const v of session.villages.values()) {
+    for (const m of v.marches || []) {
+      if (m.phase !== 'outbound' || !m.toKey) continue;
+      const sn = GT.clockToRealSeconds(
+        GT.hoursToClock(Math.max(0, m.remainingHours ?? 0)), WORLD.speed);
+      const onceki = out[m.toKey];
+      if (!onceki) {
+        out[m.toKey] = {
+          mode: m.mode, toName: m.toName, sayi: 1,
+          // 'TimeLeft' eki İSTEMCİDE canlı sayım demek (bkz. flows · shiftTimers):
+          // iki yayın arasında geri sayım donmasın.
+          kalanTimeLeft: sn, fromName: m.fromName,
+        };
+        continue;
+      }
+      onceki.sayi += 1;
+      /*
+        EN YAKIN VARIŞ kazanıyor; kip de onunla geliyor. İlk varan sefer
+        ne yapıyorsa hedefin başına gelecek olan odur.
+      */
+      if (sn < onceki.kalanTimeLeft) {
+        onceki.kalanTimeLeft = sn;
+        onceki.mode = m.mode;
+        onceki.fromName = m.fromName;
+      }
+    }
+  }
+  return out;
+}
+
 function takviyelerimiBul(userId) {
   const gruplar = new Map();
   for (const s of userSessions.values()) {

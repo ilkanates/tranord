@@ -232,6 +232,16 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
 
+### Haritadaki kılıç: geçmiş değil YOLDAKİ sefer (14 Eylül 2026)
+- İlkan: *"ilk saldırdığım yerde şu an kılıç var ama oraya şu an saldırmıyorum. Başka yere saldırıyorum, orada kılıç çıkmıyor... bu, haritayı açınca gözükebilen ANLIK bir şey olmalı. O an nereye saldırı gidiyor görebilmeliyim."*
+- **YANLIŞ ŞEYİ GÖSTERİYORDUM.** Rozeti GEÇMİŞTE vurulan köylere koymuştum; oyuncunun istediği ise o an YOLDA olan sefer. Sonuç tam tersi bir ekran: saldırmadığı köyde kılıç duruyor, tam o an saldırdığı köyde hiçbir şey çıkmıyordu. İstek "saldırdığım yerleri görmek istiyorum" idi ve ben bunu sicil diye okudum; oysa haritadaki bir işaret doğası gereği ŞU ANI anlatır.
+- Rozet artık `yoldakiSeferler` çiziyor: yalnız **gidiş fazındaki** seferler (dönen sefer artık saldırı değil, eve yürüyen askerdir), hedef başına tek kılıç, üstünde sayı ve **en yakın varışın** süresi.
+- **BÜTÜN KÖYLERDEN**: paketteki `marches` yalnız aktif köyün seferleri; haritada ise oyuncu bütün dünyayı görüyor. B köyünden çıkan saldırı, A köyüne bakarken görünmüyordu. Sunucu artık oturumun bütün köylerini tarayıp tek bir hedef→sefer haritası gönderiyor.
+- **NABIZ ATIYOR ve KİP RENGİ var** (saldırı kırmızı, yağma amber, keşif buz, takviye yeşil). Durağan tek renk bir işaret, geçmiş kayıttan ayırt edilemezdi.
+- Sayaç alanının adı `kalanTimeLeft`: istemcideki `shiftTimers`, `timeleft` ekiyle biten sayıları iki yayın arasında kendi sayıyor, yoksa geri sayım dakikada bir zıplardı. Ölçüldü: 23:58 → 23:51 (6 sn).
+- Parmak izine sefer hedefleri eklendi (hedef + kip + **tam dakikaya yuvarlanmış** kalan süre): rozet sefer çıkar çıkmaz görünmeli, 30 saniyelik kalp atışını beklememeli; yuvarlama olmasa tam paket saniyede bir giderdi.
+- Geçmiş kayıt (`saldirilarim`) duruyor ama yalnız **hover kartında yazı** olarak: "daha önce kaç kez vurdum, sonuç, toplam ganimet" bağlam, haritayı dolduracak bir işaret değil.
+
 ### Kılıç rozeti görünmüyordu + tarla tavanı (14 Eylül 2026)
 - İlkan: *"haritada saldırdığım yeri hâlâ göremiyorum"* ve *"üretim alanlarını her zaman Lvl 10 ile sınırla, tarlaları yani — ama merkez ise Lvl 20'ye kadar çıkabilsin"*.
 - **ROZET YANLIŞ KATMANDAYDI.** `VillageMark` yalnız `scale < Z_TERRAIN` (uzak zum) çiziliyor; yakın zumda köyler `ForeignCore` ile çiziliyor ve rozet oraya konmamıştı. Oyuncu haritayı köyünün çevresinde, yani **yakın zumda** kullanıyor — rozet hiç görünmüyordu. Kendi testimde de önce 0 rozet görmüş, ancak uzaklaşınca görmüştüm; asıl kullanım biçimini denemediğim için kaçırdım.

@@ -469,7 +469,7 @@ function outlinePath(localKeys, cq, cr) {
 
 // ── Vahşi hex ────────────────────────────────────────────────────────
 // ── Yabancı köy merkezi (yakın zoom) ─────────────────────────────────
-function ForeignCore({ v, color, hovered, onEnter, onLeave, onClick, saldiriIzi = null, scale = 1 }) {
+function ForeignCore({ v, color, hovered, onEnter, onLeave, onClick, sefer = null, scale = 1 }) {
   const { x, y } = hexToPixel(v.q, v.r, S);
   const pts = hexPoints(x, y, S - 1);
   const clipId = `vc-${v.q}-${v.r}`;
@@ -493,7 +493,7 @@ function ForeignCore({ v, color, hovered, onEnter, onLeave, onClick, saldiriIzi 
 
         Burada hex büyük (S=24), rozet de ona göre büyük: 10.
       */}
-      <SaldiriRozeti x={x} y={y} r={S} iz={saldiriIzi} scale={scale} boy={10} />
+      <SeferRozeti x={x} y={y} r={S} sefer={sefer} scale={scale} boy={10} />
     </g>
   );
 }
@@ -600,26 +600,41 @@ function FieldHex({
 
 // ── Köy işareti (her zoom'da) ────────────────────────────────────────
 /**
- * SALDIRI ROZETİ — bu köye vurmuştum.
+ * SEFER ROZETİ — ŞU AN bu köye giden seferim var.
  *
- * İlkan: *"harita üzerinde saldırdığım yağmaladığım yerleri görmek
- * istiyorum, üzerinde bir kılıç vs olsun"*.
+ * İlkan: *"bu, haritayı açınca gözükebilen ANLIK bir şey olmalı. O an
+ * nereye saldırı gidiyor görebilmeliyim"*.
  *
- * Harita bugüne kadar yalnız "kim nerede" diyordu; oyuncunun kendi
- * geçmişi hiç görünmüyordu. Hangi köye vurduğunu hatırlamak için
- * raporları tek tek gezmek gerekiyordu.
+ * İLK HÂLİ YANLIŞ ŞEYİ GÖSTERİYORDU: geçmişte vurduğum köyleri
+ * işaretliyordu, yani saldırmadığım bir köyde kılıç duruyor, tam o an
+ * saldırdığım köyde hiçbir şey çıkmıyordu. Rozet artık YOLDAKİ sefere
+ * bakıyor; sefer varınca kendiliğinden kayboluyor.
  *
- * RENK SONUCU SÖYLÜYOR: kazandığın hedef kırmızı (yine vurulabilir),
- * kaybettiğin hedef gri (oraya bir daha aynı orduyla gitme). Tek renk
- * olsaydı rozet yalnız "buraya gitmiştim" derdi; asıl bilgi sonuç.
+ * Geçmiş kayıt (saldirilarim) duruyor ama yalnız HOVER KARTINDA yazı
+ * olarak: "daha önce kaç kez vurdum" bağlam, haritayı dolduracak bir
+ * işaret değil.
  *
- * YAĞMA ile SALDIRI ayrılmıyor: ikisi de "vurdum" demek ve haritada iki
- * ayrı simge okunmuyor — ayrıntı zaten hover kartında yazıyor.
+ * KİP RENGİ: saldırı kırmızı, yağma amber, keşif buz, takviye yeşil.
+ * Tek renk olsaydı rozet "bir şey gidiyor" derdi; hangisinin gittiği
+ * kararın kendisi.
+ *
+ * NABIZ ATIYOR — canlı olduğunu söyleyen şey bu. Durağan bir işaret
+ * geçmiş kayıttan ayırt edilemezdi.
  */
-function SaldiriRozeti({ x, y, r, iz, scale, boy = 6 }) {
-  if (!iz) return null;
-  const kazandim = iz.winner === 'attacker';
-  const renk = kazandim ? '#ff6f78' : '#93a1ad';
+/** Kip adları — hover kartında "3× yağma" gibi okunuyor */
+const SEFER_ADI = {
+  attack: 'saldırı', raid: 'yağma', scout: 'keşif',
+  takviye: 'takviye', yerlesim: 'yerleşim',
+};
+
+const SEFER_RENK = {
+  attack: '#ff6f78', raid: '#f2c86e', scout: '#8fdcff',
+  takviye: '#6cdda3', yerlesim: '#c4ecff',
+};
+
+function SeferRozeti({ x, y, r, sefer, scale, boy = 6 }) {
+  if (!sefer) return null;
+  const renk = SEFER_RENK[sefer.mode] || '#ff6f78';
   /*
     Ölçekle KÜÇÜLMÜYOR gibi duruyor: SVG bütün katmanı ölçeklediği için
     boyut ölçeğe BÖLÜNÜYOR — rozet her zumda aynı piksel büyüklüğünde
@@ -630,8 +645,11 @@ function SaldiriRozeti({ x, y, r, iz, scale, boy = 6 }) {
   const by = y - r * 0.72;
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <circle cx={bx} cy={by} r={6 * k} fill="rgba(8,14,24,0.85)"
-        stroke={renk} strokeWidth={1.1 * k} />
+      <circle cx={bx} cy={by} r={6 * k} fill="rgba(8,14,24,0.9)"
+        stroke={renk} strokeWidth={1.3 * k}>
+        <animate attributeName="opacity" values="1;0.45;1" dur="1.4s"
+          repeatCount="indefinite" />
+      </circle>
       {/* Kılıç: namlu + çapraz balçak */}
       <g transform={`translate(${bx} ${by}) scale(${k}) rotate(45)`}>
         <path d="M 0 -4.2 L 0 2.2" stroke={renk} strokeWidth="1.5"
@@ -642,19 +660,20 @@ function SaldiriRozeti({ x, y, r, iz, scale, boy = 6 }) {
           strokeLinecap="round" fill="none" />
       </g>
       {/*
-        KAÇ KEZ vurduğum — bir kereyi ayrıca yazmaya gerek yok, sayı
-        ancak tekrar varsa bilgi.
+        KALAN SÜRE rozetin altında. "Bir sefer gidiyor" bilgisi tek
+        başına eksik; oyuncunun asıl sorusu ne zaman varacağı.
+        Birden çok sefer varsa sayısı da yazıyor.
       */}
-      {iz.kez > 1 && (
-        <text x={bx} y={by + 11 * k} textAnchor="middle"
-          fontFamily={FONT.num} fontSize={7 * k} fill={renk}
-          style={{ userSelect: 'none' }}>×{iz.kez}</text>
-      )}
+      <text x={bx} y={by + 11 * k} textAnchor="middle"
+        fontFamily={FONT.num} fontSize={7 * k} fill={renk}
+        style={{ userSelect: 'none' }}>
+        {sefer.sayi > 1 ? `${sefer.sayi}× ` : ''}{fmtTime(Math.max(0, sefer.kalanTimeLeft || 0))}
+      </text>
     </g>
   );
 }
 
-function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onClick, saldiriIzi = null }) {
+function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onClick, sefer = null }) {
   const { x, y } = hexToPixel(v.q, v.r, S);
   const isSelf = v.kind === 'self';
   const on = hovered || selected;
@@ -686,7 +705,7 @@ function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onC
         <path d={`M ${x - 6} ${y + 4} L ${x - 6} ${y - 2} L ${x} ${y - 7} L ${x + 6} ${y - 2} L ${x + 6} ${y + 4} Z`}
           fill="none" stroke={color} strokeWidth={1.2} opacity={0.85} />
       )}
-      <SaldiriRozeti x={x} y={y} r={rad} iz={saldiriIzi} scale={scale} />
+      <SeferRozeti x={x} y={y} r={rad} sefer={sefer} scale={scale} />
       {scale > 0.72 && (
         <text x={x} y={y + rad + 9 / Math.max(0.5, scale)} textAnchor="middle"
           fontFamily={FONT.ui} fontSize={8 / Math.max(0.5, scale)}
@@ -935,6 +954,11 @@ export default function MapView({
     Keşif verisi gibi köyde duruyor ve haritaya rozet olarak düşüyor.
   */
   saldirilarim = {},
+  /*
+    YOLDAKİ SEFERLER — şu an yürüyen, hedefine varmamış seferlerim.
+    Haritadaki canlı kılıç rozeti bunu çiziyor (bkz. SeferRozeti).
+  */
+  yoldakiSeferler = {},
   /* Tarla seviye tavanı — merkezde 20, diğer köylerde 10 */
   tarlaTavani = 20, tarlaTavanlari = null, merkezMi = false,
   // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
@@ -1611,6 +1635,16 @@ export default function MapView({
             ROZET NE ANLATIYOR — kılıç tek başına "vurmuştum" diyor,
             ayrıntıyı kart veriyor: kaç kez, sonuç ne, ne kadar ganimet.
           */
+          /*
+            YOLDAKİ SEFER kartın BAŞINDA: "şu an ne oluyor" sorusu
+            "geçmişte ne olmuştu"dan önce gelir.
+          */
+          ...(yoldakiSeferler[v.key] ? [[
+            'Yolda',
+            `${yoldakiSeferler[v.key].sayi}× ${SEFER_ADI[yoldakiSeferler[v.key].mode] || 'sefer'}`
+            + ` · ${fmtTime(Math.max(0, yoldakiSeferler[v.key].kalanTimeLeft || 0))}`,
+            SEFER_RENK[yoldakiSeferler[v.key].mode] || '#ff6f78',
+          ]] : []),
           ...(saldirilarim[v.key] ? [[
             'Saldırdım',
             `${saldirilarim[v.key].kez}× · ${saldirilarim[v.key].winner === 'attacker' ? 'kazandım' : 'kaybettim'}`
@@ -1778,7 +1812,7 @@ export default function MapView({
               })}
               {visibleForeign.map(v => (
                 <ForeignCore key={`k${v.key}`} v={v} color={colorOf(v)}
-                  saldiriIzi={saldirilarim[v.key] || null} scale={scale}
+                  sefer={yoldakiSeferler[v.key] || null} scale={scale}
                   hovered={hoverVillage?.key === v.key || selVillage?.key === v.key}
                   onEnter={() => setHoverVillage(v)}
                   onLeave={() => setHoverVillage(h => (h?.key === v.key ? null : h))}
@@ -1875,7 +1909,7 @@ export default function MapView({
           */}
           {scale < Z_TERRAIN && shownVillages.map(v => (
             <VillageMark key={v.key} v={v} scale={scale}
-              saldiriIzi={saldirilarim[v.key] || null}
+              sefer={yoldakiSeferler[v.key] || null}
               color={v.kind === 'self' ? CLAIM_GREEN : colorOf(v)}
               hovered={hoverVillage?.key === v.key}
               selected={selVillage?.key === v.key}

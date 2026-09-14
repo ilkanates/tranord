@@ -338,6 +338,12 @@ function buildPayload(village, tickMs, opts = {}) {
       reddedeceği bir şeyi açık göstermemeli ve oyuncu "neden
       yükseltemiyorum" sorusunun cevabını ekranda bulmalı.
     */
+    /*
+      YOLDAKİ SEFERLER — oyuncunun BÜTÜN köylerinden çıkan, şu an
+      yürüyen seferler. Haritadaki canlı rozet bunu çiziyor; paketteki
+      `marches` yalnız aktif köyün seferleri olduğu için yetmiyor.
+    */
+    yoldakiSeferler: opts.yoldakiSeferler || {},
     tarlaTavani: tarlaTavani(village),
     tarlaTavanlari: { normal: TARLA_TAVANI, merkez: TARLA_TAVANI_MERKEZ },
     intel: village.intel || {},
