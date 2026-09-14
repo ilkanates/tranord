@@ -26,7 +26,7 @@ const { incomingMarchesFor } = require('./seferTakip');
 const PAZAR = require('./pazar');
 const PAZAR_YOL = require('./pazarYol');
 const { getMaxProductionSlots } = require('./insaat');
-const { popPerGameHour, getVillageBuildMinutes, getScaledUpgradeCost, refreshExpansionCredits, expansionFree, settlerCapacity } = require('./koyKurallari');
+const { popPerGameHour, getVillageBuildMinutes, getScaledUpgradeCost, refreshExpansionCredits, expansionFree, settlerCapacity, tarlaTavani, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./koyKurallari');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('../sabitler');
 const { TRAINABLE_UNITS, UNITS_BY_BUILDING } = require('./birimler');
 
@@ -333,12 +333,25 @@ function buildPayload(village, tickMs, opts = {}) {
     saglik: SAGLIK.ozet(village, ARMY.buildingLevel(village, 'saglikCadiri')),
     incoming: incomingMarchesFor(`${village.worldQ || 0},${village.worldR || 0}`),
     reports: (village.reports || []).slice(0, 25),
+    /*
+      TARLA TAVANI istemciye de gidiyor: yükseltme düğmesi sunucunun
+      reddedeceği bir şeyi açık göstermemeli ve oyuncu "neden
+      yükseltemiyorum" sorusunun cevabını ekranda bulmalı.
+    */
+    tarlaTavani: tarlaTavani(village),
+    tarlaTavanlari: { normal: TARLA_TAVANI, merkez: TARLA_TAVANI_MERKEZ },
     intel: village.intel || {},
     /*
       SALDIRI İZLERİ — haritada vurduğum köylerin üstünde kılıç çıksın
       (bkz. army.js · saldirilarim).
     */
-    saldirilarim: village.saldirilarim || {},
+    /*
+      GERİ DOLDURMA BURADA TETİKLENİYOR: kayıt yoksa raporlardan
+      türetiliyor ve köye yazılıyor, bir daha çalışmıyor. Yükleme
+      yolunda değil paket yolunda olmasının sebebi, köyün her giriş
+      yolunda (boot, göç, yeni köy) tek tek çağırmak gerekmemesi.
+    */
+    saldirilarim: (ARMY.saldiriIzleriniGeriDoldur(village), village.saldirilarim || {}),
     marchInfo: {
       // İstemci yürüyüş süresini bunlarla hesaplar: hız = saatte hex,
       // bir oyun saati de hourSeconds gerçek saniye sürer.

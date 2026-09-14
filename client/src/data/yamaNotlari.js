@@ -26,6 +26,40 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14t',
+    tarih: '14 Eylül 2026',
+    baslik: 'Tarla tavanı ve kılıç rozeti düzeltmesi',
+    notlar: [
+      {
+        id: '20260914-tarla-tavani',
+        tur: 'denge',
+        metin: 'ÜRETİM ALANLARI artık MERKEZ DIŞINDAKİ köylerde en fazla '
+          + 'Lvl 10 e çıkıyor; merkez köyde Lvl 20 sınırı sürüyor. '
+          + 'Tarlalar her köyde 20 ye çıkabilirken merkez köy diye bir '
+          + 'şeyin anlamı kalmıyordu — çoklu köy, birbirinin kopyası '
+          + 'yirmi kasabaya dönüşüyordu. Artık ham üretimin ağırlığı '
+          + 'merkezde, uçtaki köyler asker ve mevzi için. Zaten Lvl 10 '
+          + 'üstündeki tarlaların DÜŞÜRÜLMÜYOR.',
+      },
+      {
+        id: '20260914-kilic-yakin-zum',
+        tur: 'duzeltme',
+        metin: 'SALDIRI KILICI haritada görünmüyordu: rozet yalnız '
+          + 'uzaklaşınca çizilen köy işaretine konmuştu, oysa harita '
+          + 'çoğunlukla yakın zumda kullanılıyor ve orada köyler başka '
+          + 'bir şekilde çiziliyor. Artık her zumda görünüyor.',
+      },
+      {
+        id: '20260914-kilic-geri-doldurma',
+        tur: 'duzeltme',
+        metin: 'Bu sürümden ÖNCE yaptığın saldırılar da haritada '
+          + 'işaretleniyor: kayıt yoksa eski savaş raporlarından geri '
+          + 'dolduruluyor. Yoksa kılıç ancak yeni bir saldırıdan sonra '
+          + 'çıkardı ve özellik bozuk görünürdü.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14s',
     tarih: '14 Eylül 2026',
     baslik: 'Kervanlar ve haritada saldırı izleri',

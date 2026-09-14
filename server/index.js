@@ -115,7 +115,8 @@ app.use('/auth', authRouter);
 const { userSessions, WORLD, markNpcDirty, markUserDirty } = require('./durum');
 const { marchingVillages, gelenSeferSayilari } = require('./game/seferTakip');
 const { popPerGameHour, getVillageBuildMinutes, getVillageDemolishMinutes, getScaledUpgradeCost,
-        expansionFree, settlerCapacity, MAX_BUILDERS } = require('./game/koyKurallari');
+        expansionFree, settlerCapacity, MAX_BUILDERS,
+        tarlaTavani, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./game/koyKurallari');
 
 /**
  * ÇOKLU KÖY OTURUMU.
@@ -2647,6 +2648,18 @@ io.on('connection', async socket => {
     if (isci < 1 || isci > v().freeWorkers || isci > MAX_BUILDERS(b.level)) return;
     const def = BUILDING_DEFS[b.type];
     if (!def || b.level >= def.levels.length) return;
+    /*
+      TARLA TAVANI — merkez dışında Lvl 10 (bkz. koyKurallari · tarlaTavani).
+      Tanımdaki tablo 20 seviye taşımaya devam ediyor; sınır bir KURAL.
+    */
+    if (b.level >= tarlaTavani(v())) {
+      return socket.emit('build_refused', {
+        reason: v().isCapital
+          ? `Tarlalar en fazla Lvl ${TARLA_TAVANI_MERKEZ} olabilir.`
+          : `Merkez olmayan köyde tarlalar en fazla Lvl ${TARLA_TAVANI}. `
+            + 'Bu köyü merkez yaparsan 20 e kadar çıkabilir.',
+      });
+    }
     const cost = def.levels[b.level]?.cost;
     if (!cost) return;
     for (const [res, amt] of Object.entries(cost)) { if ((v().resources[res] || 0) < amt) return; }
@@ -4143,7 +4156,13 @@ io.on('connection', async socket => {
             village.freeWorkers += t.upgradeWorkersAssigned;
           }
           t.upgrading = false; t.upgradeEndTime = null; t.upgradeWorkersAssigned = 0;
-          const hedef = Math.min(BUILDING_DEFS[t.type]?.levels?.length || tavan, tavan);
+          /*
+            TARLA TAVANI dev kısayolunda da geçerli: kısayol kuralı
+            deldiğinde geliştirme ortamı gerçek oyunu göstermiyor olur
+            ve denge burada sınanamaz.
+          */
+          const hedef = Math.min(
+            BUILDING_DEFS[t.type]?.levels?.length || tavan, tavan, tarlaTavani(village));
           if (t.level < hedef) { t.level = hedef; tarla++; }
         }
       }
@@ -4278,43 +4297,43 @@ io.on('connection', async socket => {
       console.log(`[DEV] ${userEmail} revire ${yatan} asker`);
     });
 
-    /**
-     * DEV: SENTETİK KEŞİF RAPORU.
-     *
-     * Rapor düzenlerini denemek için gerçek bir sefer kurmak pahalı:
-     * izci üretmek, izcisi OLAN bir hedef bulmak, yürüyüşü beklemek.
-     * Ölçüldü — yakındaki NPC köylerin ordusu boş olduğu için
-     * "kayıplı başarılı keşif" hâli hiç kurulamıyordu.
-     *
-     * Üretimde YOK: TRANORD_DEV_CHEATS=1 kapısının arkasında.
-     */
-    socket.on('dev_kesif_raporu', ({ kayipli = true } = {}) => {
-      const v = session.village;
-      const now = Date.now();
-      const gonderilen = { kuzeyIzcisi: 60 };
-      const kayip = kayipli ? { kuzeyIzcisi: 23 } : {};
-      ARMY.pushReport(v, {
-        id: 'dev-' + now, at: now, dir: 'out', mode: 'scout',
-        fromName: 'Deneme', toName: 'Hedef Köy', toKey: '9,9',
-        outcome: 'kesif', winner: 'attacker',
-        sent: { ...gonderilen }, myLosses: kayip,
-        theirLosses: kayipli ? { kuzeyIzcisi: 6 } : {},
-        loot: {},
-        savunanIzci: kayipli ? 6 : 0, karsiIzci: kayipli ? 6 : 0,
-        wallBonusPct: 0, attackTotal: 600, defenseTotal: 60,
-        intel: {
-          population: 420, army: { fjordvakt: 120, demirAtli: 30 },
-          armyTotal: 150, defense: 3100,
-          surLevel: 10, hendekLevel: 5, kulePct: 0,
-          resources: { odun: 4200, kil: 3100, tas: 2800, demir: 900, tahil: 5100 },
-          at: now,
-        },
-      });
-      dirty(); emit();
-      socket.emit('dev_result', { ok: true,
-        message: kayipli ? 'Kayıplı keşif raporu eklendi' : 'Kayıpsız keşif raporu eklendi' });
-    });
-
+    /**
+     * DEV: SENTETİK KEŞİF RAPORU.
+     *
+     * Rapor düzenlerini denemek için gerçek bir sefer kurmak pahalı:
+     * izci üretmek, izcisi OLAN bir hedef bulmak, yürüyüşü beklemek.
+     * Ölçüldü — yakındaki NPC köylerin ordusu boş olduğu için
+     * "kayıplı başarılı keşif" hâli hiç kurulamıyordu.
+     *
+     * Üretimde YOK: TRANORD_DEV_CHEATS=1 kapısının arkasında.
+     */
+    socket.on('dev_kesif_raporu', ({ kayipli = true } = {}) => {
+      const v = session.village;
+      const now = Date.now();
+      const gonderilen = { kuzeyIzcisi: 60 };
+      const kayip = kayipli ? { kuzeyIzcisi: 23 } : {};
+      ARMY.pushReport(v, {
+        id: 'dev-' + now, at: now, dir: 'out', mode: 'scout',
+        fromName: 'Deneme', toName: 'Hedef Köy', toKey: '9,9',
+        outcome: 'kesif', winner: 'attacker',
+        sent: { ...gonderilen }, myLosses: kayip,
+        theirLosses: kayipli ? { kuzeyIzcisi: 6 } : {},
+        loot: {},
+        savunanIzci: kayipli ? 6 : 0, karsiIzci: kayipli ? 6 : 0,
+        wallBonusPct: 0, attackTotal: 600, defenseTotal: 60,
+        intel: {
+          population: 420, army: { fjordvakt: 120, demirAtli: 30 },
+          armyTotal: 150, defense: 3100,
+          surLevel: 10, hendekLevel: 5, kulePct: 0,
+          resources: { odun: 4200, kil: 3100, tas: 2800, demir: 900, tahil: 5100 },
+          at: now,
+        },
+      });
+      dirty(); emit();
+      socket.emit('dev_result', { ok: true,
+        message: kayipli ? 'Kayıplı keşif raporu eklendi' : 'Kayıpsız keşif raporu eklendi' });
+    });
+
     socket.on('dev_surlu_hedef', ({ sur = 10, hendek = 5 } = {}) => {
       const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
       const me = WORLD.slotByKey.get(mySlot);
@@ -4337,13 +4356,13 @@ io.on('connection', async socket => {
         if (b && b.type === type) { b.level = Math.max(b.level || 0, level); }
         else hv.villageBuildings[slotKey] = { type, level, workers: 0 };
       };
-      /*
-        HEDEFE İZCİ DE KONUYOR. Keşif yalnız izciye karşı savaşıyor
-        (sur ve hendek keşfe işlemiyor); izcisiz bir NPC'de keşif her
-        zaman kayıpsız geçiyor ve keşif çarpışmasını denemek mümkün
-        olmuyordu.
-      */
-      hv.army = { ...(hv.army || {}), kuzeyIzcisi: 15 };
+      /*
+        HEDEFE İZCİ DE KONUYOR. Keşif yalnız izciye karşı savaşıyor
+        (sur ve hendek keşfe işlemiyor); izcisiz bir NPC'de keşif her
+        zaman kayıpsız geçiyor ve keşif çarpışmasını denemek mümkün
+        olmuyordu.
+      */
+      hv.army = { ...(hv.army || {}), kuzeyIzcisi: 15 };
       koy('sur', 'sur', surLv);
       koy('hendek', 'hendek', henLv);
       // Mancınığın vurabileceği birkaç hedef — hepsi farklı tip

@@ -232,6 +232,16 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
 
+### Kılıç rozeti görünmüyordu + tarla tavanı (14 Eylül 2026)
+- İlkan: *"haritada saldırdığım yeri hâlâ göremiyorum"* ve *"üretim alanlarını her zaman Lvl 10 ile sınırla, tarlaları yani — ama merkez ise Lvl 20'ye kadar çıkabilsin"*.
+- **ROZET YANLIŞ KATMANDAYDI.** `VillageMark` yalnız `scale < Z_TERRAIN` (uzak zum) çiziliyor; yakın zumda köyler `ForeignCore` ile çiziliyor ve rozet oraya konmamıştı. Oyuncu haritayı köyünün çevresinde, yani **yakın zumda** kullanıyor — rozet hiç görünmüyordu. Kendi testimde de önce 0 rozet görmüş, ancak uzaklaşınca görmüştüm; asıl kullanım biçimini denemediğim için kaçırdım.
+- **ESKİ SALDIRILAR GERİ DOLDURULUYOR** (`saldiriIzleriniGeriDoldur`). İz kaydı yeni; sürüm öncesi vurulan köylerde hiç kayıt yoktu ve harita boş görünüyordu — oyuncu için bu "özellik çalışmıyor" demek. Raporlar diskte duruyor ve saldıranın raporu hedefin anahtarını taşıyor.
+- Geri doldurma **ayrı bir bayrakla** bir kez çalışıyor, `saldirilarim` varlığına bakmıyor: kayıt sürümden sonraki ilk saldırıda zaten oluşuyor, varlığına baksaydık o tek saldırıdan öncesi sonsuza dek doldurulamazdı (ölçüldü — bir kez vurmuş hesapta eski beş hedef görünmüyordu). **Birleştiriyor, ezmiyor**: gerçek saldırıdan gelen kayıt rapordan türetilenden doğru.
+- **TARLA TAVANI: merkez 20, diğerleri 10** (`koyKurallari · tarlaTavani`). Tarlalar her köyde 20'ye çıkabilirken MERKEZ KÖY diye bir şeyin anlamı kalmıyordu; çoklu köy, birbirinin kopyası yirmi kasabaya dönüşüyordu. Tavanı ikiye ayırmak merkeze gerçek bir üstünlük veriyor.
+- **Tanım tablosu 20 seviye taşımaya devam ediyor**: tavan bir KURAL, tablo değil. Tablo kısaltılsaydı merkezin 11-20 aralığı da yok olurdu.
+- Sınır üç yerde birden: sunucu kapısı (`upgrade_production`, sebebini yazan bir ret), ekran (tavana varan tarlada "son seviye" + nedenini ve çözümünü anlatan not) ve dev kısayolu (kuralı delen bir kısayol geliştirme ortamını gerçek oyundan ayırırdı).
+- **AÇIK KALAN — mevcut Lvl 10+ tarlalar DÜŞÜRÜLMÜYOR.** Oyuncuların emeğini geri almak istemedim; ama bu, merkezi köyden köye taşıyarak her köyün tarlalarını 20'ye çıkarmanın yolunu açık bırakıyor. Kapatmak için ya merkez taşınırken fazlalığı kırpmak ya da merkez taşımaya bir bedel/bekleme koymak gerekir — İlkan'a soruldu.
+
 ### Kervan listesi + haritada saldırı izleri (14 Eylül 2026)
 - İlkan: *"markette yolladığım pazarcıları görebilmem lazım"* ve *"harita üzerinde saldırdığım yağmaladığım yerleri görmek istiyorum, üzerinde bir kılıç vs olsun"*.
 - **KERVAN LİSTESİ YANLIŞ YERDEYDİ VE EKSİKTİ.** Liste vardı ama yalnız "Oyuncu Pazarı" sekmesinde çiziliyordu: hammadde gönderen oyuncu, gönderiyi yaptığı sekmede kervanını göremiyordu ve başka sekmeye geçmesi gerektiğini bilmesinin bir yolu yoktu. Artık sekmelerin ÜSTÜNDE, her sekmede (`Kervanlar.jsx`).

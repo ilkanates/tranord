@@ -504,6 +504,64 @@ function createMarch(village, {
  */
 const MAX_SALDIRI_IZI = 60;
 
+/**
+ * ESKİ SALDIRILARI RAPORLARDAN GERİ DOLDUR.
+ *
+ * İz kaydı YENİ; bu sürümden önce vurulan köylerde hiç kayıt yok ve
+ * harita boş görünüyor. Oyuncu için bu "özellik çalışmıyor" demek
+ * (İlkan bildirdi).
+ *
+ * Raporlar diskte duruyor ve saldıranın kendi raporu hedefin anahtarını
+ * taşıyor — son 25 seferlik bir pencere ama boş haritadan iyi. Bir kez
+ * çalışıyor: kayıt oluştuktan sonra gerçek izler üzerine yazıyor.
+ *
+ * TEK YÖNLÜ: yalnız `dir === 'out'` ve saldırı/yağma raporları. Gelen
+ * saldırılar benim izim değil, savunmam.
+ */
+function saldiriIzleriniGeriDoldur(village) {
+  /*
+    AYRI BİR BAYRAK, `saldirilarim` varlığı DEĞİL.
+
+    Kayıt sürüm çıktıktan sonraki İLK saldırıda oluşuyor; varlığına
+    baksaydık o tek saldırıdan öncesi sonsuza dek geri doldurulamazdı
+    (ölçüldü: bir kez vurmuş hesapta eski beş hedef hiç görünmüyordu).
+  */
+  if (village.izGeriDolduruldu) return false;
+  village.izGeriDolduruldu = true;
+  const iz = {};
+  for (const r of village.reports || []) {
+    if (r.dir !== 'out') continue;
+    if (r.mode !== 'attack' && r.mode !== 'raid') continue;
+    if (!r.toKey) continue;
+    const onceki = iz[r.toKey];
+    iz[r.toKey] = {
+      // Raporlar yeniden eskiye sıralı; ilk görülen EN YENİ olan.
+      at: onceki?.at || r.at || 0,
+      mode: onceki?.mode || r.mode,
+      toName: onceki?.toName || r.toName || r.toKey,
+      winner: onceki?.winner || r.winner,
+      kez: (onceki?.kez || 0) + 1,
+      ganimet: (onceki?.ganimet || 0)
+        + Object.values(r.loot || {}).reduce((a, b) => a + b, 0),
+      kayip: (onceki?.kayip || 0) + (r.attackerDead || 0),
+    };
+  }
+  /*
+    BİRLEŞTİRİYOR, ÜZERİNE YAZMIYOR: gerçek saldırıdan gelen kayıt
+    rapordan türetilenden doğru — ganimet ve kayıp orada birikmiş.
+  */
+  const mevcut = village.saldirilarim || {};
+  let eklenen = 0;
+  for (const [k, v] of Object.entries(iz)) {
+    if (mevcut[k]) continue;
+    mevcut[k] = v;
+    eklenen++;
+  }
+  village.saldirilarim = mevcut;
+  budaSaldiriIzi(mevcut);
+  return eklenen > 0;
+}
+
 function budaSaldiriIzi(iz) {
   const anahtarlar = Object.keys(iz);
   if (anahtarlar.length <= MAX_SALDIRI_IZI) return;
@@ -1140,7 +1198,7 @@ function advanceMarch(march, hours) {
 module.exports = {
   advanceMarch, statsOf,
   RAID_LOOT_SHARE, LOOTABLE, SCOUT_UNITS, MAX_REPORTS, MIN_MARCH_MINUTES,
-  MAX_SALDIRI_IZI,
+  MAX_SALDIRI_IZI, saldiriIzleriniGeriDoldur,
   marchSeconds, marchGameHours, slowestSpeed, carryCapacity, armyAttack, armyDefense,
   totalUnits, buildingLevel, applyLossesToVillage, takeLoot, depositLoot,
   createMarch, resolveArrival, resolveReturn, pushReport,

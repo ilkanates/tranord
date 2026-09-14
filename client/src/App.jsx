@@ -1042,6 +1042,9 @@ function Game({ token, onLogout }) {
               unitStatsNow={village.unitStatsNow || {}}
               intel={village.intel || {}}
               saldirilarim={village.saldirilarim || {}}
+              tarlaTavani={village.tarlaTavani || 20}
+              tarlaTavanlari={village.tarlaTavanlari || null}
+              merkezMi={!!village.isCapital}
               marchInfo={village.marchInfo || {}}
               onBuild={buildProduction}
               onUpgrade={upgradeProduction}

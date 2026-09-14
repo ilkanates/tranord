@@ -145,7 +145,31 @@ function settlerCapacity(village) {
  */
 const MAX_BUILDERS = (mevcutSeviye) => Math.max(1, (mevcutSeviye || 0) + 2);
 
+/**
+ * ÜRETİM ALANI (TARLA) SEVİYE TAVANI.
+ *
+ * İlkan'ın kararı: *"üretim alanlarını her zaman Lvl 10 ile sınırla,
+ * tarlaları yani — ama merkez ise Lvl 20'ye kadar çıkabilsin"*.
+ *
+ * NEDEN: tarlalar 20'ye kadar açıkken her köy kendi başına yetiyordu ve
+ * MERKEZ KÖY diye bir şeyin anlamı kalmıyordu — çoklu köy, birbirinin
+ * kopyası yirmi kasabaya dönüşüyordu. Tavanı ikiye ayırmak merkeze
+ * gerçek bir üstünlük veriyor: ham üretimin ağırlığı orada, uçtaki
+ * köyler asker ve mevzi için.
+ *
+ * TANIMDAKİ 20 SEVİYE DURUYOR: tavan bir KURAL, tablo değil. Tablo
+ * kısaltılsaydı merkezin 11-20 aralığı da yok olurdu.
+ */
+const TARLA_TAVANI = 10;
+const TARLA_TAVANI_MERKEZ = 20;
+
+/** Bu köyde tarlalar en fazla kaçıncı seviyeye çıkar */
+function tarlaTavani(village) {
+  return village?.isCapital ? TARLA_TAVANI_MERKEZ : TARLA_TAVANI;
+}
+
 module.exports = {
+  TARLA_TAVANI, TARLA_TAVANI_MERKEZ, tarlaTavani,
   POP_PER_HOUR_BASE, POP_PER_HOUR_STEP, popPerGameHour,
   getVillageBuildMinutes, getVillageDemolishMinutes, YIKIM_ORANI,
   UPGRADE_MULT_DEFAULT, getScaledUpgradeCost,

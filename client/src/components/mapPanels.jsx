@@ -300,10 +300,18 @@ export function FieldPanel({
   localKey, wq, wr, tile, resources, freeWorkers, flows, popoverPos,
   onUpgrade, onDemolish, onAssignWorkers, onCancelBuild, onClose,
   hourSeconds = 3600, worldSpeed = 1,
+  /*
+    TARLA TAVANI — merkez dışı köylerde Lvl 10, merkezde 20
+    (bkz. server/game/koyKurallari · tarlaTavani). Sunucu bu sınırı
+    zorunlu kılıyor; ekran da bilmezse yükseltme düğmesi açık görünür,
+    basılır ve hiçbir şey olmaz.
+  */
+  tarlaTavani = 20, tarlaTavanlari = null, merkezMi = false,
 }) {
   const def = BUILDING_DEFS[tile.type];
   const [buildWorkers, setBuildWorkers] = useState(1);
-  const next = def?.levels?.[tile.level];
+  const tavandaMi = tile.level >= tarlaTavani;
+  const next = tavandaMi ? null : def?.levels?.[tile.level];
   const maxed = !next;
   const [lq, lr] = localKey.split(',').map(Number);
   const mult = fieldMultiplier(wq, wr, lq, lr, tile.type);
@@ -411,8 +419,29 @@ export function FieldPanel({
               </button>
             </>
           ) : maxed ? (
-            <div style={{ padding: '20px 8px', textAlign: 'center', fontFamily: FONT.ui, fontSize: 11, color: C.textMute }}>
-              Maksimum seviyede
+            <div style={{ padding: '16px 10px', textAlign: 'center' }}>
+              <div style={{ fontFamily: FONT.ui, fontSize: 11, color: C.gold }}>
+                Lvl {tile.level} · son seviye
+              </div>
+              {/*
+                MERKEZ DIŞINDA TAVAN DAHA DÜŞÜK. "Maksimum seviyede"
+                demek yetmiyordu: oyuncu tarlanın 20'ye çıkabildiğini
+                biliyor ve 10'da durunca bunu bir arıza sanıyor. Sebebi
+                ve çözümü burada yazıyor.
+              */}
+              {!merkezMi && tarlaTavanlari
+                && tarlaTavani < tarlaTavanlari.merkez && (
+                <div style={{
+                  fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint,
+                  lineHeight: 1.55, marginTop: 6,
+                }}>
+                  Merkez olmayan köyde tarlalar en fazla
+                  {' '}<b style={{ color: C.textDim }}>Lvl {tarlaTavanlari.normal}</b>.
+                  Bu köyü merkez yaparsan
+                  {' '}<b style={{ color: C.gold }}>Lvl {tarlaTavanlari.merkez}</b>'ye
+                  kadar çıkar — merkez sarayından değiştirilir.
+                </div>
+              )}
             </div>
           ) : (
             <>

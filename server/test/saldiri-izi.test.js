@@ -115,3 +115,64 @@ test('kayıt TAVANI var — en eski hedefler düşüyor', () => {
   assert.ok(!o.saldirilarim.t0, 'en eski hedef düşmüş olmalı');
   assert.ok(o.saldirilarim[`t${n - 1}`], 'en yeni hedef durmalı');
 });
+
+/**
+ * GERİ DOLDURMA — sürüm öncesi saldırılar da haritada görünsün.
+ *
+ * İz kaydı yeni; bu sürümden önce vurulan köylerde hiç kayıt yok ve
+ * harita boş görünüyor. Oyuncu için bu "özellik çalışmıyor" demek
+ * (İlkan bildirdi). Raporlar diskte duruyor ve saldıranın kendi raporu
+ * hedefin anahtarını taşıyor.
+ */
+test('eski saldırılar RAPORLARDAN geri dolduruluyor', () => {
+  const v = createVillage(0, 0);
+  v.reports = [
+    { dir: 'out', mode: 'raid', toKey: '5,5', toName: 'Hedef', winner: 'attacker',
+      at: 200, loot: { odun: 100, kil: 50 }, attackerDead: 3 },
+    { dir: 'out', mode: 'raid', toKey: '5,5', toName: 'Hedef', winner: 'defender',
+      at: 100, loot: {}, attackerDead: 40 },
+    { dir: 'in', mode: 'attack', fromKey: '9,9', at: 150 },
+    { dir: 'out', mode: 'scout', toKey: '7,7', at: 120 },
+  ];
+  assert.equal(ARMY.saldiriIzleriniGeriDoldur(v), true);
+
+  const iz = v.saldirilarim['5,5'];
+  assert.equal(iz.kez, 2, 'aynı hedefe iki sefer tek kayıtta birleşmeli');
+  assert.equal(iz.ganimet, 150, 'ganimet toplanmalı');
+  assert.equal(iz.kayip, 43);
+  /*
+    Raporlar yeniden eskiye sıralı; sonuç EN YENİ seferden alınıyor —
+    rozetin rengi "en son ne oldu" demeli.
+  */
+  assert.equal(iz.winner, 'attacker');
+  assert.equal(iz.at, 200);
+
+  assert.equal(v.saldirilarim['9,9'], undefined, 'gelen saldırı benim izim değil');
+  assert.equal(v.saldirilarim['7,7'], undefined, 'keşif kılıç rozeti almamalı');
+});
+
+test('geri doldurma BİR KEZ çalışıyor ve mevcut kaydı EZMİYOR', () => {
+  /*
+    Gerçek saldırıdan gelen kayıt rapordan türetilenden doğru: ganimet
+    ve kayıp orada birikmiş. Bayrak ayrı tutuluyor çünkü kayıt, sürüm
+    çıktıktan sonraki ilk saldırıda zaten oluşuyor — varlığına baksaydık
+    o tek saldırıdan öncesi sonsuza dek geri doldurulamazdı.
+  */
+  const v = createVillage(0, 0);
+  v.saldirilarim = {
+    '5,5': { at: 900, mode: 'raid', toName: 'Yeni', winner: 'attacker',
+      kez: 1, ganimet: 500, kayip: 0 },
+  };
+  v.reports = [
+    { dir: 'out', mode: 'raid', toKey: '5,5', toName: 'Eskisi', winner: 'defender',
+      at: 100, loot: {}, attackerDead: 9 },
+    { dir: 'out', mode: 'attack', toKey: '8,8', toName: 'Eski', winner: 'attacker',
+      at: 80, loot: { odun: 20 }, attackerDead: 2 },
+  ];
+  assert.equal(ARMY.saldiriIzleriniGeriDoldur(v), true);
+  assert.equal(v.saldirilarim['5,5'].ganimet, 500, 'mevcut kayıt korunmalı');
+  assert.equal(v.saldirilarim['5,5'].winner, 'attacker');
+  assert.ok(v.saldirilarim['8,8'], 'raporda olup kayıtta olmayan hedef eklenmeli');
+
+  assert.equal(ARMY.saldiriIzleriniGeriDoldur(v), false, 'ikinci çağrı iş yapmamalı');
+});

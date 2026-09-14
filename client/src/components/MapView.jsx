@@ -469,7 +469,7 @@ function outlinePath(localKeys, cq, cr) {
 
 // ── Vahşi hex ────────────────────────────────────────────────────────
 // ── Yabancı köy merkezi (yakın zoom) ─────────────────────────────────
-function ForeignCore({ v, color, hovered, onEnter, onLeave, onClick }) {
+function ForeignCore({ v, color, hovered, onEnter, onLeave, onClick, saldiriIzi = null, scale = 1 }) {
   const { x, y } = hexToPixel(v.q, v.r, S);
   const pts = hexPoints(x, y, S - 1);
   const clipId = `vc-${v.q}-${v.r}`;
@@ -483,6 +483,17 @@ function ForeignCore({ v, color, hovered, onEnter, onLeave, onClick }) {
         clipPath={`url(#${clipId})`} preserveAspectRatio="xMidYMid slice" />
       <polygon points={pts} fill={alpha(color, 0.15)} />
       <polygon points={pts} fill="none" stroke={color} strokeWidth={hovered ? 2.6 : 1.8} />
+      {/*
+        ROZET YAKIN ZUMDA DA ÇİZİLİYOR.
+
+        Önce yalnız uzak zumdaki işarete (VillageMark) konmuştu; oyuncu
+        haritayı köyünün çevresinde, yani YAKIN zumda kullanıyor ve orada
+        köyler bu bileşenle çiziliyor — rozet hiç görünmüyordu (İlkan
+        bildirdi: "haritada saldırdığım yeri hâlâ göremiyorum").
+
+        Burada hex büyük (S=24), rozet de ona göre büyük: 10.
+      */}
+      <SaldiriRozeti x={x} y={y} r={S} iz={saldiriIzi} scale={scale} boy={10} />
     </g>
   );
 }
@@ -605,7 +616,7 @@ function FieldHex({
  * YAĞMA ile SALDIRI ayrılmıyor: ikisi de "vurdum" demek ve haritada iki
  * ayrı simge okunmuyor — ayrıntı zaten hover kartında yazıyor.
  */
-function SaldiriRozeti({ x, y, r, iz, scale }) {
+function SaldiriRozeti({ x, y, r, iz, scale, boy = 6 }) {
   if (!iz) return null;
   const kazandim = iz.winner === 'attacker';
   const renk = kazandim ? '#ff6f78' : '#93a1ad';
@@ -614,7 +625,7 @@ function SaldiriRozeti({ x, y, r, iz, scale }) {
     boyut ölçeğe BÖLÜNÜYOR — rozet her zumda aynı piksel büyüklüğünde
     kalıyor, yoksa uzaklaşınca görünmez olurdu.
   */
-  const k = 1 / Math.max(0.5, scale);
+  const k = boy / 6 / Math.max(0.5, scale);
   const bx = x + r * 0.72;
   const by = y - r * 0.72;
   return (
@@ -924,6 +935,8 @@ export default function MapView({
     Keşif verisi gibi köyde duruyor ve haritaya rozet olarak düşüyor.
   */
   saldirilarim = {},
+  /* Tarla seviye tavanı — merkezde 20, diğer köylerde 10 */
+  tarlaTavani = 20, tarlaTavanlari = null, merkezMi = false,
   // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
   kahraman = null, activeSlot = null,
   // Hammadde gönderme kısayolu tüccar sayısını pazardan okuyor
@@ -1765,6 +1778,7 @@ export default function MapView({
               })}
               {visibleForeign.map(v => (
                 <ForeignCore key={`k${v.key}`} v={v} color={colorOf(v)}
+                  saldiriIzi={saldirilarim[v.key] || null} scale={scale}
                   hovered={hoverVillage?.key === v.key || selVillage?.key === v.key}
                   onEnter={() => setHoverVillage(v)}
                   onLeave={() => setHoverVillage(h => (h?.key === v.key ? null : h))}
@@ -2000,6 +2014,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
 
       {selField && selField !== '0,0' && selectedTile && popoverPos && (
         <FieldPanel localKey={selField} wq={wq} wr={wr} tile={selectedTile}
+          tarlaTavani={tarlaTavani} tarlaTavanlari={tarlaTavanlari} merkezMi={merkezMi}
           resources={resources} freeWorkers={freeWorkers} flows={flows} popoverPos={popoverPos}
           hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           onUpgrade={(w) => { onUpgrade(selField, w); setSelField(null); }}
