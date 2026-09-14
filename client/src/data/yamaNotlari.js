@@ -26,6 +26,45 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14r',
+    tarih: '14 Eylül 2026',
+    baslik: 'Hammadde gönderme ve harita kısayolları',
+    notlar: [
+      {
+        id: '20260914-hammadde-gonder',
+        tur: 'yenilik',
+        metin: 'ARTIK İSTEDİĞİN OYUNCUYA KARŞILIKSIZ HAMMADDE '
+          + 'yollayabiliyorsun. Pazar ekranında yeni HAMMADDE GÖNDER '
+          + 'sekmesi var: köy adı ya da oyuncu adı yazıp arıyor, beş '
+          + 'kaynağı birden tek kervanla gönderiyorsun. Pazar bugüne '
+          + 'kadar yalnız TAKAS yapıyordu — birine bir şey vermek için '
+          + 'ondan karşılığında bir şey istemen ve onun da kabul etmesi '
+          + 'gerekiyordu.',
+      },
+      {
+        id: '20260914-hammadde-kural',
+        tur: 'denge',
+        metin: 'Gönderi TEK KERVAN: beş kaynağı ayrı ayrı yollasaydın beş '
+          + 'kat tüccar tutardı. Tüccarlar yürüyerek gidip dönüyor ve '
+          + 'dönene kadar başka işte kullanılamıyor — uzak müttefike '
+          + 'yardım yakına yardımdan pahalı. Yola çıkan mal GERİ '
+          + 'ALINAMAZ ve yalnız oyuncu köylerine gidiyor. İki tarafa da '
+          + 'rapor düşüyor: alan kimden ne geldiğini, gönderen neyi kime '
+          + 'yolladığını görüyor.',
+      },
+      {
+        id: '20260914-harita-kisayollari',
+        tur: 'yenilik',
+        metin: 'HARİTADA BİR KÖYE TIKLAYINCA artık tek bir "ORDU GÖNDER" '
+          + 'düğmesi yerine KISAYOLLAR çıkıyor: SALDIR · YAĞMA · KEŞFET '
+          + '· DESTEK · HAMMADDE. Hangisine bastıysan sefer ekranı o '
+          + 'kiple açılıyor; eskiden önce ekranı açıp oradaki kipi '
+          + 'değiştirmen gerekiyordu. Hammadde kısayolu doğrudan '
+          + 'gönderi penceresini hedefi dolu olarak açıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14p',
     tarih: '14 Eylül 2026',
     baslik: 'Savunma yapıları ve simülatörün yeri',

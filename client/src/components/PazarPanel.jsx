@@ -18,6 +18,7 @@ import { RES_LABEL } from '../flows';
 import { RES_COLOR } from '../theme';
 import Icon from './Icons';
 import PazarTeklifler from './PazarTeklifler';
+import HammaddeGonder from './HammaddeGonder';
 
 const HAM = ['odun', 'kil', 'tas', 'demir', 'tahil'];
 const ISLENMIS = ['kereste', 'tugla', 'yontmaTas', 'demirKulce', 'un', 'ekmek'];
@@ -130,7 +131,12 @@ export default function PazarPanel({
 
       {/* ── Sekmeler ── */}
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
-        {[['takas', 'NPC TAKASI'], ['teklif', 'OYUNCU PAZARI']].map(([k, ad]) => {
+        {/*
+          ÜÇÜNCÜ SEKME: GÖNDERİ. Takas ve teklif KARŞILIKLI işler; hediye
+          tek yönlü ve hiçbirine benzemiyor — aynı sekmeye sıkıştırmak
+          "ne alacağım" alanını boş bırakmak olurdu.
+        */}
+        {[['takas', 'NPC TAKASI'], ['teklif', 'OYUNCU PAZARI'], ['gonderi', 'HAMMADDE GÖNDER']].map(([k, ad]) => {
           const acik = sekme === k;
           return (
             <button key={k} type="button" onClick={() => setSekme(k)}
@@ -145,7 +151,9 @@ export default function PazarPanel({
         })}
       </div>
 
-      {sekme === 'teklif' ? (
+      {sekme === 'gonderi' ? (
+        <HammaddeGonder socket={socket} pazar={pazar} resources={resources} />
+      ) : sekme === 'teklif' ? (
         <PazarTeklifler
           socket={socket} pazar={pazar} resources={resources}
           onAc={onTeklifAc} onIptal={onTeklifIptal} onKabul={onTeklifKabul} />

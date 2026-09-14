@@ -2897,6 +2897,124 @@ io.on('connection', async socket => {
     console.log(`[PAZAR] ${userEmail} kabul: ${t.verenMiktar} ${t.veren} <-> ${t.alanMiktar} ${t.alan} (${mesafe} hex)`);
   });
 
+  /**
+   * HAMMADDE GÖNDER — karşılıksız sevkiyat.
+   *
+   * İlkan: *"pazardan istediğime hammadde yollayabilmeliyim"*.
+   *
+   * Bugüne kadar pazar YALNIZ TAKAS yapıyordu: birine bir şey vermek için
+   * ondan karşılığında bir şey istemek zorundaydın ve o da kabul etmeliydi.
+   * Müttefikini beslemek, yeni kurulan köyüne yardım etmek, bir borcu
+   * ödemek — hiçbiri mümkün değildi.
+   *
+   * KURALLAR
+   *
+   * 1) TEK KERVAN, KARIŞIK YÜK. Beş kaynak tek gönderide gidiyor; her biri
+   *    ayrı gönderi olsaydı beş kat tüccar tutardı (bkz. pazarYol · gonderi).
+   *
+   * 2) YALNIZ OYUNCU KÖYÜNE. NPC'ye hediye göndermek kaynağı çöpe atmak
+   *    olurdu ve hiçbir işe yaramazdı; kendi köylerin dahil.
+   *
+   * 3) TÜCCAR YÜRÜR. Mesafe süreyi belirliyor ve tüccarlar dönene kadar
+   *    bağlı kalıyor — uzak müttefike yardım yakına yardımdan pahalı.
+   *
+   * 4) GERİ ALINAMAZ. Yola çıkan mal hediyedir; iptal olsaydı "gönderdim"
+   *    diyip son anda geri çekmek mümkün olurdu.
+   */
+  socket.on('pazar_hammadde_gonder', ({ targetKey, kaynaklar } = {}) => {
+    const village = v();
+    const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
+    const red = (sebep) => socket.emit('build_refused', { reason: sebep });
+
+    if (!PAZAR.pazarBinasi(village)) return red('Önce pazar kurman gerekiyor.');
+    if (!targetKey || targetKey === mySlot) return red('Hedef köy seç.');
+
+    const hedef = villageAtSlot(targetKey);
+    if (!hedef?.village) return red('Hedef köy bulunamadı.');
+    if (hedef.userId == null) {
+      return red('Hammadde yalnız oyuncu köylerine gönderilebilir.');
+    }
+
+    /*
+      YÜKÜ TEMİZLE. İstemciden gelen sözlüğe güvenilmiyor: yalnız takas
+      kaynakları, yalnız pozitif tam sayılar. Süzmeseydik istemci
+      "ekmek: -5" yollayıp depo doldurabilirdi.
+    */
+    const yuk = {};
+    let toplam = 0;
+    for (const k of PAZAR.TAKAS_KAYNAKLARI) {
+      const n = Math.floor(Number(kaynaklar?.[k]) || 0);
+      if (n > 0) { yuk[k] = n; toplam += n; }
+    }
+    if (toplam <= 0) return red('Gönderilecek bir şey seçmedin.');
+
+    for (const [k, n] of Object.entries(yuk)) {
+      if ((village.resources[k] || 0) < n) {
+        const eksik = Math.ceil(n - (village.resources[k] || 0));
+        return red(`Yetersiz ${KUYRUK.ETIKET[k] || k}: ${eksik} eksik.`);
+      }
+    }
+
+    const gereken = PAZAR.gerekenTuccar(toplam);
+    const bos = PAZAR.tuccarBos(village);
+    if (bos < gereken) {
+      return red(`${gereken} tüccar gerekiyor, ${bos} boşta.`);
+    }
+
+    const benimSlot = WORLD.slotByKey.get(mySlot);
+    const onunSlot = WORLD.slotByKey.get(targetKey);
+    const mesafe = (benimSlot && onunSlot) ? W.distanceBetween(benimSlot, onunSlot) : 10;
+    const sure = PAZAR_YOL.saat(mesafe);
+
+    for (const [k, n] of Object.entries(yuk)) village.resources[k] -= n;
+    (village.gonderiler ||= []).push(PAZAR_YOL.gonderi({
+      hedefSlot: targetKey, hedefAd: hedef.name,
+      yuk, tuccar: gereken, saat: sure, mesafe,
+    }));
+
+    /*
+      ALICIYA HABER. Kapısına mal bırakılan oyuncu bunu ancak deposundaki
+      sayı değişince fark ederdi; kimin gönderdiğini hiç öğrenemezdi.
+      Rapor teslim ANINDA değil ÇIKIŞ anında yazılıyor — yolda olduğunu
+      bilmek de bir bilgi (bkz. pazarYol · teslimEt).
+    */
+    /*
+      İKİ TARAFA DA RAPOR — ve ÇIKIŞ anında, varışta değil.
+
+      Kapısına mal bırakılan oyuncu bunu ancak deposundaki sayı değişince
+      fark ederdi, kimin gönderdiğini hiç öğrenemezdi. Çıkışta yazmak
+      ayrıca bir bilgi veriyor: yardımın YOLDA olduğunu bilmek, ne zaman
+      geleceğini hesaplamayı sağlıyor.
+
+      Gönderenin kendi kaydı da duruyor: "ben buna ne yollamıştım"
+      sorusunun tek cevabı bu.
+    */
+    const simdi = Date.now();
+    const rapor = {
+      at: simdi, mode: 'hammadde', outcome: 'hammadde_yolda',
+      yuk, toplam, tuccar: gereken, mesafe,
+      // Süre GERÇEK saniyeye çevriliyor: dünya hızı değişirse rapor da kayar
+      varisSn: GT.clockToRealSeconds(GT.hoursToClock(sure), WORLD.speed || 1),
+    };
+    ARMY.pushReport(village, {
+      ...rapor, id: `hg${simdi}-out`, dir: 'out',
+      fromName: WORLD.playerBySlot.get(mySlot)?.name || 'Köyüm',
+      toName: hedef.name, toKey: targetKey,
+    });
+    if (hedef.userId !== userId) {
+      ARMY.pushReport(hedef.village, {
+        ...rapor, id: `hg${simdi}-in`, dir: 'in',
+        fromName: WORLD.playerBySlot.get(mySlot)?.name || 'Bir oyuncu',
+        fromKey: mySlot, toName: hedef.name,
+      });
+      markUserDirty(hedef.userId, targetKey);
+    }
+    dirty(); emit();
+    socket.emit('dev_result', { ok: true,
+      message: `${toplam} kaynak ${hedef.name} köyüne yola çıktı` });
+    console.log(`[PAZAR] ${userEmail} hediye: ${toplam} kaynak -> ${targetKey} (${mesafe} hex)`);
+  });
+
   socket.on('start_festival', ({ kind } = {}) => {
     const village = v();
     const f = CULTURE.FESTIVALS[kind];
@@ -3989,6 +4107,25 @@ io.on('connection', async socket => {
         if (village.villageBuildings[slotKey]) continue;
         village.villageBuildings[slotKey] = { type: tip, level: 1, workers: 0 };
         bina++;
+      }
+
+      /*
+        PAZAR DA KURULUYOR. Pazarsız bir köyde takas, teklif ve hammadde
+        gönderme ekranlarının hiçbiri açılmıyor; kısayolun adı "bütün
+        binalar" olduğu hâlde o ekranları denemek için elle pazar kurmak
+        gerekiyordu. Boş hex bulunamazsa sessizce atlanıyor.
+      */
+      const pazarVar = Object.values(village.villageBuildings).some(b => b?.type === 'pazar');
+      if (!pazarVar) {
+        let bos = null;
+        for (let q = -3; q <= 3 && !bos; q++) {
+          for (let r = -3; r <= 3 && !bos; r++) {
+            if (Math.abs(q + r) > 3) continue;
+            const key = q + "," + r;
+            if (!village.villageBuildings[key]) bos = key;
+          }
+        }
+        if (bos) { village.villageBuildings[bos] = { type: 'pazar', level: 1, workers: 0 }; bina++; }
       }
 
       for (const b of Object.values(village.villageBuildings)) {

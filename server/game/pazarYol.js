@@ -27,16 +27,50 @@ function saat(mesafe) {
   return Math.max(EN_AZ_DAKIKA / 60, (Number(mesafe) || 0) / TUCCAR_HIZ);
 }
 
-/** Yeni gönderi nesnesi */
-function gonderi({ hedefSlot, hedefAd, kaynak, miktar, tuccar, saat: sure, mesafe }) {
+/**
+ * Yeni gönderi nesnesi.
+ *
+ * İKİ YÜK BİÇİMİ VAR ve ikisi de desteklenmek zorunda:
+ *
+ *   `kaynak` + `miktar`  → TAKASIN yükü. Teklif tek bir kaynağı tek bir
+ *                          kaynakla değişiyor; orada tek alan doğru biçim.
+ *   `yuk` (sözlük)        → HEDİYE gönderisinin yükü. Oyuncu bir seferde
+ *                          beş kaynağı birden yollayabiliyor ve hepsi TEK
+ *                          kervanla gidiyor.
+ *
+ * Beşi için beş ayrı gönderi açsaydık her biri kendi tüccarını bağlardı:
+ * 100'er birimlik beş kaynak, 500 birimlik tek bir sevkiyatın beş katı
+ * tüccar tutardı. Kervan bir tane, yükü karışık.
+ *
+ * Tek kaynak verildiğinde `yuk` da doldurularak yazılıyor; okuma yolu
+ * böylece tek biçim görüyor, eski kayıtlar için de `kaynak` alanı
+ * yerinde duruyor.
+ */
+function gonderi({ hedefSlot, hedefAd, kaynak, miktar, yuk, tuccar, saat: sure, mesafe }) {
+  const gercekYuk = yuk && Object.keys(yuk).length
+    ? Object.fromEntries(Object.entries(yuk)
+      .map(([k, n]) => [k, Math.max(0, Math.floor(n) || 0)])
+      .filter(([, n]) => n > 0))
+    : (kaynak ? { [kaynak]: Math.max(0, Math.floor(miktar) || 0) } : {});
+
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    hedefSlot, hedefAd, kaynak, miktar, tuccar,
+    hedefSlot, hedefAd, kaynak, miktar, yuk: gercekYuk, tuccar,
     mesafe: mesafe || 0,
     faz: 'gidis',
     legSaat: sure,
     kalanSaat: sure,
   };
+}
+
+/**
+ * Bir gönderinin yükü — eski kayıtlarda `yuk` yok, orada tek alandan
+ * türetiliyor. Tek okuma noktası olmasa her çağıran bu ayrımı tekrar
+ * yazmak zorunda kalırdı.
+ */
+function yukOf(g) {
+  if (g?.yuk && Object.keys(g.yuk).length) return g.yuk;
+  return g?.kaynak ? { [g.kaynak]: Math.max(0, Math.floor(g.miktar) || 0) } : {};
 }
 
 /**
@@ -60,7 +94,9 @@ function ilerlet(village, hours, teslimEt) {
 
     if (g.faz === 'gidis') {
       // Mal karşıya iniyor; tüccarlar boş dönüyor
-      teslimEt(g.hedefSlot, g.kaynak, g.miktar);
+      for (const [kaynak, miktar] of Object.entries(yukOf(g))) {
+        if (miktar > 0) teslimEt(g.hedefSlot, kaynak, miktar);
+      }
       g.faz = 'donus';
       g.kalanSaat = g.legSaat;
     } else {
@@ -74,10 +110,12 @@ function ilerlet(village, hours, teslimEt) {
 function ozet(village, speed = 1) {
   return (village.gonderiler || []).map((g) => ({
     id: g.id, hedefAd: g.hedefAd, hedefSlot: g.hedefSlot,
-    kaynak: g.kaynak, miktar: g.miktar, tuccar: g.tuccar,
+    // Eski alanlar duruyor: istemcinin tek kaynaklı görünümü bozulmasın
+    kaynak: g.kaynak, miktar: g.miktar,
+    yuk: yukOf(g), tuccar: g.tuccar,
     faz: g.faz,
     kalanSn: GT.clockToRealSeconds(GT.hoursToClock(Math.max(0, g.kalanSaat || 0)), speed),
   }));
 }
 
-module.exports = { TUCCAR_HIZ, EN_AZ_DAKIKA, saat, gonderi, ilerlet, ozet };
+module.exports = { TUCCAR_HIZ, EN_AZ_DAKIKA, saat, gonderi, yukOf, ilerlet, ozet };

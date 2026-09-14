@@ -27,6 +27,7 @@ import { C, FONT, btn, label as lbl, num, short, fmtTime } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon from './Icons';
 import SendArmyPanel from './SendArmyPanel';
+import HammaddeGonder from './HammaddeGonder';
 import {
   AnaBinaPanel, FieldPanel, BuildFieldPanel, ForeignVillagePanel,
   TYPE_FILL, TYPE_EDGE, Row,
@@ -804,12 +805,68 @@ function SettlePanel({ slot, distance, gocmen, gerekli, unitDefs, engel = null,
   );
 }
 
+/**
+ * HARİTADAN HAMMADDE GÖNDERME — pazar ekranındakiyle AYNI bileşen,
+ * yalnız hedefi hazır gelen bir pencere içinde.
+ *
+ * Köye tıklayıp "hammadde" demek, oyuncunun hedefi zaten seçtiği an;
+ * pazara gidip aynı köyü bir daha aratmak o seçimi çöpe atmak olurdu.
+ */
+function HaritaGonderi({ target, socket, resources, pazar, onClose }) {
+  useEffect(() => {
+    const on = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  }, [onClose]);
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', top: 0, left: 0, zIndex: 9300,
+      width: 'var(--tn-vw)', height: 'var(--tn-vh)',
+      background: 'rgba(4,8,13,0.7)', display: 'grid', placeItems: 'center', padding: 14,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: 'min(520px, 100%)', maxHeight: 'calc(var(--tn-vh) * 0.86)',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        background: C.panelSolid, border: '1px solid ' + C.lineBright,
+        borderRadius: 9, boxShadow: '0 16px 50px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 12px', borderBottom: '1px solid ' + C.lineSoft,
+        }}>
+          <Icon name="depo" size={14} color={C.iceSoft} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FONT.head, fontSize: 15, color: C.frost }}>
+              Hammadde gönder
+            </div>
+            <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>
+              {target.name} · karşılıksız sevkiyat
+            </div>
+          </div>
+          <button type="button" onClick={onClose} title="Kapat (Esc)" style={{
+            background: 'none', border: '1px solid ' + C.lineSoft, borderRadius: 5,
+            color: C.textMute, cursor: 'pointer', width: 24, height: 24,
+            fontFamily: FONT.ui, fontSize: 12, lineHeight: 1,
+          }}>✕</button>
+        </div>
+        <div className="tn-scroll" style={{ overflowY: 'auto', minHeight: 0, padding: 12 }}>
+          <HammaddeGonder socket={socket} resources={resources} pazar={pazar}
+            sabitHedef={target} onGonderildi={onClose} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MapView({
   socket, world, productionTiles = {}, maxProductionSlots = 6, anaBina,
   freeWorkers = 0, resources = {}, flows = {}, railInset = 0, myArmy = 0,
   army = {}, unitDefs = {}, unitStatsNow = {}, intel = {}, marchInfo = {},
   // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
   kahraman = null, activeSlot = null,
+  // Hammadde gönderme kısayolu tüccar sayısını pazardan okuyor
+  pazar = null,
   onBuild, onUpgrade, onDemolish, onAssignWorkers, onCancelBuild,
   onUpgradeAnaBina, onEnterVillageCenter,
   // Panel açıkken rehber kartı rozete iner (bkz. QuestGuide.jsx)
@@ -857,6 +914,14 @@ export default function MapView({
   */
   useEffect(() => () => onPanelChange?.(false), [onPanelChange]);
   const [sendTarget, setSendTarget] = useState(null);   // ordu gönderme ekranı
+  /*
+    Kısayoldan gelen KİP — sefer ekranı bununla açılıyor. Ayrı bir durum
+    çünkü hedef ile kip birlikte seçiliyor ama ekran hedefe göre
+    kuruluyor; tek nesneye tıkıştırmak hedefi her kip değişiminde
+    yeniden kurdururdu.
+  */
+  const [sendMode, setSendMode] = useState(null);
+  const [gonderiHedef, setGonderiHedef] = useState(null);  // hammadde gönderme
 
   const ref = useRef(null);
   const layerRef = useRef(null);
@@ -1891,7 +1956,11 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           */
           canAttack={selVillage.kind === 'npc' || selVillage.kind === 'player'}
           canReinforce={selVillage.kind === 'self' || selVillage.kind === 'player'}
-          onAttack={() => { setSendTarget(selVillage); setSelVillage(null); }}
+          onAttack={() => { setSendMode(null); setSendTarget(selVillage); setSelVillage(null); }}
+          onKisayol={(kip) => {
+            setSendMode(kip); setSendTarget(selVillage); setSelVillage(null);
+          }}
+          onHammadde={() => { setGonderiHedef(selVillage); setSelVillage(null); }}
           onClose={() => setSelVillage(null)} />
       )}
 
@@ -1942,7 +2011,19 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           army={army} unitDefs={unitDefs} unitStatsNow={unitStatsNow} marchInfo={marchInfo}
           intel={intel[sendTarget.key] || null}
           kahraman={kahraman} activeSlot={activeSlot}
-          onClose={() => setSendTarget(null)} />
+          baslangicKip={sendMode}
+          onClose={() => { setSendTarget(null); setSendMode(null); }} />
+      )}
+
+      {/*
+        HAMMADDE GÖNDERME — haritadan açılan hâli. Pazar ekranındakiyle
+        AYNI bileşen; hedef burada hazır geldiği için arama kutusu
+        gizleniyor (bkz. HammaddeGonder · sabitHedef).
+      */}
+      {gonderiHedef && (
+        <HaritaGonderi target={gonderiHedef} socket={socket}
+          resources={resources} pazar={pazar}
+          onClose={() => setGonderiHedef(null)} />
       )}
     </div>
   );

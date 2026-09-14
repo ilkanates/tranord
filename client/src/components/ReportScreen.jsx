@@ -10,7 +10,7 @@
  * try/catch içinde — gizli pencerede erişim hata atabiliyor.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { C, FONT, panel, btn, label as lbl, num, short } from '../theme';
+import { C, FONT, panel, btn, label as lbl, num, short, fmtTime } from '../theme';
 import { useViewport } from '../responsive';
 import { RES_LABEL } from '../flows';
 import VILLAGE_DEFS from '../data/villageDefs';
@@ -49,10 +49,22 @@ const sum = (o) => Object.values(o || {}).reduce((a, b) => a + (b || 0), 0);
 function yonBilgisi(r) {
   // Gelen takviye tehdit değil — kırmızı rozet onu "saldırı geldi" gibi
   // gösteriyordu. Dost hareket savunma yeşiliyle işaretleniyor.
-  const dost = r?.outcome === 'takviye_vardi';
+  const takviye = r?.outcome === 'takviye_vardi';
+  /*
+    HEDİYE de dost bir hareket ama DESTEK DEĞİL: "DESTEK GİTTİ" yazmak
+    asker yolladığını düşündürürdü. Kendi etiketi var.
+  */
+  const hediye = r?.outcome === 'hammadde_yolda';
+  const dost = takviye || hediye;
+  const yesil = '#6cdda3';
+  if (hediye) {
+    return r?.dir === 'in'
+      ? { etiket: 'HAMMADDE GELDİ', ikon: 'asagi', renk: yesil }
+      : { etiket: 'HAMMADDE GİTTİ', ikon: 'yukari', renk: '#c4ecff' };
+  }
   return r?.dir === 'in'
-    ? { etiket: dost ? 'DESTEK GELDİ' : 'BANA GELDİ', ikon: 'asagi', renk: dost ? '#6cdda3' : '#e8636f' }
-    : { etiket: dost ? 'DESTEK GİTTİ' : 'BEN GİTTİM', ikon: 'yukari', renk: dost ? '#6cdda3' : '#8fdcff' };
+    ? { etiket: dost ? 'DESTEK GELDİ' : 'BANA GELDİ', ikon: 'asagi', renk: dost ? yesil : '#e8636f' }
+    : { etiket: dost ? 'DESTEK GİTTİ' : 'BEN GİTTİM', ikon: 'yukari', renk: dost ? yesil : '#8fdcff' };
 }
 
 /**
@@ -191,6 +203,15 @@ function verdictOf(r) {
   if (r.outcome === 'kesif_engellendi') return { txt: 'casusu durdurdun', col: C.good, won: true };
   if (r.outcome === 'hedef_yok') return { txt: 'hedef bulunamadı', col: C.textMute, won: null };
   /*
+    HAMMADDE GÖNDERİSİ bir savaş değil. Bu satır yokken rapor aşağıdaki
+    winner testine düşüyor ve hediye gönderene "kaybettin" yazardı.
+  */
+  if (r.outcome === 'hammadde_yolda') {
+    return r.dir === 'in'
+      ? { txt: 'sana hammadde yolda', col: C.good, won: null }
+      : { txt: 'hammadde yolladın', col: C.iceSoft, won: null };
+  }
+  /*
     MACERA bir savaş değil — kazanan/kaybeden ekseni burada da anlamsız.
     Bayılma ayrı yazılıyor: oyuncu kahramanının neden kullanılamadığını
     rapor listesinde görebilmeli.
@@ -216,6 +237,16 @@ function titleOf(r) {
       : `${r.toName} köyünü destekledin`;
   }
   if (r.outcome === 'takviye_geri_yollandi') return `${r.fromName} takviyeni geri yolladı`;
+  /*
+    HAMMADDE başlığı dir SATIRINDAN ÖNCE: aşağıdaki genel "sana saldırdı"
+    satırı bütün gelen raporları yakalıyor ve hediye de saldırı gibi
+    başlıklanırdı.
+  */
+  if (r.outcome === 'hammadde_yolda') {
+    return r.dir === 'in'
+      ? `${r.fromName} sana hammadde yolladı`
+      : `${r.toName} köyüne hammadde yolladın`;
+  }
   if (r.outcome === 'macera') return `Kahramanın maceradan döndü — ${r.fromName}`;
   if (r.outcome === 'takviye_savasti') return `${r.toName} köyündeki takviyen savaştı`;
   if (r.outcome === 'kesfedildim') return `${r.fromName} seni keşfetti`;
@@ -933,6 +964,51 @@ function Detail({ r, unitDefs }) {
         Gönderen "askerim nerede" sorusunun, alan da "kim ne gönderdi ve
         ekmeğini kim ödüyor" sorusunun cevabını burada buluyor.
       */}
+      {/*
+        HAMMADDE GÖNDERİSİ — savaş değil, o yüzden güç/kayıp kutuları yok.
+        Alan "kimden, ne, ne zaman", gönderen "neyi kime yolladım"
+        sorusunun cevabını burada buluyor.
+      */}
+      {r.outcome === 'hammadde_yolda' && (
+        <>
+          <Section title={inc ? 'SANA GELEN YÜK' : 'GÖNDERDİĞİN YÜK'}>
+            <ResGrid res={r.yuk} color={inc ? C.good : C.iceSoft} />
+          </Section>
+          <div style={panel({
+            padding: '9px 11px', background: 'rgba(143,220,255,0.07)',
+            border: '1px solid ' + C.lineSoft,
+          })}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Icon name="depo" size={14} color={C.iceSoft}
+                style={{ flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
+                {inc ? (
+                  <>
+                    <b style={{ color: C.good }}>{r.fromName}</b> sana
+                    {' '}<b style={{ color: C.frost }}>{(r.toplam || 0).toLocaleString('tr-TR')}</b>
+                    {' '}birim hammadde yolladı — KARŞILIKSIZ.
+                  </>
+                ) : (
+                  <>
+                    <b style={{ color: C.frost }}>{(r.toplam || 0).toLocaleString('tr-TR')}</b>
+                    {' '}birim hammadde <b style={{ color: C.iceSoft }}>{r.toName}</b>
+                    {' '}köyüne yola çıktı. Geri alınamaz.
+                  </>
+                )}
+                {r.varisSn > 0 && (
+                  <> Kervan <b style={{ color: C.frost }}>{fmtTime(r.varisSn)}</b> sonra varıyor
+                  {r.mesafe ? ` (${r.mesafe} hex)` : ''}.</>
+                )}
+                {!inc && r.tuccar > 0 && (
+                  <> <b style={{ color: C.textDim }}>{r.tuccar}</b> tüccar bağlı;
+                  {' '}dönene kadar başka işte kullanılamıyor.</>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {r.outcome === 'takviye_vardi' && (
         <>
           <Section title={inc ? 'GELEN BİRLİKLER' : 'GÖNDERDİĞİM BİRLİKLER'}>

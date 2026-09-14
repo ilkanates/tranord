@@ -179,6 +179,8 @@ Bu zincir sırayla ilerlemek zorunda:
 NPC takası, oyuncular arası teklif ve tüccar yürüyüşü **yapıldı**
 (`server/game/pazar.js`, `pazarYol.js`; `pazar_takas`, `pazar_teklif_ac/
 kabul/iptal`). Bu maddede kalan:
+- ~~Karşılıksız hammadde gönderme~~ — yapıldı: pazarda HAMMADDE GÖNDER sekmesi
+  + haritada kısayol (bkz. Tamamlandı).
 - Teklif listesinde arama/süzme (şu an bütün açık teklifler tek listede).
 - Teklifin süresi dolunca otomatik iptal ve kaynakların iadesi.
 - Tüccar kapasitesinin pazar seviyesiyle ilişkisi gözden geçirilecek.
@@ -229,6 +231,16 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - Atölyenin **kuşatma kapasitesi** (`siegeCapPerLevel`) yardım ekranında hiç görünmüyordu, satır eklendi. Ahırın at satırına da atların günde 3 ham tahıl yediği notu kondu.
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
+
+### Hammadde gönderme + harita kısayolları (14 Eylül 2026)
+- İlkan: *"pazardan istediğime hammadde yollayabilmeliyim. oyuncu köy ismi girerek yada oyuncuda bularak yollayabilmeliyim. ek olarak haritada bir köye tıkladığımda saldır, destek gönder, hammadde gönder, keşfet gibi kısayollar olsun"*.
+- **KARŞILIKSIZ GÖNDERİ** (`pazar_hammadde_gonder`). Pazar bugüne kadar yalnız TAKAS yapıyordu: birine bir şey vermek için ondan karşılığında bir şey istemek ve onun da kabul etmesi gerekiyordu. Müttefiki beslemek, yeni köye yardım etmek, borç ödemek — hiçbiri mümkün değildi.
+- **TEK KERVAN, KARIŞIK YÜK**: beş kaynak tek gönderide gidiyor. Her kaynak için ayrı gönderi açsaydık her biri kendi tüccarını bağlardı — 100'er birimlik beş kaynak, 500 birimlik tek sevkiyatın BEŞ KATI tüccar tutardı. `pazarYol.gonderi` artık `yuk` sözlüğü taşıyor; takasın tek kaynaklı biçimi de aynı alana yazılıyor, eski kayıtlar `yukOf` ile okunuyor.
+- Kurallar: yalnız OYUNCU köylerine (NPC'ye hediye kaynağı çöpe atmak olurdu), geri alınamaz (iptal olsaydı "gönderdim" deyip son anda çekmek mümkün olurdu), tüccar dönene kadar bağlı (yoksa mesafe bedava olur, uzakla ticaret yakınla aynı maliyete gelirdi).
+- **İKİ TARAFA DA RAPOR, çıkış anında**: kapısına mal bırakılan oyuncu bunu ancak deposundaki sayı değişince fark ederdi ve kimin gönderdiğini hiç öğrenemezdi. Çıkışta yazmak ayrıca bilgi: yardımın YOLDA olduğunu bilmek varış zamanını hesaplatıyor. Rozet kendi etiketini alıyor (HAMMADDE GELDİ/GİTTİ) — "DESTEK GİTTİ" yazmak asker yolladığını düşündürürdü.
+- **HEDEF ARAMA tamamen istemcide**: dünya anlık görüntüsü zaten bütün köyleri (ad + sahip) taşıyor; her tuşta sunucuya sormak on bin köylük bir dünyada gereksiz bir tur olurdu. Köy adı VE oyuncu adı aynı kutudan aranıyor.
+- **HARİTA KISAYOLLARI**: köy panelindeki tek "ORDU GÖNDER" düğmesi yerine SALDIR · YAĞMA · KEŞFET · DESTEK · HAMMADDE. Sefer ekranı seçilen kiple açılıyor (`SendArmyPanel · baslangicKip`) — kip kararı köyün başında veriliyor, ekranı açtıktan sonra değil. Hammadde kısayolu gönderi penceresini hedefi dolu olarak açıyor; pazar ekranıyla AYNI bileşen (`HammaddeGonder`), ikisini ayrı yazsaydık tüccar hesabı ve depo sınırı iki yerde durur, biri düzeltilince diğeri eskirdi.
+- Dev kısayolu: "Binaları son seviyeye" artık eksik PAZARI da kuruyor — pazarsız bir köyde takas, teklif ve gönderi ekranlarının hiçbiri açılmıyordu ve denemek için elle pazar kurmak gerekiyordu.
 
 ### Savunma yapılarının katkısı + simülatör Ordu'nun altına (14 Eylül 2026)
 - İlkan: *"savaş simülatörü menüsünü ordu menüsünün altına taşı, bir de ordu menüsünde mevcut defans binalarımın katkısını yüzde olarak ayrı ayrı göster"*.

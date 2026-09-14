@@ -533,9 +533,38 @@ export function BuildFieldPanel({
   );
 }
 
+/**
+ * Harita kısayol düğmesi — ikon + kısa etiket.
+ *
+ * Beş düğme iki sütuna sığsın diye dar: uzun etiketler kartı
+ * genişletiyor ve harita üstünde yüzen panel ekranın yarısını
+ * kaplıyordu.
+ */
+function KisayolDugme({ ad, ikon, renk, onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+        padding: '7px 6px', borderRadius: 5, cursor: 'pointer',
+        background: 'rgba(8,14,24,0.7)', border: `1px solid ${renk}55`,
+        color: renk, fontFamily: FONT.ui, fontSize: 9, letterSpacing: 1, fontWeight: 600,
+      }}>
+      <Icon name={ikon} size={12} color={renk} />
+      {ad}
+    </button>
+  );
+}
+
 // ── Başka bir köy (NPC / oyuncu) ────────────────────────────────────
 export function ForeignVillagePanel({
   v, myArmy, popoverPos, onClose, onAttack, canAttack = false, canReinforce = false, intel = null,
+  /*
+    KISAYOLLAR (İlkan'ın isteği). Panel tek bir "ORDU GÖNDER" düğmesi
+    taşıyordu; oyuncu keşfetmek ya da destek yollamak için önce o ekranı
+    açıp oradaki kipi değiştirmek zorundaydı. Kip kararı köyün başında
+    veriliyor, ekranı açtıktan sonra değil.
+  */
+  onKisayol = null, onHammadde = null,
 }) {
   const color = v.kind === 'player' ? '#ff6f78' : C.ice;
   const ratio = myArmy && v.army ? v.army / Math.max(1, myArmy) : null;
@@ -605,12 +634,34 @@ export function ForeignVillagePanel({
           duruyor olsaydı oyuncu kendi köyüne saldırabileceğini sanardı.
         */}
         {(canAttack || canReinforce) ? (
-          <button onClick={onAttack}
-            style={btn(canAttack ? 'danger' : 'good', {
-              width: '100%', marginTop: 8, padding: 8, letterSpacing: 1.4, fontSize: 10,
-            })}>
-            {canAttack ? 'ORDU GÖNDER' : 'TAKVİYE GÖNDER'}
-          </button>
+          <div style={{
+            display: 'grid', gap: 5, marginTop: 8,
+            gridTemplateColumns: '1fr 1fr',
+          }}>
+            {canAttack && (
+              <>
+                <KisayolDugme ad="SALDIR" ikon="kilic" renk={C.danger}
+                  onClick={() => (onKisayol ? onKisayol('attack') : onAttack?.())} />
+                <KisayolDugme ad="YAĞMA" ikon="depo" renk={C.warn}
+                  onClick={() => (onKisayol ? onKisayol('raid') : onAttack?.())} />
+                <KisayolDugme ad="KEŞFET" ikon="harita" renk={C.ice}
+                  onClick={() => (onKisayol ? onKisayol('scout') : onAttack?.())} />
+              </>
+            )}
+            {canReinforce && (
+              <KisayolDugme ad="DESTEK" ikon="kalkan" renk={C.good}
+                onClick={() => (onKisayol ? onKisayol('takviye') : onAttack?.())} />
+            )}
+            {/*
+              HAMMADDE yalnız OYUNCU köyüne. NPC'ye hediye göndermek
+              kaynağı çöpe atmak olurdu; sunucu da reddediyor, burada
+              düğmeyi hiç göstermemek o reddi baştan engelliyor.
+            */}
+            {onHammadde && (v.kind === 'player' || v.kind === 'self') && (
+              <KisayolDugme ad="HAMMADDE" ikon="depo" renk={C.iceSoft}
+                onClick={onHammadde} />
+            )}
+          </div>
         ) : (
           <div style={{
             marginTop: 6, padding: '7px 8px', borderRadius: 5,

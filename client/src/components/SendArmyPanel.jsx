@@ -189,6 +189,15 @@ function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
 export default function SendArmyPanel({
   socket, target, army = {}, unitDefs = {}, unitStatsNow = {}, marchInfo = {}, intel = null,
   kahraman = null, activeSlot = null, onClose,
+  /*
+    HARİTA KISAYOLUNDAN GELEN KİP. Oyuncu köye tıklayıp "KEŞFET" dediyse
+    ekran keşif kipinde açılmalı; varsayılana düşüp oyuncuyu kipi tekrar
+    seçmeye zorlamak, kısayolu kısayol olmaktan çıkarırdı.
+
+    KENDİ KÖYÜNE yalnız takviye gidiyor; oraya gelen kip ne olursa olsun
+    takviye kazanıyor (sunucu da aynı ayrımı yapıyor).
+  */
+  baslangicKip = null,
 }) {
   /*
     KENDİ KÖYÜNE YALNIZ TAKVİYE. Panel kendi köyün için de açılıyor (çoklu
@@ -212,7 +221,10 @@ export default function SendArmyPanel({
     () => (yalnizTakviye ? MODES.filter(m => m.key === 'takviye') : MODES),
     [yalnizTakviye]);
 
-  const [mode, setMode] = useState(yalnizTakviye ? 'takviye' : 'raid');
+  const [mode, setMode] = useState(() => {
+    if (yalnizTakviye) return 'takviye';
+    return MODES.some(m => m.key === baslangicKip) ? baslangicKip : 'raid';
+  });
   const [hedefBina, setHedefBina] = useState('');
   // İkinci mancınık hedefi — yalnız atölye Lvl 10'dan itibaren
   const [hedefBina2, setHedefBina2] = useState('');
