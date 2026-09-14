@@ -132,7 +132,7 @@ export default function Tutorial({ socket }) {
     }}>
       <div className="tn-rise" style={{
         width: 'min(520px, 100%)',
-        maxHeight: 'calc(100dvh - 24px)',
+        maxHeight: 'calc(var(--tn-vh) - 24px)',
         display: 'flex', flexDirection: 'column',
         background: 'rgba(8,15,24,0.98)', border: `1px solid ${C.lineBright}`,
         borderRadius: 12, boxShadow: '0 28px 70px rgba(0,0,0,0.75)',

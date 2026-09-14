@@ -40,19 +40,27 @@ const ANAHTAR = 'tn.ayarlar';
  * Ölçek büyüdükçe ekrana daha az şey sığıyor; bu, okunaklılığın bedeli
  * ve oyuncunun bilerek verdiği karar.
  *
- * Aralık 0,85-1,50: altı okunmaz derecede küçük, üstünde köy sahnesi
- * (860 px) masaüstü ekranına sığmıyor.
+ * Aralık 0,85-2,00. Üst sınır önce 1,50 idi ve yetmedi (İlkan: "yazılar
+ * da çok büyümüyor"): oyunun taban yazı ölçüleri 9-11 px, %150 bunu
+ * ancak 13,5-16,5 px yapıyor.
+ *
+ * %200 bozulmuyor çünkü ölçek büyüdükçe düzen KENDİLİĞİNDEN dar ekran
+ * biçimine geçiyor: 1280 px pencere %200 ölçekte 640 px'lik bir düzene
+ * denk geliyor ve oyunun telefon yerleşimi devreye giriyor (raylar
+ * çekmeceye, sekmeler alta). Yani yüksek ölçek bir bozulma değil,
+ * zaten var olan ikinci bir yerleşim.
  */
 export const OLCEK_EN_AZ = 0.85;
-export const OLCEK_EN_COK = 1.5;
+export const OLCEK_EN_COK = 2;
 
 /** Hazır ölçek adımları — kaydırıcıyı milimetre ayarına bırakmamak için */
 export const OLCEK_ADIMLARI = [
   { deger: 0.85, ad: 'Küçük' },
   { deger: 1, ad: 'Normal' },
   { deger: 1.15, ad: 'Büyük' },
-  { deger: 1.3, ad: 'Daha büyük' },
-  { deger: 1.5, ad: 'En büyük' },
+  { deger: 1.35, ad: 'Daha büyük' },
+  { deger: 1.6, ad: 'Çok büyük' },
+  { deger: 2, ad: 'En büyük' },
 ];
 
 /**
@@ -192,9 +200,11 @@ const duyur = () => { for (const fn of dinleyiciler) fn(durum); };
  * kalıyor. `zoom` düzenin kendisini ölçekliyor, yani her şey gerçekten
  * büyüyor.
  *
- * #root'un ölçüleri index.css'te ölçeğe BÖLÜNÜYOR: zoom içindeki
- * `100dvh` görüntü alanı kadar CSS pikseli demek, o da zoom ile
- * çarpılınca ekrandan taşardı.
+ * #root'ta YALNIZ YÜKSEKLİK ölçeğe bölünüyor (index.css). Yüzde ile
+ * görüntü birimi aynı davranmıyor: tarayıcı yüzdeyi zoom uzayında
+ * kendiliğinden çözüyor, `100dvh` ise olduğu gibi kalıp zoom ile
+ * çarpılıyor. İkisini de bölmek genişliği İKİ KEZ küçültüyor ve düzen
+ * ekranın sağından solundan kesiliyordu.
  */
 function olcegiUygula() {
   if (typeof document === 'undefined') return;

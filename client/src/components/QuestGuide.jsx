@@ -176,7 +176,7 @@ export function QuestCard({ quests, onClaim, onToggle, onGoTab, focus = null, mo
   return (
     <div className="tn-rise" style={{
       position: 'fixed', right: 14, bottom: mobile ? 74 : 52, zIndex: 1200,
-      width: 'min(320px, 92vw)',
+      width: 'min(320px, calc(var(--tn-vw) * 0.92))',
       background: 'rgba(8,15,24,0.95)',
       border: `1px solid ${aktif.tamam ? 'rgba(108,221,163,0.5)' : C.lineBright}`,
       borderRadius: 10, padding: 12,

@@ -78,7 +78,7 @@ export default function UnitDetail({ type, def, count, equipmentDefs = {}, onClo
         style={{
           // Pencerenin kendisi 9:16 — genişlik en kısıtlı ölçüden gelir,
           // yükseklik orandan türer, böylece görsel hiç kırpılmadan doluyor.
-          width: 'min(90vw, 51vh, 520px)',
+          width: 'min(calc(var(--tn-vw) * 0.9), calc(var(--tn-vh) * 0.51), 520px)',
           aspectRatio: '9 / 16',
           position: 'relative', overflow: 'hidden', borderRadius: 10,
           background: '#0b1420',

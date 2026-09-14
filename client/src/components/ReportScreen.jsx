@@ -149,6 +149,22 @@ const KESIF_SONUCLARI = new Set([
 ]);
 const kesifMi = (r) => KESIF_SONUCLARI.has(r?.outcome);
 
+/**
+ * KEŞİFTE ÇARPIŞMA OLDU MU?
+ *
+ * Karşı köyde izci varsa keşif bir savaşla çözülüyor (bkz. army.js ·
+ * mode 'scout'). İzci yoksa çarpışma da yok: o durumda kayıp kutuları
+ * sıfır gösterip yer kaplardı.
+ *
+ * Kayıplara da bakılıyor, yalnız sayıya değil: eski raporlarda
+ * `savunanIzci` alanı olmayabilir ama kayıp listesi durur.
+ */
+const kesifCarpismasi = (r) => (
+  (r?.savunanIzci ?? r?.karsiIzci ?? 0) > 0
+  || sum(r?.myLosses) > 0
+  || sum(r?.theirLosses) > 0
+);
+
 /** Rapor bir kazanç mı kayıp mı — saldıran/savunan tarafına göre */
 function verdictOf(r) {
   // Takviye bir savaş değil: kazanan/kaybeden ekseni burada anlamsız.
@@ -766,38 +782,6 @@ function Detail({ r, unitDefs }) {
         </>
       )}
 
-      {r.outcome === 'kesif' && r.intel && (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
-              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>ORDU</div>
-              <div style={num({ fontSize: 18, color: C.frost })}>{short(r.intel.armyTotal)}</div>
-            </div>
-            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
-              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>SUR / HENDEK</div>
-              <div style={num({ fontSize: 18, color: C.warn })}>
-                {r.intel.surLevel} / {r.intel.hendekLevel}
-              </div>
-              {r.intel.kulePct ? (
-                <div style={num({ fontSize: 10, color: C.dangerDim })}>
-                  kule +{r.intel.kulePct}%
-                </div>
-              ) : null}
-            </div>
-            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
-              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>NÜFUS</div>
-              <div style={num({ fontSize: 18, color: C.textDim })}>{short(r.intel.population)}</div>
-            </div>
-          </div>
-          <Section title="SAVUNAN BİRİMLER">
-            <UnitGrid units={r.intel.army} unitDefs={unitDefs} color={C.frost} />
-          </Section>
-          <Section title="DEPOSUNDAKİLER">
-            <ResGrid res={r.intel.resources} color={C.warn} />
-          </Section>
-        </>
-      )}
-
       {/*
         KEŞİF ÇARPIŞMASI — KAÇ CASUS, KAÇ KAYIP.
 
@@ -806,8 +790,17 @@ function Detail({ r, unitDefs }) {
         Savunan oyuncu için bunlar asıl bilgi: gelen sayı karşı tarafın
         ne kadar ciddi olduğunu, kayıp da bir daha gelirse ne olacağını
         söylüyor.
+
+        BAŞARILI KEŞİFTE DE GÖRÜNÜYOR. Blok `kesif` sonucunu dışarıda
+        bırakıyordu: keşif başarınca yalnız istihbarat yazılıyor, kaç
+        izcinin öldüğü HİÇBİR yerde geçmiyordu (İlkan bildirdi —
+        "çoğu gelmedi ve raporda kaçı öldü yazmıyor"). Oysa bilgiyi almak
+        ile bedelini görmek aynı raporun iki yarısı.
+
+        Karşı tarafta izci YOKSA çarpışma da olmamıştır; o zaman blok hiç
+        çizilmiyor. "0 kayıp, 0 karşı casus" satırları boş gürültü olurdu.
       */}
-      {kesifMi(r) && r.outcome !== 'kesif' && (
+      {kesifMi(r) && (r.outcome !== 'kesif' || kesifCarpismasi(r)) && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
@@ -855,6 +848,30 @@ function Detail({ r, unitDefs }) {
             </Section>
           )}
 
+        {r.outcome === 'kesif' ? (
+          /*
+            BAŞARILI KEŞFİN BEDELİ. Karşı taraf izcisiyle karşı koydu ama
+            yetmedi: bilgi geldi, izcilerin bir kısmı gelmedi. Oyuncunun
+            bir dahaki sefere kaç izci göndereceğini bu sayı belirliyor.
+          */
+          <div style={{
+            padding: '9px 11px', borderRadius: 6,
+            background: 'rgba(143,220,255,0.08)',
+            border: '1px solid rgba(143,220,255,0.28)',
+            fontFamily: FONT.ui, fontSize: 11, color: C.textDim, lineHeight: 1.7,
+          }}>
+            Köy seni fark etti ve{' '}
+            <b style={{ color: C.iceSoft }}>
+              {(r.savunanIzci ?? r.karsiIzci ?? 0)} izciyle
+            </b>{' '}
+            karşı koydu. Keşif yine de geçti — bilgi aşağıda.
+            {sum(r.myLosses) > 0 && (
+              <> Bedeli <b style={{ color: C.danger }}>{sum(r.myLosses)} izci</b>:
+              {' '}gönderdiğin {sum(r.sent)} izciden
+              {' '}{Math.max(0, sum(r.sent) - sum(r.myLosses))} tanesi dönüyor.</>
+            )}
+          </div>
+        ) : (
         <div style={{
           padding: '9px 11px', borderRadius: 6,
           background: r.outcome === 'kesif_engellendi'
@@ -875,6 +892,39 @@ function Detail({ r, unitDefs }) {
             <>İzcilerin casusu durdurdu — köyün hakkında hiçbir bilgi sızmadı.</>
           )}
         </div>
+        )}
+        </>
+      )}
+
+      {r.outcome === 'kesif' && r.intel && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>ORDU</div>
+              <div style={num({ fontSize: 18, color: C.frost })}>{short(r.intel.armyTotal)}</div>
+            </div>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>SUR / HENDEK</div>
+              <div style={num({ fontSize: 18, color: C.warn })}>
+                {r.intel.surLevel} / {r.intel.hendekLevel}
+              </div>
+              {r.intel.kulePct ? (
+                <div style={num({ fontSize: 10, color: C.dangerDim })}>
+                  kule +{r.intel.kulePct}%
+                </div>
+              ) : null}
+            </div>
+            <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
+              <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>NÜFUS</div>
+              <div style={num({ fontSize: 18, color: C.textDim })}>{short(r.intel.population)}</div>
+            </div>
+          </div>
+          <Section title="SAVUNAN BİRİMLER">
+            <UnitGrid units={r.intel.army} unitDefs={unitDefs} color={C.frost} />
+          </Section>
+          <Section title="DEPOSUNDAKİLER">
+            <ResGrid res={r.intel.resources} color={C.warn} />
+          </Section>
         </>
       )}
 
@@ -1114,7 +1164,7 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
         {/* Liste */}
         <div className="tn-scroll" style={{
           display: 'flex', flexDirection: 'column', gap: 5,
-          maxHeight: 'calc(100vh - 190px)', overflowY: 'auto', paddingRight: 3,
+          maxHeight: 'calc(var(--tn-vh) - 190px)', overflowY: 'auto', paddingRight: 3,
         }}>
           {list.length === 0 ? (
             <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textMute, padding: 10 }}>
@@ -1131,7 +1181,7 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
         {/* Ayrıntı */}
         <div className="tn-scroll" style={{
           ...panel({ padding: 15 }),
-          maxHeight: 'calc(100vh - 190px)', overflowY: 'auto',
+          maxHeight: 'calc(var(--tn-vh) - 190px)', overflowY: 'auto',
         }}>
           <Detail r={sel} unitDefs={unitDefs} />
         </div>

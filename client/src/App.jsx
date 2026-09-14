@@ -504,7 +504,7 @@ function BaglaniyorEkrani({ socket, onLogout }) {
   } : null;
 
   return (
-    <div style={{ position: 'relative', height: '100dvh', background: C.abyss }}>
+    <div style={{ position: 'relative', height: 'var(--tn-vh)', background: C.abyss }}>
       {/* Giris ekraniyla ayni arka plan - gecis sirasinda goruntu atlamasin */}
       <LoginBackdrop />
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', placeItems: 'center' }}>
@@ -944,7 +944,7 @@ function Game({ token, onLogout }) {
       {tab !== 'sefer' && (village.incoming || []).length > 0 && (
         <div onClick={() => setTab('sefer')} style={{
           position: 'fixed', top: vp.mobile ? 96 : 62, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 900, width: 'min(420px, 92vw)', cursor: 'pointer',
+          zIndex: 900, width: 'min(420px, calc(var(--tn-vw) * 0.92))', cursor: 'pointer',
         }} title="Seferler sekmesine git">
           <IncomingAlert incoming={village.incoming} />
         </div>
@@ -1333,7 +1333,7 @@ function Game({ token, onLogout }) {
         <div className="tn-scroll" style={vp.mobile ? {
           position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 40,
           display: statusOpen ? 'flex' : 'none',
-          width: 'min(300px, 86vw)', overflowY: 'auto',
+          width: 'min(300px, calc(var(--tn-vw) * 0.86))', overflowY: 'auto',
           background: 'linear-gradient(180deg, rgba(10,18,28,0.97), rgba(7,13,21,0.97))',
           borderLeft: `1px solid ${C.lineSoft}`,
           boxShadow: '-14px 0 40px rgba(0,0,0,.55)',

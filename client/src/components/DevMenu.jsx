@@ -40,7 +40,7 @@ const ITEMS = [
   {
     key: 'ordu',
     label: 'Ordu ver',
-    note: '200 piyade · 60 süvari · 5 koçbaşı · 5 mancınık',
+    note: '200 piyade · 60 süvari · 30 izci · 5 koçbaşı · 5 mancınık',
     /*
       SIRA ÖNEMLİ — sunucu nüfus BÜTÇESİ kadar veriyor ve listeyi baştan
       tüketiyor. Kuşatma sonda olduğu için nüfusu dolu bir köyde hiç
@@ -50,6 +50,7 @@ const ITEMS = [
     emit: ['dev_grant', {
       army: {
         kaleKiran: 5, 'alevMancınıgı': 5,
+        kuzeyIzcisi: 30,
         demirAtli: 40, skjoldreiter: 20,
         fjordvakt: 100, skjoldvakt: 60, spydvakt: 40,
       },
@@ -84,9 +85,15 @@ const ITEMS = [
     emit: ['dev_yarali', { adet: 25 }],
   },
   {
+    key: 'kesifRaporu',
+    label: 'Keşif raporu üret',
+    note: 'kayıplı başarılı keşif — rapor düzenini denemek için',
+    emit: ['dev_kesif_raporu', { kayipli: true }],
+  },
+  {
     key: 'surluHedef',
     label: 'Surlu hedef köy',
-    note: 'en yakın NPC: sur Lvl 10, hendek Lvl 5 + binalar',
+    note: 'en yakın NPC: sur Lvl 10, hendek Lvl 5 + binalar + 15 izci',
     emit: ['dev_surlu_hedef', { sur: 10, hendek: 5 }],
   },
 ];

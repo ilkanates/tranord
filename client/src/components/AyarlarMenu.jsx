@@ -102,8 +102,8 @@ function AyarlarPenceresi({ onKapat }) {
           görüntü alanını kaplasın — inset:0 zoom ile çarpılıp taşardı.
         */
         zoom: 'var(--tn-olcek, 1)',
-        width: 'calc(100vw / var(--tn-olcek, 1))',
-        height: 'calc(100dvh / var(--tn-olcek, 1))',
+        width: 'var(--tn-vw)',
+        height: 'var(--tn-vh)',
         background: 'rgba(4,8,13,0.72)',
         display: 'grid', placeItems: 'center', padding: 14,
       }}>
@@ -116,7 +116,7 @@ function AyarlarPenceresi({ onKapat }) {
             ekranı aşıyordu: %130 ölçekte pencerenin başlığı görüntü
             alanının üstünde kalıyordu (ölçüldü).
           */
-          maxHeight: 'calc(86dvh / var(--tn-olcek, 1))',
+          maxHeight: 'calc(var(--tn-vh) * 0.86)',
           display: 'flex', flexDirection: 'column',
           background: C.panelSolid, border: `1px solid ${C.lineBright}`,
           borderRadius: 10, boxShadow: '0 18px 60px rgba(0,0,0,0.6)',

@@ -155,7 +155,7 @@ export function ProfileButton({ socket, playerName, email, villages = [], active
         <div className="tn-rise" style={{
           position: 'absolute', top: '100%', right: 0, marginTop: 6,
           /* Dar ekranda sağa yaslı 260 px pencere taşıyordu */
-          width: 'min(260px, calc(100vw - 24px))', zIndex: 60,
+          width: 'min(260px, calc(var(--tn-vw) - 24px))', zIndex: 60,
           background: 'rgba(8,15,24,0.96)', border: `1px solid ${C.lineBright}`,
           borderRadius: 8, padding: 12,
           boxShadow: '0 18px 40px rgba(0,0,0,0.6)',

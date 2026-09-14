@@ -45,8 +45,8 @@ export default function YamaNotlari({
         */
         ...(mobile
           ? { bottom: 78, maxHeight: '50dvh' }
-          : { top: 52, maxHeight: 'calc(100dvh - 80px)' }),
-        width: mobile ? 'calc(100vw - 16px)' : Math.max(280, railW + 110),
+          : { top: 52, maxHeight: 'calc(var(--tn-vh) - 80px)' }),
+        width: mobile ? 'calc(var(--tn-vw) - 16px)' : Math.max(280, railW + 110),
         display: 'flex',
         flexDirection: 'column',
         zIndex: 1100,

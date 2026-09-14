@@ -62,7 +62,7 @@ function FlowCard({ f, at, sheet = false, onClose }) {
   return (
     <div onClick={onClose} style={sheet ? {
       position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
-      width: 'min(300px, 92vw)', maxHeight: '82vh', overflowY: 'auto', padding: 13,
+      width: 'min(300px, calc(var(--tn-vw) * 0.92))', maxHeight: 'calc(var(--tn-vh) * 0.82)', overflowY: 'auto', padding: 13,
       background: 'linear-gradient(180deg, rgba(13,26,42,0.98), rgba(9,18,30,0.98))',
       border: `1px solid ${C.lineBright}`, borderRadius: 10,
       boxShadow: '0 18px 50px rgba(0,0,0,.65)', zIndex: 9200,

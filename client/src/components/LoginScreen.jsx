@@ -78,7 +78,7 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100dvh', background: C.abyss }}>
+    <div style={{ position: 'relative', minHeight: 'var(--tn-vh)', background: C.abyss }}>
       {/* Ana ekran anahtar gorseli - kadin savasci solda, koy sagda */}
       <LoginBackdrop />
       {/* Müzik giriş ekranında da çalıyor — kapatmak isteyen burada bulsun */}
@@ -86,11 +86,11 @@ export default function LoginScreen({ serverUrl = '', onToken }) {
         <MusicButton />
       </div>
       <div style={{
-        position: 'relative', zIndex: 2, minHeight: '100dvh',
+        position: 'relative', zIndex: 2, minHeight: 'var(--tn-vh)',
         display: 'grid', placeItems: 'center', padding: 20,
       }}>
         <form onSubmit={submit} style={panel({
-          width: 'min(92vw, 380px)', padding: '26px 24px 22px',
+          width: 'min(calc(var(--tn-vw) * 0.92), 380px)', padding: '26px 24px 22px',
         })}>
           <div style={{ textAlign: 'center', marginBottom: 22 }}>
             <div style={{

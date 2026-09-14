@@ -26,6 +26,32 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14n',
+    tarih: '14 Eylül 2026',
+    baslik: 'Keşif raporu ve ölçek düzeltmesi',
+    notlar: [
+      {
+        id: '20260914-kesif-kayip-raporu',
+        tur: 'duzeltme',
+        metin: 'KEŞİF BAŞARILI OLDUĞUNDA raporda yalnız istihbarat yazıyor, '
+          + 'kaç izcini kaybettiğin ve karşında kaç izci olduğu HİÇBİR '
+          + 'yerde geçmiyordu — izcilerinin çoğu dönmediğinde sebebini '
+          + 'göremiyordun. Artık rapor önce çarpışmayı yazıyor: '
+          + 'gönderdiğin casus, karşı casus, kaybın, kimi öldürdüğün ve '
+          + 'kaç izcinin geri döndüğü. İstihbarat bunun altında.',
+      },
+      {
+        id: '20260914-olcek-kesilme',
+        tur: 'duzeltme',
+        metin: 'ARAYÜZ ÖLÇEĞİNİ büyütünce ekran sağdan soldan kesiliyor ve '
+          + 'yazılar beklendiği kadar büyümüyordu: düzenin genişliği iki '
+          + 'kez küçültülüyordu. Düzeltildi — artık her ölçekte ekranın '
+          + 'tamamı kullanılıyor. Üst sınır da %150 den %200 e çıkarıldı; '
+          + 'oyunun taban yazıları küçük olduğu için %150 yetmiyordu.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14m',
     tarih: '14 Eylül 2026',
     baslik: 'Ayarlar menüsü ve yazı büyüklüğü',
@@ -42,7 +68,7 @@ export const YAMA_NOTLARI = [
         id: '20260914-yazi-buyuklugu',
         tur: 'yenilik',
         metin: 'YAZILAR KÜÇÜK GELİYORSA artık büyütebilirsin: Ayarlar → '
-          + 'Görünüm → Arayüz ölçeği. %85 ile %150 arası beş hazır adım ve '
+          + 'Görünüm → Arayüz ölçeği. %85 ile %200 arası altı hazır adım ve '
           + 'ince ayar kaydırıcısı var. Yalnız yazı değil arayüzün tamamı '
           + 'büyüyor — kutular da birlikte büyüdüğü için sayılar '
           + 'kırpılmıyor. Büyüttükçe ekrana daha az şey sığar.',

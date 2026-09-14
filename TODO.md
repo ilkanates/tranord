@@ -230,6 +230,18 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
 
+### Keşif raporu kaybı gösteriyor + ölçek kesilmesi (14 Eylül 2026)
+- İlkan: *"keşife adam yolladım ama çoğu gelmedi ve raporda kaçı öldü ya da karşıda kaç keşifçi vardı yazmıyor"* ve *"yazıyı büyütünce ekran sağdan soldan kesiliyor, yazılarda çok büyümüyor"*.
+- **Keşif raporu**: sunucu kaybı ve karşı izci sayısını zaten gönderiyordu (`myLosses`, `savunanIzci`), ekran göstermiyordu. Çarpışma bloğu `outcome !== 'kesif'` ile sınırlıydı — yani tam da BAŞARILI keşifte hiç çizilmiyordu. Oysa bilgiyi almak ile bedelini görmek aynı raporun iki yarısı.
+- Blok artık istihbaratın ÖNÜNDE: oyuncunun ilk sorusu "kaç izcim öldü", ikincisi "ne gördüm".
+- Başarılı keşfe özel satır: *"Köy seni fark etti ve 6 izciyle karşı koydu… Bedeli 23 izci: gönderdiğin 60 izciden 37 tanesi dönüyor."* Bir dahaki sefere kaç izci göndereceğini bu sayı belirliyor.
+- Karşıda izci YOKSA blok hiç çizilmiyor (`kesifCarpismasi`): çarpışma olmamışken "0 kayıp, 0 karşı casus" satırları boş gürültü olurdu.
+- Sunucu sözleşmesi iki testle kilitlendi (`kesif.test.js`): başarılı keşif raporunda kayıp + karşı izci sayısı yazılı ve dönen sefer = gönderilen − kayıp; izcisiz köyde her ikisi de sıfır ve savunan haber almıyor.
+- **ÖLÇEK KESİLMESİ — zoom'da yüzde ile görüntü birimi aynı davranmıyor.** Ölçüldü (1280×720, %135): `width: 100%` tarayıcı tarafından ZOOM UZAYINDA çözülüyor (948 px hesaplanıp tam 1280 px çiziliyor), `height: 100dvh` ise bölünmüyor. Genişliği de ölçeğe bölmüştük; iki kez bölününce düzen 702 px'lik bir kutuya sıkışıp ekranın iki yanından kesiliyordu.
+- Aynı tuzak bileşenlerde de vardı: `calc(100vw - 16px)` ile çizilen yama notları paneli %200 ölçekte **2524 px** genişliğe çıkıyordu. Bölme artık TEK YERDE: `--tn-vw` / `--tn-vh` değişkenleri düzenin gerçekte kullanabildiği alanı veriyor ve 23 kullanım bunlara bağlandı. Bileşenlerde ham `vw/vh` yazılmayacak.
+- **Üst sınır %150 → %200.** Oyunun taban yazıları 9-11 px; %150 bunu ancak 13,5-16,5 px yapıyordu. %200 bozulmuyor çünkü ölçek büyüdükçe düzen kendiliğinden dar ekran biçimine geçiyor (1280 px pencere %200'de 640 px'lik bir düzene denk) — yani yüksek ölçek bir bozulma değil, zaten var olan ikinci yerleşim.
+- Dev kısayolları: "Ordu ver" artık 30 izci de veriyor, "Surlu hedef köy" hedefe 15 izci koyuyor (keşif yalnız izciye karşı savaşıyor; izcisiz NPC'de çarpışma hiç kurulamıyordu) ve yeni "Keşif raporu üret" kısayolu sentetik bir kayıplı keşif raporu basıyor — rapor düzenlerini denemek için gerçek sefer kurmak pahalı çıkıyordu.
+
 ### Ayarlar menüsü ve arayüz ölçeği (14 Eylül 2026)
 - İlkan: *"şimdi bir ayarlar menüsü yapalım ve bütün ayarları oraya dolduralım. font büyüklüğü ayarı da oraya ekleyelim. bazı kullanıcılarda yazılar çok küçük kalıyor ordan ayarlasınlar. sesler ile alakalı her şeyi oraya ekleyelim."*
 - **Üst barda dişli → Ayarlar penceresi** (`AyarlarMenu.jsx`), üç sekme: Görünüm · Müzik · Sesler. Bugüne kadar tek ayar müzikti ve üst bardaki hoparlörün ARKASINA gizlenmişti; "ayarlar nerede" sorusunun cevabı yoktu.

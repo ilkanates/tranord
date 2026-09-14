@@ -28,6 +28,21 @@
   --tn-head: 'Cormorant Garamond', Garamond, Georgia, serif;
   --tn-ui: 'Jost', 'Segoe UI', system-ui, sans-serif;
 
+  /*
+    ÖLÇEĞE GÖRE GÖRÜNTÜ BİRİMLERİ — arayüz ölçeğinin (bkz. #root · zoom)
+    zorunlu eşlikçisi.
+
+    Zoom'lu bir ağaçta yüzde kendiliğinden bölünüyor ama vw/vh/dvh
+    bölünmüyor: `100vw` yine tam pencere demek ve zoom ile çarpılınca
+    ekranı aşıyor (ölçüldü: %200 ölçekte yama notları paneli 2524 px).
+
+    Bu iki değişken DÜZENİN gerçekte kullanabildiği alanı veriyor.
+    Bileşenlerde ham vw/vh YAZMA — bunları kullan.
+  */
+  --tn-olcek: 1;
+  --tn-vw: calc(100vw / var(--tn-olcek, 1));
+  --tn-vh: calc(100dvh / var(--tn-olcek, 1));
+
   font-family: var(--tn-ui);
   font-size: 14px;
   font-weight: 400;
@@ -73,15 +88,24 @@ html, body {
   kayar ve tıklama alanları görselin dışında kalır. zoom düzenin kendisini
   ölçekler.
 
-  ÖLÇÜLER ÖLÇEĞE BÖLÜNÜYOR. zoom içindeki `100dvh` yine görüntü alanı
-  kadar CSS pikseli demek; zoom ile çarpılınca ekrandan taşıyordu
-  (ölçüldü: 1,3 ölçekte sayfanın altı kesiliyordu). Bölme, zoom'un
-  çarpmasını tam olarak götürüyor.
+  YÜZDE İLE GÖRÜNTÜ BİRİMİ AYNI DAVRANMIYOR — ölçüldü (1280x720 pencere,
+  %135 ölçek):
+
+    width: 100%     → tarayıcı yüzdeyi ZOOM UZAYINDA çözüyor. Hesaplanan
+                      değer 948 px, çizilen genişlik tam 1280 px. Yani
+                      yüzde KENDİ KENDİNE bölünüyor.
+    height: 100dvh  → görüntü birimi bölünmüyor; 720 px olduğu gibi kalıp
+                      zoom ile çarpılıyor ve 972 px'e çıkıyor.
+
+  Bu yüzden YALNIZ görüntü birimi ölçeğe bölünüyor. Genişliği de
+  bölmüştük; iki kez bölününce düzen 702 px'lik bir kutuya sıkışıyor ve
+  ekranın sağından solundan kesiliyordu (İlkan bildirdi: "ekran sağdan
+  soldan kesiliyor").
 */
 #root {
   zoom: var(--tn-olcek, 1);
-  width: calc(100% / var(--tn-olcek, 1));
-  height: calc(100dvh / var(--tn-olcek, 1));
+  width: 100%;
+  height: var(--tn-vh);
   display: flex;
   flex-direction: column;
   overflow: hidden;

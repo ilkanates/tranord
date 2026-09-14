@@ -262,7 +262,7 @@ export default function MessageScreen({ socket, playerName = '' }) {
   // ── Sol sütun: sohbet listesi + yeni sohbet ──
   const solSutun = (
     <div style={panel({ padding: 8, display: 'flex', flexDirection: 'column', gap: 7,
-      maxHeight: vp.mobile ? 'none' : '72vh' })}>
+      maxHeight: vp.mobile ? 'none' : 'calc(var(--tn-vh) * 0.72)' })}>
       <button onClick={() => { setYeniAliciAcik(v => !v); setArama(''); }}
         style={btn(yeniAliciAcik ? 'primary' : 'good',
           { padding: '7px 0', fontSize: 9.5, letterSpacing: 1.2 })}>
@@ -337,7 +337,7 @@ export default function MessageScreen({ socket, playerName = '' }) {
   const sagSutun = acik || acikAd ? (
     <div style={panel({
       padding: 0, display: 'flex', flexDirection: 'column',
-      height: vp.mobile ? 'auto' : '72vh',
+      height: vp.mobile ? 'auto' : 'calc(var(--tn-vh) * 0.72)',
     })}>
       {/* Başlık */}
       <div style={{

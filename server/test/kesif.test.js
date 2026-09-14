@@ -127,3 +127,72 @@ test('yoldaki casus savunanın uyarı listesinde çıkmaz', () => {
     WORLD.npcs.clear?.();
   }
 });
+
+/**
+ * BAŞARILI KEŞFİN RAPORU — kayıp ve karşı izci sayısı YAZILI olmalı.
+ *
+ * İlkan bildirdi: *"keşife adam yolladım ama çoğu gelmedi ve raporda
+ * kaçı öldü ya da karşıda kaç keşifçi vardı yazmıyor"*. Sunucu bu
+ * alanları gönderiyordu, ekran göstermiyordu; bu test sunucu tarafını
+ * kilitliyor ki kayıp bilgisi ilerde sessizce düşmesin.
+ */
+test('başarılı keşif raporu kaybı ve karşı izci sayısını taşıyor', () => {
+  const ARMY = require('../game/army');
+  const { createVillage } = require('../game/villageState');
+
+  const saldiran = createVillage(0, 0);
+  const hedef = createVillage(4, 4);
+  // Savunanda izci VAR: çarpışma olsun ve saldıran kayıp versin
+  hedef.army = { kuzeyIzcisi: 6 };
+  saldiran.army = {};
+
+  const m = {
+    id: 7, mode: 'scout', units: { kuzeyIzcisi: 60 }, distance: 3,
+    phase: 'outbound', legHours: 1, remainingHours: 0,
+    fromKey: '0,0', fromName: 'A', toKey: '4,4', toName: 'B',
+  };
+  ARMY.resolveArrival(m, saldiran, hedef, { targetName: 'B' });
+
+  const r = (saldiran.reports || []).find(x => x.dir === 'out');
+  assert.ok(r, 'saldırana rapor düşmeli');
+  assert.equal(r.outcome, 'kesif', 'bu güçle keşif geçmeli');
+  assert.ok(r.intel, 'başarılı keşifte istihbarat olmalı');
+
+  const kayip = Object.values(r.myLosses || {}).reduce((a, b) => a + b, 0);
+  assert.ok(kayip > 0, 'altı izciye karşı kayıpsız geçilmemeli — test anlamlı olsun');
+  assert.equal(r.savunanIzci, 6, 'karşıda kaç izci olduğu yazılı olmalı');
+  assert.equal(r.karsiIzci, 6, 'eski alan adı da korunmalı (eski raporlar bozulmasın)');
+
+  /*
+    DÖNEN İZCİ SAYISI kayıpla tutarlı olmalı: oyuncu "çoğu gelmedi"
+    derken sefere kalan birlikten bahsediyor.
+  */
+  const donen = Object.values(m.units || {}).reduce((a, b) => a + b, 0);
+  assert.equal(donen, 60 - kayip, 'dönen sefer gönderilen eksi kayıp olmalı');
+  assert.equal(m.phase, 'return');
+});
+
+test('savunmasız köye keşifte çarpışma bilgisi SIFIR', () => {
+  // Karşıda izci yoksa çarpışma da yok; ekran o zaman kayıp kutusu
+  // göstermemeli (istemci kesifCarpismasi ile bunu ayırıyor).
+  const ARMY = require('../game/army');
+  const { createVillage } = require('../game/villageState');
+  const saldiran = createVillage(0, 0);
+  const hedef = createVillage(4, 4);
+  hedef.army = { fjordvakt: 500 };            // izci YOK, normal ordu var
+
+  const m = {
+    id: 8, mode: 'scout', units: { kuzeyIzcisi: 3 }, distance: 3,
+    phase: 'outbound', legHours: 1, remainingHours: 0,
+    fromKey: '0,0', fromName: 'A', toKey: '4,4', toName: 'B',
+  };
+  ARMY.resolveArrival(m, saldiran, hedef, { targetName: 'B' });
+
+  const r = (saldiran.reports || []).find(x => x.dir === 'out');
+  assert.equal(r.outcome, 'kesif');
+  assert.equal(r.savunanIzci, 0, 'karşıda izci yoktu');
+  assert.equal(Object.values(r.myLosses || {}).reduce((a, b) => a + b, 0), 0,
+    'izcisiz köyde kayıp olmamalı');
+  assert.equal((hedef.reports || []).length, 0,
+    'izcisi olmayan köy keşfedildiğini fark etmemeli');
+});
