@@ -23,6 +23,11 @@ export default function CapitalPanel({
   level = 0, building = false,
   isCapital = false, capitalName = null, villageName = 'bu köy',
   onSetCapital,
+  /*
+    TAŞIMANIN BEDELİ — eski merkezde kaç tarla Lvl 10'a inecek.
+    Geri alınamayan bir kayıp; tıklamadan ÖNCE yazması gerekiyor.
+  */
+  tasimaBedeli = null, tarlaTavani = 10,
 }) {
   const hazir = level >= 1 && !building;
 
@@ -66,6 +71,20 @@ export default function CapitalPanel({
               fontFamily: FONT.ui, fontSize: 9.5, color: C.warn, marginBottom: 7,
             }}>
               {building ? 'Saray inşaatı bitmeden merkez taşınamaz.' : 'Saray henüz kurulmadı.'}
+            </div>
+          )}
+
+          {hazir && tasimaBedeli?.tarla > 0 && (
+            <div style={{
+              marginBottom: 7, padding: '7px 9px', borderRadius: 5,
+              background: 'rgba(242,187,96,0.10)', border: `1px solid ${C.warn}55`,
+              fontFamily: FONT.ui, fontSize: 9.5, color: C.warn, lineHeight: 1.6,
+            }}>
+              DİKKAT — merkez buraya taşınırsa
+              {' '}<b>{tasimaBedeli.merkezAd || 'eski merkezin'}</b> köyündeki
+              {' '}<b>{tasimaBedeli.tarla} tarla</b> Lvl {tarlaTavani} e iner
+              {' '}(toplam {tasimaBedeli.seviye} seviye). Tarlalar yalnız merkezde
+              {' '}Lvl 20 ye çıkabiliyor; bu kayıp geri alınamaz.
             </div>
           )}
 

@@ -26,6 +26,32 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14v',
+    tarih: '14 Eylül 2026',
+    baslik: 'Merkez taşınınca tarlalar iniyor',
+    notlar: [
+      {
+        id: '20260914-merkez-tasima-kirpma',
+        tur: 'denge',
+        metin: 'MERKEZİ BAŞKA KÖYE TAŞIRSAN eski merkezin tarlaları Lvl '
+          + '10 a iner. Tarlalar yalnız merkezde Lvl 20 ye çıkabiliyor; '
+          + 'kırpma olmasaydı merkezi köyden köye taşıyıp bütün '
+          + 'köylerinin tarlalarını sırayla 20 ye çıkarabilirdin ve '
+          + 'merkez tavanı diye bir şey kalmazdı. Tavanın üstüne çıkan '
+          + 'yükseltme varsa iptal ediliyor, ayrılan işçiler havuza '
+          + 'dönüyor — harcanan kaynak geri gelmiyor.',
+      },
+      {
+        id: '20260914-merkez-tasima-uyari',
+        tur: 'yenilik',
+        metin: 'Saray panelindeki MERKEZ YAP düğmesinin üstünde artık '
+          + 'kaybın ne olacağı yazıyor: hangi köyde kaç tarlanın kaç '
+          + 'seviye ineceği. Geri alınamayan bir kaybı tıkladıktan '
+          + 'sonra öğrenmemelisin.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14u',
     tarih: '14 Eylül 2026',
     baslik: 'Haritada yoldaki seferler',

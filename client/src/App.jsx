@@ -1072,6 +1072,8 @@ function Game({ token, onLogout }) {
               onStartFestival={startFestival}
               pazar={village.pazar || null}
               saglik={village.saglik || null}
+              merkezTasimaBedeli={village.merkezTasimaBedeli || null}
+              tarlaTavanlari={village.tarlaTavanlari || null}
               onIyilestir={saglikIyilestir}
               onPazarTakas={pazarTakas}
               socket={socket}

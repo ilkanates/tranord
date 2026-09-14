@@ -116,7 +116,7 @@ const { userSessions, WORLD, markNpcDirty, markUserDirty } = require('./durum');
 const { marchingVillages, gelenSeferSayilari } = require('./game/seferTakip');
 const { popPerGameHour, getVillageBuildMinutes, getVillageDemolishMinutes, getScaledUpgradeCost,
         expansionFree, settlerCapacity, MAX_BUILDERS,
-        tarlaTavani, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./game/koyKurallari');
+        tarlaTavani, tarlalariTavanaKirp, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./game/koyKurallari');
 
 /**
  * ÇOKLU KÖY OTURUMU.
@@ -440,6 +440,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     takviyelerim: takviyelerimiBul(session.userId),
     // Haritadaki canlı kılıç rozeti bunu kullanıyor
     yoldakiSeferler: yoldakiSeferlerim(session),
+    // Merkez taşınırsa eski merkezde kaç tarla düşecek — uyarı için
+    merkezTasimaBedeli: merkezTasimaBedeli(session),
     reports: statics || reportsChanged,
     culturePoints: cpTotal,
     culture,
@@ -940,6 +942,28 @@ let lastNpcRaidAt = 0;
  * tane, üstünde sayı. En yakın varış zamanı gösteriliyor — oyuncunun
  * sorduğu "ilk ne zaman vuracak".
  */
+/**
+ * MERKEZİ TAŞIMANIN BEDELİ — önceden hesaplanıp ekrana gönderiliyor.
+ *
+ * Merkez taşınınca eski merkezin tarlaları Lvl 10'a iniyor. Bunu
+ * TIKLADIKTAN SONRA öğrenmek, oyuncunun geri alamayacağı bir kaybı
+ * habersiz yapması demek; düğmenin yanında yazması gerekiyor.
+ *
+ * Yalnız SAYIYOR, hiçbir şeye dokunmuyor.
+ */
+function merkezTasimaBedeli(session) {
+  const merkez = session.villages.get(session.capitalSlot);
+  if (!merkez) return { tarla: 0, seviye: 0 };
+  let tarla = 0, seviye = 0;
+  for (const t of Object.values(merkez.productionTiles || {})) {
+    if ((t.level || 0) > TARLA_TAVANI) {
+      tarla++;
+      seviye += t.level - TARLA_TAVANI;
+    }
+  }
+  return { tarla, seviye, merkezAd: merkez.name || session.capitalSlot };
+}
+
 function yoldakiSeferlerim(session) {
   const out = {};
   for (const v of session.villages.values()) {
@@ -2662,12 +2686,39 @@ io.on('connection', async socket => {
     hesapKaydiniTasi(
       session.villages.get(session.capitalSlot), session.villages.get(hedef));
 
+    /*
+      ESKİ MERKEZİN TARLALARI TAVANA İNİYOR (İlkan'ın kararı).
+
+      Kırpmasaydık oyuncu merkezi köyden köye taşıyıp her köyün
+      tarlalarını sırayla 20'ye çıkarır, sonunda hepsi 20 olurdu — yani
+      merkez tavanı diye bir şey kalmazdı.
+
+      SIRA ÖNEMLİ: kırpma isCapital bayrakları güncellenMEDEN önce
+      yapılıyor ki eski merkez hâlâ kendini merkez sanmasın ve yeni
+      merkezin tarlalarına dokunulmasın.
+    */
+    const eskiMerkez = session.villages.get(session.capitalSlot);
+    const kirpma = eskiMerkez && eskiMerkez !== village
+      ? tarlalariTavanaKirp(eskiMerkez, TARLA_TAVANI)
+      : { dusenTarla: 0, kaybedilenSeviye: 0, iptalEdilen: 0 };
+
     session.capitalSlot = hedef;
     for (const [k, v2] of session.villages) v2.isCapital = (k === hedef);
     for (const k of session.villages.keys()) session.dirtySlots.add(k);
     setCapital(userId, hedef).catch(err => console.error('[MERKEZ] kayıt:', err.message));
     emitVillage(session, { force: true, statics: true });
-    console.log(`[MERKEZ] userId=${userId} → ${hedef}`);
+    if (kirpma.dusenTarla > 0 || kirpma.iptalEdilen > 0) {
+      /*
+        OYUNCUYA SÖYLE. Sessizce seviye düşürmek, oyuncunun sonradan
+        fark edip "bug" sanacağı bir kayıp olurdu.
+      */
+      socket.emit('dev_result', { ok: true,
+        message: `Eski merkezin ${kirpma.dusenTarla} tarlası Lvl ${TARLA_TAVANI} e indi`
+          + (kirpma.iptalEdilen ? ` · ${kirpma.iptalEdilen} yükseltme iptal edildi` : '') });
+    }
+    console.log(`[MERKEZ] userId=${userId} → ${hedef}`
+      + (kirpma.dusenTarla ? ` · eski merkezde ${kirpma.dusenTarla} tarla `
+        + `Lvl ${TARLA_TAVANI} e indi (-${kirpma.kaybedilenSeviye} seviye)` : ''));
   });
 
   socket.on('assign_production_workers', ({ slotKey, workers } = {}) => {

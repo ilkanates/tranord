@@ -344,6 +344,7 @@ function buildPayload(village, tickMs, opts = {}) {
       `marches` yalnız aktif köyün seferleri olduğu için yetmiyor.
     */
     yoldakiSeferler: opts.yoldakiSeferler || {},
+    merkezTasimaBedeli: opts.merkezTasimaBedeli || null,
     tarlaTavani: tarlaTavani(village),
     tarlaTavanlari: { normal: TARLA_TAVANI, merkez: TARLA_TAVANI_MERKEZ },
     intel: village.intel || {},

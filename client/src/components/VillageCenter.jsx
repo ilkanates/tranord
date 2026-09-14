@@ -867,6 +867,8 @@ export default function VillageCenter({
   pazar = null, onPazarTakas,
   // Revir: Sağlık Çadırı ekranındaki yaralı kartları
   saglik = null, onIyilestir,
+  // Merkez taşıma uyarısı — eski merkezde kaç tarla düşecek
+  merkezTasimaBedeli = null, tarlaTavanlari = null,
   socket, onPazarTeklifAc, onPazarTeklifIptal, onPazarTeklifKabul,
   /**
    * ÇOKLU KÖY: saray oyuncu çapında tek, merkez de saraydan taşınıyor.
@@ -1841,6 +1843,7 @@ export default function VillageCenter({
                   isCapital={!capitalSlot || capitalSlot === activeSlot}
                   capitalName={villages.find(v => v.slotKey === capitalSlot)?.name || null}
                   villageName={villages.find(v => v.slotKey === activeSlot)?.name || 'bu köy'}
+                  tasimaBedeli={merkezTasimaBedeli} tarlaTavani={tarlaTavanlari?.normal || 10}
                   onSetCapital={() => onSetCapital?.(activeSlot)} />
               </div>
             )}

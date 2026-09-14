@@ -15,14 +15,14 @@ Bkz. Tamamlandı · "Çoklu köy mimarisi". Bu maddede kalan tek iş:
 - **Kendi köyleri arasında kaynak/asker gönderimi.** Kaynak tarafı pazarla
   çözüldü (tüccar yürüyüşü); asker tarafı da yapıldı — bkz. Tamamlandı · "Takviye".
 
-### 1. ~~Göçmen ve yeni köy kurma~~ — YAPILDI (uçtan uca oynanarak doğrulanmadı)
+### 1. ~~Göçmen ve yeni köy kurma~~ — YAPILDI ve oynanarak doğrulandı
 Kod yolları yerinde: `gocmen` birimi (köşk/saray Lvl 10, 240 dk, maliyeti
 tanımlı), `mode: 'yerlesim'` seferi, kültür puanı + köy hakkı denetimi
 sefer BAŞLARKEN yapılıyor, varışta `foundVillageAt` köyü kuruyor.
 
 Kalan:
-- Uçtan uca bir oyun turunda denenmedi — 3 göçmen üret, boş araziye gönder,
-  köyün gerçekten kurulduğunu ve köy listesine düştüğünü gör.
+- ~~Uçtan uca bir oyun turunda denenmedi~~ — İlkan oynayarak denedi, sorun yok
+  (14 Eylül 2026).
 - Arazi varışta dolmuşsa göçmenler kayboluyor; oyuncuya bunun için bir
   rapor/uyarı gidiyor mu, kontrol edilmeli.
 
@@ -232,6 +232,14 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
 
+### Merkez taşınınca eski merkezin tarlaları kırpılıyor (14 Eylül 2026)
+- İlkan'ın kararı: *"merkezi başka yere taşıdığında binaların Lvl'i 10'a düşer"*. Bir önceki sürümde açık bırakılan madde kapandı.
+- **KIRPMASAYDIK TAVAN DELİNİRDİ**: oyuncu merkezi köyden köye taşıyıp her köyün tarlalarını sırayla 20'ye çıkarır, sonunda hepsi 20 olurdu — yani merkezin üstünlüğü diye bir şey kalmazdı. Kural ancak merkez DEĞİŞTİĞİNDE de uygulanırsa kural.
+- **Sıra önemli**: kırpma `isCapital` bayrakları güncellenmeden ÖNCE yapılıyor ki eski merkez hâlâ kendini merkez sanmasın ve yeni merkezin tarlalarına dokunulmasın.
+- **Süren yükseltme iptal ediliyor**: tavanın üstüne çıkacak bir inşaat yarıda bırakılmasaydı, taşımanın hemen ardından biten yükseltme kuralı atlatırdı. Ayrılan işçiler havuza dönüyor; harcanan kaynak geri gelmiyor — merkezi taşımak bir karar, bedeli olmalı.
+- **İşçi sayısı da kırpılıyor**: düşen seviyenin işçi kapasitesi daha küçük; kırpmasaydık tarla kapasitesinin üstünde işçi tutar ve nüfus muhasebesi sessizce şişerdi. Fazlası boş havuza dönüyor.
+- **UYARI DÜĞMENİN ÜSTÜNDE**: saray panelinde "merkez yap" düğmesinin üstünde hangi köyde kaç tarlanın kaç seviye ineceği yazıyor. Geri alınamayan bir kaybı tıkladıktan sonra öğrenmek, oyuncunun sonradan fark edip "bug" sanacağı bir kayıp olurdu. Taşıma bittiğinde de kaç tarlanın indiği bildiriliyor.
+
 ### Haritadaki kılıç: geçmiş değil YOLDAKİ sefer (14 Eylül 2026)
 - İlkan: *"ilk saldırdığım yerde şu an kılıç var ama oraya şu an saldırmıyorum. Başka yere saldırıyorum, orada kılıç çıkmıyor... bu, haritayı açınca gözükebilen ANLIK bir şey olmalı. O an nereye saldırı gidiyor görebilmeliyim."*
 - **YANLIŞ ŞEYİ GÖSTERİYORDUM.** Rozeti GEÇMİŞTE vurulan köylere koymuştum; oyuncunun istediği ise o an YOLDA olan sefer. Sonuç tam tersi bir ekran: saldırmadığı köyde kılıç duruyor, tam o an saldırdığı köyde hiçbir şey çıkmıyordu. İstek "saldırdığım yerleri görmek istiyorum" idi ve ben bunu sicil diye okudum; oysa haritadaki bir işaret doğası gereği ŞU ANI anlatır.
@@ -250,7 +258,7 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - **TARLA TAVANI: merkez 20, diğerleri 10** (`koyKurallari · tarlaTavani`). Tarlalar her köyde 20'ye çıkabilirken MERKEZ KÖY diye bir şeyin anlamı kalmıyordu; çoklu köy, birbirinin kopyası yirmi kasabaya dönüşüyordu. Tavanı ikiye ayırmak merkeze gerçek bir üstünlük veriyor.
 - **Tanım tablosu 20 seviye taşımaya devam ediyor**: tavan bir KURAL, tablo değil. Tablo kısaltılsaydı merkezin 11-20 aralığı da yok olurdu.
 - Sınır üç yerde birden: sunucu kapısı (`upgrade_production`, sebebini yazan bir ret), ekran (tavana varan tarlada "son seviye" + nedenini ve çözümünü anlatan not) ve dev kısayolu (kuralı delen bir kısayol geliştirme ortamını gerçek oyundan ayırırdı).
-- **AÇIK KALAN — mevcut Lvl 10+ tarlalar DÜŞÜRÜLMÜYOR.** Oyuncuların emeğini geri almak istemedim; ama bu, merkezi köyden köye taşıyarak her köyün tarlalarını 20'ye çıkarmanın yolunu açık bırakıyor. Kapatmak için ya merkez taşınırken fazlalığı kırpmak ya da merkez taşımaya bir bedel/bekleme koymak gerekir — İlkan'a soruldu.
+- ~~AÇIK KALAN — mevcut Lvl 10+ tarlalar~~ — KAPANDI: İlkan "merkezi başka yere taşıdığında Lvl 10'a düşer" dedi; merkez taşınırken kırpılıyor (bkz. Tamamlandı · "Merkez taşınınca...").
 
 ### Kervan listesi + haritada saldırı izleri (14 Eylül 2026)
 - İlkan: *"markette yolladığım pazarcıları görebilmem lazım"* ve *"harita üzerinde saldırdığım yağmaladığım yerleri görmek istiyorum, üzerinde bir kılıç vs olsun"*.

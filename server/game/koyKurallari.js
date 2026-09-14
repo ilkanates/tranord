@@ -10,7 +10,7 @@
  * fiyat gösterip sunucu başka fiyat keser. test/tanim-ikizleri.test.js
  * iki tarafı karşılaştırıyor — bu dosya taşınırsa o test de güncellenmeli.
  */
-const { VILLAGE_DEFS } = require('../data');
+const { VILLAGE_DEFS, PRODUCTION_DEFS } = require('../data');
 // settlerCapacity gocmen birim adini ve gerekli sayiyi buradan okuyor
 const ARMY = require('./army');
 /** Aç değilken ve tavan altındayken saatte kaç kişi katılır */
@@ -168,8 +168,58 @@ function tarlaTavani(village) {
   return village?.isCapital ? TARLA_TAVANI_MERKEZ : TARLA_TAVANI;
 }
 
+/**
+ * TARLALARI TAVANA KIRP — merkez başka köye taşınınca çağrılıyor.
+ *
+ * İlkan'ın kararı: *"merkezi başka yere taşıdığında binaların Lvl'i 10'a
+ * düşer"*.
+ *
+ * KIRPMASAYDIK TAVAN DELİNİRDİ: oyuncu merkezi köyden köye taşıyıp her
+ * köyün tarlalarını sırayla 20'ye çıkarır, sonunda hepsi 20 olurdu —
+ * yani merkezin üstünlüğü diye bir şey kalmazdı. Kural ancak merkez
+ * DEĞİŞTİĞİNDE de uygulanırsa kural.
+ *
+ * SÜRMEKTE OLAN YÜKSELTME DE İPTAL: tavanın üstüne çıkacak bir inşaat
+ * yarıda bırakılmasaydı, taşımanın hemen ardından biten yükseltme
+ * kuralı atlatırdı. Ayrılan işçiler havuza geri dönüyor; harcanan
+ * kaynak geri gelmiyor — merkezi taşımak bir karar, bedeli olmalı.
+ *
+ * @returns {{dusenTarla:number, kaybedilenSeviye:number, iptalEdilen:number}}
+ */
+function tarlalariTavanaKirp(village, tavan) {
+  const out = { dusenTarla: 0, kaybedilenSeviye: 0, iptalEdilen: 0 };
+  if (!village || !(tavan >= 1)) return out;
+
+  for (const t of Object.values(village.productionTiles || {})) {
+    if (t.upgrading && (t.level || 0) >= tavan) {
+      village.freeWorkers = (village.freeWorkers || 0) + (t.upgradeWorkersAssigned || 0);
+      t.upgrading = false;
+      t.upgradeEndTime = null;
+      t.upgradeWorkersAssigned = 0;
+      out.iptalEdilen++;
+    }
+    if ((t.level || 0) > tavan) {
+      out.kaybedilenSeviye += t.level - tavan;
+      out.dusenTarla++;
+      t.level = tavan;
+      /*
+        İŞÇİ SAYISI DA KIRPILIYOR: düşen seviyenin işçi kapasitesi daha
+        küçük. Kırpmasaydık tarla kapasitesinin üstünde işçi tutar,
+        nüfus muhasebesi sessizce şişerdi.
+      */
+      const def = PRODUCTION_DEFS[t.type];
+      const maxW = def?.levels?.[tavan - 1]?.workers;
+      if (maxW != null && (t.workers || 0) > maxW) {
+        village.freeWorkers = (village.freeWorkers || 0) + (t.workers - maxW);
+        t.workers = maxW;
+      }
+    }
+  }
+  return out;
+}
+
 module.exports = {
-  TARLA_TAVANI, TARLA_TAVANI_MERKEZ, tarlaTavani,
+  TARLA_TAVANI, TARLA_TAVANI_MERKEZ, tarlaTavani, tarlalariTavanaKirp,
   POP_PER_HOUR_BASE, POP_PER_HOUR_STEP, popPerGameHour,
   getVillageBuildMinutes, getVillageDemolishMinutes, YIKIM_ORANI,
   UPGRADE_MULT_DEFAULT, getScaledUpgradeCost,
