@@ -26,6 +26,25 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14w',
+    tarih: '14 Eylül 2026',
+    baslik: 'Haritada her sefer türünün kendi simgesi',
+    notlar: [
+      {
+        id: '20260914-sefer-simgeleri',
+        tur: 'yenilik',
+        metin: 'HARİTADAKİ YOLDAKİ SEFER ROZETİ artık türüne göre '
+          + 'farklı çiziliyor: saldırı KIRMIZI KILIÇ, yağma TURUNCU '
+          + 'KILIÇ, takviye YEŞİL KALKAN, keşif BEYAZ DÜRBÜN, göçmen '
+          + 'seferi ise buz mavisi ÇADIR. Eskiden hepsi aynı kılıçtı ve '
+          + 'yalnız rengi değişiyordu; hangi seferin nereye gittiğini '
+          + 'anlamak için rengi ezberlemen gerekiyordu. Rozetin altında '
+          + 'kalan süre ve birden çok sefer varsa sayısı yazmaya devam '
+          + 'ediyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14v',
     tarih: '14 Eylül 2026',
     baslik: 'Merkez taşınınca tarlalar iniyor',

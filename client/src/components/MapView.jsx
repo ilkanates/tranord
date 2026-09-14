@@ -627,10 +627,72 @@ const SEFER_ADI = {
   takviye: 'takviye', yerlesim: 'yerleşim',
 };
 
+/*
+  SEFER RENKLERİ — İlkan'ın istediği şema:
+  saldırı kırmızı kılıç · yağma TURUNCU kılıç · takviye YEŞİL kalkan ·
+  keşif BEYAZ dürbün. Yerleşim tek yönlü ve zararsız, buzul mavisi çadır.
+*/
 const SEFER_RENK = {
-  attack: '#ff6f78', raid: '#f2c86e', scout: '#8fdcff',
+  attack: '#ff6f78', raid: '#ff9a3c', scout: '#eaf4ff',
   takviye: '#6cdda3', yerlesim: '#c4ecff',
 };
+
+/**
+ * HER SEFER TÜRÜNÜN KENDİ SİMGESİ.
+ *
+ * Eskiden hepsi aynı kılıçtı ve yalnız rengi değişiyordu; oyuncu
+ * haritaya bakınca yağma ile takviyeyi ayırmak için rengi ezberlemek
+ * zorundaydı. ŞEKİL RENKTEN ÖNCE OKUNUYOR — kalkan destektir, dürbün
+ * keşiftir; renk körü oyuncu için de tek ayırt edici renk kalmıyor.
+ *
+ * Çizimler kabaca -4.4..4.4 kutusunda; ölçeği çağıran veriyor.
+ */
+function SeferSimge({ mode, renk }) {
+  if (mode === 'takviye') {
+    /*
+      KALKAN — destek. TEPESİ DÜZ: ilk denemede üst kenar da sivriydi ve
+      12 piksellik rozette sekizgene benziyordu, kalkana değil.
+    */
+    return (
+      <path d="M -3.2 -3.6 L 3.2 -3.6 L 3.2 0.2 C 3.2 2.6 0 4.2 0 4.2 C 0 4.2 -3.2 2.6 -3.2 0.2 Z"
+        stroke={renk} strokeWidth="1.2" strokeLinejoin="round" fill="none" />
+    );
+  }
+  if (mode === 'scout') {
+    /*
+      DÜRBÜN — keşif. İki mercek + üstte GÖVDELER ve köprü; gövdeler
+      olmadan iki daire gözlük gibi okunuyordu.
+    */
+    return (
+      <g stroke={renk} strokeWidth="1.1" fill="none"
+        strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="-2.3" cy="1.5" r="2.1" />
+        <circle cx="2.3" cy="1.5" r="2.1" />
+        <path d="M -3.2 -0.3 L -3.2 -3.4 L -1.4 -3.4 L -1.4 -0.3" />
+        <path d="M 3.2 -0.3 L 3.2 -3.4 L 1.4 -3.4 L 1.4 -0.3" />
+        <path d="M -1.4 -2.1 L 1.4 -2.1" />
+      </g>
+    );
+  }
+  if (mode === 'yerlesim') {
+    // ÇADIR — yeni köy kurmaya giden göçmenler
+    return (
+      <g stroke={renk} strokeWidth="1.2" fill="none"
+        strokeLinejoin="round" strokeLinecap="round">
+        <path d="M 0 -3.8 L 3.5 3.4 L -3.5 3.4 Z" />
+        <path d="M -1.1 3.4 L 0 0.3 L 1.1 3.4" strokeWidth="0.9" />
+      </g>
+    );
+  }
+  // KILIÇ — saldırı (kırmızı) ve yağma (turuncu)
+  return (
+    <g transform="rotate(45)" stroke={renk} fill="none" strokeLinecap="round">
+      <path d="M 0 -4.4 L 0 2.3" strokeWidth="1.5" />
+      <path d="M -2.1 2.3 L 2.1 2.3" strokeWidth="1.5" />
+      <path d="M 0 2.3 L 0 4.2" strokeWidth="1.1" />
+    </g>
+  );
+}
 
 function SeferRozeti({ x, y, r, sefer, scale, boy = 6 }) {
   if (!sefer) return null;
@@ -645,26 +707,20 @@ function SeferRozeti({ x, y, r, sefer, scale, boy = 6 }) {
   const by = y - r * 0.72;
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <circle cx={bx} cy={by} r={6 * k} fill="rgba(8,14,24,0.9)"
+      <circle cx={bx} cy={by} r={7 * k} fill="rgba(8,14,24,0.9)"
         stroke={renk} strokeWidth={1.3 * k}>
         <animate attributeName="opacity" values="1;0.45;1" dur="1.4s"
           repeatCount="indefinite" />
       </circle>
-      {/* Kılıç: namlu + çapraz balçak */}
-      <g transform={`translate(${bx} ${by}) scale(${k}) rotate(45)`}>
-        <path d="M 0 -4.2 L 0 2.2" stroke={renk} strokeWidth="1.5"
-          strokeLinecap="round" fill="none" />
-        <path d="M -2 2.2 L 2 2.2" stroke={renk} strokeWidth="1.5"
-          strokeLinecap="round" fill="none" />
-        <path d="M 0 2.2 L 0 4" stroke={renk} strokeWidth="1.1"
-          strokeLinecap="round" fill="none" />
+      <g transform={`translate(${bx} ${by}) scale(${k})`}>
+        <SeferSimge mode={sefer.mode} renk={renk} />
       </g>
       {/*
         KALAN SÜRE rozetin altında. "Bir sefer gidiyor" bilgisi tek
         başına eksik; oyuncunun asıl sorusu ne zaman varacağı.
         Birden çok sefer varsa sayısı da yazıyor.
       */}
-      <text x={bx} y={by + 11 * k} textAnchor="middle"
+      <text x={bx} y={by + 13 * k} textAnchor="middle"
         fontFamily={FONT.num} fontSize={7 * k} fill={renk}
         style={{ userSelect: 'none' }}>
         {sefer.sayi > 1 ? `${sefer.sayi}× ` : ''}{fmtTime(Math.max(0, sefer.kalanTimeLeft || 0))}

@@ -222,6 +222,15 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Haritada sefer rozeti türüne göre çiziliyor (14 Eylül 2026)
+- İlkan: *"saldırıda haritada kılıç, yağmada turuncu kılıç, destekte yeşil kalkan, casuslamada beyaz dürbün çıkart"*.
+- Eskiden **beş sefer türü de aynı kılıcı** çiziyordu, yalnız rengi değişiyordu. ŞEKİL RENKTEN ÖNCE OKUNUYOR — kalkan destektir, dürbün keşiftir; renk körü oyuncu için de tek ayırt edici renk kalmıyor.
+- `SeferSimge` (`client/src/components/MapView.jsx`): kılıç (saldırı kırmızı / yağma turuncu), kalkan (takviye yeşil), dürbün (keşif beyaz), çadır (yerleşim buz mavisi).
+- **ŞEKİLLER ÖLÇÜLEREK DÜZELTİLDİ**, tahminle çizilmedi: ayrı bir önizleme sayfasında gerçek 12px rozet boyunda render edildi. İlk denemede kalkanın tepesi de sivriydi ve **sekizgen** gibi okunuyordu (tepe düz yapıldı); dürbünün gövdeleri yoktu ve **gözlük** gibi duruyordu (gövde + köprü eklendi); ikisi de 6 yarıçaplı daireye yapışıyordu, daire 7 ye çıktı.
+- Yağmanın rengi sarıdan (`#f2c86e`) **turuncuya** (`#ff9a3c`) alındı — İlkan turuncu istedi ve sarı zaten kaynak rozetleriyle çakışıyordu.
+- Kalan süre ve sefer sayısı rozetin altında durmaya devam ediyor; canlı geri sayım (`kalanTimeLeft`) bozulmadı.
+
+
 ### Oyun tasarım dökümanı üretildi — `docs/OYUN-TASARIMI.md` (14 Eylül 2026)
 - İlkan: *"oyunun mekanikleri askerleri binaları genel dokusu hakkında bilgi dökümanı üret, başka bir sessionda AI'a okutup oyunun sonu nasıl olacak fikir alayım"* + *"bina maliyetleri süreleri, birimlerin ve araçların maliyetleri süreleri herşeyi olmalı"* + *"bütün bu veriler oyunun 1x hızına göre olmalı"*.
 - **1510 satır.** 13 anlatı bölümü (bir bakışta → kaynaklar → nüfus → binalar → ekipman → birimler → savaş → kahraman → ticaret → çoklu köy → dünya → BUGÜN OLMAYAN ŞEYLER → KARAR SORUSU) + altı tablo eki.
