@@ -70,15 +70,24 @@ const ERR = {
  * Yürüyüş süresi — sunucudaki army.js ile AYNI kural.
  * Birim hızı = saatte kaç hex; en yavaş birim belirler. Oyun saati gerçek
  * saniyeye `hourSeconds` ile çevrilir (1× → 3600).
+ *
+ * ASKERSİZ SEFER = KAHRAMAN TEK BAŞINA. O zaman süreyi kahramanın hızı
+ * belirliyor. Eskiden bu durumda 0 dönüyordu: kahramanı yalnız
+ * gönderirken ekranda "0 sn" yazıyor, kahramanın hızının bir işe
+ * yaradığı hiçbir yerden anlaşılmıyordu (İlkan sordu).
  */
-function marchSeconds(units, unitDefs, distance, hourSeconds, minMinutes = 1) {
+function marchSeconds(units, unitDefs, distance, hourSeconds, minMinutes = 1,
+  kahramanHiz = 0) {
   let hiz = Infinity;
   for (const [k, n] of Object.entries(units)) {
     if (!(n > 0)) continue;
     const h = unitDefs[k]?.stats?.hiz;
     if (h > 0 && h < hiz) hiz = h;
   }
-  if (!Number.isFinite(hiz)) return 0;
+  if (!Number.isFinite(hiz)) {
+    if (!(kahramanHiz > 0)) return 0;
+    hiz = kahramanHiz;
+  }
   const gameHours = Math.max(minMinutes / 60, distance / hiz);
   return Math.round(gameHours * hourSeconds);
 }
@@ -264,7 +273,38 @@ export default function SendArmyPanel({
     () => Object.fromEntries(Object.entries(sel).filter(([, n]) => n > 0)),
     [sel]);
   const chosenTotal = Object.values(chosen).reduce((a, b) => a + b, 0);
-  const secs = marchSeconds(chosen, unitDefs, distance, hourSeconds, minMarchMin);
+  /*
+    KAHRAMAN BU SEFERE KATILABİLİR Mİ?
+
+    Üç koşul: ölü olmamalı, başka bir işte (sefer/macera/takviye) olmamalı
+    ve SEFERİN ÇIKTIĞI köyde durmalı. Sonuncusu çoklu köy yüzünden:
+    kahraman tek, ordu her köyden çıkabiliyor.
+
+    Aynı denetim SUNUCUDA da var — buradaki yalnız oyuncuya sebebi
+    söylemek için; kutuyu gizlemek bir denetim değildir.
+
+    SÜRE HESABINDAN ÖNCE tanımlı olmak ZORUNDA: kahraman tek başına
+    giderken yürüyüş süresini onun hızı belirliyor. Aşağıda tanımlıydı ve
+    ekran "Cannot access 'kahramanUygun' before initialization" diye
+    çöküyordu (tarayıcıda görüldü).
+  */
+  const kahramanEngeli = !kahraman?.var ? 'Kahramanın yok'
+    : kahraman.olu ? 'Ölü — önce diriltmen gerekiyor'
+      : (kahraman.nerede && kahraman.nerede !== 'koy')
+        ? NEREDE_ENGEL[kahraman.nerede] || 'Şu an başka bir işte'
+        : (activeSlot && kahraman.usSlot && kahraman.usSlot !== activeSlot)
+          ? 'Başka köyde — konağının olduğu köyden yollanır'
+          : null;
+  const kahramanUygun = !!kahraman?.var && !kahramanEngeli;
+
+  /*
+    Kahraman bu seferde yürüyorsa hızı süreye giriyor — ama YALNIZ asker
+    yoksa. Orduyla giderse kahraman orduyu bekler (sunucudaki kuralın
+    aynısı: army.js · marchGameHours).
+  */
+  const kahramanYuruyor = kahramaniGotur && kahramanUygun;
+  const secs = marchSeconds(chosen, unitDefs, distance, hourSeconds, minMarchMin,
+    kahramanYuruyor ? (kahraman?.hiz || 0) : 0);
   const cap  = carryCapacity(chosen, unitDefs, unitStatsNow);
 
   /*
@@ -336,25 +376,6 @@ export default function SendArmyPanel({
 
   if (!target) return null;
   const modeDef = moduller.find(m => m.key === mode);
-
-  /*
-    KAHRAMAN BU SEFERE KATILABİLİR Mİ?
-
-    Üç koşul: baygın olmamalı, başka bir işte (sefer/macera) olmamalı ve
-    SEFERİN ÇIKTIĞI köyde durmalı. Sonuncusu çoklu köy yüzünden: kahraman
-    tek, ordu her köyden çıkabiliyor.
-
-    Aynı denetim SUNUCUDA da var — buradaki yalnız oyuncuya sebebi
-    söylemek için; kutuyu gizlemek bir denetim değildir.
-  */
-  const kahramanEngeli = !kahraman?.var ? 'Kahramanın yok'
-    : kahraman.olu ? 'Ölü — önce diriltmen gerekiyor'
-      : (kahraman.nerede && kahraman.nerede !== 'koy')
-        ? NEREDE_ENGEL[kahraman.nerede] || 'Şu an başka bir işte'
-        : (activeSlot && kahraman.usSlot && kahraman.usSlot !== activeSlot)
-          ? 'Başka köyde — konağının olduğu köyden yollanır'
-          : null;
-  const kahramanUygun = !!kahraman?.var && !kahramanEngeli;
 
   const send = () => {
     setErr(null); setNoReply(false);
@@ -481,7 +502,14 @@ export default function SendArmyPanel({
                     Kahramanı da götür
                   </div>
                   <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>
-                    {kahramanEngeli || (mode === 'takviye'
+                    {/*
+                      TEK BAŞINA GİDİYORSA hızını burada yazıyoruz: süre
+                      kutusundaki sayının neden o olduğu başka hiçbir
+                      yerden anlaşılmıyor.
+                    */}
+                    {(kahramanUygun && chosenTotal === 0)
+                      ? `Tek başına gidiyor · ${kahraman.suvari ? 'süvari' : 'yaya'} · hız ${kahraman.hiz}`
+                      : kahramanEngeli || (mode === 'takviye'
                       ? `Lvl ${kahraman.seviye} · o köye savunma +%${
                         kahraman.bonuslar?.savunmaYuzde || 0} · geri çağırana kadar orada kalır`
                       : `Lvl ${kahraman.seviye} · ${kahraman.suvari ? 'süvari' : 'yaya'} · +${

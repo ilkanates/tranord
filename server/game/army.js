@@ -285,7 +285,9 @@ function savunmaKayiplariniPayEt(village, losses) {
     village.takviyeler = village.takviyeler.filter(t => totalUnits(t.units) > 0);
   }
 
-  return { evSahibiOlu, misafirKayip };
+  // evSahibiPay: ev sahibinin HANGİ birimden kaç kaybettiği. Sağlık çadırı
+  // yaralıyı buradan seçiyor — misafirin askerine dokunmuyor.
+  return { evSahibiOlu, evSahibiPay, misafirKayip };
 }
 
 // ── Keşif yardımcıları ────────────────────────────────────────────────
@@ -723,20 +725,6 @@ function resolveArrival(march, origin, target, opts = {}) {
   });
 
   /*
-    SAĞLIK ÇADIRI — kayıpların bir kısmı iyileşiyor.
-
-    PAY ETMEDEN ÖNCE uygulanıyor: böylece ev sahibi ve misafirler
-    iyileşmeden kendi kayıpları oranında faydalanıyor. Pay ettikten
-    sonra yapsaydık "kimin askeri iyileşsin" diye keyfî bir sıra
-    gerekirdi; oysa çadır kimin olduğuna bakmadan yaralıyı topluyor.
-
-    Sonuç (kazanan, ganimet, kuşatma) DEĞİŞMİYOR — savaş çoktan bitti.
-  */
-  const saglik = SAGLIK.saglikIyilesmeOrani(buildingLevel(target, 'saglikCadiri'));
-  const tedavi = SAGLIK.saglikIyilestir(res.defenderLosses, saglik);
-  res.defenderLosses = tedavi.kalanKayip;
-
-  /*
     Savunanın kaybı önce EV SAHİBİNİN ordusundan, artanı misafirlerden.
     Misafir kaybı ev sahibinin nüfusundan düşmez — o asker sahibinin
     köyünün nüfusunda sayılıyor. Sefere iliştiriliyor ki processMarches
@@ -745,6 +733,27 @@ function resolveArrival(march, origin, target, opts = {}) {
   const pay = savunmaKayiplariniPayEt(target, res.defenderLosses);
   const defenderDead = pay.evSahibiOlu;
   march.misafirKayip = pay.misafirKayip;
+
+  /*
+    SAĞLIK ÇADIRI — ölenlerin bir kısmı aslında YARALI; çadıra alınıyor.
+
+    PAY ETTİKTEN SONRA ve YALNIZ EV SAHİBİNİN ölülerine işliyor. Önceki
+    sürümde kaybı pay etmeden önce azaltıyordu — o hâlde çadır misafirin
+    askerini de kurtarıyordu. Artık yaralı çadırda YATIYOR ve iyileşince
+    bu köyün ordusuna dönüyor; misafirin askerini alsaydık başka bir
+    oyuncunun ordusunu kendi ordumuza katmış olurduk.
+
+    Yaralı orduda SAYILMIYOR: kayıp zaten işlendi, asker çadırda. Nüfusu
+    da düştü; iyileşip döndüğünde geri ekleniyor (bkz. taburcuEt).
+
+    Sonuç (kazanan, ganimet, kuşatma) DEĞİŞMİYOR — savaş çoktan bitti.
+  */
+  const cadirSeviye = buildingLevel(target, 'saglikCadiri');
+  const tedavi = SAGLIK.yaralilariAl(pay.evSahibiOlu ? pay.evSahibiPay : {},
+    cadirSeviye, target);
+  if (tedavi.alinan > 0) {
+    target.saglikYatan = [...(target.saglikYatan || []), ...tedavi.yatanlar];
+  }
 
   const survivors = res.attackerSurvivors || {};
   const survTotal = totalUnits(survivors);
@@ -856,11 +865,18 @@ function resolveArrival(march, origin, target, opts = {}) {
       yükseltmek için bir sebep bulamazdı. Alan yoksa hiç yazılmıyor;
       eski raporlar bozulmuyor.
     */
-    ...(tedavi.iyilesenToplam > 0 ? {
+    ...((tedavi.alinan > 0 || tedavi.sigmayan > 0) ? {
       saglikCadiri: {
-        oran: Math.round(saglik * 100),
-        iyilesen: tedavi.iyilesen,
-        toplam: tedavi.iyilesenToplam,
+        oran: Math.round(SAGLIK.saglikIyilesmeOrani(cadirSeviye) * 100),
+        iyilesen: Object.fromEntries(tedavi.yatanlar.map(y => [y.birim, y.adet])),
+        toplam: tedavi.alinan,
+        /*
+          SIĞMAYAN = yatak bulamadığı için ölen yaralı. Yazılmasa oyuncu
+          çadırının dolduğunu hiçbir yerden anlayamaz, onu yükseltmek
+          için bir sebep göremezdi.
+        */
+        sigmayan: tedavi.sigmayan,
+        kapasite: tedavi.kapasite,
       },
     } : {}),
     /*

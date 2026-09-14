@@ -67,6 +67,14 @@ function createVillage(worldQ = 0, worldR = 0) {
 
     army: {},
 
+    /*
+      REVİR — sağlık çadırında YATAN yaralılar.
+      [{ birim, adet, kalanSaat }]. Savunulan savaşta ölenlerin bir kısmı
+      buraya düşüyor; süresi dolunca orduya geri dönüyor (tick.js).
+      Yatanlar orduda SAYILMIYOR: savaşamazlar, yem de yemezler.
+    */
+    saglikYatan: [],
+
     // SEFERLER: bu köyden çıkan hareketler burada durur (sahiplik = kalıcılık).
     // Zaman alanları Date.now() tabanlı — köyün sanal saati DEĞİL; gerekçe
     // game/army.js başındaki nota bakınız.
@@ -238,6 +246,8 @@ function hydrateVillage(raw) {
   // Sefer sistemi öncesi kayıtlar
   if (!raw.stats || typeof raw.stats !== 'object') raw.stats = {};
   if (!Array.isArray(raw.marches)) raw.marches = [];
+  // Revir öncesi kayıtlar — alan yoksa boş revir
+  if (!Array.isArray(raw.saglikYatan)) raw.saglikYatan = [];
   if (!Array.isArray(raw.reports)) raw.reports = [];
   if (typeof raw.nextMarchId !== 'number') {
     raw.nextMarchId = raw.marches.reduce((m, x) => Math.max(m, (x.id || 0) + 1), 1);

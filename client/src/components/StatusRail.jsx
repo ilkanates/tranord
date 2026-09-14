@@ -147,6 +147,11 @@ function StatusRail({
   kusatmaHavuz = { capacity: 0, used: 0, free: 0 },
   buildQueue = [], onCancelBuild,
   army = {}, unitDefs = {}, tickMs = 1000,
+  /*
+    KAHRAMAN da ordu listesinde görünüyor — köyde duruyorsa. Oyuncu
+    savunmasını sayarken onu da hesaba katmalı (İlkan'ın isteği).
+  */
+  kahraman = null,
   populationPerHour = 0, hourSeconds = 3600, worldSpeed = 1,
   culture = null, festival = null,
   mobile = false, railW = 186,
@@ -192,6 +197,12 @@ function StatusRail({
     : Infinity;
   const [fold, toggleFold] = useCollapse();
   const armyList = Object.entries(army).filter(([, n]) => n > 0);
+  /*
+    Kahraman BU köyde mi? Yalnız üssündeyken bu köyün savunmasında:
+    seferde, macerada ya da başka köyde takviyedeyken burada değil.
+  */
+  const kahramanBurada = !!kahraman?.var && !kahraman.olu
+    && (kahraman.nerede || 'koy') === 'koy';
 
   return (
     <>
@@ -639,7 +650,7 @@ function StatusRail({
         })()}
 
         {/* ══ ORDU ══ */}
-        {armyTot > 0 && (
+        {(armyTot > 0 || kahramanBurada) && (
           <div style={glass({
             padding: '4px 3px 5px', minHeight: 0, overflow: 'hidden',
             flexShrink: fold.ordu ? 0 : 1,
@@ -651,6 +662,50 @@ function StatusRail({
             {/* Tüm birlikler listelenir; sığmazsa blok kendi içinde kayar */}
             {!fold.ordu && (
             <div className="tn-scroll" style={{ overflowY: 'auto', minHeight: 0 }}>
+            {/*
+              KAHRAMAN DA BİR BİRLİK. Köyde duruyorsa listenin BAŞINDA
+              yazıyor: oyuncu savunmasını sayarken onu da hesaba katmalı
+              ve "kahramanım şu an nerede" sorusunun cevabı ordu
+              listesinde olmalı (İlkan'ın isteği).
+
+              Yalnız ÜSSÜNDEYKEN görünüyor; seferde, macerada ya da başka
+              köyde takviyedeyken bu köyün savunmasında değil.
+            */}
+            {kahramanBurada && (
+              <div
+                onMouseEnter={(e) => place(e, {
+                  title: `Kahraman · Lvl ${kahraman.seviye}`, icon: 'migfer',
+                  rows: [
+                    { k: 'Sınıf', v: kahraman.suvari ? 'süvari' : 'yaya' },
+                    { k: 'Can', v: `${kahraman.can}/${kahraman.canTavan}`, c: C.good },
+                    { k: 'Saldırı', v: Math.round(kahraman.bonuslar?.saldiriGucu || 0), c: C.danger },
+                    { k: 'Köye savunma', v: `%${kahraman.bonuslar?.savunmaYuzde || 0}`, c: C.good },
+                    { k: 'Hız', v: kahraman.hiz },
+                  ],
+                  note: 'Kahraman köyde durduğu sürece savunma bonusu bu köye işler.',
+                })}
+                onMouseMove={(e) => tip && place(e, tip)}
+                onMouseLeave={() => setTip(null)}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(127,212,255,0.09)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                style={{
+                  padding: '2.5px 6px', borderRadius: 4, cursor: 'help',
+                  display: 'flex', gap: 6, alignItems: 'center', transition: 'background .12s',
+                  borderBottom: `1px solid ${C.lineSoft}`, marginBottom: 2,
+                }}
+              >
+                <Icon name="migfer" size={11} color={C.frost} />
+                <span style={{
+                  flex: 1, fontFamily: FONT.ui, fontSize: 9.5, color: C.frost,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  Kahraman
+                </span>
+                <span style={num({ fontSize: 10, color: C.textMute })}>
+                  Lvl {kahraman.seviye}
+                </span>
+              </div>
+            )}
             {armyList.map(([type, n]) => {
               const d = unitDefs[type];
               const cav = d?.category === 'suvari';

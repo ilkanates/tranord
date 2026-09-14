@@ -8,6 +8,7 @@ import UnitTrainingPanel from './UnitTrainingPanel';
 import ResearchPanel from './ResearchPanel';
 import FestivalPanel from './FestivalPanel';
 import PazarPanel from './PazarPanel';
+import RevirPanel from './RevirPanel';
 import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/villageDefs';
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
@@ -806,6 +807,8 @@ export default function VillageCenter({
   culture = null, expansion = null, festival = null, festivalDefs = {}, onStartFestival,
   // Pazar: tüccar kapasitesi ve NPC takası (bkz. server/game/pazar.js)
   pazar = null, onPazarTakas,
+  // Revir: Sağlık Çadırı ekranındaki yaralı kartları
+  saglik = null, onIyilestir,
   socket, onPazarTeklifAc, onPazarTeklifIptal, onPazarTeklifKabul,
   /**
    * ÇOKLU KÖY: saray oyuncu çapında tek, merkez de saraydan taşınıyor.
@@ -1331,6 +1334,7 @@ export default function VillageCenter({
           // Taverna: şölen paneli (kültür puanı üretimi)
           const hasFestival = selectedBuilding?.type === 'taverna';
           const hasPazar    = selectedBuilding?.type === 'pazar';
+          const hasRevir    = selectedBuilding?.type === 'saglikCadiri';
           // Saray: merkez taşıma denetimi burada
           const hasCapital  = selectedBuilding?.type === 'saray';
           // Köşk ve saray: bu köyün yerleşim hakkı ve kurduğu köyler
@@ -1747,6 +1751,24 @@ export default function VillageCenter({
                   onTeklifAc={onPazarTeklifAc}
                   onTeklifIptal={onPazarTeklifIptal}
                   onTeklifKabul={onPazarTeklifKabul} />
+              </div>
+            )}
+
+            {/*
+              REVİR, binanın KENDİ ekranında. Sağ rayda da denendi ve
+              kaldırıldı (İlkan): ray göz ucuyla bakılan bir yer, oysa
+              burada karar veriliyor — hangi yaralı ne zaman ayağa
+              kalkacak.
+            */}
+            {hasRevir && (
+              <div style={{ padding: '0 12px 10px', order: 1 }}>
+                <RevirPanel
+                  saglik={saglik}
+                  level={selectedBuilding.level || 0}
+                  unitDefs={unitDefs}
+                  hourSeconds={hourSeconds}
+                  worldSpeed={worldSpeed}
+                  onIyilestir={onIyilestir} />
               </div>
             )}
 

@@ -611,15 +611,33 @@ function Detail({ r, unitDefs }) {
             işe yarayıp yaramadığını hiçbir yerde göremez, onu yükseltmek
             için bir sebep bulamazdı.
           */}
-          {r.saglikCadiri?.toplam > 0 && (
-            <Section title={`SAĞLIK ÇADIRI — %${r.saglikCadiri.oran} İYİLEŞTİ`}>
-              <UnitGrid units={r.saglikCadiri.iyilesen} unitDefs={unitDefs} color={C.good} />
+          {(r.saglikCadiri?.toplam > 0 || r.saglikCadiri?.sigmayan > 0) && (
+            <Section title={`SAĞLIK ÇADIRI — YARALI PAYI %${r.saglikCadiri.oran}`}>
+              {r.saglikCadiri.toplam > 0 && (
+                <UnitGrid units={r.saglikCadiri.iyilesen} unitDefs={unitDefs} color={C.good} />
+              )}
               <div style={{
                 fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, marginTop: 5,
               }}>
-                Bu {r.saglikCadiri.toplam} asker yaralı sayıldı ve orduya geri döndü —
-                yukarıdaki kayıp listesine dahil değil.
+                {r.saglikCadiri.toplam > 0
+                  ? `Bu ${r.saglikCadiri.toplam} asker yaralı sayıldı ve çadıra alındı.
+                     İyileştiklerinde orduna geri dönecekler — kayıp listesinde
+                     görünüyorlar çünkü şu an savaşamıyorlar.`
+                  : 'Çadır doluydu: bu savaşta hiçbir yaralı alınamadı.'}
               </div>
+              {/*
+                DOLAN ÇADIR AYRI YAZILIYOR. Yalnız alınanı gösterseydik oyuncu
+                çadırının yetmediğini hiçbir yerden anlayamaz, yükseltmek için
+                bir sebep göremezdi — kaybettiği asker sessizce ölmüş olurdu.
+              */}
+              {r.saglikCadiri.sigmayan > 0 && (
+                <div style={{
+                  fontFamily: FONT.ui, fontSize: 9.5, color: C.danger, marginTop: 4,
+                }}>
+                  ÇADIR DOLDU — {r.saglikCadiri.sigmayan} yaralıya yatak
+                  bulunamadı ve öldüler. Kapasite: {r.saglikCadiri.kapasite} yatak.
+                </div>
+              )}
             </Section>
           )}
 

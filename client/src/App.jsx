@@ -815,6 +815,11 @@ function Game({ token, onLogout }) {
     socket.emit('cancel_equipment_upgrade', { buildingType, orderId });
   const setSpeed        = (ms) => socket.emit('set_speed', { tickMs: ms });
   const startFestival = (kind) => socket.emit('start_festival', { kind });
+  /*
+    REVİR — seçilen yaralıların tedavisini başlat. `indeksler` null ise
+    hepsi (bkz. saglik.js · iyilesmeyeBasla).
+  */
+  const saglikIyilestir = (indeksler) => socket.emit('saglik_iyilestir', { indeksler });
   const pazarTakas = (p) => socket.emit('pazar_takas', p);
   /* Oyuncular arası pazar — mal ve tüccar sunucuda ayrılıyor */
   const pazarTeklifAc = (p) => socket.emit('pazar_teklif_ac', p);
@@ -1003,6 +1008,8 @@ function Game({ token, onLogout }) {
               festivalDefs={village.festivalDefs || {}}
               onStartFestival={startFestival}
               pazar={village.pazar || null}
+              saglik={village.saglik || null}
+              onIyilestir={saglikIyilestir}
               onPazarTakas={pazarTakas}
               socket={socket}
               onPazarTeklifAc={pazarTeklifAc}
@@ -1143,6 +1150,9 @@ function Game({ token, onLogout }) {
                   incoming={village.incoming || []}
                   unitDefs={village.unitDefs || {}}
                   maxMarches={village.marchInfo?.maxMarches || 8}
+                  kahraman={village.kahraman}
+                  hourSeconds={village.marchInfo?.hourSeconds || 3600}
+                  worldSpeed={village.worldSpeed || 1}
                   onRecall={seferGeriCagir} />
               </div>
             </div>
@@ -1330,6 +1340,7 @@ function Game({ token, onLogout }) {
             populationPerHour={village.populationPerHour || 0}
             culture={village.culture || null}
             festival={village.festival || null}
+            kahraman={village.kahraman}
             hourSeconds={village.marchInfo?.hourSeconds || 3600}
             worldSpeed={village.worldSpeed || 1}
             isStarving={village.isStarving || false}

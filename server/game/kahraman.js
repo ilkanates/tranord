@@ -44,6 +44,10 @@ const MACERA = require('./macera');
   kuşamı hesaba katarken o dosyaya soruyor.
 */
 const KUSAM = require('./kusam');
+// Birim hızları: atın kahramana verdiği hız ekini buradan ÖLÇÜYORUZ
+// (bkz. AT_HIZ_EKI) — sabit bir sayı yazsaydık birimler dengelenirken
+// kahraman sessizce ayrışırdı.
+const { UNIT_DEFS } = require('../data');
 
 // ── Deneyim ve seviye ──────────────────────────────────────────────
 
@@ -480,20 +484,62 @@ function hasarVer(k, hasar) {
 const KAHRAMAN_TABAN_HIZ = 7;
 
 /**
- * HIZ TAVANI. Nadirlik bütün bonusları ölçeklediği için efsane bir at
- * kahramanı oyunun EN HIZLI biriminden (kuzey izcisi, 14) da hızlı
- * yapabiliyordu — ölçüldü: 21. Haritada hiçbir şeyin yakalayamadığı bir
- * birim, keşif ve savunma tepkisini anlamsız kılardı.
+ * AT TAKMANIN HIZ EKİ — BİRİM TANIMLARINDAN ÖLÇÜLÜYOR.
  *
- * 16: izcinin biraz üstü. Kahraman hızlı olabilir, ulaşılmaz olamaz.
+ * İlkan'ın kuralı: "kahramana at verince normal birimler attan ne hız
+ * bonusu alıyorsa alsın". O bonus zaten oyunda duruyor — süvarilerin
+ * piyadelerden ne kadar hızlı olduğu. Burada sabit bir sayı yazsaydık
+ * birim hızları dengelenirken kahraman sessizce ayrışırdı; ortalamadan
+ * türetince ikisi bir arada kalıyor.
+ *
+ * Bugünkü değer ≈4,6: yaya kahraman 7 (hızlı bir piyade), atlı kahraman
+ * ≈11,6 — demirAtli mertebesinde. Tam olarak istenen: at, kahramana
+ * bir süvarinin hızını veriyor.
+ *
+ * Kuşatma ve göçmen SAYILMIYOR: onların yavaşlığı ata değil taşıdıkları
+ * yüke bağlı, ortalamayı aşağı çekip "at" farkını olduğundan büyük
+ * gösterirdi.
  */
-const KAHRAMAN_HIZ_TAVANI = 16;
+const AT_HIZ_EKI = (() => {
+  const ort = (tur) => {
+    const h = Object.values(UNIT_DEFS)
+      .filter(d => d.category === tur && d.stats?.hiz > 0)
+      .map(d => d.stats.hiz);
+    return h.length ? h.reduce((a, b) => a + b, 0) / h.length : 0;
+  };
+  return Math.max(0, Math.round((ort('suvari') - ort('piyade')) * 10) / 10);
+})();
 
-/** Kahramanın güncel hızı — yaya tabanı + attan gelen ek, tavana kırpılı */
+/**
+ * HIZ TAVANI. Nadirlik bütün bonusları ölçeklediği için yığılma
+ * sınırsız: bir tavan olmazsa at slotu tek başına haritayı anlamsız
+ * kılar.
+ *
+ * 20: efsanevi Kuzey Rüzgârı'nın (≈19,5) hemen üstü — yani en iyi at
+ * tavana ÇARPMIYOR, nadirliğin karşılığını sonuna kadar veriyor
+ * (İlkan: "atın nadirliği daha da hızlandırsın"). Tavan yine de duruyor
+ * çünkü ilerde eklenecek bir at ya da bonus onu aşabilir.
+ *
+ * Kahraman en hızlı birimden (kuzey izcisi, 14) hızlı olabiliyor; bu
+ * YALNIZ tek başına giderken işliyor — orduyla yürürken orduyu bekliyor
+ * (bkz. army.js · marchGameHours).
+ */
+const KAHRAMAN_HIZ_TAVANI = 20;
+
+/**
+ * Kahramanın güncel hızı.
+ *
+ * yaya tabanı + (at varsa AT_HIZ_EKI) + atın kendi hızı (nadirlikle
+ * ölçekli), tavana kırpılı. AT_HIZ_EKI yalnız AT SLOTU DOLUYKEN
+ * ekleniyor: hız zaten başka slottan gelemiyor ama kural burada da
+ * açık dursun — "at yoksa yaya hızı" tek cümlede okunuyor.
+ */
 function hizi(k) {
   if (!k || !k.var) return KAHRAMAN_TABAN_HIZ;
-  return Math.min(KAHRAMAN_HIZ_TAVANI,
-    KAHRAMAN_TABAN_HIZ + Math.max(0, KUSAM.kusamBonuslari(k).kahraman.hiz || 0));
+  const atEki = KUSAM.suvariMi(k) ? AT_HIZ_EKI : 0;
+  const esyaEki = Math.max(0, KUSAM.kusamBonuslari(k).kahraman.hiz || 0);
+  return Math.round(Math.min(KAHRAMAN_HIZ_TAVANI,
+    KAHRAMAN_TABAN_HIZ + atEki + esyaEki) * 10) / 10;
 }
 
 /**
@@ -545,6 +591,23 @@ function dirilt(k) {
   return { ok: true, can: k.can };
 }
 
+/**
+ * KONAĞIN BİR SEVİYESİNİN GETİRDİĞİ ÜÇ ŞEY.
+ *
+ * Tek yerde toplanıyor ki hem "şu anki seviye" hem "bir sonraki seviye"
+ * aynı hesaptan çıksın — iki ayrı yerde hesaplansaydı biri güncellenip
+ * diğeri unutulurdu.
+ */
+function konakGetirisi(k, seviye) {
+  return {
+    seviye,
+    iyilesme: Math.round(
+      iyilesmeHizi(seviye, KUSAM.kusamBonuslari(k).kahraman.iyilesme) * 10) / 10,
+    maceraTavan: MACERA.maceraTavani(seviye),
+    maceraSaat: Math.round(MACERA.maceraSaati(seviye) * 10) / 10,
+  };
+}
+
 /** İstemciye gidecek özet. */
 function ozet(k, konakSeviyesi = 0) {
   if (!k || !k.var) return { var: false };
@@ -579,6 +642,20 @@ function ozet(k, konakSeviyesi = 0) {
       hızına göre gerçek süreye çeviriyor. Gerçek saniye yollasaydık hız
       değişince ekrandaki geri sayım yanlış kalırdı.
     */
+    /*
+      KONAK SEVİYESİ VE BİR SONRAKİNİN GETİRİSİ.
+
+      İlkan sordu: "kahraman binasını artırmak ne işe yarıyor?" — üç şey
+      veriyordu (iyileşme hızı, macera tavanı, macera birikme hızı) ama
+      ÜÇÜ DE hiçbir ekranda yazmıyordu. Yükseltmenin karşılığı
+      görünmüyorsa oyuncu o binayı yükseltmez.
+
+      Sonraki seviye de gönderiliyor: "şu an ne veriyor" tek başına
+      "yükseltsem ne olur" sorusunu cevaplamıyor.
+    */
+    konakSeviye: konakSeviyesi,
+    konakGetirisi: konakGetirisi(k, konakSeviyesi),
+    konakSonraki: konakSeviyesi > 0 ? konakGetirisi(k, konakSeviyesi + 1) : null,
     maceraSayisi: k.maceraSayisi || 0,
     maceraTavan: MACERA.maceraTavani(konakSeviyesi),
     maceraIlerleme: Math.round((k.maceraIlerleme || 0) * 100) / 100,
@@ -605,6 +682,18 @@ function ozet(k, konakSeviyesi = 0) {
           * (1 - zirhlanmaYuzdesi(k) / 100))])),
     maceraGucAzaltma: Math.round(
       MACERA.gucAzaltmasi(bonuslar(k).saldiriGucu) * 10) / 10,
+    /*
+      MACERANIN GERÇEK SÜRESİ — tanımdaki ham saat değil.
+
+      Süre kahramanın hızıyla kısalıyor (bkz. macera.js · maceraSuresi).
+      Ekranda ham saati gösterseydik atına yatırım yapan oyuncu
+      karşılığını hiçbir yerde göremez, "6 saat" yazan bir maceranın 3
+      saatte bittiğini ancak tesadüfen fark ederdi.
+    */
+    maceraSaatleri: Object.fromEntries(
+      Object.keys(MACERA.MACERA_TIPLERI).map(tip => [tip,
+        MACERA.maceraSuresi(tip, hizi(k), KAHRAMAN_TABAN_HIZ,
+          KUSAM.kusamBonuslari(k).kahraman.maceraHizi || 0)])),
   };
 }
 
@@ -615,7 +704,7 @@ module.exports = {
   dirilmeBedeli, dirilt,
   SIFIRLAMA_TABAN, SIFIRLAMA_CARPANI, duzelt,
   ZIRHLANMA_TAVANI, zirhlanmaYuzdesi,
-  KAHRAMAN_TABAN_HIZ, KAHRAMAN_HIZ_TAVANI, hizi, suvariMi,
+  KAHRAMAN_TABAN_HIZ, KAHRAMAN_HIZ_TAVANI, AT_HIZ_EKI, hizi, suvariMi,
   XP_OLDURULEN_BASINA, SAVAS_HASAR_TAVANI, savasSonucu,
   seviyeIcinToplamXp, xpSeviyesi, seviyeIlerlemesi,
   canTavani, iyilesmeHizi,

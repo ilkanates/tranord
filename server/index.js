@@ -10,7 +10,8 @@ const ARMY = require('./game/army');
 const KUSATMA = require('./game/kusatma');
 const HERO = require('./game/kahraman');
 const MACERA = require('./game/macera');
-const { HERO_ITEMS } = require('./data/heroItemDefs');
+const { HERO_ITEMS, NADIRLIK_SIRA } = require('./data/heroItemDefs');
+const SAGLIK = require('./game/saglik');
 const KUSAM = require('./game/kusam');
 /** Görev zinciri ve kahraman KÖYE değil HESABA ait — merkez değişince taşınır */
 const { hesapKaydiniTasi } = require('./game/hesapKaydi');
@@ -314,6 +315,15 @@ function structFingerprint(v) {
     */
     + `|T${(v.takviyeler || []).length}:${(v.takviyeler || [])
       .reduce((s2, t) => s2 + ARMY.totalUnits(t.units), 0)}`
+    /*
+      REVİR PARMAK İZİ. Kalan süre TAM SAATE yuvarlanıyor: ham değer her
+      tikte kesirli değişir ve parmak izi saniyede bir bozulurdu — oysa
+      parmak izinin var olma sebebi tam paketi her tikte yollamamak.
+      Sayı + yatan toplamı, giriş ve taburcu anlarını zaten yakalıyor.
+    */
+    + `|R${(v.saglikYatan || []).length}:${(v.saglikYatan || [])
+      .reduce((s2, y) => s2 + (y.adet || 0), 0)}:${(v.saglikYatan || [])
+      .reduce((s2, y) => s2 + Math.ceil(y.kalanSaat || 0), 0)}`
     + `|${kuyrukOzeti(q.kisla)},${kuyrukOzeti(q.ahir)},${kuyrukOzeti(q.atolye)}`
     + `|${kuyrukOzeti(eq.silahci)},${kuyrukOzeti(eq.zirh)},${kuyrukOzeti(eq.ahir)}`
     // Rún Salonu ve ekipman yükseltmeleri
@@ -2433,7 +2443,19 @@ io.on('connection', async socket => {
 
     kah.maceraSayisi -= 1;
     kah.nerede = 'macera';
-    kah.macera = { tip, kalanSaat: MACERA.MACERA_TIPLERI[tip].saat };
+    /*
+      SÜRE HIZA GÖRE KISALIYOR. Atlı kahraman maceradan da çabuk dönüyor
+      (İlkan'ın kararı) — at slotu yalnız sefere değil maceraya da
+      işlemeli, yoksa maceracı oyuncu için at diye bir tercih olmazdı.
+
+      Süre ÇIKARKEN donduruluyor: yolda at değiştirip süreyi kısaltmak
+      mümkün olmamalı (kuşam zaten maceradayken kapalı, bu ikinci kapı).
+    */
+    kah.macera = {
+      tip,
+      kalanSaat: MACERA.maceraSuresi(tip, HERO.hizi(kah), HERO.KAHRAMAN_TABAN_HIZ,
+        KUSAM.kusamBonuslari(kah).kahraman.maceraHizi || 0),
+    };
     dirty(); emit();
     console.log(`[MACERA] ${userEmail} ${tip} maceraya çıktı`);
   });
@@ -2474,6 +2496,24 @@ io.on('connection', async socket => {
    * İKSİR VARSA DA HAMMADDE SEÇİLEBİLİR: iksir nadir, oyuncu onu saklamak
    * isteyebilir. Kararı sunucu vermiyor, oyuncu veriyor.
    */
+  /**
+   * SAĞLIK ÇADIRI — SEÇİLEN YARALILARIN TEDAVİSİNİ BAŞLAT.
+   *
+   * İlkan: "ben seçince iyileşmeye başlasınlar". Yaralı savaştan sonra
+   * çadıra kendiliğinden giriyor ama TEDAVİ bir karar; sayaç ancak
+   * oyuncu o birliği seçince işlemeye başlıyor.
+   *
+   * `indeksler` boş gelirse hepsi başlatılıyor — "hepsini iyileştir".
+   */
+  socket.on('saglik_iyilestir', ({ indeksler = null } = {}) => {
+    const v = session.village;
+    const r = SAGLIK.iyilesmeyeBasla(v,
+      Array.isArray(indeksler) ? indeksler : null);
+    if (r.baslayan <= 0) return;
+    dirty(); emit();
+    console.log(`[REVIR] ${userEmail} ${r.asker} askerin tedavisini baslatti`);
+  });
+
   socket.on('kahraman_dirilt', ({ yol = 'kaynak' } = {}) => {
     const kah = kahramanDurumu(session);
     if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
@@ -4011,7 +4051,7 @@ io.on('connection', async socket => {
       }
 
       const anahtarlar = Object.keys(HERO_ITEMS);
-      const nadirlikler = ['siradan', 'iyi', 'nadir', 'efsane'];
+      const nadirlikler = NADIRLIK_SIRA;
       for (let i = 0; i < Math.max(0, Math.min(20, esya)); i++) {
         (kah.envanter ||= []).push({
           key: anahtarlar[Math.floor(Math.random() * anahtarlar.length)],
@@ -4022,6 +4062,65 @@ io.on('connection', async socket => {
       if (xp > 0) HERO.xpEkle(kah, xp);
       dirty(); emit();
       console.log(`[DEV] ${userEmail} kahraman: +${esya} eşya, +${xp} XP`);
+    });
+
+    /**
+     * DEV: REVİRİ DOLDUR.
+     *
+     * Revir ekranını görmek için savunulan bir savaş ve sağlık çadırı
+     * gerekiyor: kurgulaması pahalı bir durum, oysa ekran her sürümde
+     * çalışmalı. Bu kısayol ordudan asker alıp çadıra yatırıyor —
+     * gerçek yolla tamamen aynı muhasebe (asker orduDAN çıkıyor).
+     *
+     * Üretimde YOK: TRANORD_DEV_CHEATS=1 kapısının arkasında ve o
+     * değişken Pi'ye asla eklenmiyor.
+     */
+    socket.on('dev_yarali', ({ adet = 25 } = {}) => {
+      const v = session.village;
+      /*
+        ÇADIR YOKSA KURUYOR. Kısayolun işi senaryoyu kurmak; oyuncuya
+        "önce şu binayı yap" dedirtseydi kısayol olmaktan çıkardı.
+        Boş slot yoksa açıkça söylüyor.
+      */
+      let seviye = ARMY.buildingLevel(v, 'saglikCadiri');
+      if (seviye <= 0) {
+        /*
+          BOŞ SLOT: köy ızgarasında ANAHTARI OLMAYAN hex boştur (dolu
+          slotlar sözlüğe yazılıyor, boşlar hiç yazılmıyor). Yarıçap 3
+          bir köyün bütün hexlerini kapsıyor.
+        */
+        let bos = null;
+        for (let q = -3; q <= 3 && !bos; q++) {
+          for (let r = -3; r <= 3 && !bos; r++) {
+            if (Math.abs(q + r) > 3) continue;
+            const key = q + "," + r;
+            if (!v.villageBuildings[key]) bos = key;
+          }
+        }
+        if (!bos) {
+          return socket.emit('dev_result', { ok: false,
+            message: 'Sağlık Çadırı yok ve boş köy slotu kalmamış' });
+        }
+        v.villageBuildings[bos] = { type: 'saglikCadiri', level: 20, workers: 0 };
+        seviye = 20;
+      }
+      const kalan = Math.max(0, SAGLIK.yatakKapasitesi(seviye) - SAGLIK.yatanSayisi(v));
+      let kalanIstek = Math.max(1, Math.min(kalan, Math.floor(Number(adet) || 25)));
+      let yatan = 0;
+      for (const [birim, n] of Object.entries(v.army || {})) {
+        if (kalanIstek <= 0) break;
+        const al = Math.min(n, kalanIstek);
+        if (al <= 0) continue;
+        v.army[birim] = n - al;
+        if (v.army[birim] <= 0) delete v.army[birim];
+        (v.saglikYatan ||= []).push({
+          birim, adet: al, kalanSaat: SAGLIK.iyilesmeSaati(birim),
+        });
+        kalanIstek -= al; yatan += al;
+      }
+      dirty(); emit();
+      socket.emit('dev_result', { ok: true, message: `${yatan} asker revire yatırıldı` });
+      console.log(`[DEV] ${userEmail} revire ${yatan} asker`);
     });
 
     socket.on('dev_surlu_hedef', ({ sur = 10, hendek = 5 } = {}) => {

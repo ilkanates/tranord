@@ -99,6 +99,45 @@ const MACERA_TIPLERI = {
 };
 
 /**
+ * MACERA SÜRESİ HIZA BAĞLI (İlkan'ın kararı: "macera da kısalsın hıza
+ * göre").
+ *
+ * Macera bir YOLCULUK: kahraman bir yere gidiyor ve dönüyor. Atı olan
+ * daha çabuk dönmeli — yoksa at slotu yalnız sefer süresini etkiler,
+ * maceraya çıkan oyuncu için hiçbir şey değişmezdi.
+ *
+ * KURAL: süre hızla TERS ORANTILI (tabanHiz / hiz). Yaya kahramanda
+ * çarpan tam 1 — tanımdaki saat değeri hiç bozulmuyor ve yeni kural
+ * mevcut dengeyi tek yönde, yalnız at takıldığında değiştiriyor.
+ *
+ * ZEMİN VAR (MACERA_SURE_ZEMINI). Tersi orantı sınırsız olsaydı efsanevi
+ * atlı kahraman maceraları neredeyse anında bitirir, macera sayacı
+ * (konak) anlamsızlaşırdı: asıl sınır zaten "kaç maceram var", süre
+ * ikinci sınır olarak durmalı.
+ *
+ * EŞYANIN maceraHizi BONUSU aynı çarpandan geçiyor — iki ayrı indirim
+ * olsaydı ikisi birden zemini deler, kural okunaksızlaşırdı.
+ *
+ * Ölçüm: yaya 2s/6s · sıradan zırhlı at (12) 1,2s/3,5s · efsanevi Kuzey
+ * Rüzgârı (19,5) zeminde 0,9s/2,7s.
+ */
+const MACERA_SURE_ZEMINI = 0.30;   // en çok %70 kısalır
+const MACERA_HIZ_BONUS_TAVANI = 60; // eşyadan gelen macera hızı tavanı (%)
+
+function sureCarpani(hiz, tabanHiz, maceraHiziYuzde = 0) {
+  let c = (hiz > 0 && tabanHiz > 0) ? tabanHiz / hiz : 1;
+  c *= 1 - Math.min(MACERA_HIZ_BONUS_TAVANI, Math.max(0, maceraHiziYuzde)) / 100;
+  return Math.max(MACERA_SURE_ZEMINI, Math.min(1, c));
+}
+
+/** Bir maceranın GERÇEK süresi — oyun saati, hıza ve eşyaya göre kısalmış */
+function maceraSuresi(tip, hiz, tabanHiz, maceraHiziYuzde = 0) {
+  const def = MACERA_TIPLERI[tip];
+  if (!def) return 0;
+  return Math.round(def.saat * sureCarpani(hiz, tabanHiz, maceraHiziYuzde) * 100) / 100;
+}
+
+/**
  * SALDIRI GÜCÜ MACERADA KALKAN GİBİ DE ÇALIŞIYOR (İlkan'ın kararı).
  *
  * Mantığı: macerada kahramanı yıpratan şey yol boyunca karşılaştığı
@@ -267,5 +306,6 @@ module.exports = {
   MACERA_TAVAN_TABAN, MACERA_TAVAN_PER_SEVIYE, MACERA_SAAT_TABAN, IKSIR_SANSI,
   maceraTavani, maceraSaati, maceraBiriktir,
   maceraUygunMu, maceraSonucu, nadirlikSec, esyaAdi,
+  MACERA_SURE_ZEMINI, MACERA_HIZ_BONUS_TAVANI, sureCarpani, maceraSuresi,
   GUC_AZALTMA_BOLEN, GUC_AZALTMA_TAVANI, gucAzaltmasi, maceraCanKaybi,
 };

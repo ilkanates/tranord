@@ -62,9 +62,56 @@ export function IncomingAlert({ incoming = [] }) {
 }
 
 // ── Yoldaki seferler ─────────────────────────────────────────────────
-export function MarchPanel({ marches = [], incoming = [], unitDefs = {}, maxMarches = 8, onRecall }) {
+export function MarchPanel({
+  marches = [], incoming = [], unitDefs = {}, maxMarches = 8, onRecall,
+  kahraman = null, hourSeconds = 3600, worldSpeed = 1,
+}) {
   const mine = marches;
-  if (!mine.length && !incoming.length) return null;
+
+  /*
+    KAHRAMANIN MACERASI DA BİR SEFER (İlkan'ın isteği). Oyuncu için
+    ayrımı yok: kahraman köyden çıkmış, bir yere gitmiş, dönecek.
+    Ayrı bir ekranda saklamak "kahramanım nerede" sorusunu iki yere
+    bölerdi.
+
+    Gerçek bir sefer kaydı DEĞİL — sunucuda macera ayrı bir kayıt (kahramanın
+    kendi durumunda). Burada yalnız GÖRÜNÜM olarak sefer listesine
+    katılıyor; geri çağırma, ganimet, birim listesi gibi alanları yok.
+  */
+  const kahSefer = (() => {
+    if (!kahraman?.var) return null;
+    const sn = (oyunSaati) =>
+      Math.max(0, Math.round(oyunSaati * hourSeconds / (worldSpeed || 1)));
+    if (kahraman.macera) {
+      return {
+        yon: 'giden',
+        baslik: kahraman.maceraTipleri?.[kahraman.macera.tip]?.ad || 'Macera',
+        alt: 'Kahraman maceraya gitti',
+        kalan: sn(kahraman.macera.kalanSaat),
+      };
+    }
+    if (kahraman.nerede === 'donuyor') {
+      return {
+        yon: 'donen',
+        baslik: 'Kahraman eve dönüyor',
+        alt: 'Takviyeden geri çağrıldı',
+        kalan: sn(kahraman.donusKalanSaat),
+      };
+    }
+    if (kahraman.nerede === 'sefer') {
+      return { yon: 'giden', baslik: 'Kahraman seferde', alt: 'Orduyla birlikte', kalan: null };
+    }
+    if (kahraman.nerede === 'takviye') {
+      return {
+        yon: 'donen', baslik: 'Kahraman takviyede',
+        alt: 'Başka bir köyü savunuyor — Kahraman ekranından geri çağır',
+        kalan: null,
+      };
+    }
+    return null;
+  })();
+
+  if (!mine.length && !incoming.length && !kahSefer) return null;
 
   return (
     <div style={panel({ padding: 11, marginBottom: 9 })}>
@@ -77,6 +124,37 @@ export function MarchPanel({ marches = [], incoming = [], unitDefs = {}, maxMarc
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {/*
+          KAHRAMAN SATIRI listenin başında: tek bir kahraman var ve
+          nerede olduğu diğer bütün seferlerden önce merak edilen şey.
+        */}
+        {kahSefer && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 9,
+            padding: '7px 9px', borderRadius: 5,
+            background: 'rgba(8,17,28,0.55)',
+            border: `1px solid ${kahSefer.yon === 'donen' ? C.good : C.frost}44`,
+          }}>
+            <Icon name="migfer" size={14}
+              color={kahSefer.yon === 'donen' ? C.good : C.frost} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: FONT.ui, fontSize: 11, color: C.text }}>
+                <b style={{ color: C.frost }}>{kahSefer.baslik}</b>
+              </div>
+              <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute, marginTop: 2 }}>
+                {kahSefer.alt}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={lbl({ fontSize: 7, letterSpacing: 0.9 })}>
+                {kahSefer.yon === 'donen' ? 'EVE' : 'DÖNÜŞ'}
+              </div>
+              <div style={num({
+                fontSize: 14, color: kahSefer.yon === 'donen' ? C.good : C.frost,
+              })}>{kahSefer.kalan == null ? '—' : fmtTime(kahSefer.kalan)}</div>
+            </div>
+          </div>
+        )}
         {mine.map(m => {
           const back = m.phase === 'return';
           const col = back ? C.good : MODE_COLOR[m.mode] || C.ice;

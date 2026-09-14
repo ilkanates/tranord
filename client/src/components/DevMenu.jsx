@@ -72,6 +72,17 @@ const ITEMS = [
     note: 'diriltme ekranını denemek için — savaşta ölmeyi kurmak zor',
     emit: ['dev_kahraman', { oldur: true }],
   },
+  /*
+    REVİR KISAYOLU. Revir ekranını görmek için savunulan bir savaş ve
+    sağlık çadırı gerekiyor — kurgulaması pahalı bir durum, oysa ekran
+    her sürümde çalışmalı.
+  */
+  {
+    key: 'revirDoldur',
+    label: 'Revire yaralı yatır',
+    note: 'ordudan 25 asker alıp sağlık çadırına yatırır',
+    emit: ['dev_yarali', { adet: 25 }],
+  },
   {
     key: 'surluHedef',
     label: 'Surlu hedef köy',

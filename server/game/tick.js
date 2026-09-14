@@ -13,6 +13,7 @@ const { equipmentUpgradeCost, equipmentUpgradeMinutes, EQUIPMENT_MAX_LEVEL }
   = require('../data/militaryDefs');
 const { fieldMultiplier, worldTileBonus, localEfficiency } = require('./world');
 const GT = require('./gameTime');
+const SAGLIK = require('./saglik');
 
 /** En kısa üretim süresi — işçi sayısı ne olursa olsun 1 oyun dakikasının altına inmez */
 const MIN_PRODUCTION_MINUTES = 1;
@@ -325,8 +326,36 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
   // Birim eğitim kuyrukları
   processUnitQueues(village, now);
 
+  // Sağlık çadırındaki yaralılar — süresi dolan orduya döner
+  processRevir(village, hours);
+
   // Beslenme: nüfus + ordu yer, atlar ayrı tahıl tüketir
   processFoodConsumption(village, hours);
+}
+
+/**
+ * REVİR — yaralılar iyileşince ORDUYA DÖNER.
+ *
+ * Beslenmeden ÖNCE çalışıyor: taburcu olan asker o tick'ten itibaren
+ * yiyor. Sonra çalıştırsaydık dönüş tick'inde bedava beslenirdi.
+ *
+ * Nüfus burada GERİ EKLENİYOR. Savaşta yaralı da ölü sayılıp nüfustan
+ * düşmüştü (army.js · applyLossesToVillage); iyileşen asker köye geri
+ * döndüğüne göre nüfusa da geri dönmeli — yoksa çadır ordunu büyütürken
+ * nüfusunu kalıcı olarak eksiltirdi.
+ */
+function processRevir(village, hours) {
+  const taburcu = SAGLIK.ilerlet(village, hours);
+  let toplam = 0;
+  for (const [birim, adet] of Object.entries(taburcu)) {
+    if (!(adet > 0)) continue;
+    village.army[birim] = (village.army[birim] || 0) + adet;
+    toplam += adet;
+  }
+  if (toplam > 0) {
+    village.population = (village.population || 0) + toplam;
+    if (!village.quiet) console.log(`[REVİR] ${toplam} asker iyileşti ve orduya döndü`);
+  }
 }
 
 // ─── Yiyecek tüketimi ─────────────────────────────────────────────
@@ -940,6 +969,7 @@ function getFoodOutlook(village) {
 
 module.exports = {
   processTick,
+  processRevir,
   getFoodOutlook,
   processUnitQueues,
   processResearchQueue,

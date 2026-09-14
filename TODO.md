@@ -96,6 +96,8 @@ tasarımın kaydı olarak duruyor.
 - ~~**Raporda** kahramanın ne yaptığı ayrı satır.~~
 - ~~Görev zincirine kahraman adımları~~ — iki tanesi eklendi (*konağı kur*,
   *seviye 3*). Macera ve eşya gelince ikisi daha eklenmeli.
+- ~~Kahramanın **hızı** ve at slotu~~ — yapıldı: at eki birim tanımlarından
+  ölçülüyor, nadirlik hızı büyütüyor, macera süresi hıza bağlı.
 - KALAN: kahramanın ganimet payı; macera/eşya geldikten sonra uçtan uca
   denge ölçümü (kahramansız ve kahramanlı aynı savaş, fark yüzdesi).
 
@@ -203,6 +205,31 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Eşya nadirliği beş sınıfa çıktı + at gerçek süvari hızı veriyor (14 Eylül 2026)
+- İlkan: *"hero itemleri gri yeşil mavi mor ve turuncu olarak sınıflansın... düşme şanslarına göre olsun. efsanevi çok nadir düşsün"* ve *"kahramana at verince normal birimler attan ne hız bonusu alıyorsa alsın. atın nadirliği daha da hızlandırsın ve macera da kısalsın hıza göre"*.
+- **Beş nadirlik sınıfı**: gri Sıradan (1×) · yeşil **Ustaişi** (1,5×) · mavi Nadir (2,1×) · mor **Epik** (2,8×) · turuncu Efsanevi (3,6×). Mor kademe yeni: dört sınıfta nadir ile efsanevi arasındaki uçurum (11'de bir → 3'te bir) tek adımda atlanıyordu.
+- **Anahtarlar korundu** (`siradan/iyi/nadir/efsane`): oyuncuların envanterinde bunlar yazılı, değiştirseydik kayıtlı bütün eşyalar geçersiz olurdu. Değişen yalnız görünen ad ve renk; yeni anahtar sadece `epik`.
+- **Düşme şansları**: %55,8 · %26,9 · %12 · %4 · **%1,2**. Efsanevi bilerek çok nadir ama %0,1 değil — hiç kimsenin göremediği bir sınıfın var olma sebebi kalmaz. Test kurayı 200 bin çekimle ölçüp ağırlıklara uyduğunu doğruluyor.
+- **At hız eki BİRİM TANIMLARINDAN ölçülüyor**: süvarilerin ortalama hızı eksi piyadelerinki (bugün 4,6). Sabit sayı yazsaydık birim hızları dengelenirken kahraman sessizce ayrışırdı — test iki tarafı karşılaştırıyor. Sonuç: atlı kahraman `demirAtli` mertebesinde hızlı, tam olarak istenen.
+- **Hız tavanı 16 → 20**: eski tavanda efsanevi atlar tavana çarpıyor, epik ile efsanevi aynı hızı veriyordu; nadirliğin karşılığı kayboluyordu. Yeni ölçüm: yaya 7 · sıradan Zırhlı At 12 · efsanevi Kuzey Rüzgârı 19,5. Test hiçbir atın tavana çarpmadığını kilitliyor.
+- **Macera süresi hıza bağlandı**: süre hızla ters orantılı, zemin 0,30 (en çok %70 kısalır). Yaya kahramanda çarpan tam 1 — yeni kural mevcut dengeyi yalnız at takıldığında değiştiriyor. Zemin önce 0,45 seçilmişti; ölçünce atların çoğunda doluyordu (nadir Bozkır Atı ile efsanevi Kuzey Rüzgârı aynı süreyi veriyordu) ve nadirlik süreye yansımıyordu.
+- Eşyanın `maceraHizi` bonusu bugüne kadar **hiçbir yerde kullanılmıyordu** (Bozkır Atı'nın %25'i ölü veriydi); aynı çarpandan geçirilerek bağlandı.
+- Arayüz: macera kartında yeni süre + üstü çizili eski süre. Renkler sunucudan geliyor (`kusam.js` özetleri), istemcide ikinci bir nadirlik tablosu yok — ayrışacak ikiz tanım oluşmasın.
+
+### Sağlık çadırı REVİR oldu: yaralılar zamanla iyileşiyor (14 Eylül 2026)
+- İlkan: *"İYİLEŞTİRME ÇADIRININ LVL İ KAÇ ASKER iyileştirebileceğinin de sınırını belirlesin"* ve *"askerler pat diye iyileşmesin üretim sürelerinin 2 katı kadar sürede iyileşsinler. çadırın dolma ihtimali olsun"*.
+- **Asker artık pat diye dönmüyor**: yaralı çadırda YATIYOR (`village.saglikYatan`) ve kendi eğitim süresinin **iki katı** kadar sürede iyileşip orduya dönüyor. Anında dönseydi savunmak neredeyse bedava olur, savaşın ertesinde ordunun eksildiği an diye bir şey kalmazdı.
+- İyileşme süresi eğitim süresiyle **aynı tanımdan** türüyor (ekipman sayısı); test bütün birimler için ikisini karşılaştırıyor, yoksa oyuncuya söylenen "2 katı" zamanla yalan olurdu.
+- **Yatak kapasitesi**: seviye başına 10, Lvl 20 de 200. Sığmayan yaralı ölüyor. Sınırsız olsaydı Lvl 20 çadır on bin kişilik bir savaşta dört bin askeri kurtarır, çadır tek başına savunmayı belirlerdi. Yataktan fazla yaralı çıkarsa kırpma **orantılı** — "hangi birim yatağa girsin" diye keyfî bir sıra gerekmesin.
+- **Yataklar iyileşme bitene kadar dolu**: arka arkaya iki saldırıda ikincinin yaralılarına yer kalmayabilir. Çadır bir tampon, sınırsız bir diriliş makinesi değil.
+- **KURAL DEĞİŞTİ — artık yalnız EV SAHİBİNİN askerini alıyor.** Eskiden kayıp pay edilmeden önce azaltılıyordu, yani çadır misafirin askerini de kurtarıyordu; yeni kuralda yaralı iyileşince BU köyün ordusuna döndüğü için o, başka bir oyuncunun ordusunu devralmak olurdu. Yaralı seçimi pay ettikten sonra `pay.evSahibiPay` üzerinden yapılıyor.
+- **Nüfus muhasebesi**: yaralı da savaşta ölü sayılıp nüfustan düşüyor, iyileşip dönünce nüfusa geri ekleniyor (`tick.js · processRevir`). Yoksa çadır orduyu büyütürken nüfusu kalıcı olarak eksiltirdi.
+- Rapor artık **çadırın dolduğunu** da yazıyor (kaç yaralıya yatak bulunamadı, kapasite ne). Bu bilgi olmadan oyuncu askerinin neden öldüğünü ve binayı neden yükseltmesi gerektiğini göremezdi.
+- **TEDAVİ BİR KARAR** (İlkan): yaralı çadıra kendiliğinden giriyor ama sayaç ancak oyuncu o birliği SEÇİNCE işliyor. Kendiliğinden başlasaydı çadır bir karar noktası değil, arka planda dönen bir sayaç olurdu.
+- Arayüz: yaralılar **Sağlık Çadırı binasının kendi ekranında KART olarak** (client/src/components/RevirPanel.jsx). "Tedavi bekleyen" kartları seçilebiliyor (seç + İYİLEŞTİR, ya da hepsini), "tedavide" kartlarında ilerleme çubuğu ve kalan süre var. Önce sağ raya konmuştu, İlkan kaldırttı: ray göz ucuyla bakılan bir yer, oysa burada karar veriliyor.
+- Boş revir bile bir şey anlatıyor: binanın ne yaptığını ve yükseltmenin ne getirdiğini yazıyor — oyuncu bu binayı ilk kez açtığında karşısında boş bir kutu değil, yükseltme sebebi bulmalı.
+- Parmak izine revir eklendi (sayı + toplam + **tam saate yuvarlanmış** kalan süre); yuvarlama olmasa parmak izi her tikte bozulur ve tam paket saniyede bir giderdi — parmak izinin var olma sebebi tam olarak bunu önlemek.
 
 ### Sağlık çadırı artık çalışıyor (14 Eylül 2026)
 - Bina aylardır tanımlıydı ve HİÇBİR ŞEY YAPMIYORDU: oyuncu kuruyor, kaynak harcıyor, karşılığında hiçbir şey almıyordu. Satılan bir oyunda duran ama işlemeyen bir bina, eksik bir özellikten daha kötü.

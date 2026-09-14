@@ -77,6 +77,7 @@ import koskVideo from '../assets/buildings/videos/kosk.mp4';
 import sarayVideo from '../assets/buildings/videos/saray.mp4';
 import tavernaVideo from '../assets/buildings/videos/taverna.mp4';
 import runSalonuVideo from '../assets/buildings/videos/runSalonu.mp4';
+import kahramanKonagiVideo from '../assets/buildings/videos/kahramanKonagi.mp4';
 
 // Panel arka planinda oynayan bina videolari (varsa jpg yerine bu kullanilir)
 export const BUILDING_VIDEO = {
@@ -112,6 +113,7 @@ export const BUILDING_VIDEO = {
   saray: sarayVideo,
   taverna: tavernaVideo,
   runSalonu: runSalonuVideo,
+  kahramanKonagi: kahramanKonagiVideo,
 };
 
 export const EMBLEM_DY = 26;

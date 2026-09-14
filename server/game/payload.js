@@ -15,6 +15,7 @@ const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEqu
 const ARMY = require('./army');
 const KUSATMA = require('./kusatma');
 const GT = require('./gameTime');
+const SAGLIK = require('./saglik');
 const W = require('./world');
 const CULTURE = require('./culture');
 const { PRODUCTION_DEFS: BUILDING_DEFS, VILLAGE_DEFS, EQUIPMENT_DEFS, EQUIPMENT_BY_BUILDING, BASE_STATS } = require('../data');
@@ -317,6 +318,12 @@ function buildPayload(village, tickMs, opts = {}) {
       return [...gruplar.values()];
     })(),
     takviyelerim: opts.takviyelerim || [],
+    /*
+      REVİR — çadırda yatan yaralılar. Oyuncu "kaç askerim iyileşiyor,
+      ne kadar kaldı, çadırım dolu mu" sorularının hiçbirini raporun
+      tek satırından cevaplayamaz; bu yüzden sürekli görünen bir durum.
+    */
+    saglik: SAGLIK.ozet(village, ARMY.buildingLevel(village, 'saglikCadiri')),
     incoming: incomingMarchesFor(`${village.worldQ || 0},${village.worldR || 0}`),
     reports: (village.reports || []).slice(0, 25),
     intel: village.intel || {},

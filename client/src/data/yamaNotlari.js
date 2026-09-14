@@ -26,6 +26,71 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14j',
+    tarih: '14 Eylül 2026',
+    baslik: 'Beş nadirlik sınıfı ve hızlı atlar',
+    notlar: [
+      {
+        id: '20260914-bes-nadirlik',
+        tur: 'yenilik',
+        metin: 'Kahraman eşyaları artık BEŞ sınıfa ayrılıyor ve çerçeve '
+          + 'renginden tanınıyor: gri Sıradan · yeşil Ustaişi · mavi Nadir '
+          + '· mor Epik · turuncu Efsanevi. Sınıf yükseldikçe eşyanın '
+          + 'bonusu büyüyor (efsanevi, sıradanın 3,6 katı) ama düşme '
+          + 'şansı da o kadar azalıyor. Efsanevi eşya ÇOK nadir: düşen '
+          + 'her yüz eşyadan yaklaşık biri.',
+      },
+      {
+        id: '20260914-at-hizi-suvari',
+        tur: 'denge',
+        metin: 'At takan kahraman artık normal bir birimin attan aldığı hız '
+          + 'farkını alıyor — yani atlı kahraman bir SÜVARİ kadar hızlı. '
+          + 'Yaya kahraman 7, en sıradan atlı 12, efsanevi Kuzey Rüzgârı '
+          + 'yaklaşık 19,5. Atın nadirliği hızını daha da artırıyor.',
+      },
+      {
+        id: '20260914-macera-hiz',
+        tur: 'yenilik',
+        metin: 'MACERALAR artık kahramanın hızına göre kısalıyor: atlı '
+          + 'kahraman maceradan da çabuk dönüyor. 6 saatlik uzun macera '
+          + 'iyi bir atla 2 saate kadar inebiliyor. Macera kartında hem '
+          + 'yeni süre hem üstü çizili eski süre yazıyor.',
+      },
+    ],
+  },
+  {
+    surum: '2026-09-14i',
+    tarih: '14 Eylül 2026',
+    baslik: 'Revir: yaralılar zamanla iyileşiyor',
+    notlar: [
+      {
+        id: '20260914-revir-sure',
+        tur: 'denge',
+        metin: 'Sağlık Çadırındaki yaralılar artık PAT DİYE iyileşmiyor. '
+          + 'Yaralı asker çadırda yatıyor ve kendi eğitim süresinin İKİ '
+          + 'KATI kadar sürede iyileşip orduna dönüyor. O süre boyunca '
+          + 'orduda sayılmıyor: savaşmıyor, yem de yemiyor.',
+      },
+      {
+        id: '20260914-revir-kapasite',
+        tur: 'denge',
+        metin: 'Çadırın artık YATAK SAYISI var: seviye başına 10, Lvl 20 de '
+          + '200. Yataklar doluysa yeni yaralıya yer yok — sığmayanlar '
+          + 'ölüyor. Savaş raporu çadırın dolduğunu ve kaç yaralının '
+          + 'kaybedildiğini ayrıca yazıyor.',
+      },
+      {
+        id: '20260914-revir-ekran',
+        tur: 'yenilik',
+        metin: 'SAĞLIK ÇADIRI ekranı artık bir REVİR: yaralılar KART olarak '
+          + 'duruyor ve tedavileri KENDİLİĞİNDEN BAŞLAMIYOR. Hangi birliği '
+          + 'ayağa kaldıracağına sen karar veriyorsun — kartı seç, '
+          + 'İYİLEŞTİR de. Seçilmeyen yaralı çadırda bekler; tedaviye '
+          + 'alınan kartta ilerleme çubuğu ve kalan süre görünür.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14h',
     tarih: '14 Eylül 2026',
     baslik: 'Sağlık Çadırı artık çalışıyor',
@@ -34,8 +99,8 @@ export const YAMA_NOTLARI = [
         id: '20260914-saglik-cadiri',
         tur: 'yenilik',
         metin: 'SAĞLIK ÇADIRI bugüne kadar kurulabiliyor ama hiçbir şey '
-          + 'yapmıyordu. Artık köyün SAVUNULDUĞU savaşlarda kaybettiğin '
-          + 'askerlerin bir kısmı yaralı sayılıp orduna geri dönüyor: her '
+          + 'yapmıyordu. Artık köyün SAVUNULDUĞU savaşlarda ölen '
+          + 'askerlerinin bir kısmı yaralı sayılıp çadıra alınıyor: her '
           + 'seviye %2, Lvl 20 de %40. Savaşın sonucunu değiştirmiyor — '
           + 'kazanan belli, çadır yalnız yaralıları topluyor.',
       },
@@ -43,9 +108,9 @@ export const YAMA_NOTLARI = [
         id: '20260914-saglik-yalniz-savunma',
         tur: 'denge',
         metin: 'Çadır SALDIRIDA işlemiyor: çadır köyde, saldırıda ölen asker '
-          + 'günlerce uzakta. Köyünde duran MİSAFİR askerler de '
-          + 'iyileşmeden payını alıyor — çadır kimin askeri olduğuna '
-          + 'bakmadan yaralıyı topluyor.',
+          + 'günlerce uzakta. Köyünde duran MİSAFİR askerlere de '
+          + 'işlemiyor — onlar başka bir oyuncunun askeri, iyileşince '
+          + 'senin ordunun parçası olmaları doğru olmazdı.',
       },
     ],
   },
@@ -149,9 +214,9 @@ export const YAMA_NOTLARI = [
         tur: 'yenilik',
         metin: 'EŞYA SİSTEMİ geldi. Dokuz kuşam slotu var: miğfer, silah, '
           + 'kalkan, zırh, pantolon, ayakkabı, bileklik, kolye ve at. '
-          + 'Eşyanın dört nadirlik kademesi var (sıradan · iyi · nadir · '
-          + 'efsane) ve nadirlik bonusu ÖLÇEKLİYOR — efsane kılıç sıradan '
-          + 'kılıcın 3,5 katı. Çantadan slota sürükle ya da üstüne tıkla.',
+          + 'Eşyanın beş nadirlik kademesi var (gri · yeşil · mavi · mor '
+          + '· turuncu) ve nadirlik bonusu ÖLÇEKLİYOR — efsanevi kılıç '
+          + 'sıradan kılıcın 3,6 katı. Çantadan slota sürükle ya da tıkla.',
       },
       {
         id: '20260914-esya-birim-bonusu',

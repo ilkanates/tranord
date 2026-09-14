@@ -47,20 +47,38 @@ const HERO_SLOTS = {
 };
 
 /**
- * NADİRLİK — çerçeve rengi ve bonus çarpanı.
+ * NADİRLİK — BEŞ SINIF, renkle ayrılıyor (İlkan'ın kararı):
+ * gri · yeşil · mavi · mor · turuncu.
  *
- * Çarpanlar doğrusal değil (1 · 1,6 · 2,4 · 3,5): efsane eşyanın sıradan
- * olandan 3,5 kat iyi olması onu aranır kılıyor, 10 kat olsaydı efsane
- * düşmeden hiçbir şeyin anlamı kalmazdı.
+ * RENK SIRASI oyuncunun hiç öğrenmeden bildiği bir dil: envanterde
+ * turuncu bir çerçeve gördüğü an neye baktığını anlıyor. Dört sınıfta
+ * mor yoktu; "epik" kademesi eklendi ki nadir ile efsanevi arasındaki
+ * uçurum (11'de bir → 3'te bir) tek adımda atlanmasın.
+ *
+ * ÇARPANLAR doğrusal değil (1 · 1,5 · 2,1 · 2,8 · 3,6): efsanevinin
+ * sıradandan 3,6 kat iyi olması onu aranır kılıyor; 10 kat olsaydı
+ * efsanevi düşmeden hiçbir şeyin anlamı kalmazdı.
+ *
+ * DÜŞME AĞIRLIKLARI — "efsanevi ÇOK nadir düşsün" (İlkan). Yüzdeye
+ * çevirince: %55,8 · %26,9 · %12 · %4 · %1,2. Uzun macerada eşya düşme
+ * şansı zaten %12 olduğu için efsanevi bir eşya birkaç yüz maceralık bir
+ * hedef — bir sunucu ömrüne yayılmış, ama ulaşılabilir. %0,1 yapsaydık
+ * hiç kimse göremez, o hâlde var olmasının bir anlamı kalmazdı.
+ *
+ * ANAHTARLAR KALICI: oyuncuların envanterinde `siradan/iyi/nadir/efsane`
+ * yazıyor. Görünen adları ve renkleri değişti, anahtarlar DEĞİŞMEDİ —
+ * değişseydi kayıtlı bütün eşyalar geçersiz olurdu.
  */
 const NADIRLIK = {
-  siradan: { ad: 'Sıradan', carpan: 1,   renk: '#8fa3b8', dusmeAgirligi: 60 },
-  iyi:     { ad: 'İyi',     carpan: 1.6, renk: '#4ecfa8', dusmeAgirligi: 26 },
-  nadir:   { ad: 'Nadir',   carpan: 2.4, renk: '#7fb4ff', dusmeAgirligi: 11 },
-  efsane:  { ad: 'Efsane',  carpan: 3.5, renk: '#f2bb60', dusmeAgirligi: 3 },
+  siradan: { ad: 'Sıradan',   carpan: 1,   renk: '#8fa3b8', dusmeAgirligi: 56 },
+  // Yeşil kademenin adı: dövmesi düzgün, ustasının elinden çıkmış mal.
+  iyi:     { ad: 'Ustaişi',   carpan: 1.5, renk: '#57c98a', dusmeAgirligi: 27 },
+  nadir:   { ad: 'Nadir',     carpan: 2.1, renk: '#5b9cff', dusmeAgirligi: 12 },
+  epik:    { ad: 'Epik',      carpan: 2.8, renk: '#a970ff', dusmeAgirligi: 4 },
+  efsane:  { ad: 'Efsanevi',  carpan: 3.6, renk: '#ff8a3d', dusmeAgirligi: 1.2 },
 };
 
-const NADIRLIK_SIRA = ['siradan', 'iyi', 'nadir', 'efsane'];
+const NADIRLIK_SIRA = ['siradan', 'iyi', 'nadir', 'epik', 'efsane'];
 
 /**
  * KAHRAMANIN KENDİSİNE işleyen bonuslar.
@@ -270,50 +288,60 @@ const HERO_ITEMS = {
   /*
     ATLAR — hem kahramanı SÜVARİ yapıyor hem hızını büyütüyor.
 
-    HER ATIN HIZI FARKLI (İlkan'ın kararı) ve hız tek eksen değil: hızlı
-    at savaşa bir şey katmıyor, ağır at yavaş ama vuruyor ya da koruyor.
-    Tek bir "en iyi at" olsaydı diğerleri çöp olur, at slotu bir seçim
-    olmaktan çıkardı. Sıralama yavaştan hızlıya:
+    AT TAKAN KAHRAMAN, NORMAL BİR BİRİMİN ATTAN ALDIĞI HIZI ALIYOR
+    (İlkan'ın kararı). O fark uydurulmuyor, birim tanımlarından
+    ÖLÇÜLÜYOR: süvarilerin ortalama hızı eksi piyadelerin ortalama hızı
+    (bkz. kahraman.js · AT_HIZ_EKI). Bugün ≈4,6 — yani atlı kahraman
+    demirAtli mertebesinde. Sabit bir sayı yazsaydık birim hızları
+    değiştiğinde kahraman sessizce ayrışırdı.
 
-      Zırhlı At 0,5 · Köy Beygiri 1 · Savaş Atı 1 · Fiyort Midillisi 1,5
-      · Bozkır Atı 2 · Kuzey Rüzgârı 3
+    ATIN KENDİ HIZI bunun ÜSTÜNE biniyor ve NADİRLİK onu ölçekliyor
+    (İlkan: "atın nadirliği daha da hızlandırsın"). Sıralama yavaştan
+    hızlıya:
 
-    Taban hız 7 (bkz. kahraman.js) ve nadirlik bu ekleri de ölçeklediği
-    için gerçek aralık 7,5 ile tavandaki 16 arasında.
+      Zırhlı At 0,4 · Köy Beygiri 0,8 · Savaş Atı 0,8
+      · Fiyort Midillisi 1,2 · Bozkır Atı 1,6 · Kuzey Rüzgârı 2,2
+
+    Hız tek eksen DEĞİL: hızlı at savaşa bir şey katmıyor, ağır at yavaş
+    ama vuruyor ya da koruyor. Tek bir "en iyi at" olsaydı diğerleri çöp
+    olur, at slotu bir seçim olmaktan çıkardı.
+
+    Gerçek aralık: yaya 7 · sıradan zırhlı at ≈12 · efsanevi Kuzey
+    Rüzgârı ≈19,5 (tavan 20).
   */
   koyBeygiri: {
     ad: 'Köy Beygiri', slot: 'at', ikon: 'at',
     aciklama: 'Sıradan bir yük atı — ama yürümekten iyidir. Kahramanı '
       + 'SÜVARİ yapar ve biraz dayanıklılık katar.',
-    kahramanBonus: { hiz: 1, can: 20 },
+    kahramanBonus: { hiz: 0.8, can: 20 },
   },
   zirhliAt: {
     ad: 'Zırhlı At', slot: 'at', ikon: 'at',
     aciklama: 'Örtü zırhlı ağır at: yavaş ama binicisini koruyor.',
-    kahramanBonus: { hiz: 0.5, zirhlanma: 5 },
+    kahramanBonus: { hiz: 0.4, zirhlanma: 5 },
   },
   savasAti: {
     ad: 'Savaş Atı', slot: 'at', ikon: 'at',
     aciklama: 'Ağır savaş atı: kahramanın ve süvarinin saldırısını büyütür. '
       + 'Hızı vasat.',
-    kahramanBonus: { hiz: 1, saldiri: 60 },
+    kahramanBonus: { hiz: 0.8, saldiri: 60 },
     birimBonus: { suvari: { saldiri: 3 } },
   },
   fiyortMidillisi: {
     ad: 'Fiyort Midillisi', slot: 'at', ikon: 'at',
     aciklama: 'Dayanıklı dağ midillisi: orta hızlı, kahramanın iyileşmesini '
       + 'hızlandırır.',
-    kahramanBonus: { hiz: 1.5, iyilesme: 1 },
+    kahramanBonus: { hiz: 1.2, iyilesme: 1 },
   },
   bozkirAti: {
     ad: 'Bozkır Atı', slot: 'at', ikon: 'at',
     aciklama: 'Hızlı bozkır atı: yolu kısaltır ve maceraları hızlandırır.',
-    kahramanBonus: { hiz: 2, maceraHizi: 25 },
+    kahramanBonus: { hiz: 1.6, maceraHizi: 25 },
   },
   kuzeyRuzgari: {
     ad: 'Kuzey Rüzgârı', slot: 'at', ikon: 'at',
     aciklama: 'En hızlı at. Savaşa hiçbir şey katmaz — tek işi yolu yutmak.',
-    kahramanBonus: { hiz: 3 },
+    kahramanBonus: { hiz: 2.2 },
   },
 };
 

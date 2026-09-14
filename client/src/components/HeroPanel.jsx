@@ -536,6 +536,32 @@ function CantaFiltresi({ envanter, slotlar, filtre, onFiltre }) {
   );
 }
 
+/**
+ * Konak ölçüsü: şimdiki değer ve bir sonraki seviyedeki değer.
+ *
+ * Sonraki seviye DEĞİŞMİYORSA sönük yazılıyor — macera tavanı her
+ * seviyede artmıyor (iki seviyede bir), ve "aynı kalacak" bilgisi de
+ * oyuncunun kararına giriyor.
+ */
+function KonakOlcu({ ad, simdi, sonra, artti }) {
+  return (
+    <div>
+      <div style={lbl({ fontSize: 7.5, letterSpacing: 0.9 })}>{ad.toUpperCase()}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+        <span style={num({ fontSize: 12, color: C.frost })}>{simdi}</span>
+        {sonra && (
+          <>
+            <span style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>→</span>
+            <span style={num({
+              fontSize: 11, color: artti ? C.good : C.textFaint,
+            })}>{sonra}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Kimlik şeridindeki dar çubuk — ad, değer ve doluluk tek satırda */
 function MiniCubuk({ ad, oran, renk, deger }) {
   return (
@@ -678,7 +704,13 @@ function Skiller({ kahraman, toplu, setToplu, acikSkil, setAcikSkil, onPuan, onS
 }
 
 /** MACERALAR — biriken hak, iki tip, yoldaki macera */
+/*
+  GERÇEK MACERA SÜRESİ sunucudan geliyor (maceraSaatleri): kahramanın
+  hızı macerayı kısaltıyor (bkz. macera.js · maceraSuresi). Eski sunucu
+  bu alanı yollamazsa tanımdaki ham saate düşüyoruz — ekran boş kalmasın.
+*/
 function Maceralar({ kahraman, engel, sure, onMacera }) {
+  const saatOf = (tip, def) => kahraman.maceraSaatleri?.[tip] ?? def.saat;
   if (kahraman.macera) {
     return (
       <div style={{
@@ -716,6 +748,52 @@ function Maceralar({ kahraman, engel, sure, onMacera }) {
       </div>
 
       {/*
+        KONAĞIN NE VERDİĞİ. İlkan sordu: "kahraman binasını artırmak ne
+        işe yarıyor?" — üç şey veriyordu ama üçü de hiçbir ekranda
+        yazmıyordu. Yükseltmenin karşılığı görünmüyorsa oyuncu o binayı
+        yükseltmez. Bir sonraki seviye de yanında: "şu an ne veriyor"
+        tek başına "yükseltsem ne olur" sorusunu cevaplamıyor.
+      */}
+      {kahraman.konakGetirisi && (
+        <div style={{
+          padding: '10px 13px', marginBottom: 10, borderRadius: 6,
+          background: 'rgba(12,20,32,0.35)', border: `1px solid ${C.lineSoft}`,
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7,
+          }}>
+            <span style={lbl({ fontSize: 8.5 })}>KAHRAMAN KONAĞI</span>
+            <span style={num({ fontSize: 11, color: C.iceSoft })}>
+              Lvl {kahraman.konakGetirisi.seviye}
+            </span>
+            <span style={{
+              marginLeft: 'auto', fontFamily: FONT.ui, fontSize: 9, color: C.textFaint,
+            }}>yükseltince ↓</span>
+          </div>
+          <div style={{
+            display: 'grid', gap: 7,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+          }}>
+            <KonakOlcu ad="İyileşme"
+              simdi={`${kahraman.konakGetirisi.iyilesme}/sa`}
+              sonra={kahraman.konakSonraki && `${kahraman.konakSonraki.iyilesme}/sa`}
+              artti={kahraman.konakSonraki
+                && kahraman.konakSonraki.iyilesme > kahraman.konakGetirisi.iyilesme} />
+            <KonakOlcu ad="Macera tavanı"
+              simdi={String(kahraman.konakGetirisi.maceraTavan)}
+              sonra={kahraman.konakSonraki && String(kahraman.konakSonraki.maceraTavan)}
+              artti={kahraman.konakSonraki
+                && kahraman.konakSonraki.maceraTavan > kahraman.konakGetirisi.maceraTavan} />
+            <KonakOlcu ad="Yeni macera"
+              simdi={sure(kahraman.konakGetirisi.maceraSaat)}
+              sonra={kahraman.konakSonraki && sure(kahraman.konakSonraki.maceraSaat)}
+              artti={kahraman.konakSonraki
+                && kahraman.konakSonraki.maceraSaat < kahraman.konakGetirisi.maceraSaat} />
+          </div>
+        </div>
+      )}
+
+      {/*
         SALDIRI GÜCÜ MACERADA DA İŞE YARIYOR — bunu yazmazsak oyuncu
         saldırıya yatırım yapmanın macerayı kolaylaştırdığını hiç
         fark etmez; sayı sessizce iyileşir ve sebebi görünmez.
@@ -739,7 +817,7 @@ function Maceralar({ kahraman, engel, sure, onMacera }) {
       }}>
         {Object.entries(kahraman.maceraTipleri || {}).map(([tip, def]) => (
           <button key={tip} onClick={() => onMacera?.(tip)} disabled={!!engel}
-            title={engel ? ENGEL_METIN[engel] : `${def.ad} — ${sure(def.saat)}`}
+            title={engel ? ENGEL_METIN[engel] : `${def.ad} — ${sure(saatOf(tip, def))}`}
             style={{
               textAlign: 'left', padding: '12px 14px', borderRadius: 6,
               background: 'rgba(12,20,32,0.5)',
@@ -750,7 +828,17 @@ function Maceralar({ kahraman, engel, sure, onMacera }) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{ fontFamily: FONT.ui, fontSize: 12, color: C.frost }}>{def.ad}</span>
               <span style={num({ fontSize: 10, color: C.textMute, marginLeft: 'auto' })}>
-                {sure(def.saat)}
+                {sure(saatOf(tip, def))}
+                {/*
+                  HIZ KISALTTIYSA ham süre üstü çizili duruyor: yoksa
+                  oyuncu atının maceraya da işlediğini göremezdi.
+                */}
+                {saatOf(tip, def) < def.saat && (
+                  <span style={{
+                    fontSize: 8.5, color: C.textFaint, marginLeft: 4,
+                    textDecoration: 'line-through',
+                  }}>{sure(def.saat)}</span>
+                )}
               </span>
             </div>
             <div style={{

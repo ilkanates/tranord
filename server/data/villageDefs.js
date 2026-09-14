@@ -135,7 +135,7 @@ const VILLAGE_DEFS = {
                    unique:true,  maxLevel:20, equipmentCapPerLevel:50, poolCapPerLevel:200,
                    buildBaseWork:30, buildMultiplier:1.8, cost:{ kereste:60, yontmaTas:70, demirKulce:35 },
                    upgradeCostBase:{ kereste:60, yontmaTas:70, demirKulce:35 }, upgradeCostMultiplier:1.6 },
-  saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Köyün SAVUNULDUĞU savaşlarda kaybettiğin askerlerin bir kısmı yaralı sayılır ve orduna geri döner. Her seviye %2, Lvl 20 de %40. Saldırıda ölen askere işlemez — çadır köyde.',
+  saglikCadiri: { cpPerLevel:1, name:'Sağlık Çadırı',    category:'askeri',   icon:'⛺', description:'Köyün SAVUNULDUĞU savaşlarda ölen askerlerin bir kısmı yaralı sayılır ve çadıra alınır; eğitim süresinin 2 katı kadar sürede iyileşip orduna döner. Her seviye %2 yaralı payı ve 10 yatak, Lvl 20 de %40 ve 200 yatak. Yatak dolarsa fazla yaralı ölür. Saldırıda ölen askere işlemez — çadır köyde.',
                    unique:true,  maxLevel:20, buildBaseWork:25, buildMultiplier:1.7, cost:{ kereste:35, tahil:30 } },
   /*
     KAHRAMAN KONAĞI — kahraman burada DOĞAR, burada iyileşir, eşyaları
@@ -146,7 +146,7 @@ const VILLAGE_DEFS = {
     Seviye iki şeyi belirliyor: iyileşme hızı ve aynı anda açık
     durabilecek macera sayısı (bkz. game/kahraman.js).
   */
-  kahramanKonagi: { cpPerLevel:2, name:'Kahraman Konağı', category:'askeri',   icon:'🏅', description:'Kahramanın evi. Burada doğar, yaralanınca burada iyileşir, eşyalarını burada tutar. Seviye arttıkça daha hızlı iyileşir ve daha çok macera birikir.',
+  kahramanKonagi: { cpPerLevel:2, name:'Kahraman Konağı', category:'askeri',   icon:'🏅', description:'Kahramanın evi: burada doğar, ölünce burada dirilir, eşyalarını burada tutar. HER SEVİYE üç şey veriyor — iyileşme hızı +1,5 can/sa, macera tavanı (iki seviyede bir +1, Lvl 20 de 12), ve yeni macera bekleme süresi (6 sa → 2,2 sa). Ayrıntılar Kahraman ekranında yazılı.',
                    unique:true,  maxLevel:20, workersPerLevel:1,
                    buildBaseWork:35, buildMultiplier:1.85, cost:{ kereste:70, yontmaTas:90, demirKulce:50 },
                    upgradeCostBase:{ kereste:70, yontmaTas:90, demirKulce:50 }, upgradeCostMultiplier:1.7 },
