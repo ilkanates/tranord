@@ -35,6 +35,62 @@ const SQRT3 = Math.sqrt(3);
  * Buradan köy yarıçapı ≈ 7.00·S + (sur/hendek kalınlıkları) ve genişlik
  * 2R ≤ 850 → S = 55.
  */
+/**
+ * BİNA TAVANA VARDI MI?
+ *
+ * Tavan binadan binaya değişiyor (lonca 5, Rún Salonu 10, çoğu 20) ve
+ * seviye sayısı tek başına "bitti mi" sorusunu cevaplamıyor. Tek yerde
+ * duruyor ki hex, kule ve panel başlığı aynı cevabı versin.
+ */
+/**
+ * BİNA AÇIKLAMASI — köy ekranında bina paneline açılan kısa kart.
+ *
+ * Metin villageDefs tanımından geliyor: yardım menüsündekiyle BİREBİR
+ * aynı kaynak. İki yere ayrı metin yazmak kısa sürede ayrışırdı ve
+ * oyuncu iki farklı doğru öğrenirdi.
+ *
+ * SON SEVİYE ROZETİ burada da var: paneli açan oyuncu "yükseltebilir
+ * miyim" sorusunun cevabını düğmeye uzanmadan görmeli.
+ */
+function BinaAciklama({ metin, tavanda = false, maxLevel = null, onYardim = null }) {
+  return (
+    <div style={{
+      padding: '9px 10px', borderRadius: 6,
+      background: 'rgba(6,12,20,0.62)', border: '1px solid ' + C.lineSoft,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+        <span style={lbl({ fontSize: 7.5, letterSpacing: 1.2, flex: 1 })}>NE İŞE YARAR</span>
+        {tavanda && (
+          <span style={{
+            padding: '1px 6px', borderRadius: 3,
+            fontFamily: FONT.ui, fontSize: 8, letterSpacing: 0.9,
+            color: C.gold, border: '1px solid ' + C.gold + '66',
+            background: 'rgba(242,200,110,0.10)',
+          }}>
+            SON SEVİYE{maxLevel ? " · LVL " + maxLevel : ""}
+          </span>
+        )}
+        {onYardim && (
+          <button type="button" onClick={onYardim} title="Yardımda tamamını aç"
+            style={{
+              background: 'none', border: '1px solid ' + C.lineSoft, borderRadius: 4,
+              color: C.textMute, cursor: 'pointer', padding: '2px 7px',
+              fontFamily: FONT.ui, fontSize: 8, letterSpacing: 0.7,
+            }}>AYRINTI</button>
+        )}
+      </div>
+      <div style={{
+        fontFamily: FONT.ui, fontSize: 10, color: C.textDim, lineHeight: 1.6,
+      }}>{metin}</div>
+    </div>
+  );
+}
+
+function tavandaMi(tip, seviye) {
+  const max = VILLAGE_DEFS[tip]?.maxLevel;
+  return !!max && seviye >= max;
+}
+
 const S = 55;
 /** Karo, hücresinden biraz küçük: aradaki boşluk sokak olur */
 const TILE = 0.90;
@@ -511,7 +567,9 @@ function VillageWall({
                 })()}
                 <text x={p[0]} y={p[1] + rr - 8} textAnchor="middle" dominantBaseline="middle"
                   fontFamily={FONT.head} fontSize={10} fontWeight="700"
-                  fill={b.building ? C.ice : C.frost}
+                  /* Kule de tavana varabiliyor — aynı altın kural */
+                  fill={b.building ? C.ice
+                    : (tavandaMi('kule', lv) ? C.gold : C.frost)}
                   stroke="#04121e" strokeWidth={2.6} paintOrder="stroke"
                   style={{ userSelect: 'none' }}>
                   {b.building ? fmtTime(b.buildTimeLeft) : `LVL ${lv}`}
@@ -1217,7 +1275,18 @@ export default function VillageCenter({
                 {building && (
                   <text x={x} y={y + S - 12} textAnchor="middle" dominantBaseline="middle"
                     fontFamily={FONT.head} fontSize={11} fontWeight="700"
-                    fill={building.yikiliyor ? '#ffc6cb' : building.building ? C.ice : C.frost}
+                    /*
+                      SON SEVİYEDEKİ BİNA ALTIN YAZIYOR (İlkan'ın isteği:
+                      "full olduğunu anlayayım").
+
+                      Oyuncu yükseltilecek bina ararken tek tek her hexi
+                      açıp tavana varıp varmadığına bakmak zorundaydı;
+                      seviye sayısı tek başına bunu söylemiyor çünkü tavan
+                      binadan binaya değişiyor (lonca 5, Rún Salonu 10,
+                      çoğu 20). Renk bu soruyu haritadan cevaplıyor.
+                    */
+                    fill={building.yikiliyor ? '#ffc6cb' : building.building ? C.ice
+                      : (tavandaMi(building.type, building.level) ? C.gold : C.frost)}
                     stroke="#04121e" strokeWidth={2.6} paintOrder="stroke"
                     style={{ userSelect: 'none' }}>
                     {building.yikiliyor ? fmtTime(building.yikimTimeLeft)
@@ -1334,6 +1403,8 @@ export default function VillageCenter({
           // Taverna: şölen paneli (kültür puanı üretimi)
           const hasFestival = selectedBuilding?.type === 'taverna';
           const hasPazar    = selectedBuilding?.type === 'pazar';
+          const binaAciklamasi = selectedBuilding
+            ? (VILLAGE_DEFS[selectedBuilding.type]?.description || '') : '';
           const hasRevir    = selectedBuilding?.type === 'saglikCadiri';
           // Saray: merkez taşıma denetimi burada
           const hasCapital  = selectedBuilding?.type === 'saray';
@@ -1660,9 +1731,18 @@ export default function VillageCenter({
                     color: C.textDim, textTransform: 'uppercase',
                     textShadow: '0 1px 5px rgba(0,0,0,0.95)',
                   }}>
-                    {selectedBuilding && !selectedBuilding.building
-                      ? `LVL ${selectedBuilding.level} · ${selected}`
-                      : `slot ${selected}`}
+                    {selectedBuilding && !selectedBuilding.building ? (
+                      <>
+                        <span style={{
+                          color: tavandaMi(selectedBuilding.type, selectedBuilding.level)
+                            ? C.gold : 'inherit',
+                        }}>
+                          LVL {selectedBuilding.level}
+                          {tavandaMi(selectedBuilding.type, selectedBuilding.level) && ' · SON SEVİYE'}
+                        </span>
+                        {` · ${selected}`}
+                      </>
+                    ) : `slot ${selected}`}
                   </div>
                 </div>
               </div>
@@ -1719,6 +1799,30 @@ export default function VillageCenter({
                     onCancelDemolish?.(selected);
                     setShowMenu(false); setSelected(null);
                   }} />
+              </div>
+            )}
+
+            {/*
+              BİNA AÇIKLAMASI — İlkan'ın isteği: *"köy ekranında bir binaya
+              tıkladığımda orada da her bina için bir açıklama olsun"*.
+
+              Metin tanımdan geliyor (villageDefs · description), yani
+              yardım menüsündekiyle BİREBİR aynı: iki yere ayrı metin
+              yazmak kısa sürede ayrışırdı. Buradaki kısa hâli, "tamamı"
+              için yardım açılıyor.
+
+              order: 0 — açıklama denetimlerin ÜSTÜNDE. Oyuncu binayı ilk
+              kez açtığında önce ne işe yaradığını okumalı; yükseltme
+              düğmesi ondan sonra gelir.
+            */}
+            {selectedBuilding && binaAciklamasi && (
+              <div style={{ padding: '10px 12px 6px', order: 0 }}>
+                <BinaAciklama
+                  metin={binaAciklamasi}
+                  tavanda={tavandaMi(selectedBuilding.type, selectedBuilding.level)}
+                  maxLevel={VILLAGE_DEFS[selectedBuilding.type]?.maxLevel}
+                  onYardim={onOpenHelp
+                    ? () => onOpenHelp(`bina:${selectedBuilding.type}`) : null} />
               </div>
             )}
 

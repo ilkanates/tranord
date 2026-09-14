@@ -15,12 +15,30 @@
  * kendisi (hangi bileşen nereye) değişiyor, sadece görünüm değil.
  */
 import { useEffect, useState } from 'react';
+import { ayarlariDinle } from './ayarlar';
 
 export const BP = { mobile: 760, compact: 1100 };
 
+/**
+ * ARAYÜZ ÖLÇEĞİ kırılma noktalarına giriyor.
+ *
+ * Ölçek CSS `zoom` ile uygulanıyor (bkz. index.css · #root). zoom'lu bir
+ * düzende içeriğin gerçekte kullanabildiği genişlik `innerWidth / ölçek`:
+ * 1280 px'lik pencere %130 ölçekte 985 px'lik bir düzene denk. Ham
+ * innerWidth'e baksaydık oyuncu yazıyı büyüttüğünde masaüstü düzeni
+ * inatla sürer, iki ray ve sahne ekrana sığmazdı.
+ */
+function olcek() {
+  if (typeof document === 'undefined') return 1;
+  const v = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--tn-olcek'));
+  return Number.isFinite(v) && v > 0 ? v : 1;
+}
+
 function read() {
-  const w = typeof window === 'undefined' ? 1440 : window.innerWidth;
-  const h = typeof window === 'undefined' ? 900 : window.innerHeight;
+  const o = olcek();
+  const w = typeof window === 'undefined' ? 1440 : Math.round(window.innerWidth / o);
+  const h = typeof window === 'undefined' ? 900 : Math.round(window.innerHeight / o);
   return {
     w, h,
     mobile: w < BP.mobile,
@@ -45,8 +63,15 @@ export function useViewport() {
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
+    /*
+      ÖLÇEK DEĞİŞİNCE DE yeniden ölçülmeli: pencere boyu değişmiyor ama
+      düzenin kullanabildiği genişlik değişiyor. resize gelmediği için
+      ayar deposu dinleniyor.
+    */
+    const birak = ayarlariDinle(onResize);
     return () => {
       cancelAnimationFrame(raf);
+      birak();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
     };

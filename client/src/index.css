@@ -65,8 +65,23 @@ html, body {
   overscroll-behavior: none;
 }
 
+/*
+  ARAYÜZ ÖLÇEĞİ — ayarlardaki "yazı büyüklüğü" (bkz. src/ayarlar.js).
+
+  `zoom` kullanılıyor, `transform: scale` değil: transform yalnız çizimi
+  büyütür, düzeni değil — sabit konumlu katmanlar (pencereler, ipuçları)
+  kayar ve tıklama alanları görselin dışında kalır. zoom düzenin kendisini
+  ölçekler.
+
+  ÖLÇÜLER ÖLÇEĞE BÖLÜNÜYOR. zoom içindeki `100dvh` yine görüntü alanı
+  kadar CSS pikseli demek; zoom ile çarpılınca ekrandan taşıyordu
+  (ölçüldü: 1,3 ölçekte sayfanın altı kesiliyordu). Bölme, zoom'un
+  çarpmasını tam olarak götürüyor.
+*/
 #root {
-  height: 100dvh;
+  zoom: var(--tn-olcek, 1);
+  width: calc(100% / var(--tn-olcek, 1));
+  height: calc(100dvh / var(--tn-olcek, 1));
   display: flex;
   flex-direction: column;
   overflow: hidden;

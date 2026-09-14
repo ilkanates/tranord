@@ -4,6 +4,7 @@ import MapView         from './components/MapView';
 import VillageCenter   from './components/VillageCenter';
 import HelpScreen      from './components/HelpScreen';
 import MusicButton     from './components/MusicButton';
+import AyarlarMenu     from './components/AyarlarMenu';
 import VillageSwitcher from './components/VillageSwitcher';
 import { ProfileButton, NameGate } from './components/ProfilePanel';
 import Tutorial from './components/Tutorial';
@@ -343,9 +344,15 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
             )}
           </button>
         )}
-        {/* Müzik — tam ayarlar menüsü gelene kadar tek denetim burası */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px' }}>
+        {/*
+          Hoparlör HIZLI SUSTURMA olarak duruyor: tek tıkla susturmak sık
+          yapılan bir şey, onu ayarlar penceresinin iki tık arkasına
+          koymak bir iyileştirme olmazdı. Dişli ise bütün ayarların evi.
+          İkisi de aynı depoyu yazıyor, ayrışamazlar.
+        */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 2px' }}>
           <MusicButton />
+          <AyarlarMenu dar={dar} />
         </div>
 
         {/*

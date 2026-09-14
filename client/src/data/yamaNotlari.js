@@ -26,6 +26,58 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-14m',
+    tarih: '14 Eylül 2026',
+    baslik: 'Ayarlar menüsü ve yazı büyüklüğü',
+    notlar: [
+      {
+        id: '20260914-ayarlar-menusu',
+        tur: 'yenilik',
+        metin: 'ÜST BARDA DİŞLİ: artık bir AYARLAR menüsü var. Üç sekme — '
+          + 'Görünüm, Müzik ve Sesler. Bundan sonraki her ayar buraya '
+          + 'girecek. Hoparlör düğmesi yerinde duruyor: tek tıkla '
+          + 'susturmak için hâlâ en hızlı yol.',
+      },
+      {
+        id: '20260914-yazi-buyuklugu',
+        tur: 'yenilik',
+        metin: 'YAZILAR KÜÇÜK GELİYORSA artık büyütebilirsin: Ayarlar → '
+          + 'Görünüm → Arayüz ölçeği. %85 ile %150 arası beş hazır adım ve '
+          + 'ince ayar kaydırıcısı var. Yalnız yazı değil arayüzün tamamı '
+          + 'büyüyor — kutular da birlikte büyüdüğü için sayılar '
+          + 'kırpılmıyor. Büyüttükçe ekrana daha az şey sığar.',
+      },
+      {
+        id: '20260914-ses-ayarlari',
+        tur: 'yenilik',
+        metin: 'SES AYARLARI eklendi: ana ses anahtarı ve seviyesi, altında '
+          + 'ON BİR OLAY için AYRI AYRI anahtar ve seviye — saldırı '
+          + 'geliyor, savaş sonucu, sefer yola çıktı, asker eğitimi bitti, '
+          + 'alet üretimi bitti, inşaat bitti, araştırma bitti, görev '
+          + 'ödülü hazır, depo doldu, açlık başladı, yeni mesaj. Ses '
+          + 'dosyaları henüz eklenmedi: şimdi yaptığın seçim kaydediliyor '
+          + 've dosyalar geldiğinde olduğu gibi işlemeye başlayacak.',
+      },
+      {
+        id: '20260914-bina-panel-aciklama',
+        tur: 'yenilik',
+        metin: 'KÖY EKRANINDA bir binaya tıklayınca artık NE İŞE YARAR '
+          + 'kartı açılıyor: binanın ne yaptığı, sayılarıyla. Yardım '
+          + 'menüsündeki metnin aynısı; kartın köşesindeki AYRINTI '
+          + 'düğmesi yardım sayfasını doğrudan o binada açıyor.',
+      },
+      {
+        id: '20260914-son-seviye-altin',
+        tur: 'yenilik',
+        metin: 'SON SEVİYEYE ULAŞMIŞ binaların LVL yazısı artık ALTIN '
+          + 'renginde. Tavan binadan binaya değişiyor (lonca 5, Rún Salonu '
+          + '10, çoğu 20); artık köy ekranına bakınca hangisinin bittiğini '
+          + 'tek tek açmadan görüyorsun. Bina panelinde de SON SEVİYE '
+          + 'rozeti var.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-14k',
     tarih: '14 Eylül 2026',
     baslik: 'Bina açıklamaları ve görev listesi',

@@ -117,19 +117,33 @@ tasarımın kaydı olarak duruyor.
 - **Karar gerekiyor:** davet/kabul akışı, birlik yönetimi (kurucu yetkileri, üye atma), birliğe saldırı yasağı olsun mu.
 - Sunucu tarafı: birlik tablosu + üyelik, harita anlık görüntüsüne köy başına `allianceId` eklenmesi.
 
-### 3. Ayarlar menüsü ve ses
-- **Ayarlar menüsü** eklenmeli (üst barda dişli ikonu).
-- ~~**Arka plan müziği**~~ — yapıldı: `client/src/audio.js` + üst bardaki müzik düğmesi (aç/kapa, ses seviyesi, sıradaki parça). Ayarlar menüsü gelince oraya taşınmalı.
-- **Olay sesleri** — her biri tek tek açılıp kapanabilir ve seviyesi ayarlanabilir olmalı:
-  - saldırı geldiğinde / saldırı sonucu
-  - bina inşası bittiğinde
-  - asker üretimi bittiğinde
-  - (aday) ekipman bitti, depo doldu, açlık başladı
-- Ana bir "ses" ana kısması (master) + kategori bazlı ayarlar.
-- Tercihler tarayıcıda saklanmalı (sağ raydaki katlama gibi, `localStorage`).
-- **Karar gerekiyor:** ses dosyaları nereden gelecek (üretilecek mi, hazır kütüphane mi), format (mp3/ogg) ve toplam boyut sınırı.
-- Not: tarayıcılar kullanıcı etkileşimi olmadan otomatik ses çalmayı engelliyor — müzik ilk tıklamadan sonra başlamalı.
-
+### 3. Ayarlar menüsü ve ses — ÇATI YAPILDI, dosyalar bekleniyor
+- ~~**Ayarlar menüsü**~~ — yapıldı: üst barda dişli, `client/src/components/AyarlarMenu.jsx`.
+  Üç sekme: Görünüm · Müzik · Sesler. Bütün tercihler tek depoda
+  (`client/src/ayarlar.js`, tek anahtar `tn.ayarlar`).
+- ~~**Arka plan müziği**~~ — yapıldı; tam denetimi artık ayarlar menüsünde.
+  Üst bardaki hoparlör HIZLI SUSTURMA olarak duruyor (tek tıkla susturmak
+  sık yapılan bir şey, iki tık arkasına koymak iyileştirme olmazdı).
+- ~~**Olay sesleri ayarları**~~ — yapıldı: 11 olay, her biri AYRI anahtar +
+  AYRI seviye, üstünde ana anahtar ve ana seviye (olay seviyesi ana sesle
+  ÇARPILIR). Çalma yolu da hazır (`client/src/ses.js`).
+- **KALAN: ses dosyalarının kendisi.** `client/public/ses/<olay>.mp3`
+  konduğu an o satır kendiliğinden çalışmaya başlıyor; başka hiçbir
+  değişiklik gerekmiyor. Eksik dosya sessiz geçiliyor (bir kez deneniyor,
+  sonra o olay işaretleniyor — yoksa her inşaat bitişinde konsola 404
+  düşerdi).
+- **Olay listesi** (ayarlar.js · SES_OLAYLARI): saldiriGeldi · savasSonucu
+  · seferGonderildi · askerBitti · ekipmanBitti · binaBitti ·
+  arastirmaBitti · gorevTamam · depoDoldu · aclik · mesaj.
+- **KALAN: sesin oyuna bağlanması.** Ayar ve çalar hazır; `sesCal('binaBitti')`
+  gibi çağrıların olay noktalarına konması gerekiyor (tick sonucu istemciye
+  geldiğinde, sefer gönderilince, rapor düşünce).
+- **Karar gerekiyor:** ses dosyaları nereden gelecek (üretilecek mi, hazır
+  kütüphane mi) ve toplam boyut sınırı. Biçim mp3 seçildi — müzikle aynı,
+  her tarayıcıda çalıyor.
+- Not: tarayıcılar kullanıcı etkileşimi olmadan otomatik ses çalmayı
+  engelliyor. Müzikte ilk tıklamayı bekleyen bir kilit var; efektler zaten
+  bir oyuncu eylemine bağlı olduğu için orada gerekmiyor.
 ---
 
 ## 🟡 Sunucuya taşıma
@@ -215,6 +229,26 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - Atölyenin **kuşatma kapasitesi** (`siegeCapPerLevel`) yardım ekranında hiç görünmüyordu, satır eklendi. Ahırın at satırına da atların günde 3 ham tahıl yediği notu kondu.
 - `granary` binasının görünen adı **İngilizce kalmıştı** (*"Granary"*), Türkçeleşti: **Erzak Ambarı**. Anahtar değişmedi — kayıtlı köyler etkilenmiyor.
 - Açıklamalar tek kaynaktan iki ikiz tanıma birden yazıldı (`server/data/villageDefs.js` ↔ `client/src/data/villageDefs.js`); ikizler testi maliyetleri kilitliyor ama metni kilitlemiyordu, elle yazmak ayrışma riski olurdu.
+
+### Ayarlar menüsü ve arayüz ölçeği (14 Eylül 2026)
+- İlkan: *"şimdi bir ayarlar menüsü yapalım ve bütün ayarları oraya dolduralım. font büyüklüğü ayarı da oraya ekleyelim. bazı kullanıcılarda yazılar çok küçük kalıyor ordan ayarlasınlar. sesler ile alakalı her şeyi oraya ekleyelim."*
+- **Üst barda dişli → Ayarlar penceresi** (`AyarlarMenu.jsx`), üç sekme: Görünüm · Müzik · Sesler. Bugüne kadar tek ayar müzikti ve üst bardaki hoparlörün ARKASINA gizlenmişti; "ayarlar nerede" sorusunun cevabı yoktu.
+- **Tek depo, tek anahtar** (`ayarlar.js` · `tn.ayarlar`). Eksik alan varsayılana düşüyor: yeni bir ayar eklemek bir alan eklemek, yeni bir depolama anahtarı ve göç kodu değil. Olay listesi KODDAN geliyor, kayıttan değil — yoksa sonradan eklenen ses satırları eski oyuncularda hiç görünmezdi.
+- **ARAYÜZ ÖLÇEĞİ %85-150.** Yalnız yazı değil arayüzün TAMAMI ölçekleniyor (CSS `zoom`): arayüz satır içi piksel ölçüleriyle yazılmış, yalnız yazı büyüseydi 11 px için hesaplanmış kutular taşar ve sayılar kırpılırdı.
+- `transform: scale` DEĞİL `zoom`: transform düzeni değil yalnız çizimi ölçekler — sabit konumlu katmanlar kayar, tıklama alanları görselin dışında kalırdı.
+- **Ölçülerin ölçeğe BÖLÜNMESİ şart** (`#root`, pencere tavanı, perde): zoom içindeki `100dvh` yine görüntü alanı kadar CSS pikseli demek, zoom ile çarpılınca ekrandan taşıyor. Ölçüldü — %130 ölçekte önce sayfanın altı, sonra ayar penceresinin başlığı kesiliyordu.
+- **Kırılma noktaları da ölçeğe bölünüyor** (`responsive.js`): 1280 px pencere %130 ölçekte 985 px'lik bir düzene denk. Ham `innerWidth`e baksaydık oyuncu yazıyı büyüttüğünde masaüstü düzeni inatla sürer, iki ray ve sahne ekrana sığmazdı. Ölçek değişince `resize` gelmediği için ayar deposu dinleniyor.
+- **Pencere portal ile gövdeye açılıyor**: üst barda `backdropFilter` var ve filtre uygulanan öğe içindeki `position: fixed` katmanlar için yeni bir kapsayıcı blok kuruyor. Ölçüldü: perde görüntü alanına değil üst bara hizalanıyor, pencere ekranın üstünden taşıyordu (top: −177). Portal gövdeye açıldığı için `#root` zoom'u işlemiyor; pencereye aynı zoom ayrıca uygulandı — yoksa yazıyı büyüten oyuncu tam da büyütmeyi yaptığı pencereyi küçücük görürdü.
+- **SESLER: 11 olay, her biri ayrı anahtar ve ayrı seviye** (İlkan'ın isteği). Tek bir "ses efektleri" anahtarı yetmezdi: saldırı uyarısını duymak isteyip inşaat sesini istememek en sık yapılan ayardır. Olay seviyesi ana sesle ÇARPILIR.
+- Ses çalar (`ses.js`) müzikten AYRI: müzik tek uzun akış, efektler onlarca kısa ve üst üste binebilen ses; tek çalarda toplasaydık bir uyarı müziği keser ya da ikinci olay birincisini susturuurdu. Olay başına 3 çalarlık havuz (üç bina aynı tikte bitebiliyor).
+- **Dosyalar henüz yok ve bu bilerek sorun değil**: ayar ekranı, kayıt biçimi ve çalma yolu dosyalardan önce oturdu. Eksik dosya sessiz geçiliyor ve ayar ekranında bu açıkça yazıyor — gizleseydik oyuncu ayarları kurcalayıp "bozuk" diye düşünürdü.
+
+### Bina panelinde açıklama + son seviye altın (14 Eylül 2026)
+- İlkan: *"köy ekranında bir binaya tıkladığımda orada da her bina için bir açıklama olsun. son lvl a ulaşmış binaların lvl yazıları altın rengi olsun full olduğunu anlayayım."*
+- **Bina paneline "NE İŞE YARAR" kartı**: metin `villageDefs` tanımından, yani yardım menüsündekiyle BİREBİR aynı kaynak — iki yere ayrı metin yazmak kısa sürede ayrışır ve oyuncu iki farklı doğru öğrenirdi. Kartta "AYRINTI" düğmesi yardım sayfasını o binada açıyor.
+- Kart denetimlerin ÜSTÜNDE: oyuncu binayı ilk kez açtığında önce ne işe yaradığını okumalı, yükseltme düğmesi ondan sonra gelir.
+- **Tavana varan binanın LVL yazısı ALTIN** — hexte, kulede ve panel başlığında. Tavan binadan binaya değişiyor (lonca 5, Rún Salonu 10, çoğu 20); seviye sayısı tek başına "bitti mi" sorusunu cevaplamıyordu, oyuncu yükseltilecek bina ararken her hexi tek tek açmak zorundaydı. Kural tek yerde (`tavandaMi`) ki üç yer aynı cevabı versin.
+- Panelde ayrıca "SON SEVİYE · LVL 20" rozeti: paneli açan oyuncu "yükseltebilir miyim" sorusunun cevabını düğmeye uzanmadan görüyor.
 
 ### Görevlerde "bitenleri gizle" (14 Eylül 2026)
 - İlkan: *"görevlerde yaptığım görevleri gizle gibi birşey olsun"*.
