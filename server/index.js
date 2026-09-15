@@ -5,7 +5,7 @@ const cors       = require('cors');
 
 const { createVillage, hydrateVillage, civilianCount } = require('./game/villageState');
 const { processTick, getUpgradeSeconds, getStorageCaps } = require('./game/tick');
-const { simulateBattle } = require('./game/combat');
+const { simulateBattle, moralBonusPct } = require('./game/combat');
 const ARMY = require('./game/army');
 const KUSATMA = require('./game/kusatma');
 const HERO = require('./game/kahraman');
@@ -4082,7 +4082,19 @@ io.on('connection', async socket => {
       // `tag` aynen geri döner: aynı anda birden fazla ekran tahmin isteyebilir
       // (savaş simülatörü + saldırı ekranı), yanıtı kim istediyse o eşleştirsin.
       const { attacker = {}, defender = {}, surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal', tag = null,
-        attackerLevels = null, defenderLevels = null } = payload;
+        attackerLevels = null, defenderLevels = null, defenderPopulation = 0 } = payload;
+      /*
+        MORAL TAHMİNE DE GİRİYOR. Gerçek savaşta savunan, saldırandan
+        küçükse savunma bonusu alıyor (bkz. combat.js · moralBonusPct).
+        Tahmin bunu saymasaydı ekran "kazanırsın" der, savaş
+        kaybedilirdi — oyuncunun ordusunu yanlış bilgiye dayanıp
+        harcaması en kötü türden hata.
+
+        Savunanın nüfusu KEŞİFTEN geliyor (istemci `intel.population`
+        gönderiyor); bilinmiyorsa moral 0 sayılıyor, yani tahmin
+        savunan lehine değil ALEYHİNE yanılıyor — güvenli taraf.
+      */
+      const moralPct = moralBonusPct(v().population, defenderPopulation);
       /**
        * Simülatörde saldıran taraf oyuncunun kendisi sayılıyor: yükseltme
        * verilmediyse KENDİ ekipman seviyeleri kullanılıyor, yoksa tahmin
@@ -4090,7 +4102,7 @@ io.on('connection', async socket => {
        * hedefin yükseltmeleri bilinmiyor (keşif onu söylemiyor).
        */
       socket.emit('battle_result', { ok: true, tag, result: simulateBattle(attacker, defender, {
-        surLevel, hendekLevel, kulePct, mode,
+        surLevel, hendekLevel, kulePct, mode, moralPct,
         attackerLevels: attackerLevels || v().equipmentLevels || null,
         defenderLevels,
       }) });
@@ -4550,6 +4562,14 @@ io.on('connection', async socket => {
           at: now,
         },
       });
+      // İstihbarat kaydı da kurulsun: saldırı ekranı tahmini bunu okuyor
+      (v.intel ||= {})['9,9'] = {
+        population: 420, army: { fjordvakt: 120, demirAtli: 30 },
+        armyTotal: 150, defense: 3100,
+        surLevel: 10, hendekLevel: 5, kulePct: 0,
+        resources: { odun: 4200, kil: 3100, tas: 2800, demir: 900, tahil: 5100 },
+        at: now, toName: 'Hedef Köy',
+      };
       dirty(); emit();
       socket.emit('dev_result', { ok: true,
         message: kayipli ? 'Kayıplı keşif raporu eklendi' : 'Kayıpsız keşif raporu eklendi' });

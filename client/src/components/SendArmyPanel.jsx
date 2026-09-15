@@ -268,16 +268,28 @@ export default function SendArmyPanel({
   const hourSeconds = marchInfo.hourSeconds || 3600;
   const minMarchMin = marchInfo.minMarchMinutes || 1;
   /**
-   * Keşif birimleri normalde sunucudan gelir; gelmiyorsa istemcide aynı kuralla
-   * türetilir (kapasite ≥ 100, saldırı ≤ 10). Aksi hâlde liste boş kalıyor ve
-   * keşif modunda BÜTÜN birimler devre dışı görünüyordu.
+   * Keşif birimleri normalde sunucudan gelir; gelmiyorsa istemcide
+   * tanımdaki `kesif` bayrağından türetilir.
+   *
+   * ESKİ YEDEK KURAL YANLIŞTI: "kapasite ≥ 100 ve saldırı ≤ 10" diyordu
+   * ama izcinin yükü dengeleme sırasında 0'a indirildi — yedek yol
+   * çalışsaydı liste BOŞ kalır ve keşif modunda hiçbir birim
+   * seçilemezdi. Sunucu listeyi gönderdiği için fark edilmiyordu;
+   * sessizce çürüyen bir dal.
+   *
+   * KİMLİĞE DEĞİL İÇERİĞE BAĞLI: `marchInfo` ve `unitDefs` her saniye
+   * yeniden kuruluyor (bkz. flows.js · shiftTimers), yani kimliğe
+   * bağlansaydı bu Set her saniye yenilenirdi — aşağıdaki efekt de
+   * onunla birlikte çalışıp tahmini silerdi.
    */
+  const scoutAnahtar = (marchInfo.scoutUnits || []).join(',');
+  const unitAnahtar = Object.keys(unitDefs).join(',');
   const scoutSet = useMemo(() => {
     if (marchInfo.scoutUnits?.length) return new Set(marchInfo.scoutUnits);
     return new Set(Object.entries(unitDefs)
-      .filter(([, d]) => (d?.stats?.kapasite || 0) >= 100 && (d?.stats?.saldiri || 0) <= 10)
-      .map(([k]) => k));
-  }, [marchInfo.scoutUnits, unitDefs]);
+      .filter(([, d]) => d?.kesif === true).map(([k]) => k));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoutAnahtar, unitAnahtar]);
   const distance  = target?.distance ?? 0;
 
   const available = useMemo(
@@ -297,13 +309,37 @@ export default function SendArmyPanel({
       if (mode !== 'attack' && unitDefs[k]?.category === 'kusatma') return false;
       return true;
     })));
+    /*
+      TAHMİNİ SIFIRLA — yalnız MOD değiştiğinde. Eskiden bu efekt
+      `scoutSet` kimliğine de bağlıydı ve o Set her saniye yenilendiği
+      için tahmin saniyede bir siliniyordu: satır çıkıyor, kayboluyor,
+      220 ms sonra geri geliyordu.
+    */
     setPred(null);
-  }, [mode, scoutSet]);   // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   const chosen = useMemo(
     () => Object.fromEntries(Object.entries(sel).filter(([, n]) => n > 0)),
     [sel]);
   const chosenTotal = Object.values(chosen).reduce((a, b) => a + b, 0);
+  /*
+    İSTİHBARATIN İÇERİK PARMAK İZİ. `intel` her saniye yeni bir nesne
+    (bkz. flows.js · shiftTimers) ama içeriği yalnız yeni bir keşif
+    dönünce değişiyor; `at` damgası o anı taşıyor.
+  */
+  /*
+    KEŞFİN YAŞI. Saniyede bir yeniden hesaplanıyor ama yalnız METİN —
+    hiçbir state sıfırlamıyor, o yüzden tahmin satırını titretmiyor.
+  */
+  const intelYas = intel?.at
+    ? new Date(intel.at).toLocaleString('tr-TR',
+      { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  const intelAnahtar = intel
+    ? `${intel.at || 0}|${intel.surLevel || 0}|${intel.hendekLevel || 0}|${intel.kulePct || 0}|${intel.population || 0}|${JSON.stringify(intel.army || {})}`
+    : '';
   /*
     KAHRAMAN BU SEFERE KATILABİLİR Mİ?
 
@@ -392,11 +428,26 @@ export default function SendArmyPanel({
         surLevel: intel.surLevel || 0, hendekLevel: intel.hendekLevel || 0,
         // Kule bonusu okçu dolulukla ölçekli geliyor — tahmin de bunu saymalı
         kulePct: intel.kulePct || 0,
+        /*
+          MORAL için savunanın NÜFUSU. Moral bonusu gerçek savaşta
+          uygulanıyor (bkz. combat.js · moralBonusPct); tahmin onu
+          saymasaydı ekran "kazanırsın" der, savaş kaybedilirdi —
+          en kötü türden yanlış bilgi. Oranı sunucu hesaplıyor,
+          formül tek yerde kalsın.
+        */
+        defenderPopulation: intel.population || 0,
         mode: mode === 'raid' ? 'raid' : 'normal',
       });
     }, 220);   // yazarken her tuşta istek atma
     return () => clearTimeout(t);
-  }, [socket, mode, intel, chosenTotal, JSON.stringify(chosen)]);
+    /*
+      İÇERİĞE BAĞLI: `intel` nesnesi her saniye yeniden kuruluyor ama
+      içeriği yalnız yeni keşifte değişiyor. Kimliğe bağlasaydık panel
+      açıkken sunucuya saniyede bir gereksiz istek giderdi.
+      eslint-disable-next-line react-hooks/exhaustive-deps
+    */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, mode, intelAnahtar, chosenTotal, JSON.stringify(chosen)]);
 
   // ESC ile kapat
   useEffect(() => {
@@ -739,7 +790,9 @@ export default function SendArmyPanel({
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                     <Icon name="savas" size={12} color={C.iceDeep} />
-                    <span style={lbl({ fontSize: 8, letterSpacing: 1.3 })}>Keşif verisine göre tahmin</span>
+                    <span style={lbl({ fontSize: 8, letterSpacing: 1.3 })}>
+                      Son keşfe göre tahmin{intelYas ? ` · ${intelYas}` : ''}
+                    </span>
                   </div>
                   {!chosenTotal ? (
                     <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textMute }}>

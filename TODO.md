@@ -222,6 +222,22 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Saldırı ekranındaki tahmin saniyede bir siliniyordu (15 Eylül 2026)
+- İlkan: *"haritadan bir köye tıklayıp saldır dediğimde karşı tarafın defansını ve benim saldırı puanımı gösteren bir satır çıkıyor kayboluyor sürekli"* + *"galiba son rapora göre bildirim veriyor ama bir görünüp kaybolmasın"*.
+- **SEBEP ZİNCİRİ** (koddan okundu, tahmin değil):
+  1. `App.jsx` her saniye `extrapolate(serverVillage, …)` çağırıyor; `flows.js · shiftTimers` bunu yaparken köy nesnesinin TAMAMINI yeniden kuruyor (diziler `map`, nesneler yeniden `{}`) — iki sunucu paketi arasında sayaçlar aksın diye.
+  2. Yani `marchInfo.scoutUnits` ve `unitDefs` her saniye YENİ NESNE.
+  3. `scoutSet` memosu bu ikisine KİMLİĞE göre bağlıydı → her saniye yeni Set.
+  4. "Mod değişince seçimi temizle" efekti `scoutSet`e bağlıydı ve içinde `setPred(null)` var → **tahmin her saniye siliniyordu**; 220 ms sonra yeni istek dönüp geri yazıyordu.
+- **ÇÖZÜM: kimliğe değil İÇERİĞE bağlan.** `scoutSet` artık `scoutUnits.join(",")` ve `Object.keys(unitDefs).join(",")` metinlerine, tahmin efekti de `intelAnahtar` (keşfin `at` damgası + sur/hendek/kule/nüfus + ordu) metnine bağlı. Metinler değere göre karşılaştırıldığı için saniyelik yeniden kurulum efektleri artık tetikleyemiyor. `setPred(null)` yalnız MOD değişince çalışıyor.
+- **Yan fayda**: panel açıkken sunucuya saniyede bir gereksiz `simulate_battle` gidiyordu, artık gitmiyor.
+- **İKİNCİ HATA — tahmin MORALİ saymıyordu.** Moral bonusu dün eklendi ve gerçek savaşta uygulanıyor ama önizleme onu hesaba katmıyordu: ekran "kazanırsın" derken savaş kaybedilebilirdi. En kötü türden yanlış bilgi — oyuncu ordusunu ona güvenip harcar. İstemci artık `defenderPopulation` (keşiften) gönderiyor, oranı sunucu hesaplıyor (formül tek yerde).
+- **ÜÇÜNCÜ HATA — çürümüş yedek kural.** İstemcideki `scoutSet` yedek yolu hâlâ *"kapasite ≥ 100 ve saldırı ≤ 10"* diyordu; izcinin yükü 0a indirildiği için o dal çalışsaydı liste BOŞ kalır ve keşif modunda hiçbir birim seçilemezdi. Sunucu listeyi gönderdiği için görünmüyordu. Artık tanımdaki `kesif` bayrağına bakıyor — sunucudaki kuralla aynı.
+- Tahmin kutusunun başlığı artık *"Son keşfe göre tahmin · 15.09 23:41"* yazıyor: hangi rapordan geldiğini oyuncunun tahmin etmesi gerekmiyor. Saat `intel.at`ten geliyor, render sırasında `Date.now()` okumuyor (saf olmayan çağrı React derleyicisinden hata alıyordu).
+- `dev_kesif_raporu` kısayolu artık `village.intel` kaydını da kuruyor — gerçek keşif dönüşü ikisini birden yazıyor, kısayol yalnız raporu yazdığı için tahmin kutusu kısayolla hiç sahnelenemiyordu.
+- Lint: istemci uyarıları 8 → 6 (iki `exhaustive-deps` uyarısı bu düzeltmeyle kapandı), hata sayısı taban değerinde. 307 test geçiyor.
+
+
 ### Kademe kapısı Lvl 10 a indi — beş birim EĞİTİLEMEZ olmuştu (15 Eylül 2026)
 - İlkan: *"bazı askerleri kışla ve ahır Lvl 20 de basabiliyorum bu ağır olmuş, Lvl 10 binalarla max basılsın"*.
 - **SORUN AĞIRLIKTAN İBARET DEĞİLDİ.** Birimin Rún Salonu araştırma seviyesi `minLevel` den TÜRETİLİYOR (`researchFor(def.minLevel)`) ve Rún Salonu nun tavanı Lvl 10. Bir önceki sürümdeki `5×n` kuralı beş birimin araştırma seviyesini 15 ve 20 ye çıkarmıştı: **Ulv Savaşçısı, Skjoldreiter, Buz Süvarisi, Stormridder ve Jernridder hiç araştırılamıyordu** — zor değil, imkânsız. Jernridder in araştırma maliyeti 337.190 kaynak, süresi 213 saat çıkıyordu.

@@ -26,6 +26,36 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-15b',
+    tarih: '15 Eylül 2026',
+    baslik: 'Saldırı ekranındaki tahmin artık titremiyor',
+    notlar: [
+      {
+        id: '20260915-tahmin-titremesi',
+        tur: 'duzeltme',
+        metin: 'SALDIRI EKRANINDAKİ TAHMİN SATIRI SANİYEDE BİR '
+          + 'KAYBOLUYORDU. "Kazanırsın · atak X / savunma Y" satırı '
+          + 'çıkıyor, siliniyor, tekrar geliyordu. Sebep: ekran iki '
+          + 'sunucu paketi arasında sayaçları akıtmak için köy verisini '
+          + 'her saniye yeniden kuruyor ve panel bunu "yeni veri geldi" '
+          + 'sanıp tahmini sıfırlıyordu. Artık veriyi içeriğine göre '
+          + 'tanıyor: tahmin yalnız gerçekten değiştiğinde yenileniyor. '
+          + 'Yan fayda: panel açıkken sunucuya saniyede bir gereksiz '
+          + 'hesap isteği gitmiyor.',
+      },
+      {
+        id: '20260915-tahmin-moral',
+        tur: 'duzeltme',
+        metin: 'TAHMİN ARTIK MORAL BONUSUNU DA SAYIYOR. Savunan senden '
+          + 'küçükse gerçek savaşta savunma bonusu alıyor ama tahmin '
+          + 'bunu hesaba katmıyordu: ekran "kazanırsın" derken savaş '
+          + 'kaybedilebilirdi. Tahmin kutusunun başlığı da hangi keşfe '
+          + 'dayandığını yazıyor — tahmin o hedefe yolladığın SON '
+          + 'keşfin verisinden çıkıyor, tarihi de yanında.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-15a',
     tarih: '15 Eylül 2026',
     baslik: 'Üst kademe birimler yeniden eğitilebiliyor',
