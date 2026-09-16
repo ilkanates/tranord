@@ -222,6 +222,21 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Oyun tasarım dökümanı v2 — denge paketi sonrası yenilendi (16 Eylül 2026)
+- İlkan: *"tekrar bir oyun tasarımı dosyası oluştur ve olanı yenile. bütün üretim masraflarını, sürelerini, saldırı savunma güçlerini, hızlarını, taşıma kapasitelerini ekle. tekrar analiz edeceğim"*.
+- `docs/OYUN-TASARIMI.md` **sıfırdan üretildi** (1.748 satır). v1 (14 Eylül) denge paketinden önceydi ve artık neredeyse her sayısı yanlıştı.
+- **EK'teki hiçbir sayı elle yazılmadı**: `tablo-uret2.js` on dört bölümü doğrudan koddan üretiyor. Doküman koda göre yanlış olamaz — v1 deki en büyük risk buydu.
+- **EK A — BİRİMLER** (İlkanın asıl istediği tablo): 16 birimin saldırı, yaya savunma, atlı savunma, **hız**, **taşıma kapasitesi**, ekmek tüketimi, kaynak maliyeti, eğitim süresi, bina şartı ve araştırma bedeli. Altında verimlilik tablosu: `stat/kaynak` ve `stat/ekmek` zıt yönde sıralanıyor.
+- **EK B** ekipman (katkı, maliyet, süre, hız/taşıma etkisi + 20 seviye yükseltme) · **EK C** 33 binanın seviye seviye maliyet ve süresi · **EK D** 5 tarla × 20 seviye · **EK E** işleme zincirleri ve tarla/işleme işçi oranı · **EK F** depo tavanları · **EK G** sur/hendek/kule tabloları · **EK H** savaş formülleri + moral · **EK I** nüfus ve beslenme · **EK J** ticaret · **EK K** kültür · **EK L** kahraman · **EK M** dünya · **EK N** diğer maliyetler.
+- **Bölüm 0 yeni: "v1den beri ne değişti"** — analizi yapacak AI hangi maddelerin zaten uygulandığını bilmezse aynı önerileri ikinci kez yazar. Uygulanan 13 madde, uygulanmayan 3 madde ve raporun **yanlış çıkan** maddeleri (10, 11) tabloyla yazılı; raporun iki iç çelişkisi ve bir seviye kayan tabloları da not edildi.
+- **Üretirken üç eskimiş/yanlış bilgi yakalandı ve düzeltildi**:
+  1. *"Tam savunma %149,8, tavan ulaşılamaz"* — bu ölçüm ESKİ. Kule bonusundaki yuvarlama düzeltildikten sonra toplam **tam %150**, yani tavan ulaşılabilir. Eski sayı analizi yapacak kişiyi yanlış yönlendirirdi.
+  2. Kahraman **4 skile** sahip (saldırı puanı, saldırı bonusu, savunma bonusu, hammadde üretimi); anlatı 7 sayıyordu. İyileşme hızı, macera hızı, ganimet ve zırhlanma skil DEĞİL, **eşya bonusu** — ikisi ayrı tabloya alındı.
+  3. Diriltme ve skil sıfırlama bedelleri kaynak NESNESİ, sayı değil; tabloda `[object Object]` yazıyordu. Seviyeye göre örnek tablo eklendi (Lvl 1 / 25 / 50 / 100).
+- Son tarama: dökümanda tek bir `undefined`, `NaN` ya da `[object Object]` yok.
+- **Süreler 1× hıza göre** ve bu hem başlıkta hem ekin başında yazılı; canlı sunucu 10× çalışıyor.
+
+
 ### Saldırı ekranındaki tahmin saniyede bir siliniyordu (15 Eylül 2026)
 - İlkan: *"haritadan bir köye tıklayıp saldır dediğimde karşı tarafın defansını ve benim saldırı puanımı gösteren bir satır çıkıyor kayboluyor sürekli"* + *"galiba son rapora göre bildirim veriyor ama bir görünüp kaybolmasın"*.
 - **SEBEP ZİNCİRİ** (koddan okundu, tahmin değil):
