@@ -2878,6 +2878,29 @@ io.on('connection', async socket => {
     dirty(); emit();
   });
 
+  /**
+   * KAYNAK YETİYOR MU — yetmiyorsa SEBEBİYLE reddet.
+   *
+   * Dört inşa yolu da (tarla kur/yükselt, bina kur/yükselt) eskiden
+   * burada sessizce `return` ediyordu. Sessiz red, oyuncunun hatayı
+   * kendi başına çözmesini imkânsız kılıyor: düğme çalışmıyor ve
+   * sebep yok. Eksik miktar da yazılıyor, "biraz daha lazım" demek
+   * oyuncuya kaç tur beklemesi gerektiğini söylemiyor.
+   */
+  const kaynakYeter = (cost, ek = {}) => {
+    const eksik = {};
+    for (const [res, amt] of Object.entries(cost || {})) {
+      const fark = amt - (v().resources[res] || 0);
+      if (fark > 0) eksik[res] = fark;
+    }
+    if (!Object.keys(eksik).length) return true;
+    socket.emit('build_refused', {
+      ...ek,
+      reason: `Yetersiz kaynak — ${KUYRUK.eksikMetni(eksik)} eksik.`,
+    });
+    return false;
+  };
+
   socket.on('upgrade_production', ({ slotKey, workers } = {}) => {
     const b = v().productionTiles[slotKey];
     if (!b || b.upgrading) return;
@@ -2900,7 +2923,7 @@ io.on('connection', async socket => {
     }
     const cost = def.levels[b.level]?.cost;
     if (!cost) return;
-    for (const [res, amt] of Object.entries(cost)) { if ((v().resources[res] || 0) < amt) return; }
+    if (!kaynakYeter(cost, { slotKey })) return;
     for (const [res, amt] of Object.entries(cost)) { v().resources[res] -= amt; }
     v().freeWorkers -= isci;
     b.upgrading = true; b.upgradeEndTime = v().clockMs + GT.minutesToClock(getUpgradeSeconds(b.type, b.level, isci)); b.upgradeWorkersAssigned = isci;
@@ -2913,7 +2936,7 @@ io.on('connection', async socket => {
     if (isci < 1 || isci > v().freeWorkers || isci > MAX_BUILDERS(0)) return;
     const def = BUILDING_DEFS[type];
     const cost = def.levels[0]?.cost || {};
-    for (const [res, amt] of Object.entries(cost)) { if ((v().resources[res] || 0) < amt) return; }
+    if (!kaynakYeter(cost, { slotKey })) return;
     for (const [res, amt] of Object.entries(cost)) { v().resources[res] -= amt; }
     v().freeWorkers -= isci;
     v().productionTiles[slotKey] = { type, level: 0, workers: 0, upgrading: true, upgradeEndTime: v().clockMs + GT.minutesToClock((def.levels[0]?.sureSaat || 5) / isci), upgradeWorkersAssigned: isci };
@@ -2940,7 +2963,7 @@ io.on('connection', async socket => {
     }
     const def = VILLAGE_DEFS[buildingType];
     const cost = def?.cost || {};
-    for (const [res, amount] of Object.entries(cost)) { if ((v().resources[res] || 0) < amount) return; }
+    if (!kaynakYeter(cost, { slotKey, buildingType })) return;
     for (const [res, amount] of Object.entries(cost)) { v().resources[res] -= amount; }
     v().freeWorkers -= isci;
     v().villageBuildings[slotKey] = { type: buildingType, level: 0, workers: 0, building: true, buildEndTime: v().clockMs + GT.minutesToClock(getVillageBuildMinutes(buildingType, 1, isci)), buildWorkers: isci };
@@ -2958,7 +2981,7 @@ io.on('connection', async socket => {
     if (isci < 1 || isci > v().freeWorkers || isci > MAX_BUILDERS(b.level)) return;
     const upgradeCost = getScaledUpgradeCost(b.type, b.level);
     if (upgradeCost) {
-      for (const [res, amt] of Object.entries(upgradeCost)) { if ((v().resources[res] || 0) < amt) return; }
+      if (!kaynakYeter(upgradeCost, { slotKey, buildingType: b.type })) return;
       for (const [res, amt] of Object.entries(upgradeCost)) { v().resources[res] -= amt; }
     }
     v().freeWorkers -= isci;

@@ -222,6 +222,27 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### İkinci köy kalıcı kilitleniyordu — ÖN KOŞUL AĞACININ AÇTIĞI HATA (16 Eylül 2026)
+- İlkan: *"2. köy kurarken köy içindeki üretim alanlarını yapmak için ana bina seviyesi istiyor ama ana binayı da işlenmiş hammaddeler olmadan kuramıyorum, hiçbir türlü yeni köyü geliştiremiyorum"* → sonra tam teşhisi kendi koydu: *"ana bina tuğla ile yükseltilebiliyor, tuğlacı da ana bina lvl istiyor, birbirlerini kilitliyor yani."*
+- **BU BENİM AÇTIĞIM HATA** (`d39d063` · ön koşul ağacı). Zincir:
+  - keresteci/tuğlacı/taşçı/demirci → `anaBina Lvl 2` ister
+  - anaBina Lvl 1→2 → 35 kereste, **120 tuğla**, 60 yontma taş, 55 külçe ister
+  - bu dört mal → **yalnız o dört işlikten** çıkar
+- Yeni köy 300'er işlenmiş malla başlıyor ama bu TEK SEFERLİK bütçe: tarla yükseltmeleri de aynı maldan yiyor (ölçüldü: altı tarla bir kez yükseltilince tuğla 300 → 84). Bütçe bitince köy bir daha ASLA işlenmiş mal üretemiyor. Tek kaçış başka köyden tüccarla mal yollamak — onu bilmeyen oyuncunun köyü ölü.
+- Düzeltme: dört işliğin `requires` listesi boşaltıldı (hem `server/data/villageDefs.js` hem istemci ikizi). Gerekçe yorumda: **inşaat malzemesi üreten binaya yalnız HAM kaynakla ulaşılabilmeli.** Ham kaynak her zaman var — köy altı Lvl 1 tarlayla başlıyor ve tarlalar bedava üretiyor. Değirmen/fırın kapsam dışı: un ve ekmek inşaatı kilitlemiyor.
+- **YAPISAL KİLİT**: `server/test/koy-bootstrap.test.js`. Üreten binaları `processes.output` üzerinden TÜRETİYOR (elle liste yok), her birinin kuruluş maliyetinin ve ön koşullarına ULAŞMA bedelinin ham olduğunu ardışık olarak doğruluyor, ayrıca işlenmişi sıfırlanmış gerçek bir köyde `canBuildAt` ile dördünü de kurabildiğini ölçüyor. **Kilidin tuttuğu doğrulandı**: ön koşul geri konunca iki test birden patlıyor ve mesaj hatayı kendisi anlatıyor ("Çıkışsız oda: işlenmiş malı biten köy bu binayı kuramaz").
+- **Teşhisi imkânsız kılan ikinci hata**: `build_village`, `upgrade_village`, `build_production`, `upgrade_production` — dördü de kaynak yetmediğinde **sessizce `return`** ediyordu. Oyuncu düğmeye basıyor, hiçbir şey olmuyor, sebep yok. (`build_village`'ın üstündeki yorum "sessiz red oyuncuyu çaresiz bırakıyordu" diyor — ön koşul dalı konuşturulmuş ama kaynak dalı öyle kalmış.) Ortak `kaynakYeter()` yardımcısı eklendi, dördü de `Yetersiz kaynak — 10 odun eksik.` diyor. Canlı sunucuda doğrulandı.
+
+### Haritada oyuncu renkleri + kaybolan komşu tarlası (16 Eylül 2026)
+- İlkan: *"haritada bütün kullanıcılar aynı renkte pembe... yan yana olan köyleri olan kullanıcıların renkleri farklı olmalı. ayrıca iki kullanıcının tarlaları yan yana gelince diğeri kayboluyor."*
+- **Renk**: `colOf` `kind === 'player'` olan HERKESE tek `PLAYER_COL` veriyordu. Köy başına açgözlü hue dağıtımı zaten yazılıydı ama yalnız `else` dalına, yani pratikte hiçbir yere uygulanıyordu. Yeni `assignPlayerHues` renk veriyor ama **köy başına değil OYUNCU başına** — altı köylü bir oyuncu haritada altı ayrı tehdit gibi görünmesin. Palet ilk tonu 356° (eski düşman kırmızısı) ve yeşili (65–160°) atlıyor.
+- **GERÇEK VERİDE ÖLÇÜLDÜ** (217 köy, 13 oyuncu): aynı sahibin bütün köyleri tek renk (Bjorn'un üç köyü de 25°), 9 hex içindeki farklı sahipler arasında **sıfır** renk çakışması, 13 sahip 5 tona dağılmış (uzaktakiler tekrar kullanıyor). Tarayıcıda çizilen tonlar: 285°, 356°, 25°, 200° + NPC gri + kendi köyüm yeşil.
+- Hover kartındaki "Sahibi" satırı da artık o oyuncunun rengini kullanıyor; sabit pembe kalsaydı kart haritayı yalanlardı.
+- **Kaybolan tarla**: `claimBlocked` yabancı köyün toprağını SABİT claim halkası (yarıçap 2) sayıyordu, oysa yayılma sabit değil — "her yeni tarla yeni komşular açar". Halkanın dışına taşan tarla `claimBlocked`'a girmiyor → `myFieldKeys` onu benim yayılma sınırıma alıyor → `myClaim`e giriyor → `computeWild` `myClaim.has(key)` diye **atlıyor** → hex hiçbir katmanda çizilmiyor. Düzeltme: yabancı köyün GERÇEK tarlaları da `claimBlocked`'a giriyor.
+- **Hatanın gerçekliği ölçüldü**: dev dünyasında 157 tarladan 1'i halkanın dışında (köy `0,0`, yerel `3,-2`, uzaklık 3). Oran düşük çünkü dev köyleri genç; gerçek sunucuda büyümüş komşularda oran çok daha yüksek — İlkan'ın gördüğü bu.
+- `tileOwners` üzerinden ikinci bir güvence de yazılmıştı ama geri alındı: `claimBlocked` artık onun üst kümesi, yani hiçbir yeni hex yakalamıyordu ama `myFieldKeys`e Map bağımlılığı ekleyip React derleyicisinin memolamasını bozuyordu (lint +1). Kural yorumda duruyor.
+
+
 ### Takviye saldırı sayılıyordu + uyarı şeridi tıklamayı yutuyordu (16 Eylül 2026)
 - İlkan: *"bir köye defans yolladığımda karşı tarafta saldırı geliyor yazıyor. ek olarak saldırı geliyor görseli başka şeylere basmamı engelliyor özellikle telefonda."*
 - **Hata 1 — kip süzgeci yoktu.** `incomingMarchesFor` yalnız `GIZLI_MODLAR` (keşif, yerleşim) eliyordu; takviye kırmızı "SALDIRI YOLDA" şeridini açıyordu. `gelenSeferSayilari` (köy değiştiricideki tehdit sayacı) ise takviyeyi **yalnız kendi köyümden gelince** eliyordu (`slotKeys.has(m.fromKey)`), o da iki slotun birden istenen kümede olmasına bağlıydı — müttefik takviyesi sayaçta saldırı gibi görünüyordu.

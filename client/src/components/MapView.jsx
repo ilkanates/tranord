@@ -76,6 +76,47 @@ const hueColor = (h) => ({
 const PLAYER_COL = { line: FOE_COLOR, soft: 'rgba(255,111,120,0.32)' };
 
 /**
+ * OYUNCU PALETİ — renk KÖY başına değil OYUNCU başına.
+ *
+ * İlk ton 356°, yani `FOE_COLOR`'ın tonu: tek komşusu olan oyuncu
+ * için harita hiç değişmiyor, ikinci oyuncu geldiğinde ayrışıyor.
+ * Yeşil aralığı (65–160°) yok — yeşil kendi sınırımın rengi.
+ */
+const PLAYER_PALETTE_H = [356, 25, 285, 200, 330, 45, 260, 180, 310, 15, 240, 210, 300, 35];
+
+/**
+ * Oyuncu → ton. Açgözlü: bir oyuncu, 9 hex yakınındaki BAŞKA
+ * oyuncuların kullanmadığı ilk tonu alır. Sıralama deterministik
+ * (anahtar sırası), yani renkler her açılışta aynı.
+ *
+ * Aynı oyuncunun bütün köyleri tek renk: "bu toprak kimin" sorusunun
+ * cevabı renk olmalı. Köy başına renk verseydik altı köylü bir
+ * oyuncu haritada altı ayrı tehdit gibi görünürdü.
+ */
+function assignPlayerHues(villages) {
+  const oyuncuKoyleri = villages
+    .filter(v => v.kind === 'player')
+    .sort((a, b) => a.key.localeCompare(b.key));
+
+  const out = new Map();                 // sahip → ton
+  const yerlesik = [];                   // { q, r, sahip, h }
+  for (const v of oyuncuKoyleri) {
+    const sahip = v.owner || v.key;      // adı gelmeyen köy kendi başına sayılır
+    if (!out.has(sahip)) {
+      const kullanilan = new Set();
+      for (const p of yerlesik) {
+        if (p.sahip === sahip) continue;
+        const dq = v.q - p.q, dr = v.r - p.r;
+        if ((Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2 <= 9) kullanilan.add(p.h);
+      }
+      out.set(sahip, PLAYER_PALETTE_H.find(x => !kullanilan.has(x)) ?? PLAYER_PALETTE_H[0]);
+    }
+    yerlesik.push({ q: v.q, r: v.r, sahip, h: out.get(sahip) });
+  }
+  return out;
+}
+
+/**
  * NPC KÖYLERİ GRİ.
  *
  * Köy başına ayrı hue rengarenk bir harita üretiyordu ve göz asıl önemli
@@ -1371,11 +1412,17 @@ export default function MapView({
    *    Renk, çerçeve ve tam parlaklık yalnızca bunlara uygulanır.
    */
   const villageHues = useMemo(() => assignVillageHues(villages), [villages]);
+  /*
+    OYUNCU RENGİ SAHİBİNE BAĞLI (İlkan'ın isteği). Eskiden her oyuncu
+    aynı pembeydi ve yan yana iki oyuncunun toprağı ayırt edilemiyordu.
+  */
+  const playerHues = useMemo(() => assignPlayerHues(villages), [villages]);
   const colOf = useCallback((v) => (
-    v.kind === 'player' ? PLAYER_COL
+    v.kind === 'player'
+      ? hueColor(playerHues.get(v.owner || v.key) ?? PLAYER_PALETTE_H[0])
       : v.kind === 'npc' ? NPC_COL
-      : hueColor(villageHues.get(v.key) ?? PALETTE_H[0])
-  ), [villageHues]);
+        : hueColor(villageHues.get(v.key) ?? PALETTE_H[0])
+  ), [villageHues, playerHues]);
 
   /*
     YAYILMA YALNIZ YABANCI TOPRAKTA DURUR.
@@ -1400,9 +1447,19 @@ export default function MapView({
         }
         continue;
       }
-      // Yabancı köy: bütün toprağı kapalı
+      /*
+        Yabancı köy: claim halkası KAPALI, ama halka yetmiyor —
+        tarlalar halkanın dışına taşabiliyor ve taşan hex benim
+        yayılma sınırıma girip çizimden düşüyordu (İlkan bildirdi:
+        "tarlalar yan yana gelince diğeri kayboluyor"). Gerçek
+        tarlaları da ekliyoruz.
+      */
       s2.add(kk(v.q, v.r));
       for (const [dq, dr] of CLAIM_OFFSETS) s2.add(kk(v.q + dq, v.r + dr));
+      for (const lk of Object.keys(v.tiles || {})) {
+        const [lq, lr] = lk.split(',').map(Number);
+        s2.add(kk(v.q + lq, v.r + lr));
+      }
     }
     return s2;
   }, [villages, wq, wr]);
@@ -1441,6 +1498,16 @@ export default function MapView({
         const n = kk(q + dq, r + dr);
         if (seen.has(n)) continue;
         seen.add(n);
+        /*
+          BAŞKASININ TOPRAĞI ASLA BENİM SINIRIM DEĞİL.
+
+          Buraya giren hex `myClaim`e, oradan da `computeWild`in
+          atladığı kümeye giriyor — yani yanlışlıkla giren yabancı bir
+          tarla HİÇBİR katmanda çizilmiyor, gözden kayboluyor. Bu
+          yüzden `claimBlocked` yabancı toprağın TAMAMINI kapatmak
+          zorunda: yalnız sabit claim halkasını değil, köyün gerçek
+          tarlalarını da (bkz. yukarısı).
+        */
         if (claimBlocked.has(kk(wq + q + dq, wr + r + dr))) continue;
         out.push(n);
       }
@@ -1736,7 +1803,7 @@ export default function MapView({
         icon: 'koy',
         iconColor: colorOf(v),
         rows: [
-          ...(v.kind === 'player' && v.owner ? [['Sahibi', v.owner, PLAYER_COL.line]] : []),
+          ...(v.kind === 'player' && v.owner ? [['Sahibi', v.owner, colorOf(v)]] : []),
           /*
             ROZET NE ANLATIYOR — kılıç tek başına "vurmuştum" diyor,
             ayrıntıyı kart veriyor: kaç kez, sonuç ne, ne kadar ganimet.
@@ -1788,7 +1855,7 @@ export default function MapView({
           // Sahibi = KÖYÜN adı; oyuncu köyündeyse sahibinin adı da ayrı satır
           ['Sahibi', owner ? owner.name : 'sahipsiz', owner ? colorOf(owner) : C.good],
           ...(owner?.kind === 'player' && owner.owner
-            ? [['Oyuncu', owner.owner, PLAYER_COL.line]] : []),
+            ? [['Oyuncu', owner.owner, colorOf(owner)]] : []),
         ],
         note: owner
           ? `${owner.kind === 'player' ? (owner.owner || 'Oyuncu') : owner.tierLabel} köyünün toprağı.`

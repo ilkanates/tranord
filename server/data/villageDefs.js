@@ -61,28 +61,45 @@ const VILLAGE_DEFS = {
 
   // ── İşleme Binaları ─────────────────────────────────────────────
   // inputPerHour / outputPerHour: 1 işçi başına saatlik miktar
-  keresteci: { requires:[{ tip:"anaBina", seviye:2 }], cpPerLevel:1,
+  /*
+    DÖRT İŞLİĞİN ÖN KOŞULU YOK — BİLEREK.
+
+    Kereste, tuğla, yontma taş ve külçe demir yalnız buradan çıkıyor;
+    bunları üreten binayı, kendisi işlenmiş mal isteyen bir ön koşulun
+    arkasına koymak köyü kalıcı kilitliyor. Bir kez oldu: dördüne de
+    `anaBina Lvl 2` konmuştu, Ana Bina'nın yükseltmesi ise 120 tuğla
+    istiyor — işlenmiş malı biten yeni köy bir daha hiçbir şey
+    üretemiyordu (İlkan bildirdi: *"hiçbir türlü yeni köyü
+    geliştiremiyorum"*).
+
+    Ham kaynak her zaman var: köy altı Lvl 1 tarlayla başlıyor ve
+    tarlalar bedava üretiyor. Bu yüzden ham maliyetli ve koşulsuz bir
+    işlik zinciri köyün ZEMİNİ. Değirmen ve fırın kuralın dışında —
+    un ve ekmek inşaatı kilitlemiyor, yalnız nüfusu besliyor.
+    Denetimi `server/test/koy-bootstrap.test.js` yapıyor.
+  */
+  keresteci: { requires:[], cpPerLevel:1,
     name:'Keresteci', category:'isleme', icon:'🪚',
     description:'Ham odunu keresteye çevirir; kereste neredeyse her binanın ve ekipmanın omurgasıdır. İşçi başına saatte 8 odun → 6 kereste, yani dönüşümde dörtte bir kayıp var. Seviye başına 5 işçi alır: seviye kapasiteyi, atadığın işçi sayısı gerçek üretimi belirler. Odun bitince durur — darboğaz çoğu zaman orman tarlalarıdır. Çıktı İşlenmiş Mal Deposuna gider, depo doluysa fazlası kaybolur.',
     unique:true, maxLevel:20, workersPerLevel:5,
     processes:{ input: 'odun', inputPerHour: 72, output: 'kereste', outputPerHour: 54 },
     buildBaseWork:20, buildMultiplier: 1.28, cost:{ odun:100, tas:40 }
   },
-  tuglaci: { requires:[{ tip:"anaBina", seviye:2 }], cpPerLevel:1,
+  tuglaci: { requires:[], cpPerLevel:1,
     name:'Tuğlacı', category:'isleme', icon:'🧱',
     description:'Kili pişirip tuğla yapar; tuğla ağır yönetim binalarının (köşk, saray, taverna) ana malzemesidir. İşçi başına saatte 8 kil → 6 tuğla. Seviye başına 5 işçi alır; üretimi belirleyen atanan işçi sayısıdır, seviye yalnız tavanı açar. Kil bitince durur.',
     unique:true, maxLevel:20, workersPerLevel:5,
     processes:{ input: 'kil', inputPerHour: 72, output: 'tugla', outputPerHour: 54 },
     buildBaseWork:20, buildMultiplier: 1.28, cost:{ odun:60, kil:50 }
   },
-  tasci: { requires:[{ tip:"anaBina", seviye:2 }], cpPerLevel:1,
+  tasci: { requires:[], cpPerLevel:1,
     name:'Taşçı', category:'isleme', icon:'🪨',
     description:'Ham taşı yontar; yontma taş sur, kule ve askeri binaların belkemiğidir. İşçi başına saatte 8 taş → 6 yontma taş. Seviye başına 5 işçi alır. Taş ocakları yetişmezse tezgâh boş döner — savunmaya yatırım yapmadan önce taş üretimine bakmak gerekir.',
     unique:true, maxLevel:20, workersPerLevel:5,
     processes:{ input: 'tas', inputPerHour: 72, output: 'yontmaTas', outputPerHour: 54 },
     buildBaseWork:20, buildMultiplier: 1.28, cost:{ odun:70, tas:40 }
   },
-  demirci: { requires:[{ tip:"anaBina", seviye:2 }], cpPerLevel:1,
+  demirci: { requires:[], cpPerLevel:1,
     name:'Demirci', category:'isleme', icon:'🔨',
     description:'Demir cevherini külçeye döker. Oyunun EN DAR dönüşümü burada: işçi başına saatte 5 demir → 4 külçe, ve külçe hem silah, zırh, kuşatma makinesi hem de ağır binalar için gerekiyor. Seviye başına 5 işçi alır. Ordunu büyütmek istiyorsan sıkışacağın ilk yer burasıdır.',
     unique:true, maxLevel:20, workersPerLevel:5,

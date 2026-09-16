@@ -26,6 +26,65 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16h',
+    tarih: '16 Eylül 2026',
+    baslik: 'İkinci köy kilidi açıldı · haritada oyuncu renkleri',
+    notlar: [
+      {
+        id: '20260916-ikinci-koy-kilidi',
+        tur: 'duzeltme',
+        metin: 'YENİ KÖY ARTIK KİLİTLENMİYOR. Keresteci, tuğlacı, taşçı '
+          + 've demirci "Ana Bina Lvl 2" istiyordu; Ana Bina\'nın '
+          + 'yükseltmesi ise 35 kereste, 120 tuğla, 60 yontma taş ve '
+          + '55 külçe istiyor — yani tam da o dört işliğin ürettiği '
+          + 'mallar. Yeni köy 300\'er işlenmiş malla başlıyor ama bu '
+          + 'TEK SEFERLİK bir bütçe: tarla yükseltmeleri de aynı '
+          + 'maldan yiyor. Oyuncu bütçeyi harcadığı anda ne Ana '
+          + 'Bina\'yı yükseltebiliyor ne işliği kurabiliyordu; köy bir '
+          + 'daha ASLA işlenmiş mal üretemiyordu. Dört işliğin ön '
+          + 'koşulu kaldırıldı: ham kaynak her zaman var (köy altı '
+          + 'tarlayla başlıyor ve tarlalar bedava üretiyor), o yüzden '
+          + 'ham maliyetli ve koşulsuz bir işlik zinciri köyün zemini.',
+      },
+      {
+        id: '20260916-sessiz-red-kaynak',
+        tur: 'duzeltme',
+        metin: 'YETERSİZ KAYNAKTA ARTIK SEBEP YAZIYOR. Tarla kur, tarla '
+          + 'yükselt, bina kur, bina yükselt — dördü de kaynak '
+          + 'yetmediğinde hiçbir şey söylemeden vazgeçiyordu. Düğmeye '
+          + 'basıyordun, hiçbir şey olmuyordu ve neden olmadığı '
+          + 'yazmıyordu. Artık "Yetersiz kaynak — 10 odun eksik." gibi '
+          + 'eksik miktarıyla birlikte söylüyor.',
+      },
+      {
+        id: '20260916-oyuncu-renkleri',
+        tur: 'yenilik',
+        metin: 'HARİTADA HER OYUNCUNUN KENDİ RENGİ VAR. Bütün oyuncular '
+          + 'aynı pembeydi, yan yana iki oyuncunun toprağı ayırt '
+          + 'edilemiyordu. Renk artık köy başına değil OYUNCU başına: '
+          + 'bir oyuncunun bütün köyleri aynı renk, yani haritaya '
+          + 'bakınca "şu adamın toprağı buraya kadar" görünüyor. '
+          + 'Dağıtım komşuluğa duyarlı — 9 hex içindeki oyuncular '
+          + 'birbirinin rengini almıyor. Anlam katmanı duruyor: kendi '
+          + 'toprağın sarı-yeşil, NPC köyleri gri, yeşil tonları '
+          + 'yalnız sana ayrılmış durumda.',
+      },
+      {
+        id: '20260916-kaybolan-tarla',
+        tur: 'duzeltme',
+        metin: 'KOMŞUNUN TARLASI ARTIK KAYBOLMUYOR. İki oyuncunun '
+          + 'toprağı yan yana geldiğinde komşunun bazı tarlaları '
+          + 'haritadan siliniyordu. Sebep: yabancı köyün toprağı sabit '
+          + 'bir halka (yarıçap 2) sayılıyordu, oysa tarlalar o '
+          + 'halkanın dışına taşabiliyor — taşan hex senin yayılma '
+          + 'sınırına giriyor ve çizim katmanlarının ikisinden de '
+          + 'düşüyordu. Artık yabancı köyün GERÇEK tarlaları da onun '
+          + 'toprağı sayılıyor. Alanların yan yana olması hâlâ serbest, '
+          + 'yalnız hiçbir tarla görünmez olmuyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16g',
     tarih: '16 Eylül 2026',
     baslik: 'Takviye saldırı değil · kendi köyüne her kip',
