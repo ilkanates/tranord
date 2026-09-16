@@ -215,11 +215,23 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Değirmen kilidi — yeni köyün İKİNCİ çıkışsız odası (16 Eylül 2026)
+- İlkan: *"yeni köy kurarken hâlâ hammaddeler ve binalar birbirini kilitliyor. değirmen kuracağım, Ana Bina Lvl 3 istiyor; Ana Bina için tuğla istiyor vs. köyün içindeki üretim binaları tarlalardan toplananlarla geliştirilmeli, işlenmişlerle değil."*
+- **ÖLÇÜM ÖNCE KURALIN NEREDE TUTTUĞUNU GÖSTERDİ**: altı üretim binasının da (keresteci, tuğlacı, taşçı, demirci, değirmen, fırın) hem kuruluşu HEM DE her seviyedeki yükseltmesi zaten **ham** kaynak istiyor. `getScaledUpgradeCost` taban yoksa `cost`a düşüyor, o da ham. Yani İlkan'ın kuralının MALİYET tarafı sağlanıyordu.
+- Kilit ÖN KOŞUL zincirindeydi: `degirmen → anaBina Lvl 3 + tahıl Lvl 3`, `anaBina Lvl 1→2 → 120 tuğla`. Ham kaynakla çalışan bir binaya ulaşmanın yolu işlenmiş maldan geçiyordu.
+- Düzeltme: `degirmen.requires` → `[{ tarla: "tahil", seviye: 1 }]`. Şart KALKMADI ("değirmen için tahıl tarlan olmalı" hâlâ doğru ve kodda yazılı) ama **bedeli sıfır**: köy iki Lvl 1 tahıl tarlasıyla başlıyor. Fırının şartı (değirmen Lvl 3) duruyor.
+- Ana Bina'nın işlenmiş mal istemesine **dokunulmadı**: sorun pahalı olması değil, üretim tiyerini KİLİTLEMESİYDİ.
+- **KİLİT GENİŞLETİLDİ**: `koy-bootstrap.test.js` önce yalnız İNŞAAT MALZEMESİ üreten dört binayı kapsıyordu — değirmen/fırın dışarıdaydı ve ikinci hata tam oradan çıktı. Artık `processes` alanı olan HER bina kapsamda, hem kuruluş hem **dört ayrı seviyedeki** yükseltme hem ön koşul bedeli ölçülüyor. Tek seviyeye bakmak yetmez: `upgradeCostBase` eklenirse yalnız üst seviyelerde işlenmiş mal belirebilir.
+- **Kilidin tuttuğu doğrulandı**: `anaBina Lvl 3` şartı geri konunca iki test birden patlıyor.
+- **GERÇEK SUNUCUDA UÇTAN UCA**: yeni köy kuruldu, işlenmişi tarlalara harcatıldı (tuğla 300 → 84), sonra altı bina denendi. keresteci/tuğlacı/taşçı **kuruldu**; demirci ve değirmen yalnız *"Yetersiz kaynak — 10/20 odun eksik"* dedi (ham, tarladan geri geliyor); fırın *"Önce gerekli: Değirmen Lvl 3"* dedi. **Hiçbir yerde ön koşul kilidi kalmadı.**
+
+
 ### Kahraman eşya görselleri (16 Eylül 2026)
 - İlkan: *"hero itemleri için görseller yükledim, onları da al oyuna."*
 - `client/src/components/itemArt.js` — bina haritasından (`buildingArt.js`) AYRI dosya: iki liste farklı hızda büyüyor, aynı dosyada olsalardı her eşya eklemesi bina dosyasını da kilitlerdi.
 - **KAPSAM ÖLÇÜLDÜ**: `heroItemDefs` 30 eşya tanımlıyor, klasörde 30 jpg var, `ITEM_IMAGE` haritasında 30 giriş — **görseli olmayan eşya yok, sahipsiz dosya yok**. Anahtarlar sunucu tanımıyla birebir.
-- `EsyaGorsel` iki yerde kullanılıyor: kuşam ızgarasında **38 px**, çantada **34 px** (tarayıcıda ikisi de ölçüldü). Görseli olmayan eşya sessizce eski çizgi ikonuna düşüyor, yani görselleri tek tek eklemek arayüzü hiçbir aşamada bozmuyor.
+- `EsyaGorsel` iki yerde kullanılıyor: çantada **34 px**; kuşam ızgarasında ise görsel **kareyi KAPLIYOR** (İlkan: *"görselleri daha büyüt, o kareyi kaplasınlar, ismi ve yazılar resmin üstünde durabilir"*). Ölçüldü: hücre 108×108, görsel **106×106** `object-fit: cover`, ad alt şeritte hücrenin %22'si. Eski hâli 38 px idi — hücrenin üçte biri bile değil, eşya tanınmıyordu.
+- **OKUNURLUK ŞERİDİ**: görselin üstüne düz yazı koymak açık renkli resimlerde (kar, gümüş, buz) adı okunmaz yapıyordu; alt kenardan yukarı saydamlaşan koyu dolgu + gölge kontrastı arkası ne olursa olsun sabit tutuyor. En uzun adlarda bile ("Ustaişi Kutup Tilkisi Postu") taşma yok — altı dolu slotta ölçüldü. Boş slot eski ikon yerleşiminde kaldı: kaplayacak resim yok ve ikonu kareye yaymak bulanık bir lekeye çevirirdi. Görseli olmayan eşya sessizce eski çizgi ikonuna düşüyor, yani görselleri tek tek eklemek arayüzü hiçbir aşamada bozmuyor.
 - Boyut: 30 dosya, toplam **1,5 MB**, ortalama 53 KB (512×512). nginx bunları `location ~* \.(jpg|…)$` dalından 1 gün önbellekle veriyor.
 - **TARAYICIDA DOĞRULANDI**: kahramana 12 eşya verilip ekran açıldı — çantada 16 görsel yüklendi (hepsi 512×512), beş eşya kuşanılınca ızgarada nadirlik renginde çerçeveyle çıktı. Konsolda eşya görselleriyle ilgili hata yok.
 - Not: bu iş çalışma kopyasında commit edilmemiş duruyordu; İlkan onaylayınca alındı.

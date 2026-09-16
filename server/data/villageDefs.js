@@ -106,7 +106,18 @@ const VILLAGE_DEFS = {
     processes:{ input: 'demir', inputPerHour: 50, output: 'demirKulce', outputPerHour: 40 },
     buildBaseWork:20, buildMultiplier: 1.28, cost:{ odun:80, tas:40 }
   },
-  degirmen: { requires:[{ tip:"anaBina", seviye:3}, {tarla:"tahil", seviye:3 }], cpPerLevel:1,
+  /*
+    DEĞİRMENİN ŞARTI TAHIL TARLASI — Ana Bina DEĞİL.
+
+    Eskiden `anaBina Lvl 3` de isteniyordu ve o yükseltme işlenmiş mal
+    (120 tuğla) istediği için ham kaynakla çalışan bir binaya ulaşmanın
+    yolu işlenmiş maldan geçiyordu: işlenmişi biten köy değirmen
+    kuramıyor, kuramadığı için un ve ekmek üretemiyordu (İlkan
+    bildirdi). Tarla şartı da Lvl 3'ten Lvl 1'e indi — köy zaten iki
+    Lvl 1 tahıl tarlasıyla başlıyor, yani şart anlamını koruyor ama
+    bedeli sıfır.
+  */
+  degirmen: { requires:[{ tarla:"tahil", seviye:1 }], cpPerLevel:1,
     name:'Değirmen', category:'isleme', icon:'⚙️',
     description:'Tahılı una öğütür — yiyecek zincirinin ilk halkası (tahıl → un → ekmek). İşçi başına saatte 90 tahıl → 72 un, yani tek bir işçi bile tarlaların verebileceğinden fazlasını öğütür: darboğaz değirmen değil TAHIL üretimidir. Seviye başına 5 işçi alır ama çoğu köyde birkaç işçi yeter; fazlasını tarlalara vermek daha kârlıdır.',
     unique:true, maxLevel:20, workersPerLevel:5,

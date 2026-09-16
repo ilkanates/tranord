@@ -23,8 +23,16 @@
  * tarlayla başlıyor, tarlalar bedava üretiyor); işlenmiş mal ise
  * yalnız bu binalardan çıkıyor.
  *
- * Değirmen ve fırın kapsam dışı: un ve ekmek İNŞAATI kilitlemiyor,
- * yalnız nüfusu besliyor.
+ * SONRA KURAL GENİŞLEDİ. İlk hâlinde değirmen ve fırın kapsam dışıydı
+ * ("un ve ekmek inşaatı kilitlemiyor, yalnız nüfusu besliyor") ve tam
+ * oradan İKİNCİ bir çıkışsız oda çıktı: değirmen `anaBina Lvl 3`
+ * istiyordu, o yükseltme ise 120 tuğla. İlkan bildirdi: *"değirmen
+ * kuracağım, Ana Bina Lvl 3 istiyor; Ana Bina için tuğla istiyor vs.
+ * köyün içindeki üretim binaları tarlalardan toplananlarla
+ * geliştirilmeli, işlenmişlerle değil."*
+ *
+ * Kural artık `processes` alanı olan HER binayı kapsıyor — ne
+ * ürettiğine bakmaksızın (bkz. aşağıdaki son iki test).
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -185,4 +193,87 @@ test('yeni köy altı Lvl 1 tarlayla başlıyor — ham kaynak zemini', () => {
   for (const ham of ['odun', 'kil', 'tas', 'demir', 'tahil']) {
     assert.ok(turler.has(ham), `${ham} tarlası olmadan köy o kaynağı hiç üretemez`);
   }
+});
+
+/**
+ * ÜRETİM BİNALARI HAM KAYNAKLA GELİŞİR — İlkan'ın kuralı.
+ *
+ * İlkan: *"köyün içindeki üretim binaları tarlalardan toplananlarla
+ * geliştirilmeli, işlenmişlerle değil."*
+ *
+ * Yukarıdaki ZEMİN KURALI yalnız İNŞAAT MALZEMESİ üreten dört binayı
+ * (kereste, tuğla, yontma taş, külçe) kapsıyordu. Değirmen ve fırın
+ * dışarıdaydı ve tam oradan ikinci bir çıkışsız oda çıktı: değirmen
+ * `anaBina Lvl 3` istiyordu, o yükseltme ise 120 tuğla — yani ham
+ * kaynakla ÇALIŞAN bir binaya ulaşmanın yolu işlenmiş maldan
+ * geçiyordu. İşlenmişi biten köy değirmen kuramıyor, kuramadığı için
+ * un ve ekmek üretemiyordu.
+ *
+ * Bu test kuralı BÜTÜN üretim binalarına genişletiyor: `processes`
+ * alanı olan her bina — ne ürettiğine bakmaksızın — hem maliyetiyle
+ * hem ön koşullarıyla ham kaynakla ulaşılabilir olmalı.
+ */
+test('ÜRETİM BİNALARININ HEPSİ ham kaynakla kurulup yükseltiliyor', () => {
+  const { getScaledUpgradeCost } = require('../game/koyKurallari');
+
+  const uretenler = Object.entries(VILLAGE_DEFS)
+    .filter(([, d]) => d.processes)
+    .map(([tip]) => tip);
+  assert.equal(uretenler.length, 6,
+    'altı üretim binası bekleniyordu: ' + uretenler.join(', '));
+
+  for (const tip of uretenler) {
+    const def = VILLAGE_DEFS[tip];
+
+    // 1. Kuruluş ham
+    assert.ok(hamMi(def.cost),
+      `${tip} kuruluşta işlenmiş mal istiyor: ${JSON.stringify(def.cost)}`);
+
+    /*
+      2. HER SEVİYEDEKİ yükseltme ham. Tek bir seviyeye bakmak yetmez:
+      `upgradeCostBase` eklenirse taban değişir ve yalnız üst
+      seviyelerde işlenmiş mal belirebilir.
+    */
+    for (const lv of [1, 5, 10, 19]) {
+      const c = getScaledUpgradeCost(tip, lv);
+      assert.ok(hamMi(c),
+        `${tip} Lvl ${lv}→${lv + 1} yükseltmesi işlenmiş mal istiyor: `
+        + JSON.stringify(c));
+    }
+
+    // 3. Ön koşullarına ULAŞMAK da ham olmalı
+    for (const kosul of def.requires || []) {
+      const bedel = kosulBedeli(kosul);
+      assert.ok(bedel.hepsiHam,
+        `${tip} "${bedel.ad}" ön koşulunu istiyor ama o koşula ulaşmak `
+        + `İŞLENMİŞ mal gerektiriyor (${bedel.neden}). Ham kaynakla `
+        + 'çalışan bir binaya işlenmiş maldan geçerek ulaşılamaz.');
+    }
+  }
+});
+
+test('DEĞİRMEN yeni köyde HEMEN kurulabiliyor — un/ekmek zinciri kilitli değil', () => {
+  /*
+    SONUCU ÖLÇEN TEST. Değirmen un üretiyor, un ekmek oluyor, ekmek
+    nüfusu besliyor. Değirmene ulaşılamayan köy açlıktan küçülüyor ve
+    oyuncunun yapabileceği hiçbir şey yok.
+
+    Yeni köy iki Lvl 1 tahıl tarlasıyla başlıyor, yani değirmenin
+    şartı doğuştan sağlanmış oluyor.
+  */
+  const koy = createVillage(0, 0);
+  for (const mal of INSAAT_MALZEMESI) koy.resources[mal] = 0;
+
+  assert.deepEqual(eksikOnKosullar(koy, 'degirmen'), [],
+    'değirmen yeni köyde ön koşulsuz kurulabilmeli');
+  assert.ok(canBuildAt(koy, '2,0', 'degirmen'),
+    'işlenmiş malı sıfır olan köy değirmen kurabilmeli');
+
+  /*
+    FIRIN değirmen Lvl 3 istiyor ve bu ŞART KALIYOR: değirmenin
+    yükseltmesi ham olduğu için zincir ham kaynakla kapanıyor.
+  */
+  const firinEksik = eksikOnKosullar(koy, 'firin');
+  assert.deepEqual(firinEksik, ['Değirmen Lvl 3'],
+    'fırının tek şartı değirmen olmalı — o da ham kaynakla yükseliyor');
 });

@@ -31,6 +31,37 @@ export const YAMA_NOTLARI = [
     baslik: 'Kahraman eşyalarının görselleri',
     notlar: [
       {
+        id: '20260916-degirmen-kilidi',
+        tur: 'duzeltme',
+        metin: 'DEĞİRMEN KİLİDİ AÇILDI — yeni köyün ikinci çıkışsız '
+          + 'odası. Değirmen Ana Bina Lvl 3 istiyordu, Ana Bina’nın '
+          + 'yükseltmesi ise 120 tuğla: yani HAM kaynakla çalışan bir '
+          + 'binaya ulaşmanın yolu işlenmiş maldan geçiyordu. İşlenmişi '
+          + 'biten köy değirmen kuramıyor, kuramadığı için un ve ekmek '
+          + 'üretemiyordu. Değirmenin şartı artık yalnızca TAHIL '
+          + 'TARLASI: köy zaten iki tahıl tarlasıyla başladığı için '
+          + 'şart doğuştan sağlanmış oluyor. Fırının şartı (değirmen '
+          + 'Lvl 3) duruyor — değirmenin yükseltmesi ham olduğu için o '
+          + 'zincir ham kaynakla kapanıyor. Kural şu: KÖYÜN ÜRETİM '
+          + 'BİNALARI TARLALARDAN TOPLANANLA GELİŞİR. Altı üretim '
+          + 'binasının da (keresteci, tuğlacı, taşçı, demirci, '
+          + 'değirmen, fırın) hem kuruluşu hem her seviyedeki '
+          + 'yükseltmesi zaten ham kaynak istiyordu; eksik olan tek şey '
+          + 'ön koşul zinciriydi.',
+      },
+      {
+        id: '20260916-esya-gorselleri-buyuk',
+        tur: 'yenilik',
+        metin: 'KUŞAM SLOTLARINDA GÖRSEL ARTIK KAREYİ KAPLIYOR. Resim '
+          + '38 pikselde duruyordu, yani 108 piksellik hücrenin üçte '
+          + 'birini bile doldurmuyor ve eşya tanınmıyordu. Şimdi görsel '
+          + 'hücrenin tamamını kaplıyor, eşyanın adı da resmin ÜSTÜNDE '
+          + 'alt şeritte duruyor. Ad her zaman okunur kalsın diye alt '
+          + 'kenarda yukarı doğru saydamlaşan koyu bir dolgu var: '
+          + 'arkadaki resim ister kar ister gümüş olsun yazı seçiliyor. '
+          + 'Çerçeve rengi yine nadirliği söylüyor.',
+      },
+      {
         id: '20260916-esya-gorselleri',
         tur: 'yenilik',
         metin: 'KAHRAMAN EŞYALARININ ARTIK GERÇEK GÖRSELLERİ VAR. '

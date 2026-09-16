@@ -989,6 +989,11 @@ function KusamIzgarasi({
           const esya = kusanilan[slot];
           const uygun = suruklenenEsya ? suruklenenEsya.slot === slot : null;
           const vurgu = hedefSlot === slot && uygun;
+          /*
+            GÖRSELİ OLAN EŞYA kareyi kaplıyor; olmayan (ve boş slot)
+            eski ikon yerleşiminde kalıyor. İkiyi ayıran tek koşul bu.
+          */
+          const gorselVar = !!(esya?.key && ITEM_IMAGE[esya.key]);
 
           return (
             <div key={slot}
@@ -1002,8 +1007,16 @@ function KusamIzgarasi({
                 ? `${esya.ad} — çıkarmak için tıkla`
                 : `${def.ad} — çantada bu slotun eşyalarını gör`}
               style={{
-                position: 'relative',
-                display: 'grid', placeItems: 'center', gap: 4, padding: 6,
+                position: 'relative', overflow: 'hidden',
+                /*
+                  DOLU HÜCREDE IZGARA YOK: görsel mutlak konumda kareyi
+                  kaplıyor, ad onun üstünde duruyor. Boş hücre eski
+                  ızgara yerleşiminde kalıyor — orada kaplayacak bir
+                  resim yok.
+                */
+                ...(gorselVar ? {} : {
+                  display: 'grid', placeItems: 'center', gap: 4, padding: 6,
+                }),
                 aspectRatio: '1 / 1', borderRadius: 7, textAlign: 'center',
                 background: vurgu ? 'rgba(120,180,255,0.14)'
                   : secili === slot ? 'rgba(120,180,255,0.08)' : 'rgba(8,14,24,0.45)',
@@ -1014,12 +1027,43 @@ function KusamIzgarasi({
                 cursor: esya ? 'pointer' : 'default',
                 transition: 'opacity .15s, border-color .15s, background .15s',
               }}>
-              <EsyaGorsel esya={esya} def={def} size={38}
-                renk={esya ? esya.renk : C.iceSoft} />
-              <span style={{
-                fontFamily: FONT.ui, fontSize: 8.5, lineHeight: 1.25,
-                color: esya ? esya.renk : C.textFaint,
-              }}>{esya ? esya.ad : def.ad}</span>
+              {gorselVar ? (
+                <>
+                  <img src={ITEM_IMAGE[esya.key]} alt="" draggable={false}
+                    style={{
+                      position: 'absolute', inset: 0,
+                      width: '100%', height: '100%', objectFit: 'cover',
+                      display: 'block',
+                    }} />
+                  {/*
+                    OKUNURLUK ŞERİDİ. Görselin üstüne düz yazı koymak
+                    açık renkli resimlerde (kar, gümüş, buz) adı
+                    okunmaz yapıyordu; alt kenardan yukarı saydamlaşan
+                    koyu dolgu kontrastı arkası ne olursa olsun sabit
+                    tutuyor.
+                  */}
+                  <span style={{
+                    position: 'absolute', left: 0, right: 0, bottom: 0,
+                    padding: '10px 4px 4px',
+                    fontFamily: FONT.ui, fontSize: 8.5, lineHeight: 1.2,
+                    color: esya.renk,
+                    textShadow: '0 1px 3px rgba(0,0,0,0.95)',
+                    background: 'linear-gradient(to top,'
+                      + ' rgba(4,9,16,0.92) 0%,'
+                      + ' rgba(4,9,16,0.75) 55%,'
+                      + ' rgba(4,9,16,0) 100%)',
+                  }}>{esya.ad}</span>
+                </>
+              ) : (
+                <>
+                  <EsyaGorsel esya={esya} def={def} size={38}
+                    renk={esya ? esya.renk : C.iceSoft} />
+                  <span style={{
+                    fontFamily: FONT.ui, fontSize: 8.5, lineHeight: 1.25,
+                    color: esya ? esya.renk : C.textFaint,
+                  }}>{esya ? esya.ad : def.ad}</span>
+                </>
+              )}
               {/* Kart SAĞA açılıyor, son sütunda SOLA: ızgaranın dışına taşmasın */}
               {ustunde === slot && esya && (
                 <EsyaKarti esya={esya} yer={sutun >= sutunlar - 1 ? 'sol' : 'sag'} />
