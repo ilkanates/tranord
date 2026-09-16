@@ -628,6 +628,18 @@ const ALIAS = {
 
 // Dolgu (silüet) amblem ikonlari - game-icons.net referanslarindan vektorlestirildi (CC BY 3.0, Lorc/Delapouite)
 const FILLED = {
+  /*
+    KUZGUN — İlkan'ın verdiği görselden vektörlendi (16 Eylül 2026).
+
+    Elçiliğin hex amblemi. Bina görselinin çatısında duran kuzgun
+    heykelinin aynısı, o yüzden hex uzaktan tanınıyor. Odin'in haber
+    taşıyan kuzgunları Huginn ve Muninn düşünülürse elçilik için
+    yerinde bir simge: kuzgun haber taşır.
+
+    Siluet + üç iç çentik (göz ve iki kanat). Kaynak görselin keskin
+    tüy detayının tamamı 18 px'te gri bir lekeye dönüyordu.
+  */
+  kuzgun: 'M1.20 6.25L4.60 4.15L6.30 2.15L8.25 2.60L9.45 4.60L12.10 6.60L15.20 9.60L17.45 12.60L23.40 21.45L19.30 20.20L20.10 21.95L16.10 19.60L14.35 16.10L13.60 17.90L12.45 19.05L12.70 19.60L14.20 19.60L14.20 22.45L11.95 22.45L11.60 21.15L10.60 22.45L8.40 22.45L8.05 21.10L7.05 22.45L4.85 22.45L4.85 19.60L6.55 19.60L6.15 17.45L5.00 13.45L4.75 9.60L5.95 6.90L4.85 6.55ZM5.95 4.45L7.15 4.10L6.60 5.05ZM9.20 8.60L11.80 10.75L9.00 10.40ZM10.45 12.15L13.15 14.05L10.25 13.85Z',
   // Kahraman Konagi - Ilkan'in verdigi vikig portresinden vektorlendi.
   // Ic bosluklarin en buyuk 12'si korundu: tam detay 18 px'te gri lekeye
   // donuyordu, sadece siluet ise yuzu kaybediyordu.

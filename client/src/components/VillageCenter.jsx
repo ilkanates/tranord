@@ -12,6 +12,7 @@ import UnitTrainingPanel from './UnitTrainingPanel';
 import ResearchPanel from './ResearchPanel';
 import FestivalPanel from './FestivalPanel';
 import PazarPanel from './PazarPanel';
+import ElcilikPanel from './ElcilikPanel';
 import RevirPanel from './RevirPanel';
 import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/villageDefs';
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
@@ -876,6 +877,9 @@ export default function VillageCenter({
   // Merkez taşıma uyarısı — eski merkezde kaç tarla düşecek
   merkezTasimaBedeli = null, tarlaTavanlari = null,
   socket, onPazarTeklifAc, onPazarTeklifIptal, onPazarTeklifKabul,
+  birlik = null, birlikDavetlerim = [], birlikTanim = null, birlikHata = null,
+  onBirlikKur, onBirlikDavet, onBirlikDavetGeriAl, onBirlikDavetCevap,
+  onBirlikAyril, onBirlikUyeAt, onBirlikJarl, onBirlikDagit,
   /**
    * ÇOKLU KÖY: saray oyuncu çapında tek, merkez de saraydan taşınıyor.
    * `uniqueOwners` hangi köyde saray var, `capitalSlot` merkez hangi köy.
@@ -1505,6 +1509,7 @@ export default function VillageCenter({
           // Taverna: şölen paneli (kültür puanı üretimi)
           const hasFestival = selectedBuilding?.type === 'taverna';
           const hasPazar    = selectedBuilding?.type === 'pazar';
+          const hasElcilik  = selectedBuilding?.type === 'elcilik';
           const binaAciklamasi = selectedBuilding
             ? (VILLAGE_DEFS[selectedBuilding.type]?.description || '') : '';
           const hasRevir    = selectedBuilding?.type === 'saglikCadiri';
@@ -1958,6 +1963,26 @@ export default function VillageCenter({
                   onTeklifAc={onPazarTeklifAc}
                   onTeklifIptal={onPazarTeklifIptal}
                   onTeklifKabul={onPazarTeklifKabul} />
+              </div>
+            )}
+
+            {hasElcilik && (
+              <div style={{ padding: '0 12px 10px', order: 1 }}>
+                <ElcilikPanel
+                  birlik={birlik}
+                  davetlerim={birlikDavetlerim}
+                  tanim={birlikTanim}
+                  seviye={selectedBuilding.level || 0}
+                  benimId={birlik?.benimUserId ?? null}
+                  hata={birlikHata}
+                  onKur={onBirlikKur}
+                  onDavet={onBirlikDavet}
+                  onDavetGeriAl={onBirlikDavetGeriAl}
+                  onDavetCevap={onBirlikDavetCevap}
+                  onAyril={onBirlikAyril}
+                  onAt={onBirlikUyeAt}
+                  onJarl={onBirlikJarl}
+                  onDagit={onBirlikDagit} />
               </div>
             )}
 

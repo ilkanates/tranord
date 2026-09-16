@@ -210,6 +210,22 @@ function buildRefusalReason(village, slotKey, buildingType, otherVillages = null
   if (eksik.length) return `Önce gerekli: ${eksik.join(' · ')}.`;
   if (!workers || workers < 1) return 'En az 1 inşaat işçisi gerekiyor.';
   if (workers > village.freeWorkers) return `Yeterli boş işçi yok (${village.freeWorkers} boş).`;
+  /*
+    İNŞAAT KADROSU TAVANI — sebebi burada YOKTU.
+
+    Çağıran (index.js · build_village) \`isci > MAX_BUILDERS(0)\` ise
+    reddediyor ama bu satır olmadığı için oyuncu "İnşa edilemedi."
+    diye sebepsiz bir cümle görüyordu. Ölçüldü: yeni bir binaya 3 işçi
+    istemek sessizce reddediliyor, tavan 2.
+
+    Tavan formülü index.js'te (`mevcutSeviye + 2`); burada TEKRARLAMAK
+    yerine yeni bina için sabit olan değeri yazıyoruz — yeni bina her
+    zaman seviye 0'dan başlıyor.
+  */
+  const kadroTavani = 2;                 // MAX_BUILDERS(0) = 0 + 2
+  if (workers > kadroTavani) {
+    return `Yeni bir binaya en fazla ${kadroTavani} inşaat işçisi verilebilir.`;
+  }
   return 'İnşa edilemedi.';
 }
 

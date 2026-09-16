@@ -421,6 +421,13 @@ function buildPayload(village, tickMs, opts = {}) {
      * reddetmesine yol açıyor — saray tam bunu yapıyordu.
      */
     uniqueOwners: opts.uniqueOwners || null,
+    /*
+      BİRLİK. `opts`'a koymak yetmiyor — buildPayload alanları tek tek
+      kopyalıyor, buraya satır eklenmezse veri sessizce kaybolur.
+    */
+    birlik: opts.birlik || null,
+    birlikDavetlerim: opts.birlikDavetlerim || [],
+    birlikTanim: opts.birlikTanim || null,
     isCapital: village.isCapital !== false,
     festival: village.festival
       ? {

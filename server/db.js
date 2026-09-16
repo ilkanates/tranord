@@ -150,6 +150,50 @@ async function initDB() {
     );
   `);
 
+  /*
+    BİRLİK TABLOLARI.
+
+    `alliance_members.user_id` TEKİL: bir oyuncu aynı anda tek birlikte
+    olabilir. Kısıt uygulamada değil ŞEMADA — "önce sorgula, sonra ekle"
+    iki eşzamanlı kabulde ikisini de geçirirdi.
+
+    Birlik adı da tekil (küçük harfe indirilmiş): iki aynı adlı birlik
+    haritada ve davet aramasında ayırt edilemezdi.
+
+    Kurucu silinirse birlik DURUYOR (`ON DELETE SET NULL`): üyeleri olan
+    bir birliği kurucunun hesap silmesiyle yok etmek geri kalan herkesi
+    cezalandırırdı. Konung'suz kalan birliği yönetim devri onarıyor.
+  */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS alliances (
+      id         SERIAL PRIMARY KEY,
+      ad         TEXT NOT NULL,
+      amblem     TEXT NOT NULL,
+      kurucu_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS alliances_ad_idx ON alliances (lower(ad));
+
+    CREATE TABLE IF NOT EXISTS alliance_members (
+      alliance_id INTEGER NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
+      user_id     INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      rutbe       TEXT NOT NULL DEFAULT 'karl',
+      at          TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (alliance_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS alliance_members_a_idx ON alliance_members (alliance_id);
+
+    CREATE TABLE IF NOT EXISTS alliance_invites (
+      id          SERIAL PRIMARY KEY,
+      alliance_id INTEGER NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      davet_eden  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      at          TIMESTAMP DEFAULT NOW(),
+      UNIQUE (alliance_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS alliance_invites_u_idx ON alliance_invites (user_id);
+  `);
+
   console.log('[DB] Tablolar hazır (çoklu köy şeması)');
 }
 
@@ -543,8 +587,109 @@ async function engelliMi(userId, otherId) {
   return res.rowCount > 0;
 }
 
+// ── Birlik ─────────────────────────────────────────────────────────
+
+/** Bütün birlikler + üyelikleri — açılışta belleğe alınır */
+async function loadAlliances() {
+  const a = await pool.query(
+    'SELECT id, ad, amblem, kurucu_id FROM alliances ORDER BY id');
+  const m = await pool.query(
+    'SELECT alliance_id, user_id, rutbe FROM alliance_members');
+  const inv = await pool.query(
+    'SELECT id, alliance_id, user_id, davet_eden FROM alliance_invites');
+  return {
+    birlikler: a.rows,
+    uyeler: m.rows,
+    davetler: inv.rows,
+  };
+}
+
+/** Birliği kur ve kurucusunu Konung olarak yaz — TEK İŞLEMDE */
+async function birlikKur({ ad, amblem, kurucuId }) {
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    const r = await c.query(
+      'INSERT INTO alliances (ad, amblem, kurucu_id) VALUES ($1,$2,$3) RETURNING id',
+      [ad, amblem, kurucuId]);
+    const id = r.rows[0].id;
+    await c.query(
+      `INSERT INTO alliance_members (alliance_id, user_id, rutbe)
+       VALUES ($1,$2,'konung')`, [id, kurucuId]);
+    await c.query('COMMIT');
+    return { id };
+  } catch (err) {
+    await c.query('ROLLBACK');
+    if (err.code === '23505') return { hata: 'ad_alinmis' };
+    throw err;
+  } finally {
+    c.release();
+  }
+}
+
+async function birlikSil(allianceId) {
+  await pool.query('DELETE FROM alliances WHERE id = $1', [allianceId]);
+}
+
+async function birlikAdDegistir(allianceId, ad, amblem) {
+  try {
+    await pool.query('UPDATE alliances SET ad = $2, amblem = $3 WHERE id = $1',
+      [allianceId, ad, amblem]);
+    return {};
+  } catch (err) {
+    if (err.code === '23505') return { hata: 'ad_alinmis' };
+    throw err;
+  }
+}
+
+async function uyeEkle(allianceId, userId, rutbe = 'karl') {
+  try {
+    await pool.query(
+      'INSERT INTO alliance_members (alliance_id, user_id, rutbe) VALUES ($1,$2,$3)',
+      [allianceId, userId, rutbe]);
+    return {};
+  } catch (err) {
+    if (err.code === '23505') return { hata: 'zaten_birlikte' };
+    throw err;
+  }
+}
+
+async function uyeCikar(userId) {
+  await pool.query('DELETE FROM alliance_members WHERE user_id = $1', [userId]);
+}
+
+async function uyeRutbe(userId, rutbe) {
+  await pool.query('UPDATE alliance_members SET rutbe = $2 WHERE user_id = $1',
+    [userId, rutbe]);
+}
+
+async function davetYaz(allianceId, userId, davetEden) {
+  try {
+    await pool.query(
+      'INSERT INTO alliance_invites (alliance_id, user_id, davet_eden) VALUES ($1,$2,$3)',
+      [allianceId, userId, davetEden]);
+    return {};
+  } catch (err) {
+    if (err.code === '23505') return { hata: 'zaten_davetli' };
+    throw err;
+  }
+}
+
+async function davetSil(allianceId, userId) {
+  await pool.query(
+    'DELETE FROM alliance_invites WHERE alliance_id = $1 AND user_id = $2',
+    [allianceId, userId]);
+}
+
+/** Oyuncu birliğe girince ya da reddedince bütün davetleri düşer */
+async function davetleriTemizle(userId) {
+  await pool.query('DELETE FROM alliance_invites WHERE user_id = $1', [userId]);
+}
+
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
+  loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
+  uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,
   findUserByDisplayName, mesajYaz, mesajKutusu, mesajOkunmamisSayisi,
   mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
   setDisplayName, loadDisplayNames, renameVillage,

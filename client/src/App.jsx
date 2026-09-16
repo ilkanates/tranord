@@ -626,6 +626,13 @@ function Game({ token, onLogout }) {
   const [beat, setBeat] = useState(0);
   const [tab, setTab] = useState('harita');
   /*
+    BİRLİK HATASI elçilik panelinin İÇİNDE gösteriliyor, ekranın
+    üstündeki geçici şeritte değil: bu bir formun cevabı ("bu ad
+    alınmış", "böyle bir oyuncu yok") ve oyuncu tam o anda formun
+    başında — gözünü ekranın üstüne kaldırmamalı.
+  */
+  const [birlikHata, setBirlikHata] = useState(null);
+  /*
     GELEN SALDIRI ŞERİDİ KAPATILABİLİR.
 
     İlkan: *"saldırı geliyor görseli başka şeylere basmamı engelliyor
@@ -788,6 +795,42 @@ function Game({ token, onLogout }) {
       slot_yok: 'Böyle bir kuşam slotu yok.',
       slot_bos: 'O slotta zaten eşya yok.',
     };
+    /*
+      BİRLİK SEBEPLERİ. Sunucu anahtar yolluyor, metin burada — aynı
+      sebep hem kur formunda hem davet kutusunda çıkabiliyor ve ikisinde
+      de aynı cümle görünmeli.
+    */
+    const BIRLIK_SEBEP = {
+      zaten_birlikte: 'Zaten bir birliktesin.',
+      elcilik_yok: 'Önce Elçilik kurman gerekiyor.',
+      ad_alinmis: 'Bu ad başka bir birlikte kullanılıyor.',
+      gecersiz_amblem: 'Geçersiz amblem.',
+      birlikte_degilsin: 'Bir birlikte değilsin.',
+      yetki_yok: 'Bunu yapma yetkin yok.',
+      oyuncu_yok: 'Böyle bir oyuncu yok.',
+      kendini_davet: 'Kendini davet edemezsin.',
+      zaten_davetli: 'Bu oyuncuya zaten davet gönderilmiş.',
+      davet_yok: 'Bu davet artık geçerli değil.',
+      birlik_yok: 'Birlik bulunamadı.',
+      birlik_dolu: 'Birlik dolu — Konung elçiliği büyütmeli.',
+      uye_degil: 'Bu oyuncu birliğinde değil.',
+      kendini_atamazsin: 'Kendini atamazsın; ayrılmak için AYRIL de.',
+      konung_ayrilamaz: 'Konung ayrılamaz — önce birliği dağıtman gerekiyor.',
+      konung_degistirilemez: 'Konung’un rütbesi değiştirilemez.',
+      jarl_tavani: 'Jarl tavanı dolu — önce birini indir.',
+      sunucu: 'Sunucu hatası, tekrar dene.',
+    };
+    const onBirlikHata = (r) => {
+      const anahtar = r?.reason;
+      /*
+        TANINMAYAN SEBEP OLDUĞU GİBİ GÖSTERİLİYOR. Ad doğrulaması
+        sunucudan HAZIR CÜMLE olarak geliyor ("En az 3 karakter
+        olmalı"); anahtar sözlüğüne koymak onları burada tekrarlamak
+        olurdu ve iki yer ayrışırdı.
+      */
+      setBirlikHata(BIRLIK_SEBEP[anahtar] || anahtar || 'Birlik işlemi reddedildi.');
+    };
+
     const onKahramanHata = (r) => {
       const metin = KAHRAMAN_SEBEP[r?.reason] || 'Kahraman işlemi reddedildi.';
       onRefused({ reason: r?.metin ? `${metin} (${r.metin})` : metin });
@@ -795,6 +838,7 @@ function Game({ token, onLogout }) {
     socket.on('build_refused', onRefused);
     socket.on('pazar_sonuc', onPazar);
     socket.on('army_error', onSeferHata);
+    socket.on('birlik_error', onBirlikHata);
     socket.on('kahraman_error', onKahramanHata);
     return () => {
       clearTimeout(zaman);
@@ -804,6 +848,7 @@ function Game({ token, onLogout }) {
       socket.off('build_refused', onRefused);
       socket.off('pazar_sonuc', onPazar);
       socket.off('army_error', onSeferHata);
+      socket.off('birlik_error', onBirlikHata);
       socket.off('kahraman_error', onKahramanHata);
     };
   }, []);
@@ -896,6 +941,22 @@ function Game({ token, onLogout }) {
   const pazarTeklifAc = (p) => socket.emit('pazar_teklif_ac', p);
   const pazarTeklifIptal = (p) => socket.emit('pazar_teklif_iptal', p);
   const pazarTeklifKabul = (p) => socket.emit('pazar_teklif_kabul', p);
+
+  /*
+    BİRLİK OLAYLARI. Hepsi tek yönlü: sunucu kabul ederse yeni durum
+    `village_update` ile geliyor, reddederse `birlik_error`. Panel
+    kendi başına iyimser güncelleme yapmıyor — birlik durumu birden
+    çok oyuncuyu ilgilendiriyor ve tek doğru kaynak sunucu.
+  */
+  const birlikKur = (p) => { setBirlikHata(null); socket.emit('birlik_kur', p); };
+
+  const birlikDavet = (ad) => { setBirlikHata(null); socket.emit('birlik_davet', { ad }); };
+  const birlikDavetGeriAl = (hedefUserId) => socket.emit('birlik_davet_geri_al', { hedefUserId });
+  const birlikDavetCevap = (birlikId, kabul) => socket.emit('birlik_davet_cevap', { birlikId, kabul });
+  const birlikAyril = () => socket.emit('birlik_ayril');
+  const birlikUyeAt = (hedefUserId) => socket.emit('birlik_uye_at', { hedefUserId });
+  const birlikJarl = (hedefUserId, jarl) => socket.emit('birlik_jarl', { hedefUserId, jarl });
+  const birlikDagit = () => socket.emit('birlik_dagit');
   /**
    * KÖY DEĞİŞTİR. Sunucu yeni köyün payload'unu statiklerle birlikte
    * gönderiyor. Harita sekmesi açıkken de anlık görüntü yenilenmeli —
@@ -1054,6 +1115,7 @@ function Game({ token, onLogout }) {
               world={village.world}
               kahraman={village.kahraman}
               activeSlot={village.activeSlot}
+              birlikId={village.birlik?.id || null}
               pazar={village.pazar || null}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}
               worldSpeed={village.worldSpeed || 1}
@@ -1109,6 +1171,18 @@ function Game({ token, onLogout }) {
               onPazarTeklifAc={pazarTeklifAc}
               onPazarTeklifIptal={pazarTeklifIptal}
               onPazarTeklifKabul={pazarTeklifKabul}
+              birlik={village.birlik || null}
+              birlikDavetlerim={village.birlikDavetlerim || []}
+              birlikTanim={village.birlikTanim || null}
+              birlikHata={birlikHata}
+              onBirlikKur={birlikKur}
+              onBirlikDavet={birlikDavet}
+              onBirlikDavetGeriAl={birlikDavetGeriAl}
+              onBirlikDavetCevap={birlikDavetCevap}
+              onBirlikAyril={birlikAyril}
+              onBirlikUyeAt={birlikUyeAt}
+              onBirlikJarl={birlikJarl}
+              onBirlikDagit={birlikDagit}
               villages={village.villages || []}
               activeSlot={village.activeSlot || null}
               capitalSlot={village.capitalSlot || null}

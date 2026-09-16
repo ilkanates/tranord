@@ -110,12 +110,7 @@ tasarımın kaydı olarak duruyor.
 
 **Açık kalan:** kahraman başka oyuncunun köyünde takviye olarak durabilir mi.
 
-### 2. Elçilik ve birlik (ittifak)
-- Yeni bina: **Elçilik**. Buradan birlik kurulur ve başka oyuncular birliğe davet edilir.
-- Haritada birlik üyeleri **koyu yeşil** görünmeli (kendi köyüm açık yeşil, rakip oyuncu kırmızı, NPC gri).
-- Elçilik seviyesi birlik üye sayısı tavanını belirlesin (Travian mantığı).
-- **Karar gerekiyor:** davet/kabul akışı, birlik yönetimi (kurucu yetkileri, üye atma), birliğe saldırı yasağı olsun mu.
-- Sunucu tarafı: birlik tablosu + üyelik, harita anlık görüntüsüne köy başına `allianceId` eklenmesi.
+### 2. ~~Elçilik ve birlik (ittifak)~~ — **YAPILDI** (bkz. Tamamlandı)
 
 ### 3. Ayarlar menüsü ve ses — ÇATI YAPILDI, dosyalar bekleniyor
 - ~~**Ayarlar menüsü**~~ — yapıldı: üst barda dişli, `client/src/components/AyarlarMenu.jsx`.
@@ -220,6 +215,50 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Elçilik ve birlik (16 Eylül 2026)
+- İlkan'ın tarifi: *"elçilik kuran kişiler birlik oluşturabilir, birliğin adını ve amblemini seçer, sonra birliğe oyuncu davet eder. elçilikten davetler kısmına girip oyuncu adı aratıp daveti yollar. karşı taraf kabul ederse birliğe katılır. birlik oyuncuları haritada alanları yeşil çerçeve ile gözükür. iki birlik oyuncusunun alanı yan yana ise aralarına koyu yeşil çizgi çizilir. birlik oyuncularına saldırmak serbesttir. kurucu birliğe adam alabilir çıkartabilir, 2 yetkili alt yönetici seçilebilir. buradaki kral ve alt yöneticilerini Nord mitolojisine göre ayarla, yarl vs gibi terimler kullan."*
+
+**RÜTBELER — Rígsþula'dan.** İskandinav toplum düzeninde üç sınıf var: Jarl (soylu), Karl (hür adam), Þræll (köle); üstlerinde Konungr (kral). Þræll alınmadı — oyuncu köle değil. Kalan üçü rütbe merdivenini olduğu gibi veriyor: **Konung → Jarl → Karl**.
+
+| | Konung | Jarl | Karl |
+|---|---|---|---|
+| davet et / iptal | ✓ | ✓ | ✗ |
+| üye at | ✓ (Jarl dahil) | ✓ (yalnız Karl) | ✗ |
+| Jarl seç / indir | ✓ | ✗ | ✗ |
+| ad / amblem değiştir | ✓ | ✗ | ✗ |
+| birliği dağıt | ✓ | ✗ | ✗ |
+| ayrıl | ✗ | ✓ | ✓ |
+
+- **Jarl tavanı 2** (İlkan'ın kararı). Jarl Jarl atamıyor: izin verseydik iki yönetici birbirini atmaya çalışır ve sonucu kimin daha hızlı tıkladığı belirlerdi.
+- **Konung ayrılamıyor**: ayrılabilseydi birlik kralsız kalır, kimse davet gönderemez, kimse atamaz — kimsenin çözemediği ölü bir kayıt.
+- **Üye tavanı = KONUNG'un elçilik seviyesi × 3** (Lvl 1 → 3 üye, Lvl 20 → 60). Bütün üyelerin elçilikleri toplansaydı her yeni üye tavanı da açar ve tavan diye bir şey kalmazdı.
+- **Birlik içi saldırı SERBEST.** Kuralın kodda bir yeri var (`birlikIciSaldiriSerbest()`) ki ileride "acaba yasak mıydı" diye kimse aramasın; yasak konacaksa değişecek tek yer orası. Elçilik ekranında da sarı bir kutuda yazıyor — oyuncu birliğe girerken korunduğunu sanıp savunmasını ihmal ederse bu bizim hatamız olur.
+
+**Mimari.** Üç katman, bilerek ayrı:
+- `game/birlik.js` — SAF KURALLAR (kim ne yapabilir, ad geçerli mi, kaç üye sığar). Veritabanı görmüyor, oturum bilmiyor.
+- `game/birlikServis.js` — kuralları VERİYE uyguluyor; belleği (`WORLD`) ve diski birlikte güncelliyor. Her işlem ÖNCE DİSKE, sonra belleğe: tersi olsaydı disk yazımı patladığında bellek yalan söyler ve sunucu yeniden başlayana kadar kimse fark etmezdi.
+- `index.js` — sekiz soket olayı, hepsi aynı kalıpta. Yayın ETKİLENEN HERKESE gidiyor, yalnız işlemi yapana değil: davet gönderince hedefin ekranında davet belirmeli, üye atılınca atılanın ekranından birlik kalkmalı.
+
+- **Veritabanı**: `alliances` · `alliance_members` · `alliance_invites`, hem PostgreSQL hem dev (JSON) sürümü aynı API ile. `alliance_members.user_id` TEKİL ve kısıt uygulamada değil **şemada**: "önce sorgula sonra ekle" iki eşzamanlı kabulde ikisini de geçirirdi. Birlik adı da tekil (küçük harfe indirilmiş).
+- **Bellek**: birlikler açılışta yükleniyor (`WORLD.birlikler` / `birlikByUser` / `davetByUser`). Haritanın rengi her anlık görüntüde okunuyor; veritabanına gitmek 217 köy için 217 sorgu olurdu. Üç ayrı indeks çünkü üç ayrı soru var ("bu birlik kim", "ben neredeyim", "bana ne geldi").
+- **Parmak izi**: birlik durumu delta parmak izine girdi — girmezse yayın hiç olmaz ve oyuncu davet gönderdikten sonra 30 saniyelik kalp atışını bekler. Ucuz tutuldu (kimlik + rütbe + üye sayısı + davet sayısı); üye adlarını katmak her yayında dize kurmak olurdu.
+- **Yetkiler SUNUCUDAN gidiyor** (`birlik.yetkilerim`), istemci yeniden hesaplamıyor. Kural iki yerde yaşarsa ayrışır — bu projede asker yemi muhasebesi tam olarak öyle ayrışmıştı.
+
+**Harita.** Sunucu yalnız KİMLİĞİ veriyor (`birlikId` + ad), çerçeveyi istemci çiziyor. `birlikSinirPath` bir köyün kenarlarını TEK GEÇİŞTE ikiye ayırıyor: dışarıya bakanlar parlak yeşil (birliğin dış sınırı), birlik arkadaşının hex'ine bakanlar koyu yeşil (iç sınır). İkinci bir tarama 200+ köyde iki katı iş olurdu. Birlik kimliği herkese açık — ordu ve sur keşifle öğreniliyor ama birlik bir BAYRAK.
+
+**Görseller** (İlkan üretti): `elcilik.jpg` + `elcilik.mp4` — karlı bir Nord uzun evi, cephesinde beş klan sancağı (ayı, baltalar, ejder, kartal, kurt), çatısında kuzgun heykeli. Hex amblemi için **kuzgun** ikonu İlkan'ın verdiği görselden vektörlendi (siluet + göz ve iki kanat çentiği; tam tüy detayı 18 px'te gri lekeye dönüyordu). Odin'in haber taşıyan kuzgunları Huginn ve Muninn düşünülürse elçilik için yerinde bir simge.
+
+- **TARAYICIDA UÇTAN UCA DOĞRULANDI**: elçilik kuruldu (Lvl 20), panel "Elçiliğin Lvl 20, yani birliğe 60 üye sığar" diyor; "Kuzey Kurtları" kuruldu, panel "sen: Konung · 1/60" gösteriyor; oyuncu adıyla davet gönderildi ve "CEVAP BEKLEYENLER" listesinde GERİ AL düğmesiyle belirdi. Diskte de doğrulandı (`alliances` 1 kayıt, `alliance_members` konung, `alliance_invites` 1 davet). Olmayan bir ada davet `oyuncu_yok` ile reddedildi.
+- Testler: `birlik.test.js` 11 kilit — rütbe merdiveni, yetki tablosu, atma zinciri, Jarl tavanı, üye tavanı sayıları, elçilik şartı, tavanın KABUL ANINDA bakılması, ad doğrulaması (görünmez karakter dahil), amblem listesi, saldırı serbestliği ve elçilik binasının tavanıyla birlik tavanının tutması.
+
+### Yeni binaya işçi tavanı sessizce reddediliyordu (16 Eylül 2026)
+- Elçiliği kurmaya çalışırken çıktı: `build_village` `isci > MAX_BUILDERS(0)` ise reddediyor (yeni bina için tavan **2**) ama `buildRefusalReason` bu dalı hiç taşımıyordu — oyuncu "İnşa edilemedi." diye sebepsiz bir cümle görüyordu.
+- Artık "Yeni bir binaya en fazla 2 inşaat işçisi verilebilir." diyor. (Bugünkü kaynak sebebi düzeltmesiyle aynı sınıf hata: sessiz red oyuncuyu çaresiz bırakıyor.)
+
+### Otomatik deploy dosyaları silindi (16 Eylül 2026)
+- `deploy/tranord-otomatik.timer` (`OnUnitActiveSec=5min`), `tranord-otomatik.service`, `otomatik-guncelle.sh`, `otomatik-kur.sh` — dördü de silindi (İlkan'ın kararı). Pi'ye hiç kurulmamışlardı ama depoda durmaları ileride biri `otomatik-kur.sh` çalıştırdığında sürpriz olurdu. Deploy elle, `sudo tranord-guncelle` ile.
+
+
 ### Moral bonusu tamamen kaldırıldı (16 Eylül 2026)
 - İlkan önce *"moral bonusunu bana açıkla"* dedi, açıklandıktan sonra *"moral bonusunu tamamen kaldır"*.
 - Kaldırılan: saldıranın nüfusu savunanınkinden büyükse savunana ek savunma yüzdesi (`(a/d)^0,2 − 1`, tavan %50).
@@ -261,7 +300,7 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - İlkan: *"pi hâlâ 5 dakikada bir deploy yapıyor mu, yapıyorsa kapat."*
 - **Dört yer tarandı, çalışan bir şey yok**: systemd timer'ları (16 timer, hepsi sistem işi), `pi` crontab'ı (yok), `/etc/cron.d` (yalnız e2scrub_all + sysstat), bu oturumun zamanlanmış görevleri (yok), Windows zamanlanmış görevleri (eşleşen yok).
 - **Kesin kanıt**: `tranord.service` günlüğünde bugünkü her yeniden başlatma elle yapılan deploy'lara denk geliyor (12:57, 13:16, 14:27, 14:37, 15:16, 15:56, 16:20, 17:19, 18:22) — aralar 10-71 dakika, hiçbir yerde 5 dakikalık düzen yok. `NRestarts=0`.
-- **Ama makine DEPODA duruyor**: `deploy/tranord-otomatik.timer` (`OnUnitActiveSec=5min`), `tranord-otomatik.service`, `otomatik-guncelle.sh`, `otomatik-kur.sh`. Pi'ye hiç kurulmamış (`systemctl is-enabled` → `not-found`, `/etc/systemd/system/tranord-otomatik.*` yok). İlkan'ın hatırladığı bu dosyalar olmalı. **Karar bekliyor**: dosyalar depoda kalsın mı, silinsin mi.
+- **Makine depoda DURUYORDU** (`tranord-otomatik.timer` · `OnUnitActiveSec=5min`, `tranord-otomatik.service`, `otomatik-guncelle.sh`, `otomatik-kur.sh`) ama Pi'ye hiç kurulmamıştı — İlkan'ın hatırladığı bu dosyalardı. **Dördü de silindi** (İlkan'ın kararı): kurulu olmayan ama duran bir otomatik deploy, ileride biri `otomatik-kur.sh` çalıştırdığında sürpriz olurdu. Deploy elle, `sudo tranord-guncelle` ile.
 
 
 ### Kahramanın üretim skili düz ek yerine YÜZDE (16 Eylül 2026)

@@ -55,6 +55,13 @@ const TIER_COLOR = { 1: '#9fb4c9', 2: '#8fdcff', 3: '#c0a8f8', 4: '#f2c86e', 5: 
 // "Cannot access 'FOE_COLOR' before initialization" atıp uygulamayı hiç
 // başlatmıyor (siyah ekran). Bu iki satır palet bloğunun ÜSTÜNDE kalmalı.
 const SELF_COLOR = '#ffe89a';
+/*
+  BİRLİK YEŞİLİ. Parlak olan dış sınır, koyu olan birlik arkadaşıyla
+  paylaşılan iç sınır. İkisi de CLAIM_GREEN'den (kendi toprağım)
+  farklı tonda: "benim" ile "birliğimden" karışmamalı.
+*/
+const BIRLIK_YESIL      = '#3ddc84';
+const BIRLIK_YESIL_KOYU = '#146b3a';
 const FOE_COLOR  = '#ff6f78';
 
 /**
@@ -485,6 +492,43 @@ const CLAIM_SET = new Set(CLAIM_LOCAL);
  * çevresi aynı fonksiyonla çizilir.
  */
 const _outlineCache = new Map();
+/**
+ * BİRLİK SINIRI — kenarları ikiye ayırır.
+ *
+ * `dis`: dışarıya bakan kenarlar (birliğin dış sınırı, parlak yeşil)
+ * `ic` : birlik arkadaşının hex'ine bakan kenarlar (koyu yeşil)
+ *
+ * Köyün KENDİ hex'ine bakan kenar hiçbirine girmiyor — o zaten iç
+ * doku, çizgi değil.
+ */
+const _birlikSinirCache = new Map();
+function birlikSinirPath(localKeys, cq, cr, birlikHexleri) {
+  const inside = localKeys instanceof Set ? localKeys : new Set(localKeys);
+  const ck = `${cq},${cr}|${[...inside].sort().join(';')}|${birlikHexleri.size}`;
+  const hit = _birlikSinirCache.get(ck);
+  if (hit !== undefined) return hit;
+
+  let dis = '', ic = '';
+  for (const key of inside) {
+    const [lq, lr] = key.split(',').map(Number);
+    const { x, y } = hexToPixel(cq + lq, cr + lr, S);
+    for (let i = 0; i < 6; i++) {
+      const [dq, dr] = EDGE_N[i];
+      if (inside.has(kk(lq + dq, lr + dr))) continue;     // kendi içi
+      const a0 = (Math.PI / 3) * i, a1 = (Math.PI / 3) * (i + 1);
+      const seg = `M${(x + S * Math.cos(a0)).toFixed(1)} ${(y + S * Math.sin(a0)).toFixed(1)}`
+        + `L${(x + S * Math.cos(a1)).toFixed(1)} ${(y + S * Math.sin(a1)).toFixed(1)}`;
+      // Komşu hex BİRLİKTEN biriyse iç sınır, değilse dış sınır
+      if (birlikHexleri.has(kk(cq + lq + dq, cr + lr + dr))) ic += seg;
+      else dis += seg;
+    }
+  }
+  if (_birlikSinirCache.size > 4000) _birlikSinirCache.clear();
+  const sonuc = { dis, ic };
+  _birlikSinirCache.set(ck, sonuc);
+  return sonuc;
+}
+
 function outlinePath(localKeys, cq, cr) {
   const inside = localKeys instanceof Set ? localKeys : new Set(localKeys);
   const ck = `${cq},${cr}|${[...inside].sort().join(';')}`;
@@ -1061,7 +1105,7 @@ export default function MapView({
   /* Tarla seviye tavanı — merkezde 20, diğer köylerde 10 */
   tarlaTavani = 20, tarlaTavanlari = null, merkezMi = false,
   // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
-  kahraman = null, activeSlot = null,
+  kahraman = null, activeSlot = null, birlikId = null,
   // Hammadde gönderme kısayolu tüccar sayısını pazardan okuyor
   pazar = null,
   onBuild, onUpgrade, onDemolish, onAssignWorkers, onCancelBuild,
@@ -1463,6 +1507,28 @@ export default function MapView({
     }
     return s2;
   }, [villages, wq, wr]);
+
+  /**
+   * BİRLİĞİMİN BÜTÜN HEX'LERİ — dünya anahtarı olarak.
+   *
+   * İç sınırı bulmak için lazım: bir kenarın karşısındaki hex birlikten
+   * biriyse o kenar koyu yeşil oluyor. Kendi köylerim de kümede —
+   * kendi köyümle birlik arkadaşımın arasındaki sınır da iç sınır.
+   */
+  const birlikHexleri = useMemo(() => {
+    const s = new Set();
+    if (!birlikId) return s;
+    for (const v of villages) {
+      const uyeMi = v.kind === 'self' || v.birlikId === birlikId;
+      if (!uyeMi) continue;
+      s.add(kk(v.q, v.r));
+      for (const lk of Object.keys(v.tiles || {})) {
+        const [lq, lr] = lk.split(',').map(Number);
+        s.add(kk(v.q + lq, v.r + lr));
+      }
+    }
+    return s;
+  }, [villages, birlikId]);
 
   const tileOwners = useMemo(() => {
     const m = new Map();
@@ -1972,6 +2038,27 @@ export default function MapView({
               {/* Çerçeve yalnızca ALINMIŞ hex'lerin çevresi — claim halkası değil.
                   Tarla verisi gelmeyen uzak köyler için sadece merkez hex'i sarar. */}
               {visibleForeign.map(v => {
+                /*
+                  BİRLİK ARKADAŞININ ÇERÇEVESİ YEŞİL (İlkan'ın isteği).
+                  Kenarlar ikiye ayrılıyor: dışarıya bakan parlak yeşil,
+                  birlikten birine bakan KOYU yeşil. İçi kendi tonunda
+                  kalıyor — "bu kim" ile "bu benim tarafımda mı" ayrı
+                  iki soru.
+                */
+                const birlikte = !!birlikId && v.birlikId === birlikId;
+                if (birlikte) {
+                  const { dis, ic } = birlikSinirPath(ownedOf(v), v.q, v.r, birlikHexleri);
+                  return (
+                    <g key={`o${v.key}`}>
+                      <path d={dis} fill="none" stroke="rgba(6,10,14,0.6)"
+                        strokeWidth={6 / scale} strokeLinejoin="round" />
+                      <path d={dis} fill="none" stroke={BIRLIK_YESIL}
+                        strokeWidth={2.6 / scale} strokeLinejoin="round" opacity={0.95} />
+                      <path d={ic} fill="none" stroke={BIRLIK_YESIL_KOYU}
+                        strokeWidth={2.2 / scale} strokeLinejoin="round" opacity={0.9} />
+                    </g>
+                  );
+                }
                 const d = outlinePath(ownedOf(v), v.q, v.r);
                 const c = colorOf(v);
                 return (

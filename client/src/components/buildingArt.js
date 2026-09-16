@@ -44,6 +44,7 @@ import sarayImg from '../assets/buildings/saray.jpg';
 import tavernaImg from '../assets/buildings/taverna.jpg';
 import runSalonuImg from '../assets/buildings/runSalonu.jpg';
 import kahramanKonagiImg from '../assets/buildings/kahramanKonagi.jpg';
+import elcilikImg from '../assets/buildings/elcilik.jpg';
 
 import anaBinaVideo from '../assets/buildings/videos/anaBina.mp4';
 import loncaDemirVideo from '../assets/buildings/videos/loncaDemir.mp4';
@@ -78,6 +79,7 @@ import sarayVideo from '../assets/buildings/videos/saray.mp4';
 import tavernaVideo from '../assets/buildings/videos/taverna.mp4';
 import runSalonuVideo from '../assets/buildings/videos/runSalonu.mp4';
 import kahramanKonagiVideo from '../assets/buildings/videos/kahramanKonagi.mp4';
+import elcilikVideo from '../assets/buildings/videos/elcilik.mp4';
 
 // Panel arka planinda oynayan bina videolari (varsa jpg yerine bu kullanilir)
 export const BUILDING_VIDEO = {
@@ -114,6 +116,7 @@ export const BUILDING_VIDEO = {
   taverna: tavernaVideo,
   runSalonu: runSalonuVideo,
   kahramanKonagi: kahramanKonagiVideo,
+  elcilik: elcilikVideo,
 };
 
 export const EMBLEM_DY = 26;
@@ -162,6 +165,7 @@ export const TEXTURE_EMBLEM = {
     yalniz en buyuk 12'si korundu (tam detay gri lekeye donuyordu).
   */
   kahramanKonagi: { icon: 'kahramanAmblem', rot: 0, size: 18 },
+  elcilik: { icon: 'kuzgun', rot: 0, size: 18 },
 };
 
 export const BUILDING_TEXTURE = {
@@ -198,6 +202,7 @@ export const BUILDING_TEXTURE = {
   taverna: tavernaImg,
   runSalonu: runSalonuImg,
   kahramanKonagi: kahramanKonagiImg,
+  elcilik: elcilikImg,
 };
 
 // Merkez hex'i (0,0) icin gorsel - eski merkez2.png yerine

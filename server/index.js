@@ -24,6 +24,8 @@ const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVi
         findUserById, findUserByDisplayName,
         mesajYaz, mesajKutusu, mesajOkunmamisSayisi, mesajOkundu, mesajSil,
         engelEkle, engelKaldir, engelListesi, engelliMi } = require('./db');
+const BIRLIK = require('./game/birlik');
+const BIRLIKS = require('./game/birlikServis');
 const MESAJ = require('./game/mesaj');
 const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
@@ -303,6 +305,20 @@ function digerKoyFingerprint(session) {
   return s;
 }
 
+/**
+ * BİRLİK PARMAK İZİ — değişince yayın tetiklensin.
+ *
+ * Ucuz: birlik kimliği + rütbem + üye sayısı + bekleyen davet sayısı.
+ * Üye adlarını katmak her yayında dize kurmak olurdu.
+ */
+function birlikFingerprint(userId) {
+  const ben = BIRLIKS.birligim(userId);
+  const davet = (WORLD.davetByUser.get(Number(userId)) || []).length;
+  if (!ben) return `B-:${davet}`;
+  const b = BIRLIKS.birlik(ben.id);
+  return `B${ben.id}:${ben.rutbe}:${b ? b.uyeler.size : 0}:${b?.ad || ''}:${davet}`;
+}
+
 function structFingerprint(v) {
   const q = v.unitQueues || {}, eq = v.equipmentQueues || {};
   const up = v.upgradeQueues || {};
@@ -388,6 +404,55 @@ function kahramanFingerprint(session) {
     + `:${k.usSlot || '-'}`;
 }
 
+/**
+ * Oyuncunun birlik paketi — özet + yetkileri + tavan.
+ *
+ * YETKİLER SUNUCUDAN GİDİYOR, istemci kendi hesaplamıyor: kural iki
+ * yerde yaşarsa ayrışır (asker yemi muhasebesi tam olarak öyle
+ * ayrışmıştı). Arayüz düğmeyi buna bakarak açıp kapatıyor, sunucu da
+ * aynı kaynağı kullanarak reddediyor.
+ */
+function birlikPaketi(userId) {
+  const ben = BIRLIKS.birligim(userId);
+  if (!ben) return null;
+  const adOku = (uid) => WORLD.ownerByUser.get(Number(uid)) || null;
+  const oz = BIRLIKS.ozet(ben.id, adOku);
+  if (!oz) return null;
+  const elcilikSeviyesi = (uid) => {
+    const s = userSessions.get(Number(uid));
+    if (!s) return 0;
+    let en = 0;
+    for (const v of s.villages.values()) {
+      for (const b of Object.values(v.villageBuildings || {})) {
+        if (b?.type === BIRLIK.ELCILIK_TIPI && b.level > en) en = b.level;
+      }
+    }
+    return en;
+  };
+  return {
+    ...oz,
+    /*
+      PANEL "SEN" İŞARETİNİ BUNA BAKARAK KOYUYOR. İstemci kendi
+      userId'sini başka hiçbir yerden bilmiyor (oturum jetonu okunmuyor),
+      üye listesinde hangi satırın kendisi olduğunu ancak böyle görüyor.
+    */
+    benimUserId: Number(userId),
+    rutbem: ben.rutbe,
+    rutbemAd: BIRLIK.RUTBELER[ben.rutbe]?.ad || ben.rutbe,
+    yetkilerim: BIRLIK.yetkiler(ben.rutbe),
+    tavan: BIRLIKS.tavan(ben.id, elcilikSeviyesi),
+    /*
+      BEKLEYEN DAVETLER — yalnız davet gönderebilenler görüyor. Karl'a
+      göstermek birliğin kimi çağırdığını herkese açmak olurdu.
+    */
+    bekleyenDavetler: BIRLIK.yetkiler(ben.rutbe).davetEder
+      ? [...WORLD.davetByUser.entries()]
+        .filter(([, liste]) => liste.some(d => d.birlikId === ben.id))
+        .map(([uid]) => ({ userId: Number(uid), ad: adOku(uid) || `oyuncu#${uid}` }))
+      : [],
+  };
+}
+
 function emitVillage(session, { force = false, statics = false } = {}) {
   /**
    * Yayın KULLANICI ODASINA yapılır, tek bir socketId'ye değil.
@@ -411,7 +476,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
   */
   const fp = structFingerprint(v) + '#' + questFingerprint(session)
     + '#' + digerKoyFingerprint(session)
-    + '#' + kahramanFingerprint(session);
+    + '#' + kahramanFingerprint(session)
+    + '#' + birlikFingerprint(session.userId);
   const nowReal = Date.now();
   const beat = nowReal - (session.lastEmitAt || 0) >= FULL_SYNC_MS;
   if (!force && !beat && fp === session.fp) return;
@@ -455,6 +521,21 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     activeSlot: session.activeSlot,
     capitalSlot: session.capitalSlot,
     uniqueOwners: uniqueOwnersOf(session),
+    /*
+      BİRLİK — elçilik ekranı ve haritanın yeşil çerçevesi bunu kullanıyor.
+      `birlik` null ise oyuncu birlikte değil; `birlikDavetlerim` her
+      hâlükârda geliyor (birlikte olmayan oyuncu davet alabilir).
+    */
+    birlik: birlikPaketi(session.userId),
+    birlikDavetlerim: BIRLIKS.davetlerim(session.userId,
+      (uid) => WORLD.ownerByUser.get(Number(uid)) || null),
+    birlikTanim: statics ? {
+      rutbeler: BIRLIK.RUTBELER,
+      amblemler: BIRLIK.AMBLEMLER,
+      jarlTavani: BIRLIK.JARL_TAVANI,
+      uyePerSeviye: BIRLIK.UYE_PER_ELCILIK_SEVIYESI,
+      adEnAz: BIRLIK.AD_EN_AZ, adEnCok: BIRLIK.AD_EN_COK,
+    } : null,
     quests: questPayload(session),
     /*
       OYUNCU ADI. `adVerilmedi` true ise istemci açılışta tek soruluk
@@ -679,6 +760,15 @@ async function bootWorld() {
     WORLD.ownerByUser = await loadDisplayNames();
     console.log(`[WORLD] ${WORLD.ownerByUser.size} oyuncu adı yüklendi`);
   } catch (err) { console.error('[WORLD] oyuncu adları:', err.message); }
+
+  /*
+    BİRLİKLER BELLEĞE. Haritanın rengi her anlık görüntüde buradan
+    okunuyor; veritabanına gitmek 217 köy için 217 sorgu olurdu.
+  */
+  try {
+    BIRLIKS.baglaDB(require('./db'));
+    await BIRLIKS.yukle();
+  } catch (err) { console.error('[BİRLİK] yükleme:', err.message); }
 
   // Oyuncu konumları
   try {
@@ -2112,6 +2202,12 @@ function migrateTilesIntoClaim(village, who = '') {
   return true;
 }
 
+/** Bir oyuncunun birlik adı — harita kartında gösteriliyor */
+function birlikAdiOf(userId) {
+  const b = BIRLIKS.birligim(userId);
+  return b ? (BIRLIKS.birlik(b.id)?.ad || null) : null;
+}
+
 /** Harita anlık görüntüsü — sekme açıldığında istenir, her tick gönderilmez */
 function worldSnapshot(forUserId, activeSlot = null) {
   // ÇOKLU KÖY: harita AKTİF köyün çevresine odaklanır
@@ -2180,6 +2276,14 @@ function worldSnapshot(forUserId, activeSlot = null) {
       distance: me ? W.distanceBetween(me, slot) : null,
       tiles: v && me && W.distanceBetween(me, slot) <= TILE_RADIUS
         ? tileMap(v, p.userId === forUserId) : null,
+      /*
+        BİRLİK KİMLİĞİ HERKESE AÇIK. Ordu ve sur keşifle öğreniliyor
+        ama birlik bir BAYRAK: kimin kiminle olduğunu görmek birlik
+        siyasetinin tamamı. Çerçeveyi ve komşu sınır çizgisini istemci
+        çiziyor, sunucu yalnız kimliği veriyor.
+      */
+      birlikId: BIRLIKS.birlikIdOf(p.userId),
+      birlikAd: birlikAdiOf(p.userId),
     });
   }
 
@@ -2532,6 +2636,145 @@ io.on('connection', async socket => {
     if (kaldir) await engelKaldir(userId, hedef.id);
     else await engelEkle(userId, hedef.id);
     socket.emit('mesaj_engel_listesi', { liste: await engelListesi(userId) });
+  });
+
+
+  /* ══ BİRLİK ═══════════════════════════════════════════════════════
+     Sekiz olay, hepsi aynı kalıpta: servis çağrılıyor, hata varsa
+     `birlik_error` dönüyor, başarıda ETKİLENEN HERKESE yeni durum
+     yayınlanıyor — yalnız işlemi yapana değil. Davet gönderince
+     hedefin ekranında davet belirmeli, üye atılınca atılanın
+     ekranından birlik kalkmalı. */
+
+  const birlikHata = (reason) => socket.emit('birlik_error', { reason });
+
+  /**
+   * ELÇİLİK SEVİYESİ — oyuncunun EN YÜKSEK elçiliği.
+   *
+   * Çoklu köyde hangi köyün elçiliği sayılacak sorusu var; en
+   * yükseğini almak oyuncuyu "birliği hangi köyden yönetiyorum"
+   * muhasebesinden kurtarıyor. Üye tavanı da buradan çıkıyor.
+   */
+  const elcilikSeviyesi = (uid) => {
+    const s = userSessions.get(Number(uid));
+    if (!s) return 0;
+    let en = 0;
+    for (const v of s.villages.values()) {
+      for (const b of Object.values(v.villageBuildings || {})) {
+        if (b?.type === BIRLIK.ELCILIK_TIPI && b.level > en) en = b.level;
+      }
+    }
+    return en;
+  };
+
+
+  /** Etkilenen oyunculara birlik durumunu yeniden yolla */
+  const birlikYayinla = (uidler) => {
+    for (const uid of new Set(uidler.map(Number))) {
+      const s = userSessions.get(uid);
+      if (s) emitVillage(s, { force: true });
+    }
+  };
+
+  socket.on('birlik_kur', async ({ ad, amblem } = {}) => {
+    try {
+      const r = await BIRLIKS.kur({
+        userId, ad, amblem, elcilikSeviyesi: elcilikSeviyesi(userId),
+      });
+      if (r.hata) return birlikHata(r.hata);
+      console.log(`[BİRLİK] ${userEmail} kurdu: ${ad}`);
+      birlikYayinla([userId]);
+    } catch (err) { console.error('[BİRLİK] kur:', err.message); birlikHata('sunucu'); }
+  });
+
+  /**
+   * DAVET — oyuncu ADI ile. İlkan: *"elçilikten davetler kısmına girip
+   * oyuncu adı aratıp daveti yollar."* Ad çözümü mesaj sisteminin
+   * kullandığı yolun aynısı (findUserByDisplayName), yani oyuncu iki
+   * ekranda aynı adı yazıyor.
+   */
+  socket.on('birlik_davet', async ({ ad } = {}) => {
+    try {
+      const hedef = await findUserByDisplayName(ad);
+      if (!hedef) return birlikHata('oyuncu_yok');
+      const r = await BIRLIKS.davetEt({ userId, hedefUserId: hedef.id });
+      if (r.hata) return birlikHata(r.hata);
+      birlikYayinla([userId, hedef.id]);
+    } catch (err) { console.error('[BİRLİK] davet:', err.message); birlikHata('sunucu'); }
+  });
+
+  socket.on('birlik_davet_geri_al', async ({ hedefUserId } = {}) => {
+    try {
+      const r = await BIRLIKS.davetGeriAl({ userId, hedefUserId });
+      if (r.hata) return birlikHata(r.hata);
+      birlikYayinla([userId, hedefUserId]);
+    } catch (err) { console.error('[BİRLİK] davet iptal:', err.message); birlikHata('sunucu'); }
+  });
+
+  socket.on('birlik_davet_cevap', async ({ birlikId, kabul = true } = {}) => {
+    try {
+      const r = await BIRLIKS.daveteCevap({
+        userId, birlikId, kabul, elcilikSeviyesiOku: elcilikSeviyesi,
+      });
+      if (r.hata) return birlikHata(r.hata);
+      /*
+        KABUL EDİLİNCE BÜTÜN BİRLİĞE yayın: üye listesi herkesin
+        ekranında duruyor, yalnız katılan kişiye yollamak diğerlerinde
+        eski listeyi bırakırdı.
+      */
+      const b = r.katildi ? BIRLIKS.birlik(r.birlikId) : null;
+      birlikYayinla([userId, ...(b ? b.uyeler.keys() : [])]);
+    } catch (err) { console.error('[BİRLİK] cevap:', err.message); birlikHata('sunucu'); }
+  });
+
+  socket.on('birlik_ayril', async () => {
+    try {
+      const once = BIRLIKS.birligim(userId);
+      const b = once ? BIRLIKS.birlik(once.id) : null;
+      const uyeler = b ? [...b.uyeler.keys()] : [];
+      const r = await BIRLIKS.ayril({ userId });
+      if (r.hata) return birlikHata(r.hata);
+      birlikYayinla([userId, ...uyeler]);
+    } catch (err) { console.error('[BİRLİK] ayril:', err.message); birlikHata('sunucu'); }
+  });
+
+  socket.on('birlik_uye_at', async ({ hedefUserId } = {}) => {
+    try {
+      const ben = BIRLIKS.birligim(userId);
+      const b = ben ? BIRLIKS.birlik(ben.id) : null;
+      const uyeler = b ? [...b.uyeler.keys()] : [];
+      const r = await BIRLIKS.uyeAt({ userId, hedefUserId });
+      if (r.hata) return birlikHata(r.hata);
+      birlikYayinla([...uyeler, r.atilan]);
+    } catch (err) { console.error('[BİRLİK] at:', err.message); birlikHata('sunucu'); }
+  });
+
+  socket.on('birlik_jarl', async ({ hedefUserId, jarl = true } = {}) => {
+    try {
+      const r = await BIRLIKS.jarlAyarla({ userId, hedefUserId, jarl });
+      if (r.hata) return birlikHata(r.hata);
+      const ben = BIRLIKS.birligim(userId);
+      const b = ben ? BIRLIKS.birlik(ben.id) : null;
+      birlikYayinla(b ? [...b.uyeler.keys()] : [userId]);
+    } catch (err) { console.error('[BİRLİK] jarl:', err.message); birlikHata('sunucu'); }
+  });
+
+  socket.on('birlik_dagit', async () => {
+    try {
+      const r = await BIRLIKS.dagit({ userId });
+      if (r.hata) return birlikHata(r.hata);
+      birlikYayinla(r.uyeIdler);
+    } catch (err) { console.error('[BİRLİK] dagit:', err.message); birlikHata('sunucu'); }
+  });
+
+  socket.on('birlik_duzenle', async ({ ad, amblem } = {}) => {
+    try {
+      const r = await BIRLIKS.duzenle({ userId, ad, amblem });
+      if (r.hata) return birlikHata(r.hata);
+      const ben = BIRLIKS.birligim(userId);
+      const b = ben ? BIRLIKS.birlik(ben.id) : null;
+      birlikYayinla(b ? [...b.uyeler.keys()] : [userId]);
+    } catch (err) { console.error('[BİRLİK] duzenle:', err.message); birlikHata('sunucu'); }
   });
 
   /**

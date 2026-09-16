@@ -35,6 +35,15 @@ const WORLD = {
    * artık slotun kendi Nordic adı, oyuncu adı da burada.
    */
   ownerByUser: new Map(),
+  /**
+   * BİRLİKLER — açılışta veritabanından yüklenir, değişince güncellenir.
+   *
+   * Haritanın rengi her anlık görüntüde buradan okunuyor; veritabanına
+   * gitmek 217 köy için 217 sorgu demek olurdu.
+   */
+  birlikler: new Map(),      // birlikId -> { id, ad, amblem, kurucuId, uyeler:Map<userId,rutbe> }
+  birlikByUser: new Map(),   // userId   -> { id, rutbe }
+  davetByUser: new Map(),    // userId   -> [ { birlikId, davetEden } ]
   npcTick: 0,
   /**
    * KİRLİ NPC'LER — yalnız bunlar diske yazılır.

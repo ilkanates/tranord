@@ -36,6 +36,11 @@ function load() {
       db.messages ||= [];
       db.nextMessageId ||= (db.messages.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
       db.blocks ||= [];
+      db.alliances ||= [];
+      db.allianceMembers ||= [];
+      db.allianceInvites ||= [];
+      db.nextAllianceId ||= (db.alliances.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
+      db.nextInviteId ||= (db.allianceInvites.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
       migrateToMultiVillage();
     }
   } catch (err) {
@@ -424,7 +429,100 @@ async function engelliMi(userId, otherId) {
     x => x.user_id === Number(userId) && x.blocked_id === Number(otherId));
 }
 
+// ── Birlik ─────────────────────────────────────────────────────────
+
+const kucuk = (x) => String(x || '').trim().toLocaleLowerCase('tr');
+
+async function loadAlliances() {
+  return {
+    birlikler: db.alliances.map(a => ({
+      id: a.id, ad: a.ad, amblem: a.amblem, kurucu_id: a.kurucu_id,
+    })),
+    uyeler: db.allianceMembers.map(m => ({
+      alliance_id: m.alliance_id, user_id: m.user_id, rutbe: m.rutbe,
+    })),
+    davetler: db.allianceInvites.map(i => ({
+      id: i.id, alliance_id: i.alliance_id, user_id: i.user_id,
+      davet_eden: i.davet_eden,
+    })),
+  };
+}
+
+async function birlikKur({ ad, amblem, kurucuId }) {
+  if (db.alliances.some(a => kucuk(a.ad) === kucuk(ad))) return { hata: 'ad_alinmis' };
+  const id = db.nextAllianceId++;
+  db.alliances.push({ id, ad, amblem, kurucu_id: Number(kurucuId) });
+  db.allianceMembers.push({ alliance_id: id, user_id: Number(kurucuId), rutbe: 'konung' });
+  persist();
+  return { id };
+}
+
+async function birlikSil(allianceId) {
+  const id = Number(allianceId);
+  db.alliances = db.alliances.filter(a => a.id !== id);
+  db.allianceMembers = db.allianceMembers.filter(m => m.alliance_id !== id);
+  db.allianceInvites = db.allianceInvites.filter(i => i.alliance_id !== id);
+  persist();
+}
+
+async function birlikAdDegistir(allianceId, ad, amblem) {
+  const id = Number(allianceId);
+  if (db.alliances.some(a => a.id !== id && kucuk(a.ad) === kucuk(ad))) {
+    return { hata: 'ad_alinmis' };
+  }
+  const a = db.alliances.find(x => x.id === id);
+  if (a) { a.ad = ad; a.amblem = amblem; persist(); }
+  return {};
+}
+
+async function uyeEkle(allianceId, userId, rutbe = 'karl') {
+  const uid = Number(userId);
+  if (db.allianceMembers.some(m => m.user_id === uid)) return { hata: 'zaten_birlikte' };
+  db.allianceMembers.push({ alliance_id: Number(allianceId), user_id: uid, rutbe });
+  persist();
+  return {};
+}
+
+async function uyeCikar(userId) {
+  const uid = Number(userId);
+  db.allianceMembers = db.allianceMembers.filter(m => m.user_id !== uid);
+  persist();
+}
+
+async function uyeRutbe(userId, rutbe) {
+  const m = db.allianceMembers.find(x => x.user_id === Number(userId));
+  if (m) { m.rutbe = rutbe; persist(); }
+}
+
+async function davetYaz(allianceId, userId, davetEden) {
+  const aid = Number(allianceId), uid = Number(userId);
+  if (db.allianceInvites.some(i => i.alliance_id === aid && i.user_id === uid)) {
+    return { hata: 'zaten_davetli' };
+  }
+  db.allianceInvites.push({
+    id: db.nextInviteId++, alliance_id: aid, user_id: uid,
+    davet_eden: Number(davetEden) || null,
+  });
+  persist();
+  return {};
+}
+
+async function davetSil(allianceId, userId) {
+  const aid = Number(allianceId), uid = Number(userId);
+  db.allianceInvites = db.allianceInvites.filter(
+    i => !(i.alliance_id === aid && i.user_id === uid));
+  persist();
+}
+
+async function davetleriTemizle(userId) {
+  const uid = Number(userId);
+  db.allianceInvites = db.allianceInvites.filter(i => i.user_id !== uid);
+  persist();
+}
+
 module.exports = {
+  loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
+  uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,
   pool, initDB, createUser, findUserByEmail, findUserById,
   findUserByDisplayName, mesajYaz, mesajKutusu, mesajOkunmamisSayisi,
   mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,

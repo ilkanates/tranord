@@ -196,6 +196,13 @@ const VILLAGE_DEFS = {
   // İKİZ TANIM: sunucudaki villageDefs.js ile birlikte değişir.
   kahramanKonagi: { requires:[{ tip:"anaBina", seviye:3 }], cpPerLevel:2, name:'Kahraman Konağı', category:'askeri', icon:'🏅', description:'Kahramanın evi: burada doğar, ölünce burada dirilir, eşyalarını burada tutar ve kahraman yalnız bu köyün savunmasına bonus verir. HER SEVİYE üç şey büyütür — iyileşme hızı (+1,5 can/sa), macera tavanı (iki seviyede bir +1, Lvl 20 de 12) ve yeni macera birikme süresi (6 sa → 2,2 sa). Konak yıkılırsa kahraman maceraya çıkamaz. Ayrıntılar Kahraman ekranında.', unique:true, maxLevel:20, workersPerLevel:1, buildBaseWork:35, buildMultiplier: 1.28, cost:{ kereste:70, yontmaTas:90, demirKulce:50 }, upgradeCostBase:{ kereste:70, yontmaTas:90, demirKulce:50 }, upgradeCostMultiplier: 1.28 },
 
+  elcilik: { requires:[{ tip:"anaBina", seviye:3 }], cpPerLevel:2,
+    name:'Elçilik', category:'askeri', icon:'🏛️',
+    description:'BİRLİK buradan kurulur ve yönetilir. Elçiliği olan oyuncu kendi birliğini kurabilir; adını ve amblemini seçer, sonra oyuncu adı aratıp davet gönderir. SEVİYE ÜYE TAVANIDIR: her seviye 3 üye, yani Lvl 1 de üç kişilik bir çete, Lvl 20 de 60 kişilik bir hanedan — tavanı birliğin KONUNG unun elçiliği belirler, üyelerinkiler toplanmaz. Birlik üyelerinin toprağı haritada yeşil çerçeveyle görünür ve komşu iki üyenin arasına koyu yeşil sınır çizilir. Birliğe katılmak saldırıya karşı koruma DEĞİLDİR: birlik arkadaşına saldırmak serbesttir.',
+    unique:true, maxLevel:20,
+    buildBaseWork:30, buildMultiplier: 1.28, cost:{ kereste:80, tugla:60, yontmaTas:80, demirKulce:40 },
+    upgradeCostBase:{ kereste:80, tugla:60, yontmaTas:80, demirKulce:40 }, upgradeCostMultiplier: 1.28 },
+
   // ── Depo ────────────────────────────────────────────────────────
   hammaddeDepo: { requires:[{ tip:"anaBina", seviye:1 }], cpPerLevel:1,
     name:'Hammadde Deposu', category:'depo', icon:'📦',

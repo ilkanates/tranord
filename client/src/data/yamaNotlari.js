@@ -26,6 +26,71 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16k',
+    tarih: '16 Eylül 2026',
+    baslik: 'ELÇİLİK VE BİRLİK',
+    notlar: [
+      {
+        id: '20260916-birlik-geldi',
+        tur: 'yenilik',
+        metin: 'BİRLİKLER GELDİ. Yeni bina ELÇİLİK (Ana Bina Lvl 3 ister): '
+          + 'karlı bir uzun ev, cephesinde klan sancakları, çatısında '
+          + 'kuzgun. Elçiliği olan oyuncu kendi birliğini kurar — adını '
+          + 've amblemini seçer, sonra oyuncu adı aratıp davet gönderir. '
+          + 'Karşı taraf kabul ederse birliğe katılır. SEVİYE ÜYE '
+          + 'TAVANIDIR: her seviye 3 üye, yani Lvl 1 de üç kişilik bir '
+          + 'çete, Lvl 20 de 60 kişilik bir hanedan. Tavanı birliğin '
+          + 'kurucusunun elçiliği belirler; üyelerin elçilikleri '
+          + 'toplanmaz, yoksa her yeni üye tavanı da açar ve tavan diye '
+          + 'bir şey kalmazdı.',
+      },
+      {
+        id: '20260916-birlik-rutbeler',
+        tur: 'yenilik',
+        metin: 'RÜTBELER İSKANDİNAV TOPLUM DÜZENİNDEN: KONUNG, JARL, '
+          + 'KARL. Rígsþula da üç sınıf geçer — Jarl (soylu), Karl (hür '
+          + 'adam), Þræll (köle); üstlerinde de Konungr (kral) durur. '
+          + 'Þræll i almadık, oyuncu köle değil. Konung birliğin '
+          + 'kurucusu: üye alır, atar, Jarl seçer, birliği dağıtır, adını '
+          + 'değiştirir. JARL en fazla İKİ kişi olur; davet gönderebilir '
+          + 've Karl atabilir ama Jarl atayamaz, birliği dağıtamaz. KARL '
+          + 'birliğin hür adamı. Konung birlikten AYRILAMAZ — önce '
+          + 'dağıtması gerekir, yoksa birlik kralsız kalır ve kimse '
+          + 'davet gönderemez, kimse atamaz.',
+      },
+      {
+        id: '20260916-birlik-harita',
+        tur: 'yenilik',
+        metin: 'HARİTADA BİRLİK GÖRÜNÜYOR. Birlik arkadaşlarının toprağı '
+          + 'PARLAK YEŞİL çerçeveyle çizilir; iki birlik üyesinin alanı '
+          + 'yan yana geldiğinde aralarındaki sınır KOYU YEŞİL olur, '
+          + 'yani birliğin nerede bittiği ve içeride kimin nerede '
+          + 'olduğu tek bakışta okunur. Kendi toprağın, NPC gri ve rakip '
+          + 'oyuncu renkleri değişmedi — birlik yeşili yalnız çerçeveye '
+          + 'biner, köyün kendi rengi yerinde kalır.',
+      },
+      {
+        id: '20260916-birlik-saldiri-serbest',
+        tur: 'yenilik',
+        metin: 'BİRLİK SALDIRIYA KARŞI KORUMA DEĞİL. Birlik arkadaşına '
+          + 'saldırmak SERBESTTİR ve bu bilinçli bir karar: birlik bir '
+          + 'askerî anlaşma değil, bir kimlik ve iletişim çatısı. '
+          + 'Saldırıyı yasaklasaydık birlik aynı zamanda bir '
+          + 'saldırmazlık paktına dönüşür ve oyuncular birliği yalnız o '
+          + 'yüzden kurardı. Elçilik ekranında da yazıyor ki kimse '
+          + 'korunduğunu sanıp savunmasını ihmal etmesin.',
+      },
+      {
+        id: '20260916-insa-isci-tavani',
+        tur: 'duzeltme',
+        metin: 'YENİ BİNAYA ÇOK İŞÇİ VERİNCE SEBEP YAZIYOR. Yeni bir '
+          + 'binaya en fazla 2 inşaat işçisi verilebiliyor ama fazlasını '
+          + 'isteyince ekran sadece "İnşa edilemedi." diyordu, sebebini '
+          + 'söylemiyordu. Artık kaç işçi verilebileceğini yazıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16j',
     tarih: '16 Eylül 2026',
     baslik: 'Moral kalktı · göçmenler dönüyor · ekipman süreleri uzadı',
