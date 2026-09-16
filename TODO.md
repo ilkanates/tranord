@@ -222,6 +222,23 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Arayüz ölçeği DOM ölçümünü bozuyordu + Esc ile kapatma + çark simgesi (16 Eylül 2026)
+- İlkan: *"ayarlar menüsündeki işareti tam çark yap, güneş gibi duruyor. bir de yazıları büyütme tuşu basınca açılan bina resimlerini de büyütüyor, resim ekrana sığmıyor ve tuşlara basılmıyor. bu büyüt tuşu yazıları ve gerekiyorsa yazıların içinde olduğu kutucukları büyütmeli."* + *"menülerden x yerine esc ile çıkabilmeliyiz"*.
+
+**KÖK SEBEP — `getBoundingClientRect` zoom ile çarpılıyor.**
+- **ÖLÇÜLDÜ** (830×942 pencere, `--tn-olcek: 2`): `getBoundingClientRect()` → **830 × 982** (gerçek piksel), `offsetWidth/offsetHeight` → **415 × 491** (zoom uzayı). CSS e yazdığımız her uzunluk zoom uzayında.
+- Kod pencereyi rect ile ölçüp sonucu doğrudan CSS yüksekliği olarak yazıyordu: %200 de panel 982 zoom-px = **1964 gerçek px** boyunda kuruluyor, yani ekranın tam iki katı. Poster `flex: 1` olduğu için taşan yeri o yutuyor ve düğmeler ekranın dışında kalıyordu.
+- Yani sorun **resmin kendisi değildi**, panelin ölçüsü yanlış hesaplanıyordu. Panel doğru boyda kurulunca poster kalan yeri alıyor ve yazı büyüdükçe kendiliğinden küçülüyor — İlkanın istediği davranış.
+- **DOĞRULANDI**: bina görseli %100 de 732 px, %200 de **549 px**. Panel %200 de 1368×500, ekran 1440×900 → sığıyor.
+- Yeni ortak yardımcı `client/src/olcum.js`: `kutuOlcusu` (offset*, zaten doğru uzayda) ve `fareKonumu` (gerçek pikseli ölçeğe böler). Üç yerde kullanıldı.
+- **İKİNCİ HATA AYNI KÖKTEN**: harita fare→hex çevriminde `clientX - rect.left` (gerçek px) ile `size`/`layerOff` (zoom uzayı) karıştırılıyordu, yani ölçek 2 de harita tıklamaları iki kat sapıyordu. İlkan bunu bildirmemişti ama aynı düzeltmeyle kapandı.
+
+**ESC İLE KAPATMA.** Ayarlar, sefer gönderme, birim kartı ve harita pencereleri zaten Esc dinliyordu; en çok açılan ikisi dinlemiyordu: **bina paneli** ve **yama notları**. Ortak kanca `client/src/useEsc.js` yazıldı (kapalıyken dinleyici kurmuyor) ve ikisine bağlandı. Tarayıcıda doğrulandı: panel açıkken Esc → panel kapandı.
+- Not: `YamaNotlari` erken dönüşlü (`acik` değilse null), o yüzden kanca dönüşten ÖNCE çağrılıyor — koşullu kanca React kural ihlali olurdu.
+
+**ÇARK SİMGESİ.** Eski çizim çember + sekiz DÜZ IŞIN idi, yani tam bir güneş. Yeni yol koddan üretildi (8 diş, uç yarıçapı 10,3 · dip 7,6; diş ucu ±11° · dip ±20°) — elle koordinat yazmak yerine hesaplandı ki dişler eşit aralıklı olsun. Tarayıcıda 120 px e büyütülüp bakıldı: dişler gövdeye bitişik, ortası delik.
+
+
 ### Savunan izci keşifte ölmüyor (16 Eylül 2026)
 - İlkan: *"defansta iken casus ölmemeli"*.
 - Keşif bir **casus düellosu**, savaş değil: riski alan taraf casusunu GÖNDEREN. Nöbetçinin kendi evinde ölmesi için bir sebep yok. Kayıp hesabı yine yapılıyor (kimin kazandığını ve saldıranın kaybını o belirliyor), yalnız savunana **uygulanmıyor**.

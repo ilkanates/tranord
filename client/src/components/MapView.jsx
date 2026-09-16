@@ -11,6 +11,8 @@
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BUILDING_DEFS from '../data/buildingDefs';
+// DOM ölçümü ↔ CSS uzayı: zoom'lu arayüzde rect GERÇEK piksel verir
+import { kutuOlcusu, fareKonumu } from '../olcum';
 import tahilImg  from '../assets/tahil_tile.png';
 import ormanImg  from '../assets/orman_tile.png';
 import demirImg  from '../assets/demir_madeni.png';
@@ -1107,8 +1109,9 @@ export default function MapView({
   useEffect(() => {
     if (!ref.current) return;
     const update = () => {
-      const r = ref.current.getBoundingClientRect();
-      setSize({ w: Math.floor(r.width), h: Math.floor(r.height) });
+      // ZOOM UZAYI: rect gerçek piksel verir, SVG düzeni CSS uzayında
+      const o = kutuOlcusu(ref.current);
+      setSize({ w: Math.floor(o.w), h: Math.floor(o.h) });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -1302,9 +1305,8 @@ export default function MapView({
       const h = hexFromEvent(e);
       if (h && !koyluHexler.has(h.key) && !myClaim.has(h.key)) {
         // Pencere tıklanan yerin YANINDA açılsın: kap içi piksel konumu
-        const rc = ref.current?.getBoundingClientRect();
-        const sx = rc ? e.clientX - rc.left : 0;
-        const sy = rc ? e.clientY - rc.top : 0;
+        // Ölçek 2'de rect farkı iki kat büyük — CSS uzayına çevir
+        const { x: sx, y: sy } = fareKonumu(ref.current, e);
         setSelField(null); setSelVillage(null);
         setSelEmpty(prev => (prev?.key === h.key
           ? null
@@ -1610,8 +1612,14 @@ export default function MapView({
     // (sürükleme ortası ya da beklenmedik biçimde sonlanmış bir sürükleme) harita
     // ekranda bu kadar kaymış durumdadır.
     const ox = layerOff.current.x, oy = layerOff.current.y;
-    const wx = (e.clientX - rc.left - ox - size.w / 2) / scale - pan.x;
-    const wy = (e.clientY - rc.top - oy - size.h / 2) / scale - pan.y;
+    /*
+      FARE KONUMU CSS UZAYINDA: `ox/oy` ve `size` zoom uzayında,
+      `clientX - rect.left` ise GERÇEK piksel (zoom ile çarpılmış).
+      Karıştırılınca arayüz ölçeği 2 iken imleç iki kat sapıyordu.
+    */
+    const f = fareKonumu(el, e);
+    const wx = (f.x - ox - size.w / 2) / scale - pan.x;
+    const wy = (f.y - oy - size.h / 2) / scale - pan.y;
     const { q, r } = pixelToHex(wx, wy, S);
     const key = kk(q, r);
     if (dbg) {
@@ -1642,10 +1650,15 @@ export default function MapView({
   const hexFromEvent = (e) => {
     const el = ref.current;
     if (!el || !Number.isFinite(e?.clientX)) return null;
-    const rc = el.getBoundingClientRect();
+    /*
+      FARE KONUMU CSS UZAYINDA olmalı: `ox/oy` ve `size` zoom
+      uzayında, `clientX - rect.left` ise gerçek piksel. Karıştırılınca
+      ölçek 2'de tıklama iki kat sapıyordu.
+    */
+    const f = fareKonumu(el, e);
     const ox = layerOff.current.x, oy = layerOff.current.y;
-    const wx = (e.clientX - rc.left - ox - size.w / 2) / scale - pan.x;
-    const wy = (e.clientY - rc.top - oy - size.h / 2) / scale - pan.y;
+    const wx = (f.x - ox - size.w / 2) / scale - pan.x;
+    const wy = (f.y - oy - size.h / 2) / scale - pan.y;
     const { q, r } = pixelToHex(wx, wy, S);
     if (hexDistance(q, r) > (snap?.radius || 134)) return null;
     return { q, r, key: kk(q, r) };

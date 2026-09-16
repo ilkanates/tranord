@@ -57,13 +57,29 @@ export default function AyarlarMenu({ dar = false }) {
   );
 }
 
-/** Dişli — Icons.jsx'te bir ayar simgesi yok, tek kullanımlık olduğu için burada */
+/**
+ * DİŞLİ — Icons.jsx'te bir ayar simgesi yok, tek kullanımlık olduğu için burada.
+ *
+ * Eski çizim çember + sekiz DÜZ IŞIN idi ve güneşe benziyordu (İlkan
+ * bildirdi). Gerçek çark dişleri gövdeye BİTİŞİK olan kapalı bir dış hat
+ * ister; aşağıdaki yol 8 diş için hesaplanarak üretildi (uç yarıçapı
+ * 10,3 · dip 7,6; diş ucu ±11° · dip ±20°), elle koordinat yazılmadı.
+ */
+const CARK_YOLU = 'M19.14 9.40 L22.11 10.03 L22.11 13.97 L19.14 14.60'
+  + 'L18.89 15.21 L20.54 17.76 L17.76 20.54 L15.21 18.89'
+  + 'L14.60 19.14 L13.97 22.11 L10.03 22.11 L9.40 19.14'
+  + 'L8.79 18.89 L6.24 20.54 L3.46 17.76 L5.11 15.21'
+  + 'L4.86 14.60 L1.89 13.97 L1.89 10.03 L4.86 9.40'
+  + 'L5.11 8.79 L3.46 6.24 L6.24 3.46 L8.79 5.11'
+  + 'L9.40 4.86 L10.03 1.89 L13.97 1.89 L14.60 4.86'
+  + 'L15.21 5.11 L17.76 3.46 L20.54 6.24 L18.89 8.79 Z';
+
 function Disli({ size = 15, color }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
-      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 2.6v2.2M12 19.2v2.2M21.4 12h-2.2M4.8 12H2.6M18.6 5.4l-1.6 1.6M7 17l-1.6 1.6M18.6 18.6L17 17M7 7L5.4 5.4" />
+      strokeWidth="1.5" strokeLinejoin="round">
+      <path d={CARK_YOLU} />
+      <circle cx="12" cy="12" r="3.3" />
     </svg>
   );
 }

@@ -26,6 +26,43 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16c',
+    tarih: '16 Eylül 2026',
+    baslik: 'Yazı büyütme artık resmi büyütmüyor · Esc · çark simgesi',
+    notlar: [
+      {
+        id: '20260916-olcek-panel-tasmasi',
+        tur: 'duzeltme',
+        metin: 'YAZI BÜYÜTÜNCE BİNA PANELİ EKRANA SIĞMIYORDU. Yazı '
+          + 'büyüklüğünü artırınca açılan bina penceresi devasa oluyor, '
+          + 'resim ekranı taşırıyor ve alttaki düğmelere basılamıyordu. '
+          + 'Sebep resmin kendisi değildi: pencere boyu ekrandan '
+          + 'ölçülüyor ama ölçüm arayüz büyütmesiyle ÇARPILMIŞ geliyordu, '
+          + 'yani %200 de pencere ekranın tam iki katı boyunda '
+          + 'kuruluyordu. Ölçüm düzeltildi. Artık büyütme yazıları ve '
+          + 'yazıların kutucuklarını büyütüyor, bina görseli ise kalan '
+          + 'yere sığıyor — yani yazı büyüdükçe resim KÜÇÜLÜYOR (ölçüldü: '
+          + '%100 de 732 px, %200 de 549 px). Aynı hata haritada '
+          + 'tıklamaları da kaydırıyordu, o da düzeldi.',
+      },
+      {
+        id: '20260916-esc-ile-kapat',
+        tur: 'yenilik',
+        metin: 'MENÜLER ESC İLE KAPANIYOR. Bina paneli ve yama notları '
+          + 'yalnız sağ üstteki çarpıyla kapanıyordu; artık Esc yetiyor. '
+          + 'Ayarlar, sefer gönderme, birim kartı ve harita pencereleri '
+          + 'zaten Esc ile kapanıyordu.',
+      },
+      {
+        id: '20260916-cark-simgesi',
+        tur: 'duzeltme',
+        metin: 'AYARLAR SİMGESİ ARTIK GERÇEK BİR ÇARK. Eski çizim bir '
+          + 'çember ve sekiz düz ışındı — güneşe benziyordu. Yeni simge '
+          + 'dişleri gövdeye bitişik, ortası delik bir dişli.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16b',
     tarih: '16 Eylül 2026',
     baslik: 'Savunan izci artık ölmüyor',

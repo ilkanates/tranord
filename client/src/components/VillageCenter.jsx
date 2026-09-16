@@ -1,5 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import BuildMenu from './BuildMenu';
+import { useEsc } from '../useEsc';
+// DOM ölçümü ↔ CSS uzayı: zoom'lu arayüzde rect GERÇEK piksel verir
+import { kutuOlcusu } from '../olcum';
 import CapitalPanel from './CapitalPanel';
 import EquipmentPanel from './EquipmentPanel';
 import EquipmentUpgradePanel from './EquipmentUpgradePanel';
@@ -965,7 +968,8 @@ export default function VillageCenter({
       setDenetimH(Math.ceil(kayit.contentRect.height));
     });
     gozlemci.observe(el);
-    setDenetimH(Math.ceil(el.getBoundingClientRect().height));
+    // offsetHeight ZOOM UZAYINDA — rect gerçek piksel verir (bkz. olcum.js)
+    setDenetimH(Math.ceil(kutuOlcusu(el).h));
     return () => gozlemci.disconnect();
   }, [selected, showMenu]);
 
@@ -976,8 +980,14 @@ export default function VillageCenter({
   useEffect(() => {
     if (!containerRef.current) return;
     const update = () => {
-      const rect = containerRef.current.getBoundingClientRect();
-      setViewSize({ w: Math.floor(rect.width), h: Math.floor(rect.height) });
+      /*
+        ZOOM UZAYINDA ÖLÇ. `getBoundingClientRect` zoom ile çarpılmış
+        GERÇEK pikseli veriyor; bu sayı panel yüksekliği olarak CSS'e
+        yazıldığı için ölçek 2'de panel ekranın iki katı boyunda
+        kuruluyor ve düğmeler dışarıda kalıyordu (ölçüldü).
+      */
+      const o = kutuOlcusu(containerRef.current);
+      setViewSize({ w: Math.floor(o.w), h: Math.floor(o.h) });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -1079,6 +1089,12 @@ export default function VillageCenter({
     Artık ikisi de bu değeri okuyor; toplamları tanım gereği %100.
   */
   const posterMinH = darEkran ? 150 : Math.max(150, denetimH + 49);
+
+  /*
+    ESC BİNA PANELİNİ KAPATIR (İlkan'ın isteği). En çok açılıp kapanan
+    pencere bu; her seferinde sağ üstteki çarpıya gitmek gerekiyordu.
+  */
+  useEsc(showMenu || !!selected, () => { setShowMenu(false); setSelected(null); });
 
   function handleSlotClick(slotKey) {
     if (selected === slotKey) { setSelected(null); setShowMenu(false); }

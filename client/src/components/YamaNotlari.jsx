@@ -15,6 +15,7 @@
 import { gosterilecekBolumler, TUR_ETIKET } from '../data/yamaNotlari';
 import { C, FONT } from '../theme';
 import Icon from './Icons';
+import { useEsc } from '../useEsc';
 
 const TUR_RENK = {
   yenilik: C.gold,
@@ -25,6 +26,13 @@ const TUR_RENK = {
 export default function YamaNotlari({
   acik, onKapat, okunan, hepsi = false, mobile = false, railW = 186,
 }) {
+  /*
+    KANCA ERKEN DÖNÜŞTEN ÖNCE: aşağıda "acik değilse null dön" var ve
+    kancalar koşullu çağrılamaz. useEsc zaten acik false iken
+    dinleyici kurmuyor.
+  */
+  useEsc(acik, onKapat);
+
   if (!acik) return null;
   const bolumler = gosterilecekBolumler(okunan || new Set(), hepsi);
   if (!bolumler.length) return null;
