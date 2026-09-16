@@ -26,6 +26,22 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16q',
+    tarih: '16 Eylül 2026',
+    baslik: 'Eşya çerçeveleri kırpıldı',
+    notlar: [
+      {
+        id: '20260916-esya-cercevesi',
+        tur: 'duzeltme',
+        metin: 'İKİ EŞYANIN KENDİ ÇERÇEVESİ VARDI. Kuzey Rüzgarı bir '
+          + 'tablo çerçevesinin içinde, Zincir Etek açık renkli bir '
+          + 'kenarlıkla duruyordu; öteki yirmi sekiz eşyanın zemini '
+          + 'kenara kadar düz gidiyor. Çerçeveler kırpıldı, ikisi de '
+          + 'artık ötekilerle aynı görünüyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16p',
     tarih: '16 Eylül 2026',
     baslik: 'Eşya görselleri aynı yöne bakıyor',

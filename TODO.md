@@ -292,7 +292,10 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - Aynalanan hiçbir görselde yazı/rün yok (kontrol edildi); `runBileklik` rünlü ama yönsüz olduğu için listede değil.
 - **DOĞRULANDI**: çevirme sonrası kontakt sayfasında altı atın ve üç çizmenin hepsi sola bakıyor; oyunda kuşam ızgarasında yan yana duran çizme ve at aynı yöne bakıyor.
 
-**AÇIK KALAN (ayrı konu):** iki görselin kendi çerçevesi var — `kuzeyRuzgari` koyu bir tablo çerçevesi, `zincirEtek` açık renkli bir kenarlık. Ötekilerin zemini kenara kadar düz. Kırpılabilir ama bu yön değil çerçeve meselesi; İlkan'a soruldu.
+**ÇERÇEVELER DE KIRPILDI** (İlkan: *"kırp"*). İki görselin kendi kenarlığı vardı — `kuzeyRuzgari` koyu bir tablo çerçevesi, `zincirEtek` açık renkli bir kenarlık; öteki yirmi sekizin zemini kenara kadar düz gidiyor.
+- **Pay gözle değil ÖLÇÜLEREK seçildi.** Her kenardan içeri doğru satır/sütun ortalama parlaklığı tarandı: `zincirEtek`'te beyaz kenarlık 22 pikselde sahne zeminine iniyor (26 kırpıldı), `kuzeyRuzgari`'nda ahşap çerçevenin iç gölgesi 38'de net düşüyor (42 kırpıldı). Tahminle kırpmak ya çerçeveyi bırakır ya sanattan yer yerdi.
+- Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
+- **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
 
 ### Görev zincirine kahraman adımları tamamlandı (16 Eylül 2026)
 - TODO'da bekleyen madde: *"iki tanesi eklendi (konağı kur, seviye 3), macera ve eşya gelince ikisi daha eklenmeli."* İkisi de artık oyunda, adımlar eklendi.
