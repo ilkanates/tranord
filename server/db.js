@@ -203,8 +203,12 @@ async function initDB() {
       ad         TEXT NOT NULL,
       amblem     TEXT NOT NULL,
       kurucu_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      /* Birliğin tanıtım metni — sancağın altındaki yazı */
+      aciklama   TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMP DEFAULT NOW()
     );
+    /* Sonradan eklendi: sütun yoksa eski kurulumda da açılıyor */
+    ALTER TABLE alliances ADD COLUMN IF NOT EXISTS aciklama TEXT NOT NULL DEFAULT '';
     CREATE UNIQUE INDEX IF NOT EXISTS alliances_ad_idx ON alliances (lower(ad));
 
     CREATE TABLE IF NOT EXISTS alliance_members (
@@ -225,6 +229,46 @@ async function initDB() {
       UNIQUE (alliance_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS alliance_invites_u_idx ON alliance_invites (user_id);
+
+    /*
+      BİRLİK GÜNLÜĞÜ — birliğin hafızası.
+
+      Metin SUNUCUDA üretilip burada saklanıyor, istemciden gelmiyor:
+      günlüğe yazdırmak oyuncuya birliğin geçmişini yazdırmak olurdu.
+      user_id alanı olayın öznesi; hesap silinse bile satır kalsın diye
+      SET NULL.
+    */
+    CREATE TABLE IF NOT EXISTS alliance_log (
+      id          SERIAL PRIMARY KEY,
+      alliance_id INTEGER NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
+      tur         TEXT NOT NULL,
+      metin       TEXT NOT NULL,
+      user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      at          TIMESTAMP DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS alliance_log_idx ON alliance_log (alliance_id, id DESC);
+
+    /*
+      DİPLOMASİ — iki birlik arasında TEK ilişki.
+
+      Çift normalleştirilmiş: küçük kimlik her zaman a_id. Yoksa (3,7)
+      ve (7,3) iki ayrı satır olur, iki birlik aynı anda hem müttefik
+      hem düşman görünürdü.
+
+      durum: 'teklif' (cevap bekliyor) | 'kabul' (yürürlükte).
+      Savaş karşılıklı olmadığı için doğrudan 'kabul' yazılıyor.
+    */
+    CREATE TABLE IF NOT EXISTS alliance_diplomacy (
+      id             SERIAL PRIMARY KEY,
+      a_id           INTEGER NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
+      b_id           INTEGER NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
+      tur            TEXT NOT NULL,
+      durum          TEXT NOT NULL DEFAULT 'teklif',
+      teklif_eden_id INTEGER NOT NULL,
+      at             TIMESTAMP DEFAULT NOW(),
+      UNIQUE (a_id, b_id)
+    );
+    CREATE INDEX IF NOT EXISTS alliance_diplomacy_b_idx ON alliance_diplomacy (b_id);
   `);
 
   console.log('[DB] Tablolar hazır (çoklu köy şeması)');
@@ -762,7 +806,7 @@ async function engelliMi(userId, otherId) {
 /** Bütün birlikler + üyelikleri — açılışta belleğe alınır */
 async function loadAlliances() {
   const a = await pool.query(
-    'SELECT id, ad, amblem, kurucu_id FROM alliances ORDER BY id');
+    'SELECT id, ad, amblem, kurucu_id, aciklama FROM alliances ORDER BY id');
   const m = await pool.query(
     'SELECT alliance_id, user_id, rutbe FROM alliance_members');
   const inv = await pool.query(
@@ -772,6 +816,93 @@ async function loadAlliances() {
     uyeler: m.rows,
     davetler: inv.rows,
   };
+}
+
+async function birlikAciklama(allianceId, aciklama) {
+  await pool.query('UPDATE alliances SET aciklama = $2 WHERE id = $1',
+    [allianceId, aciklama]);
+  return true;
+}
+
+async function gunlukYaz({ allianceId, tur, metin, userId = null }) {
+  const { rows } = await pool.query(
+    `INSERT INTO alliance_log (alliance_id, tur, metin, user_id)
+     VALUES ($1, $2, $3, $4) RETURNING id, at`,
+    [allianceId, tur, metin, userId]);
+  return { id: rows[0].id, at: rows[0].at };
+}
+
+async function gunlukOku(allianceId, { limit = 40 } = {}) {
+  const { rows } = await pool.query(
+    `SELECT id, tur, metin, user_id, at FROM alliance_log
+     WHERE alliance_id = $1 ORDER BY id DESC LIMIT $2`,
+    [allianceId, Math.min(200, Math.max(1, limit))]);
+  return rows.map(r => ({
+    id: r.id, tur: r.tur, metin: r.metin, userId: r.user_id, at: r.at,
+  }));
+}
+
+/** Çift normalleştirme — küçük kimlik her zaman a_id */
+const ciftle = (x, y) => (Number(x) < Number(y)
+  ? { a: Number(x), b: Number(y) } : { a: Number(y), b: Number(x) });
+
+const satirDiplomasi = (r) => ({
+  id: r.id, aId: r.a_id, bId: r.b_id, tur: r.tur, durum: r.durum,
+  teklifEdenId: r.teklif_eden_id, at: r.at,
+});
+
+/**
+ * İLİŞKİYİ YAZ — varsa ÜZERİNE. Çift başına tek satır olduğu için yeni
+ * ilişki eskisinin yerine geçiyor; "hem müttefikiz hem savaştayız" gibi
+ * okunamaz bir durum oluşamıyor.
+ */
+async function diplomasiYaz({ birlikA, birlikB, tur, durum, teklifEdenId }) {
+  const { a, b } = ciftle(birlikA, birlikB);
+  const { rows } = await pool.query(
+    `INSERT INTO alliance_diplomacy (a_id, b_id, tur, durum, teklif_eden_id)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (a_id, b_id) DO UPDATE
+       SET tur = $3, durum = $4, teklif_eden_id = $5, at = NOW()
+     RETURNING id, at`,
+    [a, b, tur, durum, teklifEdenId]);
+  return { id: rows[0].id, at: rows[0].at };
+}
+
+async function diplomasiDurum(birlikA, birlikB) {
+  const { a, b } = ciftle(birlikA, birlikB);
+  const { rows } = await pool.query(
+    `SELECT id, a_id, b_id, tur, durum, teklif_eden_id, at
+     FROM alliance_diplomacy WHERE a_id = $1 AND b_id = $2`, [a, b]);
+  return rows[0] ? satirDiplomasi(rows[0]) : null;
+}
+
+/** Bir birliğin bütün ilişkileri — bekleyen teklifler dahil */
+async function diplomasiListesi(allianceId) {
+  const { rows } = await pool.query(
+    `SELECT d.id, d.a_id, d.b_id, d.tur, d.durum, d.teklif_eden_id, d.at,
+            a.ad AS a_ad, a.amblem AS a_amblem, b.ad AS b_ad, b.amblem AS b_amblem
+     FROM alliance_diplomacy d
+     JOIN alliances a ON a.id = d.a_id
+     JOIN alliances b ON b.id = d.b_id
+     WHERE d.a_id = $1 OR d.b_id = $1
+     ORDER BY d.id DESC`, [allianceId]);
+  return rows.map(r => {
+    const benA = Number(r.a_id) === Number(allianceId);
+    return {
+      ...satirDiplomasi(r),
+      /* Karşı taraf — ekranda "kiminle" yazan şey */
+      otekiId: benA ? r.b_id : r.a_id,
+      otekiAd: benA ? r.b_ad : r.a_ad,
+      otekiAmblem: benA ? r.b_amblem : r.a_amblem,
+    };
+  });
+}
+
+async function diplomasiSil(birlikA, birlikB) {
+  const { a, b } = ciftle(birlikA, birlikB);
+  const { rowCount } = await pool.query(
+    'DELETE FROM alliance_diplomacy WHERE a_id = $1 AND b_id = $2', [a, b]);
+  return rowCount > 0;
 }
 
 /** Birliği kur ve kurucusunu Konung olarak yaz — TEK İŞLEMDE */
@@ -859,6 +990,8 @@ async function davetleriTemizle(userId) {
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
+  birlikAciklama, gunlukYaz, gunlukOku,
+  diplomasiYaz, diplomasiDurum, diplomasiListesi, diplomasiSil,
   uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,
   grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
   grupOkundu, grupAyril, grupSil,

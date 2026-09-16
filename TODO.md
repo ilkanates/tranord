@@ -1,6 +1,6 @@
 # TraNord — Yapılacaklar
 
-Son güncelleme: 16 Eylül 2026
+Son güncelleme: 17 Eylül 2026
 
 Sıralama önem sırasına göre. Her madde bitince **Tamamlandı** bölümüne taşınır.
 
@@ -296,6 +296,55 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - **Pay gözle değil ÖLÇÜLEREK seçildi.** Her kenardan içeri doğru satır/sütun ortalama parlaklığı tarandı: `zincirEtek`'te beyaz kenarlık 22 pikselde sahne zeminine iniyor (26 kırpıldı), `kuzeyRuzgari`'nda ahşap çerçevenin iç gölgesi 38'de net düşüyor (42 kırpıldı). Tahminle kırpmak ya çerçeveyi bırakır ya sanattan yer yerdi.
 - Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
 - **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
+
+### Elçilik birliğin merkezi oldu — diplomasi, günlük, profil, istatistik (17 Eylül 2026)
+- İlkan: *"elçilik binasına birlik ile alakalı her şeyi ekle. travianda ne varsa bizim elçilikte de olsun. benzer oyunlara da bak."*
+
+**ÖNCE SAYIM.** Travian'ın (ve Tribal Wars'ın) ittifak ekranında olup bizde olmayanlar çıkarıldı:
+
+| Travian'da var | Bizde durum |
+|---|---|
+| Üye listesinde nüfus, köy, saldırı/savunma puanı, çevrimiçi | **eklendi** |
+| İttifak profili / tanıtım metni | **eklendi** |
+| Diplomasi (konfederasyon · saldırmazlık · savaş) | **eklendi** |
+| İttifak günlüğü | **eklendi** |
+| İttifak sıralaması ve toplam güç | **eklendi** |
+| İttifak forumu | **zaten vardı** — konulu grup mesajları (16 Eylül) |
+| Esnek yetki tablosu (pozisyon başına kutucuk) | **yapılmadı** — üç rütbe yetiyor, bkz. aşağıda |
+| İttifak bonusu (kaynak bağışıyla açılan seviyeler) | **yapılmadı** — denge kararı gerekiyor, bkz. aşağıda |
+
+**DİPLOMASİ — üçlü, Travian'la aynı.**
+- **Konfederasyon** ve **saldırmazlık** KARŞILIKLI: teklif edilir, karşı tarafın Konung'u cevaplar.
+- **Savaş TEK TARAFLI.** Onaya bağlasaydık hiç kimseye savaş ilan edilemezdi — düşman sadece "kabul etme"yi seçerdi. Savaş bir anlaşma değil, bir bildirimdir.
+- **İki birlik arasında TEK ilişki** ve benzersizlik ŞEMADA (`UNIQUE (a_id, b_id)`): "hem müttefikiz hem savaştayız" okunamaz bir durum olurdu. Yeni hamle eskisinin üzerine yazıyor; saldırmazlığı olan bir birliğe savaş ilan etmek anlaşmayı da bozuyor ve bu **iki tarafın da günlüğüne** geçiyor.
+- **Çift normalleştirilmiş**: küçük kimlik her zaman `a_id`. Yoksa (3,7) ve (7,3) iki ayrı satır olur ve iki birlik aynı anda hem müttefik hem düşman görünürdü. Yön bilgisi `teklif_eden_id`'de duruyor.
+- **Teklifi yalnız KARŞI taraf cevaplayabiliyor.** Gönderen kendi teklifini kabul edip ilişkiyi tek başına kurabilseydi karşılıklılık diye bir şey kalmazdı. Tarayıcıda denendi: `senin_teklifin` ile reddedildi ve ilişki teklif olarak kaldı.
+- **Anlaşmayı bozmak onay istemiyor**: karşı tarafın rızasına bağlasaydık kimse konfederasyondan çıkamazdı. Bozan taraf iki günlüğe birden yazılıyor — bedeli itibar.
+- **Diplomasi yalnız Konung'un.** Jarl davet eder ve üye atar ama savaş ilan edemez: savaş bütün birliği bağlayan, geri alınması pahalı bir karar; iki yetkiliye vermek birliği ikiye bölerdi. (Travian'da da ayrı bir yetki.) **Profil ise Jarl'a açık** — geri alınabilir bir metin, Konung'a kilitlemek tanıtımı tek kişinin çevrimiçi olmasına bağlardı.
+- **ANLAŞMA KALKAN DEĞİL**: saldırmazlık saldırıyı ENGELLEMİYOR, söz veriyor. Birlik içi saldırının serbest olmasıyla aynı çizgi ve ekranda sarı kutuda yazıyor — oyuncu anlaşmaya güvenip savunmasını ihmal ederse bu bizim hatamız olur.
+
+**GÜNLÜK.** `alliance_log`; metin SUNUCUDA üretiliyor (istemciye yazdırmak, oyuncuya birliğin geçmişini yazdırmak olurdu). Kayıt **işlemin içinde** yazılıyor, çağrı yerinde değil: index.js'te yazsaydık her yeni çağrı yerinde "burayı da ekle" kuralı olurdu ve er geç unutulurdu — birliğin hafızasında sessizce delik açan bir hata. Bunun için servise ad okuyucu enjekte edildi (`baglaAdOku`), veritabanının enjekte edildiği gibi. Günlük yazımı **hata yutuyor**: kayıt bir kural değil, yazılamadıysa işlem yine geçerli olmalı.
+
+**İSTATİSTİKLER SIRALAMA İLE AYNI KAYNAKTAN.** Oyuncu-köy toplayıcı tek yere çıkarıldı (`oyuncuKoyleriniTopla`); ikinci bir toplayıcı yazsaydık sıralamadaki nüfusla elçilikteki nüfus er geç ayrışırdı. **Çevrimdışı üyeler de sayılıyor** (diskteki son hâlleriyle): birliğin gücü kimin o an bağlı olduğuna göre değişmemeli.
+
+**NE PAKETTE, NE İSTEK ÜZERİNE** — ayrım bilinçli:
+- **Pakette**: birlik kimliği, üyeler, rütbeler, açıklama, **çevrimiçi bayrağı**. Çevrimiçi bilgisi oturum tablosundan geliyor, yani bedava; "kim şu an burada" da ekranın en çok bakılan bilgisi.
+- **İstek üzerine**: istatistikler, günlük, birlik listesi. Üçü de veritabanına gidiyor; her yayına koymak saniyede birkaç kez bütün köy tablosunu okumak olurdu. Delta paketinin ucuz kalması bu oyunun taşıyıcı kararlarından biri.
+- Parmak izine açıklama UZUNLUĞU ve çevrimiçi üye SAYISI eklendi (metnin kendisi değil): profil yazılınca ya da biri girip çıkınca yayın olsun ama 600 karakterlik metin her karşılaştırmada dizeye katılmasın.
+
+**DİPLOMASİ DEĞİŞTİ DÜRTMESİ.** Liste istek üzerine geldiği için hamleden sonra ekran eski kalıyordu; daha kötüsü teklifi ALAN tarafta hiçbir şey belirmiyordu, yani teklif pratikte kayboluyordu (tarayıcıda ölçüldü). Sunucu iki birliğin üyelerine tek bir "değişti" olayı yolluyor, listeyi istemci kendisi tazeliyor — listeyi itmek her alıcı için ayrı hesap demekti.
+
+**YAPILMAYANLAR ve gerekçeleri:**
+- **Esnek yetki tablosu** (Travian'da pozisyon başına kutucuk): üç rütbe (Konung · Jarl · Karl) ve sabit yetkiler şimdilik yetiyor. Kutucuklu tablo, yetkiyi iki yerde (sunucu kuralı + kayıt) tutmak demek; mevcut tek kaynak (`yetkiler()`) bozulurdu.
+- **Birlik bonusu** (kaynak bağışıyla açılan seviyeler): denge kararı gerekiyor — hangi bonus, hangi eğri, hangi maliyet. İlkan'a sorulacak; kod tarafı hazır (günlük, üyelik, veritabanı deseni yerinde).
+
+**Bulunan iki hata (ikisi de "iki sürüm ayrıştı" sınıfı, bu oturumda altıncı ve yedinci):**
+1. `loadAlliances` birlik AÇIKLAMASINI db.js'te taşıyor, db.dev.js'te düşürüyordu — profil kaydediliyor, günlüğe yazılıyor ama ekranda hiç görünmüyordu. Tarayıcıda yakalandı.
+2. Diplomasi hata kodlarının Türkçesi yoktu; oyuncu ekranda `senin_teklifin` yazısını görüyordu. Tarayıcıda yakalandı.
+- **Kilit**: `db-ikizleri.test.js` — iki veritabanı sürümünün dışa verdiği işlev kümesi birebir aynı olmalı, birlik/grup ailesi tam olmalı, dev yükleyicisi açıklamayı taşımalı ve `BOS_DB` bütün tabloları içermeli.
+
+- **Testler**: `birlik-diplomasi.test.js` 11 kilit (üçlü ilişki, karşılıklılık, yetki, kendi birliğiyle ilişki, kendi teklifini kabul, açıklama doğrulama, günlük türleri) + `db-ikizleri.test.js` 4 kilit.
+- **TARAYICIDA UÇTAN UCA DOĞRULANDI**: saldırmazlık teklif edildi → "SALDIRMAZLIK · yollandı" rozeti; kendi teklifini kabul denemesi `senin_teklifin` ile reddedildi ve ilişki değişmedi; savaş ilan edildi → bekleyen teklifin yerine geçti ve ANINDA yürürlüğe girdi; savaş bitirildi → ilişki silindi. Günlükte yedi kayıt doğru metinlerle; profil metni paragraflarıyla çizildi; sıralama "2 birlik içinde 2. sıra" yazdı; üye satırında çevrimiçi noktası ve "2 köy · 122 nüfus · 1/6" göründü.
 
 ### Görev zincirine kahraman adımları tamamlandı (16 Eylül 2026)
 - TODO'da bekleyen madde: *"iki tanesi eklendi (konağı kur, seviye 3), macera ve eşya gelince ikisi daha eklenmeli."* İkisi de artık oyunda, adımlar eklendi.

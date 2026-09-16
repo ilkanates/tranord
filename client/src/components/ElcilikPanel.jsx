@@ -18,6 +18,9 @@
  * gösterirken ambar yanlış düşüyordu.
  */
 import { useEffect, useState } from 'react';
+import BirlikDiplomasi from './BirlikDiplomasi';
+import BirlikGunluk from './BirlikGunluk';
+import BirlikProfil from './BirlikProfil';
 import { C, FONT, btn, label as lbl, num } from '../theme';
 import Icon from './Icons';
 
@@ -53,8 +56,8 @@ function AmblemSecici({ deger, onSec, amblemler }) {
   );
 }
 
-/** Tek üye satırı — rütbe, ad ve yöneticiye açık düğmeler */
-function UyeSatiri({ uye, benimId, yetkilerim, jarlDolu, onJarl, onAt }) {
+/** Tek üye satırı — rütbe, ad, ölçüler ve yöneticiye açık düğmeler */
+function UyeSatiri({ uye, benimId, yetkilerim, jarlDolu, olcu = null, onJarl, onAt }) {
   const benMi = uye.userId === benimId;
   const konung = uye.rutbe === 'konung';
   /*
@@ -73,20 +76,47 @@ function UyeSatiri({ uye, benimId, yetkilerim, jarlDolu, onJarl, onAt }) {
     }}>
       <Icon name={konung ? 'saray' : uye.rutbe === 'jarl' ? 'kalkan' : 'isci'}
         size={13} color={RUTBE_RENK[uye.rutbe] || C.textMute} />
-      <span style={{
-        fontFamily: FONT.ui, fontSize: 11,
-        color: benMi ? '#d6f5c2' : C.text, minWidth: 0,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>
-        {uye.ad}{benMi ? ' (sen)' : ''}
-      </span>
-      <span style={{
-        fontFamily: FONT.ui, fontSize: 9, letterSpacing: 0.6,
-        color: RUTBE_RENK[uye.rutbe] || C.textMute, whiteSpace: 'nowrap',
-      }}>
-        {uye.rutbeAd}
-      </span>
-      <span style={{ flex: 1 }} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/*
+            ÇEVRİMİÇİ NOKTASI — birlik ekranının en çok bakılan bilgisi
+            ("kim şu an burada"). Oturum tablosundan geldiği için
+            bedava; istatistiklerin aksine pakette taşınıyor.
+          */}
+          <span title={uye.cevrimici ? 'çevrimiçi' : 'çevrimdışı'} style={{
+            width: 6, height: 6, borderRadius: 3, flexShrink: 0,
+            background: uye.cevrimici ? '#7fe04d' : C.line,
+            boxShadow: uye.cevrimici ? '0 0 5px rgba(127,224,77,0.8)' : 'none',
+          }} />
+          <span style={{
+            fontFamily: FONT.ui, fontSize: 11,
+            color: benMi ? '#d6f5c2' : C.text, minWidth: 0,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {uye.ad}{benMi ? ' (sen)' : ''}
+          </span>
+          <span style={{
+            fontFamily: FONT.ui, fontSize: 9, letterSpacing: 0.6,
+            color: RUTBE_RENK[uye.rutbe] || C.textMute, whiteSpace: 'nowrap',
+          }}>
+            {uye.rutbeAd}
+          </span>
+        </div>
+        {/*
+          ÖLÇÜLER AYRI SATIRDA ve yalnız geldiğinde. İstatistik isteği
+          henüz dönmediyse satır ölçüsüz çiziliyor — sıfır yazmak
+          "bu üyenin hiç köyü yok" gibi okunurdu.
+        */}
+        {olcu && (
+          <div style={{
+            fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute, marginTop: 1,
+          }}>
+            {olcu.koySayisi} köy · {olcu.nufus} nüfus
+            {' · '}<span style={{ color: '#ffb8bd' }}>{olcu.saldiri}</span>
+            {'/'}<span style={{ color: '#a8dcff' }}>{olcu.savunma}</span>
+          </div>
+        )}
+      </div>
       {jarlYapilabilir && (
         <button type="button" disabled={jarlKapali}
           onClick={() => onJarl(uye.userId, uye.rutbe !== 'jarl')}
@@ -123,6 +153,28 @@ export default function ElcilikPanel({
   */
   const [oyuncular, setOyuncular] = useState([]);
   const [toplam, setToplam] = useState(0);
+  /*
+    SEKME BURADA, ADRESTE DEĞİL: panel bir binanın içinde açılıyor,
+    kapatılıp yeniden açıldığında üyelere dönmesi doğru.
+  */
+  const [sekme, setSekme] = useState('uyeler');
+  const [istatistik, setIstatistik] = useState(null);
+
+  /*
+    İSTATİSTİKLER PANEL AÇILINCA BİR KEZ. Hem üye satırlarındaki
+    ölçüler hem profil sekmesindeki toplamlar aynı istekten besleniyor
+    — iki ayrı istek, sunucuda aynı ağır hesabı iki kez yaptırırdı.
+  */
+  useEffect(() => {
+    if (!socket || !birlik) return undefined;
+    const al = (d) => setIstatistik(d || null);
+    socket.on('birlik_istatistik', al);
+    socket.emit('birlik_istatistik');
+    return () => socket.off('birlik_istatistik', al);
+  }, [socket, birlik?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const olcuById = new Map(
+    (istatistik?.uyeler || []).map(u => [Number(u.userId), u]));
 
   const yetkiliMi = !!birlik?.yetkilerim?.davetEder;
   useEffect(() => {
@@ -250,6 +302,28 @@ export default function ElcilikPanel({
         </div>
       </div>
 
+      {/* ── Sekmeler ── */}
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {[['uyeler', 'ÜYELER'], ['diplomasi', 'DİPLOMASİ'],
+          ['gunluk', 'GÜNLÜK'], ['profil', 'PROFİL']].map(([k, ad]) => (
+          <button key={k} type="button" onClick={() => setSekme(k)}
+            style={btn(sekme === k ? 'primary' : 'ghost',
+              { fontSize: 8.5, padding: '4px 11px', letterSpacing: 0.8 })}>
+            {ad}
+          </button>
+        ))}
+      </div>
+
+      {sekme === 'diplomasi' && (
+        <BirlikDiplomasi socket={socket} yetkim={!!y.diplomasi} />
+      )}
+      {sekme === 'gunluk' && <BirlikGunluk socket={socket} />}
+      {sekme === 'profil' && (
+        <BirlikProfil socket={socket} birlik={birlik} istatistik={istatistik}
+          yazabilir={!!y.profilYazar} />
+      )}
+
+      {sekme === 'uyeler' && (<>
       {/* Üye listesi */}
       <div>
         <div style={lbl({ fontSize: 8, marginBottom: 5 })}>Üyeler</div>
@@ -260,6 +334,7 @@ export default function ElcilikPanel({
           {(birlik.uyeler || []).map((u) => (
             <UyeSatiri key={u.userId} uye={u} benimId={benimId} yetkilerim={y}
               jarlDolu={jarlSayisi >= jarlTavani}
+              olcu={olcuById.get(Number(u.userId)) || null}
               onJarl={(id, jarl) => onJarl?.(id, jarl)}
               onAt={(id) => onAt?.(id)} />
           ))}
@@ -367,6 +442,8 @@ export default function ElcilikPanel({
           </div>
         </div>
       )}
+
+      </>)}
 
       {/*
         BİRLİK SALDIRIYA KARŞI KORUMA DEĞİL (İlkan'ın kararı). Bunu

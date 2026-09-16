@@ -22,6 +22,37 @@ let DB = null;
 
 function baglaDB(db) { DB = db; }
 
+/**
+ * OYUNCU ADI OKUYUCU — günlük metinleri için.
+ *
+ * Bu dosya oyuncu adlarını bilmiyor (adlar WORLD.ownerByUser'da,
+ * oturum tarafında). Her işleme parametre olarak geçirmek yerine bir
+ * kez enjekte ediliyor: böylece işlemlerin imzası değişmiyor ve
+ * günlüğe yazmak çağıranın hatırlamasına kalmıyor.
+ */
+let AD_OKU = () => null;
+
+function baglaAdOku(fn) { if (typeof fn === 'function') AD_OKU = fn; }
+
+const ad = (uid) => AD_OKU(Number(uid)) || `oyuncu#${uid}`;
+
+/**
+ * GÜNLÜĞE YAZ — hata yutuluyor.
+ *
+ * Günlük bir KAYIT, bir kural değil: yazılamadıysa işlem yine de
+ * geçerli. Fırlatmasına izin verseydik disk hatası yüzünden üye atma
+ * yarıda kalır, bellek ile disk ayrışırdı.
+ */
+async function gunluk(birlikId, tur, metin, userId = null) {
+  try {
+    if (DB?.gunlukYaz) {
+      await DB.gunlukYaz({ allianceId: Number(birlikId), tur, metin, userId });
+    }
+  } catch (err) {
+    console.error('[BİRLİK] günlük yazılamadı:', err.message);
+  }
+}
+
 // ── Açılış ─────────────────────────────────────────────────────────
 
 /**
@@ -38,7 +69,8 @@ async function yukle() {
   for (const a of birlikler) {
     WORLD.birlikler.set(a.id, {
       id: a.id, ad: a.ad, amblem: a.amblem,
-      kurucuId: a.kurucu_id, uyeler: new Map(),
+      kurucuId: a.kurucu_id, aciklama: a.aciklama || '',
+      uyeler: new Map(),
     });
   }
   for (const m of uyeler) {
@@ -103,7 +135,10 @@ function ozet(birlikId, adOku) {
     */
     .sort((x, y) => (B.RUTBELER[x.rutbe].sira - B.RUTBELER[y.rutbe].sira)
       || x.ad.localeCompare(y.ad, 'tr'));
-  return { id: b.id, ad: b.ad, amblem: b.amblem, kurucuId: b.kurucuId, uyeler };
+  return {
+    id: b.id, ad: b.ad, amblem: b.amblem, aciklama: b.aciklama || '',
+    kurucuId: b.kurucuId, uyeler,
+  };
 }
 
 /** Bir oyuncuya gelen bekleyen davetler */
@@ -137,7 +172,7 @@ async function kur({ userId, ad, amblem, elcilikSeviyesi }) {
   if (r.hata) return { hata: r.hata };
 
   WORLD.birlikler.set(r.id, {
-    id: r.id, ad: dg.ad, amblem, kurucuId: uid,
+    id: r.id, ad: dg.ad, amblem, kurucuId: uid, aciklama: '',
     uyeler: new Map([[uid, 'konung']]),
   });
   WORLD.birlikByUser.set(uid, { id: r.id, rutbe: 'konung' });
@@ -150,6 +185,7 @@ async function kur({ userId, ad, amblem, elcilikSeviyesi }) {
   await DB.davetleriTemizle(uid);
   WORLD.davetByUser.delete(uid);
 
+  await gunluk(r.id, 'kuruldu', `${ad(uid)} birliği kurdu.`, uid);
   return { ok: true, birlikId: r.id };
 }
 
@@ -222,6 +258,7 @@ async function daveteCevap({ userId, birlikId, kabul, elcilikSeviyesiOku }) {
   await DB.davetleriTemizle(uid);
   WORLD.davetByUser.delete(uid);
 
+  await gunluk(bid, 'katildi', `${ad(uid)} birliğe katıldı.`, uid);
   return { ok: true, katildi: true, birlikId: bid };
 }
 
@@ -238,6 +275,7 @@ async function ayril({ userId }) {
   if (!B.yetkiler(ben.rutbe).ayrilir) return { hata: 'konung_ayrilamaz' };
   const b = birlik(ben.id);
   await uyelikBitir(Number(userId), b);
+  await gunluk(ben.id, 'ayrildi', `${ad(userId)} birlikten ayrıldı.`, Number(userId));
   return { ok: true };
 }
 
@@ -251,6 +289,9 @@ async function uyeAt({ userId, hedefUserId }) {
 
   const b = birlik(ben.id);
   await uyelikBitir(Number(hedefUserId), b);
+  await gunluk(ben.id, 'atildi',
+    `${ad(hedefUserId)}, ${ad(userId)} tarafından birlikten çıkarıldı.`,
+    Number(hedefUserId));
   return { ok: true, atilan: Number(hedefUserId) };
 }
 
@@ -281,6 +322,10 @@ async function jarlAyarla({ userId, hedefUserId, jarl }) {
   await DB.uyeRutbe(Number(hedefUserId), yeni);
   b.uyeler.set(Number(hedefUserId), yeni);
   WORLD.birlikByUser.set(Number(hedefUserId), { id: ben.id, rutbe: yeni });
+  await gunluk(ben.id, jarl ? 'jarl_oldu' : 'jarl_indi',
+    jarl ? `${ad(hedefUserId)} Jarl oldu.`
+      : `${ad(hedefUserId)} Jarl'lıktan indirildi.`,
+    Number(hedefUserId));
   return { ok: true, rutbe: yeni };
 }
 
@@ -315,13 +360,171 @@ async function duzenle({ userId, ad, amblem }) {
   if (r.hata) return { hata: r.hata };
 
   const b = birlik(ben.id);
+  const eskiAd = b.ad;
   b.ad = dg.ad; b.amblem = amblem;
+  /*
+    Yalnız AD değişince yazılıyor. Amblem değişikliği de olay ama
+    günlüğü "amblem değişti" satırlarıyla doldurmak, asıl önemli
+    kayıtları (kim atıldı, kime savaş açıldı) aşağı iterdi.
+  */
+  if (eskiAd !== dg.ad) {
+    await gunluk(ben.id, 'ad_degisti',
+      `Birliğin adı "${eskiAd}" iken "${dg.ad}" oldu.`, Number(userId));
+  }
   return { ok: true };
 }
 
+// ── Profil ─────────────────────────────────────────────────────────
+
+async function profilYaz({ userId, aciklama }) {
+  const ben = birligim(userId);
+  if (!ben) return { hata: 'birlikte_degilsin' };
+  if (!B.yetkiler(ben.rutbe).profilYazar) return { hata: 'yetki_yok' };
+
+  const dg = B.aciklamaDogrula(aciklama);
+  await DB.birlikAciklama(ben.id, dg.aciklama);
+  const b = birlik(ben.id);
+  if (b) b.aciklama = dg.aciklama;
+  await gunluk(ben.id, 'profil_degisti',
+    `${ad(userId)} birliğin açıklamasını güncelledi.`, Number(userId));
+  return { ok: true, aciklama: dg.aciklama };
+}
+
+async function gunlugu(birlikId, opts) {
+  if (!DB?.gunlukOku) return [];
+  return DB.gunlukOku(Number(birlikId), opts);
+}
+
+// ── Diplomasi ──────────────────────────────────────────────────────
+
+/**
+ * İLİŞKİ TEKLİFİ / SAVAŞ İLANI.
+ *
+ * Karşılıklı türlerde (konfederasyon, saldırmazlık) durum 'teklif'
+ * yazılıyor ve karşı tarafın Konung'u cevaplayana kadar öyle kalıyor.
+ * Savaş karşılıklı olmadığı için doğrudan 'kabul' — ilan edildiği anda
+ * yürürlükte.
+ *
+ * İKİ BİRLİK ARASINDA TEK İLİŞKİ olduğu için yeni hamle eskisinin
+ * üzerine yazıyor: saldırmazlığı olan bir birliğe savaş ilan etmek
+ * anlaşmayı da bozuyor ve bu günlüğe İKİ TARAFA da geçiyor.
+ */
+async function diplomasiTeklif({ userId, hedefBirlikId, tur }) {
+  const ben = birligim(userId);
+  if (!ben) return { hata: 'birlikte_degilsin' };
+  const izin = B.diplomasiYapabilirMi({
+    tur, benimBirlikId: ben.id, hedefBirlikId,
+    yetkim: B.yetkiler(ben.rutbe).diplomasi,
+  });
+  if (!izin.ok) return { hata: izin.sebep };
+  const hedef = birlik(hedefBirlikId);
+  if (!hedef) return { hata: 'birlik_yok' };
+
+  const bizim = birlik(ben.id);
+  const iliski = B.ILISKILER[tur];
+  const durum = izin.karsilikli ? 'teklif' : 'kabul';
+  await DB.diplomasiYaz({
+    birlikA: ben.id, birlikB: hedef.id, tur, durum, teklifEdenId: ben.id,
+  });
+
+  if (durum === 'kabul') {
+    // Savaş: iki tarafın günlüğüne de, aynı anda
+    await gunluk(ben.id, 'savas_ilan',
+      `${bizim.ad}, ${hedef.ad} birliğine SAVAŞ ilan etti.`, Number(userId));
+    await gunluk(hedef.id, 'savas_ilan',
+      `${bizim.ad}, ${hedef.ad} birliğine SAVAŞ ilan etti.`, Number(userId));
+  } else {
+    await gunluk(ben.id, 'diplomasi_teklif',
+      `${hedef.ad} birliğine ${iliski.ad} teklif edildi.`, Number(userId));
+    await gunluk(hedef.id, 'diplomasi_teklif',
+      `${bizim.ad} birliği ${iliski.ad} teklif etti.`, Number(userId));
+  }
+  return { ok: true, tur, durum, hedefBirlikId: hedef.id };
+}
+
+async function diplomasiCevap({ userId, hedefBirlikId, kabul }) {
+  const ben = birligim(userId);
+  if (!ben) return { hata: 'birlikte_degilsin' };
+  const teklifSatiri = await DB.diplomasiDurum(ben.id, hedefBirlikId);
+  /*
+    TEKLİFİ YALNIZ KARŞI TARAF CEVAPLAYABİLİR. Gönderen kendi teklifini
+    kabul edip ilişkiyi tek başına kurabilseydi karşılıklılık diye bir
+    şey kalmazdı.
+  */
+  /*
+    TEKLİFİN HEDEFİ = teklifi ATMAYAN taraf. Satır çift
+    normalleştirilmiş olduğu için yön bilgisi yalnız `teklifEdenId`de
+    duruyor; hedefi ondan türetiyoruz.
+  */
+  const hedefId = teklifSatiri
+    && Number(teklifSatiri.teklifEdenId) === Number(ben.id)
+    ? Number(hedefBirlikId) : Number(ben.id);
+  const izin = B.teklifCevaplanabilirMi({
+    teklif: teklifSatiri ? { ...teklifSatiri, hedefId } : null,
+    benimBirlikId: ben.id,
+    yetkim: B.yetkiler(ben.rutbe).diplomasi,
+  });
+  if (!izin.ok) return { hata: izin.sebep };
+
+  const bizim = birlik(ben.id);
+  const oteki = birlik(hedefBirlikId);
+  const iliski = B.ILISKILER[teklifSatiri.tur];
+
+  if (!kabul) {
+    await DB.diplomasiSil(ben.id, hedefBirlikId);
+    await gunluk(ben.id, 'diplomasi_red',
+      `${oteki?.ad || 'Bir birlik'} teklifi reddedildi.`, Number(userId));
+    await gunluk(hedefBirlikId, 'diplomasi_red',
+      `${bizim.ad} birliği ${iliski.ad} teklifini reddetti.`, Number(userId));
+    return { ok: true, kabul: false };
+  }
+
+  await DB.diplomasiYaz({
+    birlikA: ben.id, birlikB: hedefBirlikId, tur: teklifSatiri.tur,
+    durum: 'kabul', teklifEdenId: teklifSatiri.teklifEdenId,
+  });
+  const metin = `${bizim.ad} ile ${oteki?.ad || 'bir birlik'} arasında `
+    + `${iliski.ad} kuruldu.`;
+  await gunluk(ben.id, 'diplomasi_kabul', metin, Number(userId));
+  await gunluk(hedefBirlikId, 'diplomasi_kabul', metin, Number(userId));
+  return { ok: true, kabul: true, tur: teklifSatiri.tur };
+}
+
+/**
+ * İLİŞKİYİ BİTİR — tek taraflı.
+ *
+ * Anlaşmayı bozmak onay istemiyor: karşı tarafın rızasına bağlasaydık
+ * kimse konfederasyondan çıkamazdı. Bozan taraf günlüğe yazılıyor,
+ * iki tarafta da görünüyor — bedeli itibar.
+ */
+async function diplomasiBitir({ userId, hedefBirlikId }) {
+  const ben = birligim(userId);
+  if (!ben) return { hata: 'birlikte_degilsin' };
+  if (!B.yetkiler(ben.rutbe).diplomasi) return { hata: 'yetki_yok' };
+  const mevcut = await DB.diplomasiDurum(ben.id, hedefBirlikId);
+  if (!mevcut) return { hata: 'iliski_yok' };
+
+  await DB.diplomasiSil(ben.id, hedefBirlikId);
+  const bizim = birlik(ben.id);
+  const oteki = birlik(hedefBirlikId);
+  const iliski = B.ILISKILER[mevcut.tur];
+  const metin = `${bizim.ad} ile ${oteki?.ad || 'bir birlik'} arasındaki `
+    + `${iliski?.ad || mevcut.tur} sona erdi.`;
+  await gunluk(ben.id, 'diplomasi_bitti', metin, Number(userId));
+  await gunluk(hedefBirlikId, 'diplomasi_bitti', metin, Number(userId));
+  return { ok: true };
+}
+
+async function diplomasim(birlikId) {
+  if (!DB?.diplomasiListesi) return [];
+  return DB.diplomasiListesi(Number(birlikId));
+}
+
 module.exports = {
-  baglaDB, yukle,
+  baglaDB, baglaAdOku, yukle,
   birligim, birlik, ayniBirlikte, birlikIdOf, tavan, ozet, davetlerim,
   kur, davetEt, davetGeriAl, daveteCevap, ayril, uyeAt, jarlAyarla,
   dagit, duzenle,
+  profilYaz, gunlugu,
+  diplomasiTeklif, diplomasiCevap, diplomasiBitir, diplomasim,
 };

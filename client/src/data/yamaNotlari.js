@@ -26,6 +26,59 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17a',
+    tarih: '17 Eylül 2026',
+    baslik: 'Elçilik artık birliğin merkezi',
+    notlar: [
+      {
+        id: '20260917-elcilik-sekmeler',
+        tur: 'yenilik',
+        metin: 'ELÇİLİK DÖRT SEKMEYE AYRILDI: ÜYELER · DİPLOMASİ · '
+          + 'GÜNLÜK · PROFİL. Her sekme bir soruya cevap veriyor: kim '
+          + 'var, kimle ne durumdayız, ne oldu, biz kimiz.',
+      },
+      {
+        id: '20260917-diplomasi',
+        tur: 'yenilik',
+        metin: 'DİPLOMASİ GELDİ. Birlikler birbirine KONFEDERASYON ya '
+          + 'da SALDIRMAZLIK teklif edebiliyor (ikisi de karşılıklı '
+          + 'onay ister) ya da SAVAŞ ilan edebiliyor — savaş tek '
+          + 'taraflıdır, karşı tarafın onayı gerekmez. Hamleleri '
+          + 'yalnız Konung yapar. İki birlik arasında tek ilişki '
+          + 'olabilir: saldırmazlığı olan bir birliğe savaş ilan '
+          + 'etmek anlaşmayı da bozar. UYARI: anlaşmalar saldırıyı '
+          + 'ENGELLEMEZ, söz verir — bedeli itibardır, oyunun kuralı '
+          + 'değil.',
+      },
+      {
+        id: '20260917-uye-olculeri',
+        tur: 'yenilik',
+        metin: 'ÜYE LİSTESİ ARTIK BİR ŞEY SÖYLÜYOR. Her satırda '
+          + 'çevrimiçi noktası, köy sayısı, nüfus ve savaş puanları '
+          + 'var. Saldırı/savunma, üyenin şimdiye kadar ÖLDÜRDÜĞÜ '
+          + 'asker — mevcut ordu değil; kimin kaç askeri olduğu yine '
+          + 'ancak keşifle öğrenilir.',
+      },
+      {
+        id: '20260917-birlik-gunlugu',
+        tur: 'yenilik',
+        metin: 'BİRLİK GÜNLÜĞÜ TUTULUYOR. Kim katıldı, kim ayrıldı, '
+          + 'kimi kim çıkardı, kim Jarl oldu, hangi savaş kim '
+          + 'tarafından ilan edildi — hepsi tarihiyle yazılıyor. '
+          + '"Neden atıldım" sorusunun artık bir cevabı var.',
+      },
+      {
+        id: '20260917-birlik-profili',
+        tur: 'yenilik',
+        metin: 'BİRLİK PROFİLİ VE SIRALAMASI. Konung ve Jarl birliğin '
+          + 'tanıtım metnini yazabiliyor; profil sekmesinde birliğin '
+          + 'toplam üye, köy, nüfus ve savaş puanları ile bütün '
+          + 'birlikler arasındaki sırası duruyor. Diplomasi '
+          + 'sekmesindeki liste de nüfusa göre sıralı.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16q',
     tarih: '16 Eylül 2026',
     baslik: 'Eşya çerçeveleri kırpıldı',

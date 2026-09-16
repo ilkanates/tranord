@@ -319,7 +319,20 @@ function birlikFingerprint(userId) {
   const davet = (WORLD.davetByUser.get(Number(userId)) || []).length;
   if (!ben) return `B-:${davet}`;
   const b = BIRLIKS.birlik(ben.id);
-  return `B${ben.id}:${ben.rutbe}:${b ? b.uyeler.size : 0}:${b?.ad || ''}:${davet}`;
+  /*
+    AÇIKLAMA UZUNLUĞU PARMAK İZİNDE — metnin kendisi değil. Profil
+    yazılınca yayın olmalı (yoksa oyuncu 30 saniyelik kalp atışını
+    bekler) ama 600 karakterlik metni her karşılaştırmada dizeye
+    katmak, saniyede birkaç kez boşuna iş olurdu.
+
+    ÇEVRİMİÇİ ÜYE SAYISI da burada: biri girip çıkınca listedeki nokta
+    kendiliğinden güncellensin.
+  */
+  const acik = (b?.aciklama || '').length;
+  let cevrimici = 0;
+  if (b) for (const uid of b.uyeler.keys()) if (userSessions.has(Number(uid))) cevrimici++;
+  return `B${ben.id}:${ben.rutbe}:${b ? b.uyeler.size : 0}:${b?.ad || ''}`
+    + `:${b?.amblem || ''}:${acik}:${cevrimici}:${davet}`;
 }
 
 function structFingerprint(v) {
@@ -434,6 +447,14 @@ function birlikPaketi(userId) {
   };
   return {
     ...oz,
+    /*
+      ÇEVRİMİÇİ BAYRAĞI — oturum tablosundan, bedava. "Kim şu an
+      burada" birlik ekranının en çok bakılan bilgisi; istatistiklerin
+      aksine veritabanına gitmiyor, o yüzden pakete giriyor.
+    */
+    uyeler: oz.uyeler.map(u => ({
+      ...u, cevrimici: userSessions.has(Number(u.userId)),
+    })),
     /*
       PANEL "SEN" İŞARETİNİ BUNA BAKARAK KOYUYOR. İstemci kendi
       userId'sini başka hiçbir yerden bilmiyor (oturum jetonu okunmuyor),
@@ -770,6 +791,12 @@ async function bootWorld() {
   */
   try {
     BIRLIKS.baglaDB(require('./db'));
+    /*
+      Günlük metinleri oyuncu adı içeriyor ama servis adları bilmiyor
+      (adlar WORLD.ownerByUser'da). Bir kez enjekte ediliyor, böylece
+      her üyelik değişimi kendiliğinden kayda geçiyor.
+    */
+    BIRLIKS.baglaAdOku((uid) => WORLD.ownerByUser.get(Number(uid)) || null);
     await BIRLIKS.yukle();
   } catch (err) { console.error('[BİRLİK] yükleme:', err.message); }
 
@@ -2058,7 +2085,22 @@ function statsOyuncuAdi(userId) {
   return ownerName(userId, userSessions.get(userId)?.userEmail);
 }
 
-async function buildStats(forUserId) {
+/**
+ * BÜTÜN OYUNCULAR VE KÖYLERİ — TEK TOPLAYICI.
+ *
+ * Hem dünya sıralaması hem birlik istatistikleri buradan besleniyor.
+ * İki ayrı toplayıcı olsaydı sıralamadaki nüfusla elçilikteki nüfus er
+ * geç ayrışırdı; bu projede "aynı sayı iki yerde" sınıfından defalarca
+ * hata çıktı.
+ *
+ * VERİTABANI + BELLEK: çevrimdışı oyuncular da sayılıyor (diskteki son
+ * hâlleriyle), bağlı oyuncunun köyü ise bellekteki taze hâliyle DB
+ * kopyasının üstüne yazılıyor. Birliğin gücü kimin o an bağlı olduğuna
+ * göre değişmemeli.
+ *
+ * @returns {{oyuncular: Map<number, {name, koyler}>, dbHata: string|null}}
+ */
+async function oyuncuKoyleriniTopla() {
   /** userId -> { name, koyler: [{ v, slotKey, adi }] } */
   const oyuncular = new Map();
   const al = (userId) => {
@@ -2091,7 +2133,52 @@ async function buildStats(forUserId) {
       if (idx >= 0) o.koyler[idx] = kayit; else o.koyler.push(kayit);
     }
   }
+  return { oyuncular, dbHata };
+}
 
+/**
+ * BİRLİK İSTATİSTİKLERİ — üye ölçüleri, birlik toplamları, sıralama.
+ *
+ * Her birliğin toplamı ÜYELERİNİN ölçülerinin toplamı; sıralama nüfusa
+ * göre. Nüfus seçildi çünkü sıralamanın geri kalanı da onu ana ölçü
+ * sayıyor ve ordu bilgisi bilerek sızdırılmıyor (bkz. istatistik.js).
+ */
+async function birlikIstatistikleri() {
+  const { oyuncular } = await oyuncuKoyleriniTopla();
+
+  /** userId -> ölçüler */
+  const uyeOlcu = new Map();
+  for (const [userId, o] of oyuncular) {
+    uyeOlcu.set(Number(userId), IST.oyuncuOlculeri(o.koyler));
+  }
+
+  /** birlikId -> toplam */
+  const birlikToplam = new Map();
+  for (const [birlikId, b] of WORLD.birlikler) {
+    const t = {
+      id: birlikId, ad: b.ad, amblem: b.amblem,
+      uyeSayisi: b.uyeler.size,
+      nufus: 0, koySayisi: 0, saldiri: 0, savunma: 0,
+    };
+    for (const uid of b.uyeler.keys()) {
+      const m = uyeOlcu.get(Number(uid));
+      if (!m) continue;
+      t.nufus += m.population;
+      t.koySayisi += m.koySayisi;
+      t.saldiri += m.killsOffense;
+      t.savunma += m.killsDefense;
+    }
+    birlikToplam.set(birlikId, t);
+  }
+
+  const sirali = [...birlikToplam.values()].sort((x, y) => y.nufus - x.nufus);
+  sirali.forEach((t, i) => { t.sira = i + 1; });
+
+  return { uyeOlcu, birlikToplam, sirali };
+}
+
+async function buildStats(forUserId) {
+  const { oyuncular, dbHata } = await oyuncuKoyleriniTopla();
   const boards = IST.tablolariKur(oyuncular, forUserId);
   const koySayisi = [...oyuncular.values()].reduce((t, o) => t + o.koyler.length, 0);
   return {
@@ -3006,6 +3093,155 @@ io.on('connection', async socket => {
       const b = ben ? BIRLIKS.birlik(ben.id) : null;
       birlikYayinla(b ? [...b.uyeler.keys()] : [userId]);
     } catch (err) { console.error('[BİRLİK] jarl:', err.message); birlikHata('sunucu'); }
+  });
+
+  /**
+   * BİRLİĞİN BÜTÜN ÜYELERİNE YAYIN — diplomaside iki birliğe birden.
+   *
+   * Bir olayın iki tarafı varsa ikisi de aynı anda görmeli: savaş ilan
+   * edilince ilan edenin ekranında "savaştayız" yazıp hedefin
+   * ekranında hiçbir şey çıkmaması, oyuncuyu haberi olmadan savaşa
+   * sokmak olurdu.
+   */
+  const birligeYayinla = (...birlikIdler) => {
+    for (const bid of birlikIdler) {
+      const b = BIRLIKS.birlik(bid);
+      if (!b) continue;
+      for (const uid of b.uyeler.keys()) {
+        const s = userSessions.get(Number(uid));
+        if (s) emitVillage(s, { force: true });
+      }
+    }
+  };
+
+  /** Birliğin profil metnini yaz — Konung ve Jarl */
+  socket.on('birlik_profil', async ({ aciklama } = {}) => {
+    const r = await BIRLIKS.profilYaz({ userId, aciklama });
+    if (r.hata) return birlikHata(r.hata);
+    birligeYayinla(BIRLIKS.birlikIdOf(userId));
+  });
+
+  /**
+   * ÜYE VE BİRLİK İSTATİSTİKLERİ — istendiğinde.
+   *
+   * Çevrimdışı üyeler de sayılıyor (diskteki son hâlleriyle): birliğin
+   * gücü kimin o an bağlı olduğuna göre değişmemeli. Bu yüzden
+   * veritabanına gidiyor ve bu yüzden her yayında değil, ekran
+   * açılınca isteniyor.
+   */
+  socket.on('birlik_istatistik', async () => {
+    const ben = BIRLIKS.birligim(userId);
+    if (!ben) return birlikHata('birlikte_degilsin');
+    try {
+      const { uyeOlcu, birlikToplam, sirali } = await birlikIstatistikleri();
+      const b = BIRLIKS.birlik(ben.id);
+      const uyeler = [...(b?.uyeler.keys() || [])].map(uid => {
+        const m = uyeOlcu.get(Number(uid)) || {};
+        return {
+          userId: Number(uid),
+          nufus: m.population || 0,
+          koySayisi: m.koySayisi || 0,
+          saldiri: m.killsOffense || 0,
+          savunma: m.killsDefense || 0,
+          yagma: m.lootTotal || 0,
+          kahramanSeviye: m.kahramanSeviye || 0,
+        };
+      });
+      socket.emit('birlik_istatistik', {
+        uyeler,
+        toplam: birlikToplam.get(ben.id) || null,
+        birlikSayisi: sirali.length,
+      });
+    } catch (err) {
+      console.error('[BİRLİK] istatistik:', err.message);
+      socket.emit('birlik_istatistik', { uyeler: [], toplam: null, birlikSayisi: 0 });
+    }
+  });
+
+  /** Birlik günlüğü — istendiğinde, paketle her tik taşınmıyor */
+  socket.on('birlik_gunluk', async () => {
+    const ben = BIRLIKS.birligim(userId);
+    if (!ben) return birlikHata('birlikte_degilsin');
+    try {
+      socket.emit('birlik_gunluk', { kayitlar: await BIRLIKS.gunlugu(ben.id) });
+    } catch (err) {
+      console.error('[BİRLİK] günlük:', err.message);
+      socket.emit('birlik_gunluk', { kayitlar: [] });
+    }
+  });
+
+  /**
+   * BİRLİK LİSTESİ VE SIRALAMA — diplomasi hedefi de buradan seçiliyor.
+   *
+   * Nüfusa göre sıralı; her satırda üye sayısı, köy, nüfus, savaş
+   * puanları ve BENİM birliğimle olan ilişkisi var. İlişkiyi ayrı bir
+   * istekle sormak, listedeki her satır için bir tur daha atmak olurdu.
+   */
+  socket.on('birlik_listesi', async () => {
+    try {
+      const ben = BIRLIKS.birligim(userId);
+      const { sirali } = await birlikIstatistikleri();
+      const iliskiler = ben ? await BIRLIKS.diplomasim(ben.id) : [];
+      const iliskiById = new Map(iliskiler.map(d => [Number(d.otekiId), d]));
+      socket.emit('birlik_listesi', {
+        birlikler: sirali.map(t => ({
+          ...t,
+          benimki: !!ben && Number(ben.id) === Number(t.id),
+          iliski: iliskiById.get(Number(t.id))
+            ? {
+              tur: iliskiById.get(Number(t.id)).tur,
+              durum: iliskiById.get(Number(t.id)).durum,
+              /* Teklifi ben mi attım — düğme "geri al" mı "kabul et" mi */
+              benimTeklifim: !!ben
+                && Number(iliskiById.get(Number(t.id)).teklifEdenId) === Number(ben.id),
+            }
+            : null,
+        })),
+      });
+    } catch (err) {
+      console.error('[BİRLİK] liste:', err.message);
+      socket.emit('birlik_listesi', { birlikler: [] });
+    }
+  });
+
+  /**
+   * DİPLOMASİ DEĞİŞTİ — iki birliğin BÜTÜN üyelerine dürtme.
+   *
+   * Liste isteğe bağlı geldiği için hamleden sonra ekrandaki satırlar
+   * eski kalıyordu; teklifi ALAN tarafta ise hiçbir şey belirmiyordu,
+   * yani teklif pratikte kayboluyordu. Listeyi sunucunun itmesi her
+   * alıcı için ayrı hesap demekti — bu tek olay, hesabı yalnız ekranı
+   * açık olan yapıyor.
+   */
+  const diplomasiDegisti = (...birlikIdler) => {
+    for (const bid of birlikIdler) {
+      const b = BIRLIKS.birlik(bid);
+      if (!b) continue;
+      for (const uid of b.uyeler.keys()) {
+        io.to(userRoom(Number(uid))).emit('birlik_diplomasi_degisti');
+      }
+    }
+  };
+
+  socket.on('birlik_diplomasi', async ({ hedefBirlikId, tur } = {}) => {
+    const r = await BIRLIKS.diplomasiTeklif({ userId, hedefBirlikId, tur });
+    if (r.hata) return birlikHata(r.hata);
+    birligeYayinla(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+    diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+  });
+
+  socket.on('birlik_diplomasi_cevap', async ({ hedefBirlikId, kabul = true } = {}) => {
+    const r = await BIRLIKS.diplomasiCevap({ userId, hedefBirlikId, kabul });
+    if (r.hata) return birlikHata(r.hata);
+    birligeYayinla(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+    diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+  });
+
+  socket.on('birlik_diplomasi_bitir', async ({ hedefBirlikId } = {}) => {
+    const r = await BIRLIKS.diplomasiBitir({ userId, hedefBirlikId });
+    if (r.hata) return birlikHata(r.hata);
+    birligeYayinla(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+    diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
   });
 
   socket.on('birlik_dagit', async () => {

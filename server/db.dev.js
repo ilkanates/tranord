@@ -36,6 +36,9 @@ const BOS_DB = () => ({
   // Birlik — alliances / alliance_members / alliance_invites
   alliances: [], allianceMembers: [], allianceInvites: [],
   nextAllianceId: 1, nextInviteId: 1,
+  // Birlik profili, günlüğü ve diplomasisi
+  allianceLog: [], allianceDiplomacy: [],
+  nextAllianceLogId: 1, nextDiplomacyId: 1,
 });
 
 let db = BOS_DB();
@@ -59,6 +62,8 @@ function load() {
         Math.max(db.nextThreadMessageId || 1, sonra(db.threadMessages));
       db.nextAllianceId = Math.max(db.nextAllianceId || 1, sonra(db.alliances));
       db.nextInviteId = Math.max(db.nextInviteId || 1, sonra(db.allianceInvites));
+      db.nextAllianceLogId = Math.max(db.nextAllianceLogId || 1, sonra(db.allianceLog));
+      db.nextDiplomacyId = Math.max(db.nextDiplomacyId || 1, sonra(db.allianceDiplomacy));
       migrateToMultiVillage();
     }
   } catch (err) {
@@ -582,6 +587,8 @@ async function loadAlliances() {
   return {
     birlikler: db.alliances.map(a => ({
       id: a.id, ad: a.ad, amblem: a.amblem, kurucu_id: a.kurucu_id,
+      /* Açıklama db.js sürümünde de yükleniyor — ikisi ayrışmamalı */
+      aciklama: a.aciklama || '',
     })),
     uyeler: db.allianceMembers.map(m => ({
       alliance_id: m.alliance_id, user_id: m.user_id, rutbe: m.rutbe,
@@ -591,6 +598,96 @@ async function loadAlliances() {
       davet_eden: i.davet_eden,
     })),
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BİRLİK: PROFİL, GÜNLÜK, DİPLOMASİ — db.js ile AYNI sözleşme
+// ═══════════════════════════════════════════════════════════════
+
+async function birlikAciklama(allianceId, aciklama) {
+  const a = db.alliances.find(x => x.id === Number(allianceId));
+  if (a) { a.aciklama = aciklama; persist(); }
+  return true;
+}
+
+async function gunlukYaz({ allianceId, tur, metin, userId = null }) {
+  const k = {
+    id: db.nextAllianceLogId++, alliance_id: Number(allianceId),
+    tur, metin, user_id: userId == null ? null : Number(userId),
+    at: new Date().toISOString(),
+  };
+  db.allianceLog.push(k);
+  persist();
+  return { id: k.id, at: k.at };
+}
+
+async function gunlukOku(allianceId, { limit = 40 } = {}) {
+  return db.allianceLog
+    .filter(k => k.alliance_id === Number(allianceId))
+    .sort((a, b) => b.id - a.id)
+    .slice(0, Math.min(200, Math.max(1, limit)))
+    .map(k => ({ id: k.id, tur: k.tur, metin: k.metin, userId: k.user_id, at: k.at }));
+}
+
+/** Çift normalleştirme — küçük kimlik her zaman a_id */
+const ciftle = (x, y) => (Number(x) < Number(y)
+  ? { a: Number(x), b: Number(y) } : { a: Number(y), b: Number(x) });
+
+const satirDiplomasi = (r) => ({
+  id: r.id, aId: r.a_id, bId: r.b_id, tur: r.tur, durum: r.durum,
+  teklifEdenId: r.teklif_eden_id, at: r.at,
+});
+
+const diplomasiBul = (x, y) => {
+  const { a, b } = ciftle(x, y);
+  return db.allianceDiplomacy.find(d => d.a_id === a && d.b_id === b) || null;
+};
+
+async function diplomasiYaz({ birlikA, birlikB, tur, durum, teklifEdenId }) {
+  const { a, b } = ciftle(birlikA, birlikB);
+  let d = diplomasiBul(a, b);
+  /* Çift başına TEK satır: yeni ilişki eskisinin yerine geçiyor */
+  if (!d) {
+    d = { id: db.nextDiplomacyId++, a_id: a, b_id: b };
+    db.allianceDiplomacy.push(d);
+  }
+  d.tur = tur; d.durum = durum;
+  d.teklif_eden_id = Number(teklifEdenId);
+  d.at = new Date().toISOString();
+  persist();
+  return { id: d.id, at: d.at };
+}
+
+async function diplomasiDurum(birlikA, birlikB) {
+  const d = diplomasiBul(birlikA, birlikB);
+  return d ? satirDiplomasi(d) : null;
+}
+
+async function diplomasiListesi(allianceId) {
+  const id = Number(allianceId);
+  const adOku = (aid) => db.alliances.find(x => x.id === aid) || {};
+  return db.allianceDiplomacy
+    .filter(d => d.a_id === id || d.b_id === id)
+    .sort((x, y) => y.id - x.id)
+    .map(d => {
+      const benA = d.a_id === id;
+      const oteki = adOku(benA ? d.b_id : d.a_id);
+      return {
+        ...satirDiplomasi(d),
+        otekiId: benA ? d.b_id : d.a_id,
+        otekiAd: oteki.ad || null,
+        otekiAmblem: oteki.amblem || null,
+      };
+    });
+}
+
+async function diplomasiSil(birlikA, birlikB) {
+  const { a, b } = ciftle(birlikA, birlikB);
+  const n = db.allianceDiplomacy.length;
+  db.allianceDiplomacy = db.allianceDiplomacy.filter(
+    d => !(d.a_id === a && d.b_id === b));
+  persist();
+  return db.allianceDiplomacy.length < n;
 }
 
 async function birlikKur({ ad, amblem, kurucuId }) {
@@ -668,6 +765,8 @@ async function davetleriTemizle(userId) {
 module.exports = {
   grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
   grupOkundu, grupAyril, grupSil,
+  birlikAciklama, gunlukYaz, gunlukOku,
+  diplomasiYaz, diplomasiDurum, diplomasiListesi, diplomasiSil,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
   uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,
   pool, initDB, createUser, findUserByEmail, findUserById,

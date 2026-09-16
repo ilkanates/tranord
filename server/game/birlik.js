@@ -95,6 +95,19 @@ function yetkiler(rutbe) {
       gönderemez, kimse atamaz — kimsenin çözemediği ölü bir kayıt.
     */
     ayrilir: !konung,
+    /*
+      DİPLOMASİ YALNIZ KONUNG'UN. Jarl davet eder ve üye atar ama savaş
+      ilan edemez: savaş bütün birliği bağlayan, geri alınması pahalı
+      bir karar. İki yetkiliye birden vermek birliği ikiye bölerdi —
+      biri saldırmazlık imzalarken öteki savaş ilan edebilirdi.
+    */
+    diplomasi: konung,
+    /*
+      PROFİLİ Jarl da yazabiliyor. Açıklama geri alınabilir bir metin;
+      yanlış yazılırsa düzeltilir. Bunu Konung'a kilitlemek, birliğin
+      tanıtımını tek kişinin çevrimiçi olmasına bağlardı.
+    */
+    profilYazar: konung || jarl,
   };
 }
 
@@ -213,6 +226,120 @@ function jarlSecilebilirMi(mevcutJarlSayisi = 0) {
  * saldırmazlık paktına çevirirdi ve oyuncular birliği yalnız o yüzden
  * kurardı.
  */
+// ── Diplomasi ──────────────────────────────────────────────────────
+
+/**
+ * İLİŞKİ TÜRLERİ.
+ *
+ * `karsilikli` alanı bu dosyanın en önemli ayrımı: konfederasyon ve
+ * saldırmazlık bir ANLAŞMA (iki taraf da istemeli), savaş bir
+ * BİLDİRİM (tek taraf ilan eder). Savaşı da onaya bağlasaydık hiç
+ * kimseye savaş ilan edilemezdi; düşman "kabul etme"yi seçerdi.
+ */
+const ILISKILER = {
+  konfederasyon: {
+    ad: 'Konfederasyon', karsilikli: true, renk: '#7fe04d',
+    aciklama: 'En yakın bağ: birlikler birbirini müttefik sayar.',
+  },
+  saldirmazlik: {
+    ad: 'Saldırmazlık', karsilikli: true, renk: '#8fdcff',
+    aciklama: 'Ateşkes: taraflar birbirine saldırmamaya söz verir.',
+  },
+  savas: {
+    ad: 'Savaş', karsilikli: false, renk: '#ff6f78',
+    aciklama: 'Tek taraflı ilan — karşı tarafın onayı gerekmez.',
+  },
+};
+const ILISKI_ANAHTARLARI = Object.keys(ILISKILER);
+
+const iliskiGecerli = (t) => ILISKI_ANAHTARLARI.includes(String(t || ''));
+
+/**
+ * DİPLOMASİ HAMLESİ YAPILABİLİR Mİ?
+ *
+ * @param {object} p
+ * @param {string} p.tur            ilişki türü
+ * @param {number} p.benimBirlikId
+ * @param {number} p.hedefBirlikId
+ * @param {boolean} p.yetkim        Konung mu
+ * @returns {{ok:true, karsilikli:boolean} | {ok:false, sebep:string}}
+ */
+function diplomasiYapabilirMi({ tur, benimBirlikId, hedefBirlikId, yetkim }) {
+  if (!yetkim) return { ok: false, sebep: 'yetki_yok' };
+  if (!iliskiGecerli(tur)) return { ok: false, sebep: 'tur_yok' };
+  if (!benimBirlikId || !hedefBirlikId) return { ok: false, sebep: 'birlik_yok' };
+  /*
+    KENDİ BİRLİĞİYLE İLİŞKİ YOK. Teorik bir durum değil: birlik listesi
+    kendi birliğini de içeriyor ve istemciye güvenmiyoruz.
+  */
+  if (Number(benimBirlikId) === Number(hedefBirlikId)) {
+    return { ok: false, sebep: 'kendi_birligin' };
+  }
+  return { ok: true, karsilikli: ILISKILER[tur].karsilikli };
+}
+
+/**
+ * Gelen teklif cevaplanabilir mi?
+ *
+ * Yalnız TEKLİF EDİLEN taraf cevaplayabiliyor: teklifi gönderen kendi
+ * teklifini kabul edip ilişkiyi tek başına kurabilseydi karşılıklılık
+ * diye bir şey kalmazdı.
+ */
+function teklifCevaplanabilirMi({ teklif, benimBirlikId, yetkim }) {
+  if (!yetkim) return { ok: false, sebep: 'yetki_yok' };
+  if (!teklif) return { ok: false, sebep: 'teklif_yok' };
+  if (teklif.durum !== 'teklif') return { ok: false, sebep: 'teklif_yok' };
+  if (Number(teklif.hedefId) !== Number(benimBirlikId)) {
+    return { ok: false, sebep: 'senin_teklifin' };
+  }
+  return { ok: true };
+}
+
+// ── Birlik profili ─────────────────────────────────────────────────
+
+const ACIKLAMA_EN_COK = 600;
+
+/**
+ * BİRLİK AÇIKLAMASI — sancağın altındaki yazı.
+ *
+ * Addan çok daha gevşek: burada satır sonu ve noktalama serbest, çünkü
+ * bu bir tanıtım metni ("kimleri alıyoruz, ne bekliyoruz"). Yalnız
+ * görünmez karakterler ve aşırı boş satır eleniyor; ad denetimindeki
+ * gerekçenin aynısı (bkz. adDogrula) ama benzersizlik derdi yok.
+ */
+function aciklamaDogrula(ham) {
+  const gorunmez = (cp) => (cp < 0x20 && cp !== 0x0a) || cp === 0x7f
+    || (cp >= 0x200b && cp <= 0x200f) || cp === 0x2028 || cp === 0x2029
+    || cp === 0xfeff;
+  const metin = [...String(ham ?? '')]
+    .filter((ch) => !gorunmez(ch.codePointAt(0)))
+    .join('')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{4,}/g, '\n\n\n')
+    .trim()
+    .slice(0, ACIKLAMA_EN_COK);
+  return { aciklama: metin };      // boş açıklama geçerli: silmek de bir seçim
+}
+
+// ── Günlük ─────────────────────────────────────────────────────────
+
+/**
+ * GÜNLÜK OLAYLARI — birliğin hafızası.
+ *
+ * Travian'ın ittifak günlüğünün karşılığı. Üye atıldığında "neden
+ * gittim" sorusunun, savaş ilan edildiğinde "bunu kim yaptı"
+ * sorusunun tek cevabı burası. Metin SUNUCUDA üretiliyor: istemciden
+ * gelen bir metni günlüğe yazmak, oyuncuya birliğin geçmişini yazdırmak
+ * olurdu.
+ */
+const GUNLUK_TURLERI = [
+  'kuruldu', 'katildi', 'ayrildi', 'atildi', 'jarl_oldu', 'jarl_indi',
+  'ad_degisti', 'profil_degisti',
+  'diplomasi_teklif', 'diplomasi_kabul', 'diplomasi_red',
+  'diplomasi_bitti', 'savas_ilan',
+];
+
 function birlikIciSaldiriSerbest() {
   return true;
 }
@@ -222,4 +349,7 @@ module.exports = {
   AMBLEMLER, AD_EN_AZ, AD_EN_COK, ELCILIK_TIPI,
   uyeTavani, yetkiler, atabilirMi, adDogrula, amblemGecerli,
   kurabilirMi, katilabilirMi, jarlSecilebilirMi, birlikIciSaldiriSerbest,
+  ILISKILER, ILISKI_ANAHTARLARI, iliskiGecerli,
+  diplomasiYapabilirMi, teklifCevaplanabilirMi,
+  ACIKLAMA_EN_COK, aciklamaDogrula, GUNLUK_TURLERI,
 };

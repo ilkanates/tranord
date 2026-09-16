@@ -818,6 +818,12 @@ function Game({ token, onLogout }) {
       konung_ayrilamaz: 'Konung ayrılamaz — önce birliği dağıtman gerekiyor.',
       konung_degistirilemez: 'Konung’un rütbesi değiştirilemez.',
       jarl_tavani: 'Jarl tavanı dolu — önce birini indir.',
+      /* ── Diplomasi ── */
+      tur_yok: 'Böyle bir ilişki türü yok.',
+      kendi_birligin: 'Kendi birliğinle ilişki kuramazsın.',
+      senin_teklifin: 'Bu teklifi sen gönderdin — cevabı karşı taraf verir.',
+      teklif_yok: 'Cevaplanacak bir teklif yok.',
+      iliski_yok: 'Bu birlikle bir ilişkin yok.',
       sunucu: 'Sunucu hatası, tekrar dene.',
     };
     const onBirlikHata = (r) => {
