@@ -222,6 +222,14 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Savunan izci keşifte ölmüyor (16 Eylül 2026)
+- İlkan: *"defansta iken casus ölmemeli"*.
+- Keşif bir **casus düellosu**, savaş değil: riski alan taraf casusunu GÖNDEREN. Nöbetçinin kendi evinde ölmesi için bir sebep yok. Kayıp hesabı yine yapılıyor (kimin kazandığını ve saldıranın kaybını o belirliyor), yalnız savunana **uygulanmıyor**.
+- **DENGEYE ETKİSİ bilinçli**: savunanın izci perdesi artık AŞINDIRILAMIYOR. Saldıran arka arkaya ucuz dalgalar yollayıp perdeyi teker teker kırarak sonunda bedava keşif yapamıyor; her denemede perdeyi TEK seferde geçecek kadar casus göndermesi gerekiyor. İzci böylece gerçek bir yatırım oluyor — bir kez kurulan nöbet kalıcı.
+- **Normal saldırıda değişen yok**: orada izci ordunun parçası ve öbür askerlerle birlikte kayıp veriyor. Kural yalnız keşif kipinde.
+- İki yeni test: savunanın izcisi ve nüfusu eksilmiyor, iki tarafın raporunda da savunan kaybı boş; beş ardışık keşif dalgası savunanı eritmiyor. Testler 311 → **313**.
+
+
 ### Kahraman seferde mahsur kalıyordu + Seferler ekranı bütün köyleri gösteriyor (16 Eylül 2026)
 - İlkan: *"kahraman bir yere gitmiş dönmemiş seferde gözüküyor buglandı. bir de kimin nerede olduğunu hangi ekrandan bakabilirim"*.
 

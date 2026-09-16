@@ -232,3 +232,72 @@ test('keşif birimi yükünden değil kesif bayrağından tanınır', () => {
   assert.ok(sonuc?.ok !== false,
     'yükü 0 olan izciyle keşif gönderilebilmeli: ' + (sonuc && sonuc.reason));
 });
+
+/**
+ * SAVUNAN İZCİ ÖLMÜYOR — İlkan'ın kararı: *"defansta iken casus
+ * ölmemeli"*.
+ *
+ * Keşif bir CASUS DÜELLOSU, savaş değil: riski alan taraf casusunu
+ * GÖNDEREN. Nöbetçinin kendi evinde ölmesi için bir sebep yok.
+ *
+ * DENGEYE ETKİSİ bilinçli: savunanın izci perdesi AŞINDIRILAMIYOR.
+ * Saldıran arka arkaya keşif yollayıp perdeyi teker teker kırarak
+ * sonunda bedava keşif yapamıyor; her denemede perdeyi TEK seferde
+ * geçecek kadar casus göndermesi gerekiyor.
+ */
+test('savunan izci keşifte ÖLMÜYOR, saldıran kayıp veriyor', () => {
+  const ARMY = require('../game/army');
+  const { createVillage } = require('../game/villageState');
+
+  const saldiran = createVillage(0, 0);
+  const hedef = createVillage(4, 4);
+  hedef.army = { kuzeyIzcisi: 6 };
+  const savunanOnce = hedef.army.kuzeyIzcisi;
+  const nufusOnce = hedef.population;
+
+  const m = {
+    id: 21, mode: 'scout', units: { kuzeyIzcisi: 60 }, distance: 3,
+    phase: 'outbound', legHours: 1, remainingHours: 0,
+    fromKey: '0,0', fromName: 'A', toKey: '4,4', toName: 'B',
+  };
+  ARMY.resolveArrival(m, saldiran, hedef, { targetName: 'B' });
+
+  assert.equal(hedef.army.kuzeyIzcisi, savunanOnce,
+    'savunanın izcisi eksilmemeli');
+  assert.equal(hedef.population, nufusOnce,
+    'savunan nüfus kaybetmemeli — izci ölmediyse nüfus da düşmez');
+
+  const r = (saldiran.reports || []).find(x => x.dir === 'out');
+  const benimKayip = Object.values(r.myLosses || {}).reduce((a, b) => a + b, 0);
+  assert.ok(benimKayip > 0, 'saldıran yine kayıp vermeli — risk gönderende');
+  assert.deepEqual(r.theirLosses, {}, 'raporda savunanın kaybı boş olmalı');
+
+  const d = (hedef.reports || []).find(x => x.dir === 'in');
+  assert.ok(d, 'savunan fark etmeli');
+  assert.deepEqual(d.myLosses, {}, 'savunanın raporunda da kayıp olmamalı');
+});
+
+test('izci perdesi aşındırılamıyor — üst üste keşif savunanı eritmiyor', () => {
+  /*
+    Kuralın ASIL SONUCU bu. Savunan izci ölseydi saldıran ucuz
+    dalgalarla perdeyi eritip sonunda bedava keşif yapardı; artık
+    perde kalıcı.
+  */
+  const ARMY = require('../game/army');
+  const { createVillage } = require('../game/villageState');
+
+  const saldiran = createVillage(0, 0);
+  const hedef = createVillage(4, 4);
+  hedef.army = { kuzeyIzcisi: 10 };
+
+  for (let i = 0; i < 5; i++) {
+    ARMY.resolveArrival({
+      id: 100 + i, mode: 'scout', units: { kuzeyIzcisi: 3 }, distance: 3,
+      phase: 'outbound', legHours: 1, remainingHours: 0,
+      fromKey: '0,0', fromName: 'A', toKey: '4,4', toName: 'B',
+    }, saldiran, hedef, { targetName: 'B' });
+  }
+
+  assert.equal(hedef.army.kuzeyIzcisi, 10,
+    'beş dalga sonunda bile savunanın izcisi tam olmalı');
+});

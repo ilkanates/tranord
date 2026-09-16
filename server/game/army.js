@@ -700,12 +700,23 @@ function resolveArrival(march, origin, target, opts = {}) {
     // Savunanın izcisi yoksa keşif fark edilmez — haberi olmaz
     const gorundu    = savunanSayisi > 0;
     const benimKayip = res.attackerLosses || {};
-    const onunKayip  = res.defenderLosses || {};
+    /*
+      SAVUNAN İZCİ ÖLMÜYOR (İlkan'ın kararı). Keşif bir casus düellosu:
+      riski alan taraf CASUSUNU GÖNDEREN. Nöbetçinin kendi evinde
+      ölmesi için bir sebep yok.
+
+      Kayıp hesabı yine de yapılıyor — kimin kazandığını ve saldıranın
+      kaybını o belirliyor; yalnız savunana UYGULANMIYOR.
+
+      Sonucu bilinçli: savunanın izci perdesi aşındırılamıyor. Saldıran
+      arka arkaya keşif yollayıp perdeyi teker teker kırarak sonunda
+      bedava keşif yapamıyor; her denemede tek seferde geçmesi gerek.
+    */
+    const onunKayip  = {};
 
     for (const [k, n] of Object.entries(benimKayip)) {
       if (n > 0) march.units[k] = Math.max(0, (march.units[k] || 0) - n);
     }
-    if (Object.keys(onunKayip).length) applyLossesToVillage(target, onunKayip);
 
     const intel = kazandim ? {
       population: target.population || 0,

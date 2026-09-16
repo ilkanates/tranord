@@ -26,6 +26,29 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16b',
+    tarih: '16 Eylül 2026',
+    baslik: 'Savunan izci artık ölmüyor',
+    notlar: [
+      {
+        id: '20260916-savunan-izci-olmuyor',
+        tur: 'denge',
+        metin: 'KÖYÜNÜ KORUYAN İZCİ KEŞİFTE ÖLMÜYOR. Keşif bir casus '
+          + 'düellosu, savaş değil: riski alan taraf casusunu GÖNDEREN. '
+          + 'Nöbetçinin kendi evinde ölmesi için bir sebep yok. '
+          + 'Saldıran yine kayıp veriyor ve keşfi geçmek için hâlâ '
+          + 'savunmayı aşması gerekiyor — değişen tek şey savunanın '
+          + 'izcisinin sağ kalması. SONUCU ÖNEMLİ: izci perden artık '
+          + 'AŞINDIRILAMIYOR. Rakip arka arkaya ucuz dalgalar yollayıp '
+          + 'izcilerini teker teker kırarak sonunda bedava keşif '
+          + 'yapamıyor; her denemede perdeyi tek seferde geçecek kadar '
+          + 'casus göndermesi gerekiyor. Bir kez kurduğun nöbet kalıcı. '
+          + 'NORMAL SALDIRIDA değişen yok: orada izci ordunun parçası ve '
+          + 'öbür askerlerle birlikte kayıp veriyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16a',
     tarih: '16 Eylül 2026',
     baslik: 'Seferde mahsur kalan kahraman kurtarıldı',
