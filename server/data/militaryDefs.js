@@ -414,8 +414,24 @@ const EQUIPMENT_MAX_LEVEL   = 20;
 const EQUIPMENT_UPGRADE_STEP = 0.0175;          // seviye başına katkı artışı
 const EQUIPMENT_UPGRADE_COST_BASE = { kereste: 150, tugla: 110, yontmaTas: 110, demirKulce: 150 };
 const EQUIPMENT_UPGRADE_COST_STEP = 1.25;
-const EQUIPMENT_UPGRADE_MINUTES_BASE = 20;
-const EQUIPMENT_UPGRADE_MINUTES_STEP = 1.25;
+/*
+  SÜRE EĞRİSİ — İşçiyle BÖLÜNDÜĞÜ için taban yüksek tutuluyor.
+
+  Gerçek süre `equipmentUpgradeMinutes(lvl) / işçi` (bkz. tick.js) ve
+  silahçı Lvl 20'de 60 işçi alıyor. Eski değerlerle (20 / 1,25) 30
+  işçili bir atölye tam Lvl 20'yi 23 DAKİKADA bitiriyordu; ekipman
+  seviyesi ORDUNUN TAMAMINA işleyen kalıcı bir güç olduğu için bu çok
+  kısaydı (İlkan bildirdi).
+
+  Yeni değerlerle 30 işçide tam set 3,8 saat, son seviye 1 saat (10x
+  hızda). Erken oyun bozulmuyor: Lvl 1 atölyede (3 işçi) ilk yükseltme
+  hâlâ 2 gerçek dakika.
+
+  Adım 1,35 oyunun standart 1,28'inden bilerek sapıyor — 1,28 ile tam
+  set 1,6 saatte bitiyor, sorunun ancak yarısı çözülüyordu.
+*/
+const EQUIPMENT_UPGRADE_MINUTES_BASE = 60;
+const EQUIPMENT_UPGRADE_MINUTES_STEP = 1.35;
 
 /** `level` (0-19) seviyesinden bir üstüne çıkmanın bedeli */
 function equipmentUpgradeCost(level) {

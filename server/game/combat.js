@@ -9,7 +9,7 @@
  *   - Yağma modu: her iki tarafın kayıp oranı × 0.5
  *
  * Kuşatma birimleri (category === 'kusatma') Faz 1'de ihmal edilir.
- * Sağlık Çadırı, Kule, Moral bonusu TODO.md'de.
+ * Sağlık Çadırı ve Kule TODO.md'de.
  *
  * Bu modül saf fonksiyondur — oyun state'ine dokunmaz. Hem simülatör hem de
  * gerçek saldırı sistemi gelince tek çağrı noktasıyla tüketir.
@@ -75,28 +75,17 @@ function towerBonusPct(village) {
  * ölçekli) toplamı, DEF_BONUS_CAP ile sert şekilde sınırlanır: tablolar
  * elle değiştirilse bile toplam tavanı geçemez.
  */
-/**
- * MORAL BONUSU (%) — savunana giden ek savunma.
- *
- * Travian mantığı: saldıran savunandan ne kadar büyükse savunanın
- * morali o kadar yüksek. `(saldıranNüfus / savunanNüfus)^0,2` üsteli
- * bilerek küçük: iki katı büyük bir saldırgan %15, on katı büyük olan
- * tavan olan %50 alıyor. Doğrusal olsaydı büyük oyuncu küçüğe hiç
- * dokunamaz, oyun donardı.
- *
- * SALDIRAN KÜÇÜKSE BONUS YOK (0'da kesiliyor): moral ezileni korumak
- * için var, küçük saldırganı cezalandırmak için değil.
- */
-const MORAL_USTEL = 0.2;
-const MORAL_TAVAN = 50;
+/*
+  MORAL BONUSU KALDIRILDI (İlkan'ın kararı, 16 Eylül 2026).
 
-function moralBonusPct(saldiranNufus, savunanNufus) {
-  const a = Number(saldiranNufus) || 0;
-  const d = Number(savunanNufus) || 0;
-  if (!(a > 0) || !(d > 0) || a <= d) return 0;
-  const oran = Math.pow(a / d, MORAL_USTEL) - 1;
-  return Math.min(MORAL_TAVAN, Math.round(oran * 100 * 10) / 10);
-}
+  Saldıranın nüfusu savunanınkinden büyükse savunana ek savunma
+  yüzdesi veriliyordu — `(a/d)^0,2 − 1`, tavan %50. Amacı büyük
+  oyuncunun küçüğü yağmalamasını pahalı kılmaktı.
+
+  Fonksiyon, sabitleri ve savaş çarpanı BİRLİKTE kaldırıldı; geri
+  gelecekse üçü birden gelmeli. Kullanılmayan bir `moralPct` seçeneği
+  bırakmak "moral var ama çalışmıyor" gibi okunan bir tuzak olurdu.
+*/
 
 function wallBonusPct(surLevel, hendekLevel, kulePct = 0) {
   const s = SUR_BONUS[clampLevel(surLevel, SUR_BONUS)] || 0;
@@ -171,13 +160,6 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
      */
     kahramanBirimSaldiri = null, kahramanBirimSavunma = null,
   } = options;
-
-  /*
-    MORAL — saldıran ile savunanın NÜFUS oranından.
-    Değeri bir yüzde (savunmaya ek). Hesabı moralBonusPct yapıyor;
-    burada yalnız okunuyor.
-  */
-  const moralPct = Math.max(0, Number(options.moralPct) || 0);
 
   /** Birim sınıfına göre yüzde çarpanı (bonus yoksa 1) */
   const sinifCarpani = (bonus, key, tur) => {
@@ -281,16 +263,8 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
   const bonusPct = kesif
     ? wallBonusPct(0, 0, kulePct)
     : wallBonusPct(surLevel, hendekLevel, kulePct);
-  /*
-    MORAL AYRI ÇARPAN, sur bonusuna EKLENMİYOR.
-
-    Toplansaydı DEF_BONUS_CAP (%150) ikisini birden yutardı: surunu
-    yükseltmiş küçük oyuncu moralden hiçbir şey görmezdi — yani tam da
-    korumak istediğimiz oyuncu korumasız kalırdı.
-  */
   const defenseTotal = defenseRaw
     * (1 + bonusPct / 100)
-    * (1 + moralPct / 100)
     * (1 + Math.max(0, kahramanSavunmaYuzde) / 100);
 
   // ── 3. Kazanan ve kayıp oranı ───────────────────────────────────
@@ -452,6 +426,5 @@ function savunmaOzeti(village) {
 
 module.exports = {
   simulateBattle, wallBonusPct, towerBonusPct, savunmaOzeti,
-  moralBonusPct, MORAL_USTEL, MORAL_TAVAN,
   K_LOSS_EXPONENT, RAID_LOSS_MULT,
 };

@@ -10,7 +10,6 @@ const assert = require('node:assert');
 
 const { UNIT_DEFS, EQUIPMENT_DEFS, VILLAGE_DEFS, PRODUCTION_DEFS, BASE_STATS } = require('../data');
 const { birimYemi } = require('../game/tick');
-const { moralBonusPct, MORAL_TAVAN } = require('../game/combat');
 const { eksikOnKosullar } = require('../game/insaat');
 const { createVillage } = require('../game/villageState');
 const K = require('../game/koyKurallari');
@@ -193,19 +192,38 @@ test('ön koşul ağacında döngü yok', () => {
   assert.deepEqual(kilitli, [], 'bu binalara hiçbir sırayla ulaşılamıyor: ' + kilitli.join(', '));
 });
 
-// ══ MADDE 12 — moral bonusu ══════════════════════════════════════
-test('moral bonusu ezileni koruyor, küçük saldırganı cezalandırmıyor', () => {
-  assert.equal(moralBonusPct(100, 100), 0, 'eşit nüfusta moral olmamalı');
-  assert.equal(moralBonusPct(100, 500), 0, 'küçük saldıran ceza almamalı');
-  assert.ok(moralBonusPct(200, 100) > 10, 'iki katı büyük saldırgana karşı bonus olmalı');
-  assert.equal(moralBonusPct(100000, 100), MORAL_TAVAN, 'tavan aşılmamalı');
-  // Eğri monoton: büyüdükçe bonus artmalı
-  let onceki = -1;
-  for (const a of [100, 150, 300, 600, 1200]) {
-    const b = moralBonusPct(a, 100);
-    assert.ok(b >= onceki, 'moral eğrisi monoton olmalı');
-    onceki = b;
-  }
+// ══ MADDE 12 — moral bonusu KALDIRILDI ═══════════════════════════
+/*
+  İlkan'ın kararı (16 Eylül 2026): *"moral bonusunu tamamen kaldır."*
+
+  Eski test moral eğrisini kilitliyordu (ezileni korur, küçük saldırganı
+  cezalandırmaz, tavan %50, monoton). Sistem tümüyle söküldüğü için o
+  kilitler de kalktı; yerine SÖKÜMÜN KENDİSİ kilitleniyor.
+
+  Sebebi şu: yarım sökülmüş bir özellik en tehlikelisi. `simulateBattle`
+  bilinmeyen bir seçeneği sessizce yok sayar, yani biri `moralPct`
+  göndermeye devam etse hiçbir hata almaz ve "moral çalışıyor" sanırdı.
+  Bu test nüfus oranının savaş sonucunu ARTIK DEĞİŞTİRMEDİĞİNİ ölçüyor.
+*/
+test('nüfus oranı savaşı ETKİLEMİYOR — moral bonusu kaldırıldı', () => {
+  const { simulateBattle } = require('../game/combat');
+  const saldiri = { fjordvakt: 500 };
+  const savunma = { spydvakt: 200 };
+
+  const sade = simulateBattle(saldiri, savunma, {});
+  /*
+    Eski moral yolunun iki ucu: eşit nüfus (bonus 0) ve 100 kat büyük
+    saldırgan (tavan %50). İkisi de aynı sonucu vermeli.
+  */
+  const moralli = simulateBattle(saldiri, savunma, { moralPct: 50 });
+  assert.deepEqual(moralli.attackerLosses, sade.attackerLosses,
+    'moralPct seçeneği savaşı değiştirmemeli — sistem kaldırıldı');
+  assert.equal(moralli.winner, sade.winner);
+
+  const C = require('../game/combat');
+  assert.equal(C.moralBonusPct, undefined,
+    'moralBonusPct dışarı verilmemeli — ölü kod "var ama çalışmıyor" tuzağıdır');
+  assert.equal(C.MORAL_TAVAN, undefined, 'MORAL_TAVAN dışarı verilmemeli');
 });
 
 // ══ MADDE 14 — nüfus büyüme freni ════════════════════════════════

@@ -26,6 +26,75 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16j',
+    tarih: '16 Eylül 2026',
+    baslik: 'Moral kalktı · göçmenler dönüyor · ekipman süreleri uzadı',
+    notlar: [
+      {
+        id: '20260916-moral-kaldirildi',
+        tur: 'denge',
+        metin: 'MORAL BONUSU KALDIRILDI. Saldıranın nüfusu savunandan '
+          + 'büyük olduğunda savunana ek savunma veriliyordu (en çok '
+          + '%50). Artık nüfus oranının savaşa hiçbir etkisi yok — '
+          + 'savaşı yalnız ordular, ekipman, sur ve kahraman belirliyor. '
+          + 'Somut etki: 500 Fjordvakt ile 200 Spydvakt savunmaya '
+          + 'saldırırken on kat büyük bir oyuncu 126 asker kaybediyordu, '
+          + 'artık eşit nüfuslu biriyle aynı şekilde 69 kaybediyor. '
+          + 'Büyük oyuncunun küçüğe saldırısı ucuzladı.',
+      },
+      {
+        id: '20260916-gocmen-geri-donuyor',
+        tur: 'duzeltme',
+        metin: 'GÖÇMENLER ARTIK YOK OLMUYOR. Yerleşime gönderdiğin '
+          + 'göçmenler vardıklarında araziyi dolu bulurlarsa kayboluyordu. '
+          + 'Göçmen köşk/saray Lvl 10 istiyor, 240 dakika eğitiliyor ve '
+          + 'üçü birden gerekiyor — yani saatlerce biriktirdiğin bir '
+          + 'yatırım, senin hatan olmayan bir sebeple (araziyi bu arada '
+          + 'başkası kaptı) siliniyordu. Artık geri dönüyorlar ve eve '
+          + 'varınca ordunda tekrar sayılıyorlar. Raporda da "köy '
+          + 'kurulamadı: arazi bu arada doldu — göçmenler eve dönüyor" '
+          + 'yazıyor.',
+      },
+      {
+        id: '20260916-yerlesim-raporu',
+        tur: 'duzeltme',
+        metin: 'YERLEŞİM RAPORU DOĞRU OKUNUYOR. İki şey bozuktu: '
+          + 'raporun sonuç etiketi yerleşimi tanımıyordu, bu yüzden köyü '
+          + 'BAŞARIYLA kurduğunda bile "kaybettin" yazıyordu; ayrıca '
+          + 'raporun açıklama cümlesi ekranda hiç çizilmiyordu, yani '
+          + '"arazi doldu" bilgisi sana hiçbir zaman ulaşmıyordu. Artık '
+          + '"köy kuruldu" ya da "köy kurulamadı — göçmenler dönüyor" '
+          + 'yazıyor ve açıklama raporun içinde görünüyor.',
+      },
+      {
+        id: '20260916-ekipman-sureleri',
+        tur: 'denge',
+        metin: 'EKİPMAN YÜKSELTME SÜRELERİ UZADI. Tablodaki dakikalar '
+          + 'yanıltıcıydı: gerçek süre atölyeye atadığın işçiye '
+          + 'bölünüyor ve silahçı Lvl 20\'de 60 işçi alıyor. Ölçüldü — '
+          + '30 işçili bir atölye bir ekipmanı Lvl 20\'ye 23 DAKİKADA '
+          + 'çıkarıyordu. Ekipman seviyesi ordunun TAMAMINA işleyen '
+          + 'kalıcı bir güç; yarım saatlik bir iş olmamalı. Taban süre '
+          + '20\'den 60 oyun dakikasına, seviye çarpanı 1,25\'ten '
+          + '1,35\'e çıktı. Yeni ölçüm: 30 işçiyle tam Lvl 20 3,8 saat, '
+          + 'son seviye 1 saat, dört ekipmanın hepsi 15,4 saat. Erken '
+          + 'oyun aynı kaldı: yeni kurulmuş atölyede ilk yükseltme hâlâ '
+          + '2 dakika. Maliyetlere dokunulmadı.',
+      },
+      {
+        id: '20260916-pazar-arama',
+        tur: 'yenilik',
+        metin: 'AÇIK TEKLİFLERDE ARAMA VE SÜZME. Bütün teklifler tek '
+          + 'listede kayıyordu. Artık satıcının VERDİĞİ mala, İSTEDİĞİ '
+          + 'mala ve satıcı adına göre süzebiliyorsun; ayrıca "yalnız '
+          + 'karşılayabildiklerim" anahtarı kaynağın ve tüccarın yeten '
+          + 'teklifleri bırakıyor. Süzgeç açıkken başlıkta "12 / 34" '
+          + 'gibi iki sayı duruyor, yani bir şeyin gizlendiğini '
+          + 'görüyorsun.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16i',
     tarih: '16 Eylül 2026',
     baslik: 'Üretim skili yüzde oldu · asker yemi muhasebesi',

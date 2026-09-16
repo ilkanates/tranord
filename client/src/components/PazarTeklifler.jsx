@@ -20,6 +20,40 @@ import Icon from './Icons';
 
 const YENILE_MS = 12000;
 
+/**
+ * SÜZGEÇ SATIRI — küçük simgeler, "hepsi" dahil.
+ *
+ * `MalSecici`den ayrı bir bileşen çünkü işi farklı: orada bir kaynak
+ * SEÇİLMEK zorunda (teklif açıyorsun), burada seçmemek de bir cevap
+ * ("farketmez"). Aynı bileşene `null` kabul ettirmek onu iki farklı
+ * işin arasında sıkıştırırdı.
+ */
+function MalSuzgec({ deger, onSec, kaynaklar }) {
+  const kutu = (secili, renk) => ({
+    width: 22, height: 22, display: 'grid', placeItems: 'center',
+    borderRadius: 4, cursor: 'pointer',
+    background: secili ? 'rgba(143,220,255,0.16)' : 'rgba(6,11,18,0.6)',
+    border: `1px solid ${secili ? (renk || C.frost) : C.lineSoft}`,
+  });
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+      <button type="button" onClick={() => onSec(null)} title="Farketmez"
+        style={{ ...kutu(deger === null), width: 'auto', padding: '0 7px',
+          fontFamily: FONT.ui, fontSize: 9,
+          color: deger === null ? C.frost : C.textMute }}>
+        hepsi
+      </button>
+      {kaynaklar.map((r) => (
+        <button key={r} type="button" title={RES_LABEL[r] || r}
+          onClick={() => onSec(deger === r ? null : r)}
+          style={kutu(deger === r, RES_COLOR[r])}>
+          <Icon name={r} size={13} color={deger === r ? (RES_COLOR[r] || C.frost) : C.textMute} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Kaynak seçici — simgeler BÜYÜK, pazarda mal seçmek asıl iş */
 function MalSecici({ deger, onSec, kaynaklar, resources, boyut = 30 }) {
   return (
@@ -97,6 +131,38 @@ export default function PazarTeklifler({
   /** Başkalarının teklifleri — kendiminkiler ayrı bölümde */
   const digerleri = useMemo(() => liste.filter((t) => !t.benimMi), [liste]);
 
+  /*
+    SÜZGEÇLER. Hepsi isteğe bağlı; `null` "farketmez" demek. Oyuncunun
+    sorusu neredeyse hep "elimdeki X'i verip Y alabilir miyim", o yüzden
+    iki kaynak süzgeci ayrı ayrı duruyor.
+  */
+  const [fVeren, setFVeren] = useState(null);      // satıcının verdiği
+  const [fAlan, setFAlan] = useState(null);        // satıcının istediği
+  const [fMetin, setFMetin] = useState('');        // satıcı adı
+  const [fUygun, setFUygun] = useState(false);     // yalnız karşılayabildiklerim
+
+  const suzulmus = useMemo(() => {
+    const ara = fMetin.trim().toLocaleLowerCase('tr');
+    return digerleri.filter((t) => {
+      if (fVeren && t.veren !== fVeren) return false;
+      if (fAlan && t.alan !== fAlan) return false;
+      if (ara) {
+        const ad = `${t.saticiSahip || ''} ${t.satici || ''}`.toLocaleLowerCase('tr');
+        if (!ad.includes(ara)) return false;
+      }
+      if (fUygun) {
+        const gerek = Math.ceil(t.alanMiktar / kapasite);
+        if ((resources[t.alan] || 0) < t.alanMiktar || gerek > bosTuccar) return false;
+      }
+      return true;
+    });
+  }, [digerleri, fVeren, fAlan, fMetin, fUygun, resources, kapasite, bosTuccar]);
+
+  const suzgecVar = !!(fVeren || fAlan || fMetin.trim() || fUygun);
+  const suzgecTemizle = () => {
+    setFVeren(null); setFAlan(null); setFMetin(''); setFUygun(false);
+  };
+
   const sayiKutu = {
     width: 96, padding: '5px 8px', borderRadius: 4,
     background: 'rgba(6,11,18,0.8)', color: C.frost,
@@ -151,20 +217,73 @@ export default function PazarTeklifler({
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
           <span style={lbl({ fontSize: 8 })}>Açık teklifler</span>
-          <span style={num({ fontSize: 10, color: digerleri.length ? C.iceSoft : C.textMute })}>
-            {digerleri.length}
+          {/*
+            SÜZGEÇ VARKEN İKİ SAYI. Yalnız süzülmüş sayıyı gösterseydik
+            oyuncu "teklif kalmamış" sanardı; süzgecin bir şeyi
+            gizlediği görünmeli.
+          */}
+          <span style={num({ fontSize: 10, color: suzulmus.length ? C.iceSoft : C.textMute })}>
+            {suzgecVar ? `${suzulmus.length} / ${digerleri.length}` : digerleri.length}
           </span>
+          <span style={{ flex: 1 }} />
+          {suzgecVar && (
+            <button type="button" onClick={suzgecTemizle}
+              style={btn('ghost', { fontSize: 8.5, padding: '2px 8px' })}>
+              SÜZGECİ TEMİZLE
+            </button>
+          )}
         </div>
+
+        {/* ── Süzgeçler ── */}
+        {digerleri.length > 0 && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 7,
+            padding: '7px 8px', borderRadius: 6,
+            background: 'rgba(8,14,22,0.45)', border: `1px solid ${C.lineSoft}`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={lbl({ fontSize: 7.5, letterSpacing: 1, minWidth: 34 })}>VEREN</span>
+              <MalSuzgec deger={fVeren} onSec={setFVeren} kaynaklar={kaynaklar} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={lbl({ fontSize: 7.5, letterSpacing: 1, minWidth: 34 })}>İSTER</span>
+              <MalSuzgec deger={fAlan} onSec={setFAlan} kaynaklar={kaynaklar} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+              <input value={fMetin} onChange={(e) => setFMetin(e.target.value)}
+                placeholder="satıcı ara…"
+                style={{
+                  flex: 1, minWidth: 110, padding: '4px 8px', borderRadius: 4,
+                  background: 'rgba(6,11,18,0.8)', color: C.text,
+                  border: `1px solid ${C.line}`, fontFamily: FONT.ui, fontSize: 10,
+                }} />
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+                fontFamily: FONT.ui, fontSize: 9.5,
+                color: fUygun ? C.good : C.textDim, whiteSpace: 'nowrap',
+              }}>
+                <input type="checkbox" checked={fUygun}
+                  onChange={(e) => setFUygun(e.target.checked)} />
+                karşılayabildiklerim
+              </label>
+            </div>
+          </div>
+        )}
+
         {digerleri.length === 0 ? (
           <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textMute, padding: '4px 2px' }}>
             Şu an satışta bir şey yok.
+          </div>
+        ) : suzulmus.length === 0 ? (
+          <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textMute, padding: '4px 2px' }}>
+            Süzgece uyan teklif yok — {digerleri.length} teklif gizli.
           </div>
         ) : (
           <div className="tn-scroll" style={{
             display: 'flex', flexDirection: 'column', gap: 5,
             maxHeight: 190, overflowY: 'auto', paddingRight: 2,
           }}>
-            {digerleri.map((t) => {
+            {suzulmus.map((t) => {
               const gerek = Math.ceil(t.alanMiktar / kapasite);
               const malVar = (resources[t.alan] || 0) >= t.alanMiktar;
               const varMi = malVar && gerek <= bosTuccar;

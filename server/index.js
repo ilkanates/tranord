@@ -5,7 +5,7 @@ const cors       = require('cors');
 
 const { createVillage, hydrateVillage, civilianCount } = require('./game/villageState');
 const { processTick, getUpgradeSeconds, getStorageCaps } = require('./game/tick');
-const { simulateBattle, moralBonusPct } = require('./game/combat');
+const { simulateBattle } = require('./game/combat');
 const ARMY = require('./game/army');
 const KUSATMA = require('./game/kusatma');
 const HERO = require('./game/kahraman');
@@ -1476,8 +1476,14 @@ function yerlesimUygun(targetKey, userId) {
 /**
  * GÖÇMEN SEFERİ VARDI — hedef slotta yeni köy kur.
  *
- * Gidiş tek yön: slot bu arada dolduysa göçmenler kaybolur (kullanıcı
- * kararı). Her iki durumda da kurucu köye rapor düşülür.
+ * Slot bu arada dolduysa göçmenler KAYBOLMUYOR, EVE DÖNÜYOR (İlkan'ın
+ * kararı, 16 Eylül 2026). Eskiden yok oluyorlardı; göçmen köşk/saray
+ * Lvl 10 istiyor, 240 dakika eğitiliyor ve üçü birden gerekiyor — yani
+ * saatlerce biriktirilen bir yatırım, oyuncunun hatası olmayan bir
+ * sebeple (araziyi bu arada başkası kaptı) siliniyordu. Dönüşü
+ * çağıran taraf kuruyor; burası yalnız sonucu ve raporu üretiyor.
+ *
+ * Her iki durumda da kurucu köye rapor düşülür.
  *
  * @returns {boolean} köy kuruldu mu
  */
@@ -1493,7 +1499,7 @@ function foundVillageAt(userId, slotKey, origin) {
       toKey: slotKey, toName: slot?.name || slotKey,
       outcome: 'arazi_dolu', winner: 'none',
       sent: {}, myLosses: {}, theirLosses: {}, loot: {},
-      message: 'Arazi bu arada doldu — göçmenler kayboldu',
+      message: 'Köy kurulamadı: arazi bu arada doldu — göçmenler eve dönüyor',
     });
     return false;
   }
@@ -1617,12 +1623,27 @@ function processMarches(hours) {
 
       if (m.phase === 'outbound') {
         /*
-          YERLEŞİM — savaş yok, dönüş yok. Köy kurulur (ya da arazi
-          dolmuşsa göçmenler kaybolur) ve sefer listeden silinir.
+          YERLEŞİM — savaş yok.
+
+          Köy KURULDUYSA sefer biter: göçmenler artık yeni köyün
+          nüfusu, geri dönecek kimse yok.
+
+          KURULAMADIYSA göçmenler EVE DÖNÜYOR (İlkan'ın kararı).
+          Eskiden yok oluyorlardı; göçmen köşk/saray Lvl 10 istiyor,
+          240 dakika eğitiliyor ve üçü birden gerekiyor — oyuncunun
+          hatası olmayan bir sebeple (araziyi bu arada başkası kaptı)
+          saatlerce biriktirilen yatırımı silmek doğru değildi.
         */
         if (m.mode === 'yerlesim') {
-          if (entry.kind === 'player') foundVillageAt(entry.userId, m.toKey, v);
-          list.splice(i, 1);
+          const kuruldu = entry.kind === 'player'
+            && foundVillageAt(entry.userId, m.toKey, v);
+          if (kuruldu) {
+            list.splice(i, 1);
+          } else {
+            m.phase = 'return';
+            m.remainingHours = m.legHours;
+            m.loot = {};                 // göçmen ganimet taşımaz
+          }
           entry.dirty();
           continue;
         }
@@ -4184,19 +4205,7 @@ io.on('connection', async socket => {
       // `tag` aynen geri döner: aynı anda birden fazla ekran tahmin isteyebilir
       // (savaş simülatörü + saldırı ekranı), yanıtı kim istediyse o eşleştirsin.
       const { attacker = {}, defender = {}, surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal', tag = null,
-        attackerLevels = null, defenderLevels = null, defenderPopulation = 0 } = payload;
-      /*
-        MORAL TAHMİNE DE GİRİYOR. Gerçek savaşta savunan, saldırandan
-        küçükse savunma bonusu alıyor (bkz. combat.js · moralBonusPct).
-        Tahmin bunu saymasaydı ekran "kazanırsın" der, savaş
-        kaybedilirdi — oyuncunun ordusunu yanlış bilgiye dayanıp
-        harcaması en kötü türden hata.
-
-        Savunanın nüfusu KEŞİFTEN geliyor (istemci `intel.population`
-        gönderiyor); bilinmiyorsa moral 0 sayılıyor, yani tahmin
-        savunan lehine değil ALEYHİNE yanılıyor — güvenli taraf.
-      */
-      const moralPct = moralBonusPct(v().population, defenderPopulation);
+        attackerLevels = null, defenderLevels = null } = payload;
       /**
        * Simülatörde saldıran taraf oyuncunun kendisi sayılıyor: yükseltme
        * verilmediyse KENDİ ekipman seviyeleri kullanılıyor, yoksa tahmin
@@ -4204,7 +4213,7 @@ io.on('connection', async socket => {
        * hedefin yükseltmeleri bilinmiyor (keşif onu söylemiyor).
        */
       socket.emit('battle_result', { ok: true, tag, result: simulateBattle(attacker, defender, {
-        surLevel, hendekLevel, kulePct, mode, moralPct,
+        surLevel, hendekLevel, kulePct, mode,
         attackerLevels: attackerLevels || v().equipmentLevels || null,
         defenderLevels,
       }) });

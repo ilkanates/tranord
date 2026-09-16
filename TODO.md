@@ -176,9 +176,12 @@ NPC takası, oyuncular arası teklif ve tüccar yürüyüşü **yapıldı**
 kabul/iptal`). Bu maddede kalan:
 - ~~Karşılıksız hammadde gönderme~~ — yapıldı: pazarda HAMMADDE GÖNDER sekmesi
   + haritada kısayol (bkz. Tamamlandı).
-- Teklif listesinde arama/süzme (şu an bütün açık teklifler tek listede).
-- Teklifin süresi dolunca otomatik iptal ve kaynakların iadesi.
-- Tüccar kapasitesinin pazar seviyesiyle ilişkisi gözden geçirilecek.
+- ~~Teklif listesinde arama/süzme~~ — **YAPILDI** (bkz. Tamamlandı).
+- ~~Teklifin süresi dolunca otomatik iptal~~ — **YAPILMAYACAK** (İlkan'ın kararı,
+  16 Eylül 2026). Teklif açan oyuncu onu kendisi iptal edebiliyor; süre
+  koymak açık teklifi sessizce yok eden ikinci bir kural eklerdi.
+- ~~Tüccar kapasitesinin pazar seviyesiyle ilişkisi~~ — **GÖZDEN GEÇİRİLMEYECEK**
+  (İlkan'ın kararı, 16 Eylül 2026). Mevcut hâli bırakılıyor.
 
 ---
 
@@ -216,6 +219,50 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 ---
 
 ## ✅ Tamamlandı
+
+### Moral bonusu tamamen kaldırıldı (16 Eylül 2026)
+- İlkan önce *"moral bonusunu bana açıkla"* dedi, açıklandıktan sonra *"moral bonusunu tamamen kaldır"*.
+- Kaldırılan: saldıranın nüfusu savunanınkinden büyükse savunana ek savunma yüzdesi (`(a/d)^0,2 − 1`, tavan %50).
+- **Somut etki ölçüldü**: 500 Fjordvakt → 200 Spydvakt savunmaya karşı, saldıran on kat büyükken 126 asker kaybediyordu; moral kalkınca eşit nüfusla aynı, **69**. Büyük oyuncunun küçüğe saldırısı ucuzladı — bu bilinçli bir karar.
+- **YARIM BIRAKILMADI**: `moralBonusPct`, `MORAL_USTEL`, `MORAL_TAVAN`, savaş çarpanı, tahmin yolundaki hesap ve istemcinin gönderdiği `defenderPopulation` alanı birlikte kalktı. Ölü kod bırakmak "moral var ama çalışmıyor" gibi okunan bir tuzak olurdu — `ODUL_AGIRLIK.esya` tam olarak öyle bir tuzaktı.
+- Eski test moral eğrisini kilitliyordu; yerine **sökümün kendisi** kilitlendi: `simulateBattle` bilinmeyen bir seçeneği sessizce yok sayar, yani biri `moralPct` göndermeye devam etse hiç hata almaz ve "çalışıyor" sanırdı. Yeni test `moralPct: 50` ile `{}` sonucunun AYNI olduğunu ve fonksiyonun dışarı verilmediğini ölçüyor.
+
+### Göçmenler yok olmuyor, eve dönüyor (16 Eylül 2026)
+- İlkan: *"göçmenler vardığında arazi doldu ise geri dönmeye başlasınlar, yok olmasınlar. bana rapor gelsin köy kurulamadı diye."*
+- Eski kural: slot bu arada dolmuşsa göçmenler siliniyordu. Göçmen köşk/saray Lvl 10 istiyor, 240 dk eğitiliyor, üçü birden gerekiyor — oyuncunun hatası olmayan bir sebeple saatlerce biriktirilen yatırım gidiyordu.
+- Düzeltme: kuruluş başarısızsa sefer siliniyor değil **dönüşe geçiyor** (`phase = 'return'`, `remainingHours = legHours`); eve varınca `resolveReturn` göçmenleri orduya geri katıyor.
+- **RAPOR EKRANINDA İKİ AYRI HATA BULUNDU** (ikisi de bu maddeden bağımsız duruyordu):
+  1. `verdictOf` yerleşim sonuçlarını (`koy_kuruldu`, `arazi_dolu`) hiç tanımıyordu; ikisi de kazanan/kaybeden testine düşüyor ve `winner: 'none'` olduğu için **"kaybettin"** yazıyordu — köyü BAŞARIYLA kurduğunda bile.
+  2. Raporun `message` alanı ReportScreen.jsx'te **hiç çizilmiyordu** (dosyada tek geçişi bile yok). Yani "arazi doldu" açıklaması yazılıyor ama oyuncuya hiçbir zaman ulaşmıyordu.
+- **AÇIK KALAN**: dönüş dalının kendisi otomatik testle kaplı değil. Başarısızlık ancak "sefer yoldayken araziyi başkası kapar" durumunda oluşuyor ve bunu canlı soket testinde kurmak iki hesabın zamanlamasını gerektiriyor. Kod gözden geçirildi, kalıp mevcut dönüş kurulumlarıyla birebir aynı.
+
+### Ekipman yükseltme süreleri uzatıldı (16 Eylül 2026)
+- İlkan: *"ekipman update lerini uzat şu an çok kısa."*
+- **ÖLÇÜM ASIL SEBEBİ GÖSTERDİ**: tablodaki ham dakika yanıltıcı, gerçek süre `equipmentUpgradeMinutes(lvl) / işçi` (tick.js) ve silahçı seviye başına 3 işçi alıyor — Lvl 20'de 60 işçi. Eski değerlerle (taban 20, adım 1,25) **30 işçili atölye tam Lvl 20'yi 23 dakikada** bitiriyordu; 60 işçiyle 11 dakika.
+- Yeni: taban **20 → 60** oyun dakikası, adım **1,25 → 1,35**. Ölçüldü (10× hız): 30 işçiyle tam Lvl 20 **3,8 saat**, son seviye **1 saat**, 60 işçiyle tam set 1,9 saat, dört ekipmanın hepsi 15,4 saat.
+- Erken oyun korundu: Lvl 1 atölyede (3 işçi) ilk yükseltme hâlâ 2 gerçek dakika.
+- Adım 1,35 oyunun standart 1,28'inden **bilerek** sapıyor: 1,28 ile tam set 1,6 saatte bitiyor, sorunun ancak yarısı çözülüyordu. Gerekçe ekipmanın ordu geneline işlemesi — bina seviyesi tek binayı, ekipman seviyesi bütün orduyu büyütüyor.
+- Maliyet tablosuna dokunulmadı (İlkan yalnız süreleri istedi).
+- Test HAM SABİTİ değil **oyuncunun gördüğü süreyi** kilitliyor: 30 işçiyle tam yol 20-60 oyun saati aralığında, son seviye en az 5 oyun saati, ilk yükseltme en çok 30 oyun dakikası, eğri monoton.
+
+### Pazarda teklif arama ve süzme (16 Eylül 2026)
+- İlkan: *"teklif listesinde aramayı yapalım."* (Aynı mesajda teklif SÜRESİ ve tüccar kapasitesi maddeleri **yapılmayacak** diye işaretlendi.)
+- Üç süzgeç + bir anahtar: satıcının VERDİĞİ mal · İSTEDİĞİ mal · satıcı adı (metin) · "yalnız karşılayabildiklerim" (kaynağı ve tüccarı yeten teklifler).
+- Süzgeç açıkken başlık **"12 / 34"** gösteriyor: yalnız süzülmüş sayıyı yazsaydık oyuncu "teklif kalmamış" sanırdı. Boş sonuçta da "Süzgece uyan teklif yok — N teklif gizli" yazıyor.
+- `MalSuzgec` `MalSecici`den AYRI bir bileşen: orada bir kaynak seçilmek zorunda (teklif açıyorsun), burada seçmemek de bir cevap ("hepsi"). Aynı bileşene `null` kabul ettirmek onu iki işin arasında sıkıştırırdı.
+- **TARAYICIDA DOĞRULANDI**: tek teklifli listede "casus" aramasında 1 sonuç, "zzzyok" aramasında 0 sonuç + "Süzgece uyan teklif yok" mesajı + başlıkta "0 / 1"; SÜZGECİ TEMİZLE'ye basınca teklif geri geliyor.
+
+### nginx: index.html önbelleği (16 Eylül 2026)
+- **Canlıdan ölçüldü**: `curl -sI http://127.0.0.1/` yanıtında yalnız `ETag` ve `Last-Modified` var, **`Cache-Control` YOK**. Böyle olunca tarayıcı kendi buluşsal kuralıyla index.html'i bir süre sormadan önbellekten kullanabiliyor; index.html hangi hash'li dosyanın yükleneceğini söylediği için yeni deploy hiç görünmüyor ("deploy ettim ama değişmedi").
+- `deploy/nginx-tranord.conf` şablonuna `location = /index.html { add_header Cache-Control "no-cache"; }` eklendi — yeni kurulumlar (Hetzner) doğru başlasın.
+- **Pi'ye elle kurulacak**: parolasız sudo yalnız `tranord-guncelle` ve `tranord-yedek` için tanımlı (`sudo -n -l` ile doğrulandı), nginx dosyası root'a ait. Değiştirilmiş dosya Pi'de `~/tranord-nginx.new` olarak hazır ve `diff` ile doğrulandı (tek fark eklenen blok). Kurulum komutu İlkan'a verildi.
+
+### Otomatik deploy: kurulu DEĞİL (16 Eylül 2026)
+- İlkan: *"pi hâlâ 5 dakikada bir deploy yapıyor mu, yapıyorsa kapat."*
+- **Dört yer tarandı, çalışan bir şey yok**: systemd timer'ları (16 timer, hepsi sistem işi), `pi` crontab'ı (yok), `/etc/cron.d` (yalnız e2scrub_all + sysstat), bu oturumun zamanlanmış görevleri (yok), Windows zamanlanmış görevleri (eşleşen yok).
+- **Kesin kanıt**: `tranord.service` günlüğünde bugünkü her yeniden başlatma elle yapılan deploy'lara denk geliyor (12:57, 13:16, 14:27, 14:37, 15:16, 15:56, 16:20, 17:19, 18:22) — aralar 10-71 dakika, hiçbir yerde 5 dakikalık düzen yok. `NRestarts=0`.
+- **Ama makine DEPODA duruyor**: `deploy/tranord-otomatik.timer` (`OnUnitActiveSec=5min`), `tranord-otomatik.service`, `otomatik-guncelle.sh`, `otomatik-kur.sh`. Pi'ye hiç kurulmamış (`systemctl is-enabled` → `not-found`, `/etc/systemd/system/tranord-otomatik.*` yok). İlkan'ın hatırladığı bu dosyalar olmalı. **Karar bekliyor**: dosyalar depoda kalsın mı, silinsin mi.
+
 
 ### Kahramanın üretim skili düz ek yerine YÜZDE (16 Eylül 2026)
 - İlkan: *"kahramanın hammadde üretimine lvl verdiğimde rakam olarak değil yüzde olarak üretimi arttırsın. max seviyede 1000 hammadde üretimi arttırsın."*

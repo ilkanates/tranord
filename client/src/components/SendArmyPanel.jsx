@@ -428,14 +428,6 @@ export default function SendArmyPanel({
         surLevel: intel.surLevel || 0, hendekLevel: intel.hendekLevel || 0,
         // Kule bonusu okçu dolulukla ölçekli geliyor — tahmin de bunu saymalı
         kulePct: intel.kulePct || 0,
-        /*
-          MORAL için savunanın NÜFUSU. Moral bonusu gerçek savaşta
-          uygulanıyor (bkz. combat.js · moralBonusPct); tahmin onu
-          saymasaydı ekran "kazanırsın" der, savaş kaybedilirdi —
-          en kötü türden yanlış bilgi. Oranı sunucu hesaplıyor,
-          formül tek yerde kalsın.
-        */
-        defenderPopulation: intel.population || 0,
         mode: mode === 'raid' ? 'raid' : 'normal',
       });
     }, 220);   // yazarken her tuşta istek atma

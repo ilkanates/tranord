@@ -107,3 +107,54 @@ test('en pahalı binalar hâlâ en pahalı — düz bir eğri değil', () => {
   assert.ok(toplam('anaBina', 5) > toplam('ev', 4), 'Ana Bina Ev den pahalı olmalı');
   assert.ok(toplam('kisla', 10) > toplam('runSalonu', 10) / 10, 'kışla bedavaya düşmemeli');
 });
+
+/**
+ * EKİPMAN YÜKSELTME SÜRESİ — İŞÇİYE BÖLÜNDÜĞÜ İÇİN ÖLÇÜLÜYOR.
+ *
+ * İlkan: *"ekipman update lerini uzat şu an çok kısa."*
+ *
+ * Tablodaki ham dakika tek başına yanıltıcı: gerçek süre
+ * `equipmentUpgradeMinutes(lvl) / işçi` (tick.js) ve silahçı seviye
+ * başına 3 işçi alıyor, Lvl 20'de 60 işçi. Eski değerlerle (taban 20,
+ * adım 1,25) 30 işçili bir atölye tam Lvl 20'yi **23 dakikada**
+ * bitiriyordu — ordunun tamamına işleyen kalıcı bir güç için çok kısa.
+ *
+ * Bu test HAM SABİTİ değil OYUNCUNUN GÖRDÜĞÜ SÜREYİ kilitliyor;
+ * taban ya da adım değişirse hangi yönde kaydığını söylüyor.
+ */
+test('ekipman Lvl 20 yolu işçiyle bile kısa değil', () => {
+  const M = require('../data/militaryDefs');
+  const ISCI = 30;                 // Lvl 10 atölyenin kadrosu
+
+  let toplamDk = 0;
+  for (let l = 0; l < 20; l++) toplamDk += M.equipmentUpgradeMinutes(l);
+
+  const tamSaat = (toplamDk / ISCI) / 60;          // OYUN saati
+  assert.ok(tamSaat > 20 && tamSaat < 60,
+    `30 işçiyle tam Lvl 20 ${tamSaat.toFixed(1)} oyun saati — `
+    + '20-60 aralığında olmalı (eskiden 3,8 idi, yani 23 gerçek dakika)');
+
+  const sonSaat = (M.equipmentUpgradeMinutes(19) / ISCI) / 60;
+  assert.ok(sonSaat > 5,
+    `son seviye ${sonSaat.toFixed(1)} oyun saati — en az 5 olmalı`);
+
+  /*
+    ERKEN OYUN BOZULMAMALI. Yeni kurulmuş Lvl 1 atölyede 3 işçi var;
+    ilk yükseltme oyuncuyu beklemekten bıktırmamalı.
+  */
+  const ilkDk = M.equipmentUpgradeMinutes(0) / 3;
+  assert.ok(ilkDk <= 30,
+    `ilk yükseltme 3 işçiyle ${ilkDk.toFixed(0)} oyun dakikası — `
+    + 'erken oyun için 30 dakikayı aşmamalı');
+
+  /*
+    EĞRİ MONOTON: her seviye bir öncekinden uzun olmalı, yoksa
+    "hangi seviyede takıldım" hissi kaybolur.
+  */
+  let onceki = 0;
+  for (let l = 0; l < 20; l++) {
+    const dk = M.equipmentUpgradeMinutes(l);
+    assert.ok(dk >= onceki, `Lvl ${l + 1} süresi bir öncekinden kısa`);
+    onceki = dk;
+  }
+});

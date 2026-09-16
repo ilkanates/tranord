@@ -24,7 +24,7 @@
 
 const { UNIT_DEFS } = require('../data');
 const { SETTLER_UNIT, SETTLERS_REQUIRED } = require('../data/militaryDefs');
-const { simulateBattle, towerBonusPct, moralBonusPct } = require('./combat');
+const { simulateBattle, towerBonusPct } = require('./combat');
 const KUSATMA = require('./kusatma');
 const HERO = require('./kahraman');
 /*
@@ -799,18 +799,8 @@ function resolveArrival(march, origin, target, opts = {}) {
     sefer yola çıktıktan sonra skil dağıtıp gücü büyütmek mümkün olmasın.
   */
   const kahSald = march.kahraman || null;
-  /*
-    MORAL (madde 12) — saldıran köy savunandan ne kadar büyükse savunan
-    o kadar bonus alıyor. Ölçüt NÜFUS: ordusu değil, çünkü ordusunu
-    kaybetmiş büyük oyuncu hâlâ büyük oyuncudur ve küçüğe karşı
-    üstünlüğü ekonomisinden gelir.
-
-    KEŞİFTE UYGULANMIYOR (ayrı dal): casus düellosunu nüfus oranına
-    bağlamak "büyük oyuncu küçüğü keşfedemez" demek olurdu.
-  */
-  const moralPct = moralBonusPct(origin?.population, target?.population);
   const res = simulateBattle(march.units, defenderUnits, {
-    surLevel, hendekLevel, kulePct, moralPct,
+    surLevel, hendekLevel, kulePct,
     mode: march.mode === 'raid' ? 'raid' : 'normal',
     attackerLevels: origin?.equipmentLevels || null,
     defenderLevels: target?.equipmentLevels || null,

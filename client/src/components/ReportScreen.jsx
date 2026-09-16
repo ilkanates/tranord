@@ -197,6 +197,17 @@ function verdictOf(r) {
       col: tuttu ? C.good : C.danger, won: tuttu,
     };
   }
+  /*
+    YERLEŞİM bir savaş değil. Bu iki satır yokken rapor aşağıdaki
+    winner testine düşüyor ve `winner: 'none'` olduğu için köyü
+    BAŞARIYLA kurduğunda bile "kaybettin" yazıyordu.
+  */
+  if (r.outcome === 'koy_kuruldu') {
+    return { txt: 'köy kuruldu', col: C.good, won: null };
+  }
+  if (r.outcome === 'arazi_dolu') {
+    return { txt: 'köy kurulamadı — göçmenler dönüyor', col: C.warn, won: null };
+  }
   if (r.outcome === 'kesif') return { txt: 'keşif tamam', col: C.ice, won: null };
   if (r.outcome === 'kesif_basarisiz') return { txt: 'keşif durduruldu', col: C.danger, won: false };
   if (r.outcome === 'kesfedildim') return { txt: 'köyün keşfedildi', col: C.warn, won: false };
@@ -481,6 +492,27 @@ function Detail({ r, unitDefs }) {
           </span>
         </div>
       </div>
+
+      {/*
+        RAPORUN KENDİ CÜMLESİ. `message` alanı sunucudan geliyordu ama
+        bu dosyada hiç çizilmiyordu — "arazi doldu, göçmenler eve
+        dönüyor" açıklaması oyuncuya hiçbir zaman ulaşmıyordu.
+      */}
+      {r.message && (
+        <div style={panel({
+          padding: '9px 11px',
+          background: r.outcome === 'arazi_dolu'
+            ? 'rgba(242,187,96,0.10)' : 'rgba(11,23,37,0.7)',
+          border: `1px solid ${r.outcome === 'arazi_dolu' ? `${C.warn}55` : C.lineSoft}`,
+        })}>
+          <div style={{
+            fontFamily: FONT.ui, fontSize: 11, lineHeight: 1.5,
+            color: r.outcome === 'arazi_dolu' ? '#f5dca8' : C.text,
+          }}>
+            {r.message}
+          </div>
+        </div>
+      )}
 
       {r.outcome === 'macera' && r.macera && (
         <>
