@@ -25,6 +25,7 @@ import { C, FONT, btn, num, label as lbl } from '../theme';
 import { RES_LABEL } from '../flows';
 import Icon from './Icons';
 import { ITEM_IMAGE } from './itemArt';
+import { SLOT_MASK } from './slotArt';
 
 /** Bedel listesi — "440 demirKulce" değil "440 Külçe Demir" */
 const bedelMetni = (bedel) => Object.entries(bedel || {})
@@ -501,6 +502,43 @@ export default function HeroPanel({
  * Haritada olmayan eşya sessizce ikona düşüyor, yani görselleri tek tek
  * eklemek arayüzü hiçbir aşamada bozmuyor.
  */
+/**
+ * BOŞ SLOTUN SİMGESİ — İlkan'ın Nord siluetleri.
+ *
+ * Maske olarak çiziliyor: şekil `mask-image`, rengi
+ * `backgroundColor` veriyor. Böylece slot sönükken sönük, seçiliyken
+ * vurgulu görünüyor — eski çizgi ikonlarının `color` davranışının
+ * aynısı. Düz `<img>` olsaydı renk sabit kalır, bu üç durum
+ * kaybolurdu.
+ */
+function SlotSimgesi({ slot, def, size, renk }) {
+  const mask = SLOT_MASK[slot];
+  if (!mask) {
+    /* Görseli henüz üretilmemiş slot (kolye) eski ikonuna düşüyor */
+    return (
+      <Icon name={def?.ikon || 'migfer'} size={Math.round(size * 0.55)}
+        color={renk} strokeWidth={1.4} />
+    );
+  }
+  const ortak = {
+    width: size, height: size, display: 'block',
+    backgroundColor: renk,
+    maskImage: `url(${mask})`,
+    maskSize: 'contain',
+    maskRepeat: 'no-repeat',
+    maskPosition: 'center',
+  };
+  return (
+    <div aria-hidden style={{
+      ...ortak,
+      WebkitMaskImage: ortak.maskImage,
+      WebkitMaskSize: 'contain',
+      WebkitMaskRepeat: 'no-repeat',
+      WebkitMaskPosition: 'center',
+    }} />
+  );
+}
+
 function EsyaGorsel({ esya, def, size = 20, renk }) {
   const src = esya?.key ? ITEM_IMAGE[esya.key] : null;
   if (src) {
@@ -1056,8 +1094,16 @@ function KusamIzgarasi({
                 </>
               ) : (
                 <>
-                  <EsyaGorsel esya={esya} def={def} size={38}
-                    renk={esya ? esya.renk : C.iceSoft} />
+                  {/*
+                    BOŞ SLOT — İlkan'ın silueti. Eşya varken (ama
+                    görseli yokken) eski davranış duruyor: o eşyanın
+                    kendi ikonu çiziliyor, slotun simgesi değil.
+                  */}
+                  {esya ? (
+                    <EsyaGorsel esya={esya} def={def} size={38} renk={esya.renk} />
+                  ) : (
+                    <SlotSimgesi slot={slot} def={def} size={46} renk={C.iceSoft} />
+                  )}
                   <span style={{
                     fontFamily: FONT.ui, fontSize: 8.5, lineHeight: 1.25,
                     color: esya ? esya.renk : C.textFaint,

@@ -31,6 +31,18 @@ export const YAMA_NOTLARI = [
     baslik: 'Kahraman eşyalarının görselleri',
     notlar: [
       {
+        id: '20260916-slot-simgeleri',
+        tur: 'yenilik',
+        metin: 'BOŞ KUŞAM SLOTLARININ KENDİ SİMGELERİ VAR. Eşya '
+          + 'takılmamış slotlar ince çizgi ikonları gösteriyordu; '
+          + 'artık her slotun Nord silueti duruyor — miğfer, kılıç, '
+          + 'zırh, kalkan, bileklik, pantolon, çizme ve at. Simgeler '
+          + 'slotun rengini alıyor, yani slot sönükken sönük, '
+          + 'seçiliyken vurgulu görünüyor; sürüklediğin eşya o slota '
+          + 'uymuyorsa yine soluyor. Kolyenin görseli henüz yok, o '
+          + 'slot şimdilik eski ikonuyla duruyor.',
+      },
+      {
         id: '20260916-degirmen-kilidi',
         tur: 'duzeltme',
         metin: 'DEĞİRMEN KİLİDİ AÇILDI — yeni köyün ikinci çıkışsız '

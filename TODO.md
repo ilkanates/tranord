@@ -215,6 +215,15 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Boş kuşam slotlarının simgeleri (16 Eylül 2026)
+- İlkan: *"bunları kahramanın slotlarındaki simgeler olarak kullan. item yoksa bunlar gözüksün."* Sekiz siluet üretti: at, bileklik, zırh, miğfer, ayakkabı, pantolon, kalkan, kılıç. **Kolye eksik** — o slot eski çizgi ikonunda kaldı.
+- **MASKE OLARAK ÇİZİLİYOR, DÜZ RESİM OLARAK DEĞİL.** Boş slotun rengi duruma göre değişiyor: normalde sönük, seçiliyken buz mavisi, sürüklenen eşya uymuyorsa soluk. Düz bir `<img>` sabit renkli olurdu ve bu üç durumun hiçbirini gösteremezdi — eski çizgi ikonları `color` ile boyanıyordu, o davranışı kaybetmek geriye gitmek olurdu. Şekil `mask-image`, renk `backgroundColor`.
+- **DÖNÜŞÜM YEREL YAPILDI**: ffmpeg/ImageMagick/sharp yok, tarayıcı indirmesi de dosya sistemine düşmedi. Windows'un `System.Drawing`'i (PowerShell) kullanıldı: koyu piksellerin sınır kutusu `LockBits` ile tarandı, kare kırpıldı (%5 pay), 96 px'e indirildi, sonra **alfa = 255 − parlaklık** yazılıp RGB beyaza çevrildi. Kaynaklar 1024+ px, çıktılar **2,6–6,9 KB** (toplam 40 KB).
+- 96 px seçildi çünkü simge 46 px çiziliyor — yüksek yoğunluklu ekranda da net kalsın diye iki katı.
+- Görseli olmayan slot sessizce eski ikonuna düşüyor (`SLOT_MASK` haritasında yoksa), yani listeyi tek tek doldurmak arayüzü hiçbir aşamada bozmuyor.
+- **TARAYICIDA DOĞRULANDI**: dokuz slot da boşaltıldı, sekiz maske doğru slotta ve doğru dosyayla çizildi (46×46, `rgb(196,236,255)`), kolye eski ikonunda kaldı. Konsolda hata yok.
+
+
 ### Değirmen kilidi — yeni köyün İKİNCİ çıkışsız odası (16 Eylül 2026)
 - İlkan: *"yeni köy kurarken hâlâ hammaddeler ve binalar birbirini kilitliyor. değirmen kuracağım, Ana Bina Lvl 3 istiyor; Ana Bina için tuğla istiyor vs. köyün içindeki üretim binaları tarlalardan toplananlarla geliştirilmeli, işlenmişlerle değil."*
 - **ÖLÇÜM ÖNCE KURALIN NEREDE TUTTUĞUNU GÖSTERDİ**: altı üretim binasının da (keresteci, tuğlacı, taşçı, demirci, değirmen, fırın) hem kuruluşu HEM DE her seviyedeki yükseltmesi zaten **ham** kaynak istiyor. `getScaledUpgradeCost` taban yoksa `cost`a düşüyor, o da ham. Yani İlkan'ın kuralının MALİYET tarafı sağlanıyordu.
