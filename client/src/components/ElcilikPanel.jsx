@@ -17,7 +17,7 @@
  * yemi muhasebesi tam olarak öyle ayrışmıştı ve ekran doğru sayıyı
  * gösterirken ambar yanlış düşüyordu.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { C, FONT, btn, label as lbl, num } from '../theme';
 import Icon from './Icons';
 
@@ -108,6 +108,7 @@ function UyeSatiri({ uye, benimId, yetkilerim, jarlDolu, onJarl, onAt }) {
 
 export default function ElcilikPanel({
   birlik = null, davetlerim = [], tanim = null, seviye = 0, benimId = null,
+  socket = null,
   onKur, onDavet, onDavetGeriAl, onDavetCevap, onAyril, onAt, onJarl, onDagit,
   hata = null,
 }) {
@@ -115,6 +116,26 @@ export default function ElcilikPanel({
   const [amblem, setAmblem] = useState(tanim?.amblemler?.[0] || 'kilic');
   const [aranan, setAranan] = useState('');
   const [dagitOnay, setDagitOnay] = useState(false);
+  /*
+    OYUNCU LİSTESİ SUNUCUDAN. Arama da orada yapılıyor (60 satırla
+    sınırlı); hepsini çekip burada süzmek oyuncu sayısı büyüdükçe her
+    açılışta bütün tabloyu indirmek olurdu.
+  */
+  const [oyuncular, setOyuncular] = useState([]);
+  const [toplam, setToplam] = useState(0);
+
+  const yetkiliMi = !!birlik?.yetkilerim?.davetEder;
+  useEffect(() => {
+    if (!socket || !yetkiliMi) return undefined;
+    const onListe = (d) => {
+      setOyuncular(d?.oyuncular || []);
+      setToplam(d?.toplam || 0);
+    };
+    socket.on('birlik_oyuncu_listesi', onListe);
+    // Tuş başına istek atma — pazar aramasıyla aynı gecikme
+    const t = setTimeout(() => socket.emit('birlik_oyuncu_listesi', { ara: aranan }), 250);
+    return () => { clearTimeout(t); socket.off('birlik_oyuncu_listesi', onListe); };
+  }, [socket, yetkiliMi, aranan, birlik?.uyeler?.length, birlik?.bekleyenDavetler?.length]);
 
   const amblemler = tanim?.amblemler || [];
   const jarlTavani = tanim?.jarlTavani ?? 2;
@@ -250,27 +271,78 @@ export default function ElcilikPanel({
         <div>
           <div style={lbl({ fontSize: 8, marginBottom: 5 })}>Davetler</div>
           <div style={kutu({ display: 'flex', flexDirection: 'column', gap: 7 })}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input value={aranan} onChange={(e) => setAranan(e.target.value)}
-                placeholder="oyuncu adı ara…"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && aranan.trim()) {
-                    onDavet?.(aranan.trim()); setAranan('');
-                  }
-                }}
-                style={{
-                  flex: 1, minWidth: 0, padding: '5px 9px', borderRadius: 4,
-                  background: 'rgba(6,11,18,0.8)', color: C.text,
-                  border: `1px solid ${C.line}`, fontFamily: FONT.ui, fontSize: 10.5,
-                }} />
-              <button type="button" disabled={!aranan.trim() || dolu}
-                onClick={() => { onDavet?.(aranan.trim()); setAranan(''); }}
-                title={dolu ? 'Birlik dolu — önce elçiliği büyüt' : ''}
-                style={btn(aranan.trim() && !dolu ? 'primary' : 'disabled',
-                  { fontSize: 9.5, padding: '4px 11px' })}>
-                DAVET ET
-              </button>
+            <input value={aranan} onChange={(e) => setAranan(e.target.value)}
+              placeholder="oyuncu ara…"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '5px 9px', borderRadius: 4,
+                background: 'rgba(6,11,18,0.8)', color: C.text,
+                border: `1px solid ${C.line}`, fontFamily: FONT.ui, fontSize: 10.5,
+              }} />
+
+            {/* ── Oyuncu listesi ── */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute,
+            }}>
+              <span>{oyuncular.length}{toplam > oyuncular.length ? ` / ${toplam}` : ''} oyuncu</span>
+              {dolu && <span style={{ color: C.warn }}>· birlik dolu</span>}
             </div>
+            {oyuncular.length === 0 ? (
+              <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute }}>
+                {aranan.trim() ? 'Bu ada uyan oyuncu yok.' : 'Başka oyuncu yok.'}
+              </div>
+            ) : (
+              <div className="tn-scroll" style={{
+                display: 'flex', flexDirection: 'column', gap: 3,
+                maxHeight: 180, overflowY: 'auto', paddingRight: 2,
+              }}>
+                {oyuncular.map((o) => {
+                  /*
+                    SATIRIN KENDİSİ DURUMU SÖYLÜYOR — hiçbir satır
+                    tıklanıp sunucudan hata almıyor.
+                  */
+                  const engel = o.benimBirligimde ? 'birliğinde'
+                    : o.davetli ? 'davetli'
+                      : o.birlikAd ? 'başka birlikte'
+                        : dolu ? 'birlik dolu' : null;
+                  return (
+                    <div key={o.userId} style={{
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      padding: '4px 7px', borderRadius: 4,
+                      background: 'rgba(8,17,28,0.5)',
+                      border: `1px solid ${o.benimBirligimde
+                        ? 'rgba(127,224,77,0.25)' : C.lineSoft}`,
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontFamily: FONT.ui, fontSize: 10.5,
+                          color: o.benimBirligimde ? '#d6f5c2' : C.text,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>{o.ad}</div>
+                        <div style={{
+                          fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {o.koySayisi} köy{o.birlikAd ? ` · ${o.birlikAd}` : ''}
+                        </div>
+                      </div>
+                      {engel ? (
+                        <span style={{
+                          fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint,
+                          whiteSpace: 'nowrap',
+                        }}>{engel}</span>
+                      ) : (
+                        <button type="button" onClick={() => onDavet?.(o.ad)}
+                          style={btn('primary', { fontSize: 8.5, padding: '2px 8px' })}>
+                          DAVET
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {(birlik.bekleyenDavetler || []).length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={lbl({ fontSize: 7, letterSpacing: 1 })}>CEVAP BEKLEYENLER</div>

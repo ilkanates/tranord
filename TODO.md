@@ -1,6 +1,6 @@
 # TraNord — Yapılacaklar
 
-Son güncelleme: 14 Eylül 2026
+Son güncelleme: 16 Eylül 2026
 
 Sıralama önem sırasına göre. Her madde bitince **Tamamlandı** bölümüne taşınır.
 
@@ -281,6 +281,35 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 - **TARAYICIDA UÇTAN UCA DOĞRULANDI**: elçilik kuruldu (Lvl 20), panel "Elçiliğin Lvl 20, yani birliğe 60 üye sığar" diyor; "Kuzey Kurtları" kuruldu, panel "sen: Konung · 1/60" gösteriyor; oyuncu adıyla davet gönderildi ve "CEVAP BEKLEYENLER" listesinde GERİ AL düğmesiyle belirdi. Diskte de doğrulandı (`alliances` 1 kayıt, `alliance_members` konung, `alliance_invites` 1 davet). Olmayan bir ada davet `oyuncu_yok` ile reddedildi.
 - Testler: `birlik.test.js` 11 kilit — rütbe merdiveni, yetki tablosu, atma zinciri, Jarl tavanı, üye tavanı sayıları, elçilik şartı, tavanın KABUL ANINDA bakılması, ad doğrulaması (görünmez karakter dahil), amblem listesi, saldırı serbestliği ve elçilik binasının tavanıyla birlik tavanının tutması.
+
+### Üretim zinciri: duran bina sebebini söylüyor (16 Eylül 2026)
+- İlkan: *"depoda tahıl var ama tahıl üretimim yok, o yüzden değirmen depodaki tahılı kullanıp un üretmiyor... depodaki hammaddeleri işlemesi lazım, bu mantık her üretim için geçerli."*
+- **ÖLÇÜLDÜ: değirmen DEPODAKİ tahılı zaten işliyordu** — tarlada sıfır işçiyle 900 tahıldan 471 un çıktı. Yani kural doğruydu, görünen davranış yanlıştı. Üç gerçek sebep vardı:
+  1. **Ambar tahıla göre beş kat küçüktü**: tahıl tavanı ayrı, un+ekmek tavanı ayrı ve çok daha alçaktı; değirmen birkaç saatte tavanı doldurup duruyordu. Ambar tabanı 2.500 → **6.000**, seviye başına 1.250 → **3.000**.
+  2. **Duruş sebebi hiçbir yerde yazmıyordu.** `tick.js` artık her işleme binasına `duraklama` bayrağı yazıyor (`girdi_yok` | `depo_dolu`) ve bina kartı bunu çiziyor — depo dolu SARI (iyi sorun: ürettin, yerin bitti), girdi yok KIRMIZI (zincir kopmuş, tarlaya işçi lazım). Sebep ortadan kalkınca kendiliğinden temizleniyor.
+  3. **Depo tavanı İKİ YERDE hesaplanıyordu** ve ayrışmıştı: ekranda kereste için 200 yazarken gerçek tavan 800'dü. `payload.js` artık `getStorageCaps` kullanıyor. — *Bu, bu oturumda aynı sınıftan ÜÇÜNCÜ hata (asker yemi, inşa red sebebi, depo tavanı). Ortak ders: bir sayı iki yerde hesaplanıyorsa er geç ayrışıyor.*
+
+### Elçilikte oyuncu listesi ve arama (16 Eylül 2026)
+- İlkan: *"elçilikte oyuncular listelensin ve ben oyuncular arasında arama yapabileyim."*
+- Eskiden davet için adı **tam** yazmak gerekiyordu; adı bilmiyorsan kimseyi davet edemiyordun.
+- **Arama SUNUCUDA** (`birlik_oyuncu_listesi`), sonuç 60 satırla sınırlı. Hepsini gönderip istemcide süzmek, oyuncu sayısı büyüdükçe her elçilik açılışında bütün tabloyu indirmek olurdu. Tuş başına istek atmamak için 250 ms gecikme — pazar teklif aramasıyla aynı.
+- **Sıralama davet edilebilirliğe göre**: birliği olmayanlar üstte. Oyuncunun sorduğu şey "kimi çağırabilirim".
+- **Satırın kendisi durumu söylüyor** (`davetli` / `başka birlikte` / `birliğinde` / `birlik dolu`); hiçbir satır tıklanıp sunucudan hata almıyor.
+- **TARAYICIDA DOĞRULANDI**: panel "3 oyuncu" yazdı, satırlar köy sayısı ve durumla çıktı; "rag" → 1 sonuç, "zzz" → "Bu ada uyan oyuncu yok", kutu temizlenince 3'e döndü.
+
+### Birlik kurarken amblemler kayboluyordu (16 Eylül 2026)
+- İlkan: *"birliğin amblemini göremiyorum birlik kurarken."*
+- **Sebep**: `birlikTanim` (amblem listesi, rütbeler, ad sınırları) yalnız `statics` paketinde doluyor ama `STATIC_PAYLOAD_KEYS` listesinde değildi. Delta pakette `null` olarak gidiyor ve istemci geleni öncekinin ÜZERİNE birleştirdiği için kaydedilmiş listeyi eziyordu. Bağlantıdan birkaç saniye sonra elçiliği açan oyuncu **hiçbir amblem karesi** görmüyordu.
+- **Düzeltme**: anahtar listeye eklendi — delta pakette artık `null` yazılmıyor, anahtar tamamen **siliniyor**, yani istemcideki kopya yerinde kalıyor.
+- **Kilit**: `sabit-tanim-paketi.test.js` — `index.js`'in kaynağını okuyup `statics ? {...}` ile yazılmış HER alanın listede olmasını şart koşuyor. Düzeltme geri alınarak testin kırmızıya döndüğü doğrulandı. (Yine "tanım iki yerde" sınıfı: koşul index.js'te, liste payload.js'te.)
+- **ÖLÇÜLDÜ**: düzeltmeden önce delta pakette `birlikTanim: null`; sonra anahtar pakette hiç yok.
+
+### Eşya kartı geri geldi, nadirlik renginde (16 Eylül 2026)
+- İlkan: *"kahraman itemlerinin üzerine gelince 'çıkarmak için tıkla' yazısını kaldır, itemin özellikleri geri yaz ama itemin nadirlik rengi ne ise o renkte yaz"* ve *"itemin üzerine gelince kullanılır yazıyor onu sil."*
+- **BENİM REGRESYONUM**: görseli kareye sığdırırken hücreye `overflow: hidden` koymuştum (köşe yuvarlaması için); kart hücrenin YANINA açıldığı için kırpılıp tamamen görünmez olmuştu. Geriye yalnız tarayıcının tek satırlık `title` balonu kalmıştı. Kırpma görselin kendi `borderRadius`ına taşındı.
+- Dolu slotta `title` kaldırıldı (kart zaten her şeyi gösteriyor); **boş** slotta duruyor — orada kart yok.
+- Kart artık nadirlik renginde: zemin, kenar ve yazılar `color-mix` ile o rengin tonlarında, bonus değeri tam renkte. Rengi bilmeden beyazla karıştırdığımız için nadirlik paleti değişirse burası kendiliğinden uyuyor.
+- **"Kullanılır" satırı silindi**: `kusanilanOzeti` `slotAd` alanını hiç doldurmuyordu, yani KUŞANILMIŞ her eşya bu yedek yazıya düşüyordu — kalkanın altında "Kullanılır" yazıyordu.
 
 ### Yeni binaya işçi tavanı sessizce reddediliyordu (16 Eylül 2026)
 - Elçiliği kurmaya çalışırken çıktı: `build_village` `isci > MAX_BUILDERS(0)` ise reddediyor (yeni bina için tavan **2**) ama `buildRefusalReason` bu dalı hiç taşımıyordu — oyuncu "İnşa edilemedi." diye sebepsiz bir cümle görüyordu.

@@ -2693,6 +2693,61 @@ io.on('connection', async socket => {
    * kullandığı yolun aynısı (findUserByDisplayName), yani oyuncu iki
    * ekranda aynı adı yazıyor.
    */
+  /**
+   * OYUNCU LİSTESİ — davet ekranı için, sunucuda süzülmüş.
+   *
+   * Hepsini gönderip istemcide aramak, oyuncu sayısı büyüdükçe her
+   * elçilik açılışında bütün tabloyu yollamak olurdu. Sonuç 60 satır:
+   * ekranda kaydırılabilir bir liste için yeterli, aramayı daraltmak
+   * oyuncunun işi.
+   */
+  socket.on('birlik_oyuncu_listesi', ({ ara = '' } = {}) => {
+    try {
+      const terim = String(ara || '').trim().toLocaleLowerCase('tr');
+      const benimBirlik = BIRLIKS.birligim(userId);
+      const bekleyen = new Set(
+        benimBirlik
+          ? [...WORLD.davetByUser.entries()]
+            .filter(([, liste]) => liste.some(d => d.birlikId === benimBirlik.id))
+            .map(([uid]) => Number(uid))
+          : []);
+
+      const liste = [];
+      for (const [uid, ad] of WORLD.ownerByUser) {
+        const id = Number(uid);
+        if (id === userId) continue;                 // kendim listede yokum
+        if (terim && !String(ad || '').toLocaleLowerCase('tr').includes(terim)) continue;
+        const b = BIRLIKS.birligim(id);
+        liste.push({
+          userId: id,
+          ad: ad || `oyuncu#${id}`,
+          birlikAd: b ? (BIRLIKS.birlik(b.id)?.ad || null) : null,
+          /* Kendi birliğimdeyse "davet et" düğmesi anlamsız */
+          benimBirligimde: !!(b && benimBirlik && b.id === benimBirlik.id),
+          davetli: bekleyen.has(id),
+          koySayisi: (WORLD.slotsByUser.get(id)?.size) || 0,
+        });
+      }
+
+      /*
+        BİRLİĞİ OLMAYANLAR ÜSTTE. Oyuncunun aradığı şey "kimi
+        çağırabilirim"; zaten birlikte olanları başa koymak her
+        seferinde gözle süzmesini gerektirirdi.
+      */
+      liste.sort((a, b) =>
+        (a.birlikAd ? 1 : 0) - (b.birlikAd ? 1 : 0)
+        || a.ad.localeCompare(b.ad, 'tr'));
+
+      socket.emit('birlik_oyuncu_listesi', {
+        oyuncular: liste.slice(0, 60),
+        toplam: liste.length,
+      });
+    } catch (err) {
+      console.error('[BİRLİK] oyuncu listesi:', err.message);
+      socket.emit('birlik_oyuncu_listesi', { oyuncular: [], toplam: 0 });
+    }
+  });
+
   socket.on('birlik_davet', async ({ ad } = {}) => {
     try {
       const hedef = await findUserByDisplayName(ad);

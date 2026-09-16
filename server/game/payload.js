@@ -11,7 +11,7 @@
  * (bkz. client/src/App.jsx setServerVillage).
  */
 const { WALL_SLOTS_ARR: WALL_SLOT_NAMES, civilianCount } = require('./villageState');
-const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEquipmentCap, getEquipmentPool, getConsumptionRates, getSiegeCap, SIEGE_KEYS, getFoodOutlook } = require('./tick');
+const { getUpgradeSeconds, hexDistanceFromCenter, getSlotTotalMultiplier, getEquipmentCap, getEquipmentPool, getConsumptionRates, getSiegeCap, SIEGE_KEYS, getFoodOutlook, getStorageCaps } = require('./tick');
 const ARMY = require('./army');
 const { savunmaOzeti } = require('./combat');
 const KUSATMA = require('./kusatma');
@@ -42,6 +42,12 @@ const STATIC_PAYLOAD_KEYS = [
   'unitDefs', 'baseStats', 'unitsByBuilding',
   'equipmentDefs', 'equipmentByBuilding', 'tickMsRange',
   'festivalDefs',
+  /*
+    BİRLİK TANIMI DA SABİT: amblem listesi, rütbeler, ad sınırları.
+    Buraya girmezse delta pakette `null` olarak gidip istemcideki
+    listeyi eziyor ve amblem seçici boş kalıyor (İlkan bildirdi).
+  */
+  'birlikTanim',
 ];
 
 function buildPayload(village, tickMs, opts = {}) {
@@ -67,15 +73,19 @@ function buildPayload(village, tickMs, opts = {}) {
     }
   });
 
-  const depotCapacities = { odun:300, kil:300, tas:300, demir:300, tahil:300, kereste:200, tugla:200, yontmaTas:200, demirKulce:200 };
-  let granaryCapacity = 150;
-  Object.values(village.villageBuildings).forEach(b => {
-    const def = VILLAGE_DEFS[b.type];
-    if (!def?.stores || (b.building && b.level === 0)) return;
-    const cap = def.baseCapacity + Math.max(0, b.level - 1) * def.capacityPerLevel;
-    if (b.type === 'granary') granaryCapacity += cap;
-    else def.stores.forEach(res => { depotCapacities[res] = (depotCapacities[res] || 0) + cap; });
-  });
+  /*
+    DEPO TAVANI TEK KAYNAKTAN — `tick.js · getStorageCaps`.
+
+    Burada AYRI bir hesap duruyordu ve ayrışmıştı: taban değerler
+    tick.js'te ham 1000 / işlenmiş 800 / ambar 600'e çıkarılmış ama bu
+    kopya eski 300/200/150'de kalmıştı. Oyuncu keresteyi "200 tavanlı"
+    görüyordu, gerçek tavan 800'dü — yani ekran ambarın dolduğunu
+    söylerken ambar yarı boştu.
+
+    Aynı şeyin iki yerde hesaplanması bu projede bugün üçüncü kez
+    ısırdı (asker yemi muhasebesi, inşa reddi, şimdi depo tavanı).
+  */
+  const { caps: depotCapacities, granaryCap: granaryCapacity } = getStorageCaps(village);
 
   const consumption = getConsumptionRates(village);
   const now = village.clockMs;          // kalan süreler sanal saate göre

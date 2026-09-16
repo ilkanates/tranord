@@ -973,29 +973,58 @@ function EsyaKarti({ esya, yer = 'sag' }) {
       }
     }
   }
+  /*
+    KARTIN TAMAMI NADİRLİK RENGİNDE (İlkan'ın isteği).
+
+    Eskiden yalnız ad ve çerçeve renkliydi; açıklama ve bonus
+    etiketleri nötr griydi, yani kart sıradan bir eşyada da efsanevi
+    bir eşyada da aynı görünüyordu. Artık zemin, kenar ve yazılar o
+    rengin tonlarında — efsanevi bir eşyanın kartı bir bakışta
+    efsanevi görünüyor.
+
+    Yazıda rengin KENDİSİ değil soluk hâli kullanılıyor: tam doygun
+    renkte uzun bir açıklama okunmuyor. Bunu `color-mix` yapıyor —
+    rengi bilmeden beyazla karıştırabiliyoruz, yani nadirlik paleti
+    değişirse burası kendiliğinden uyuyor.
+  */
+  const solgun = (oran) => `color-mix(in srgb, ${esya.renk} ${oran}%, #dfe9f4)`;
   return (
     <div style={{
       position: 'absolute', zIndex: 40, top: '50%', transform: 'translateY(-50%)',
       [yer === 'sag' ? 'left' : 'right']: 'calc(100% + 8px)',
       width: 208, padding: '9px 11px', borderRadius: 6, pointerEvents: 'none',
-      background: 'rgba(6,11,19,0.97)', border: `1px solid ${esya.renk}77`,
-      boxShadow: '0 6px 22px rgba(0,0,0,0.55)',
+      background: `color-mix(in srgb, ${esya.renk} 12%, rgba(6,11,19,0.97))`,
+      border: `1px solid ${esya.renk}99`,
+      boxShadow: `0 6px 22px rgba(0,0,0,0.55), inset 0 0 0 1px ${esya.renk}22`,
     }}>
-      <div style={{ fontFamily: FONT.ui, fontSize: 11, color: esya.renk }}>{esya.ad}</div>
       <div style={{
-        fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint, margin: '1px 0 6px',
-      }}>{esya.slotAd || 'Kullanılır'}</div>
+        fontFamily: FONT.ui, fontSize: 11, fontWeight: 600, color: esya.renk,
+      }}>{esya.ad}</div>
+      {/*
+        SLOT SATIRI KALDIRILDI (İlkan: *"'Kullanılır' yazıyor, onu ne
+        demek bilmiyorum ama sil"*). Burada eşyanın slotu yazıyordu ama
+        `kusanilanOzeti` `slotAd` göndermediği için kuşanılmış HER
+        eşyada "Kullanılır"a düşüyordu — kalkana bile.
+
+        Düzeltmek yerine kaldırıldı: ızgarada slot zaten kartın
+        yanındaki hücre, çantada süzgeç çipleri söylüyor, sarf
+        malzemesinde de açıklamanın kendisi "Kullanılınca biter" diyor.
+      */}
       <div style={{
-        fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute,
-        lineHeight: 1.55, marginBottom: bonuslar.length ? 6 : 0,
+        fontFamily: FONT.ui, fontSize: 9.5, color: solgun(22),
+        lineHeight: 1.55, marginTop: 5, marginBottom: bonuslar.length ? 6 : 0,
       }}>{esya.aciklama}</div>
-      {bonuslar.map(([ad, deger, renk]) => (
+      {bonuslar.map(([ad, deger]) => (
         <div key={ad} style={{
           display: 'flex', justifyContent: 'space-between', gap: 8,
           fontFamily: FONT.ui, fontSize: 9.5, marginTop: 2,
         }}>
-          <span style={{ color: C.textMute }}>{ad}</span>
-          <span style={num({ fontSize: 10, color: renk })}>{deger}</span>
+          <span style={{ color: solgun(30) }}>{ad}</span>
+          {/*
+            DEĞER TAM RENKTE. Bonusun büyüklüğü kartın asıl bilgisi;
+            etiketten daha parlak olması gözü oraya çekiyor.
+          */}
+          <span style={num({ fontSize: 10, color: esya.renk })}>{deger}</span>
         </div>
       ))}
     </div>
@@ -1041,11 +1070,24 @@ function KusamIzgarasi({
               onClick={() => (esya ? onCikar?.(slot) : onSlotSec?.(slot))}
               onMouseEnter={() => setUstunde(slot)}
               onMouseLeave={() => setUstunde(null)}
-              title={esya
-                ? `${esya.ad} — çıkarmak için tıkla`
+              /*
+                DOLU SLOTTA `title` YOK. Eşya kartı zaten adı, slotu,
+                açıklamayı ve bonusları gösteriyor; üstüne tarayıcının
+                gecikmeli tek satırlık balonu çıkması hem gereksiz hem
+                kartın üstüne biniyordu (İlkan bildirdi).
+
+                BOŞ slotta duruyor: orada kart yok ve slotun ne işe
+                yaradığını söyleyen tek şey o.
+              */
+              title={esya ? undefined
                 : `${def.ad} — çantada bu slotun eşyalarını gör`}
               style={{
-                position: 'relative', overflow: 'hidden',
+                /*
+                  `overflow: hidden` BURADA OLAMAZ: eşya kartı hücrenin
+                  YANINA açılıyor ve kırpılıp görünmez oluyordu. Kırpma
+                  görselin kendi `borderRadius`ına taşındı.
+                */
+                position: 'relative',
                 /*
                   DOLU HÜCREDE IZGARA YOK: görsel mutlak konumda kareyi
                   kaplıyor, ad onun üstünde duruyor. Boş hücre eski
@@ -1072,6 +1114,8 @@ function KusamIzgarasi({
                       position: 'absolute', inset: 0,
                       width: '100%', height: '100%', objectFit: 'cover',
                       display: 'block',
+                      /* Hücrenin 7px yuvarlaması, 1px kenarın içinden */
+                      borderRadius: 6,
                     }} />
                   {/*
                     OKUNURLUK ŞERİDİ. Görselin üstüne düz yazı koymak
@@ -1083,6 +1127,7 @@ function KusamIzgarasi({
                   <span style={{
                     position: 'absolute', left: 0, right: 0, bottom: 0,
                     padding: '10px 4px 4px',
+                    borderRadius: '0 0 6px 6px',
                     fontFamily: FONT.ui, fontSize: 8.5, lineHeight: 1.2,
                     color: esya.renk,
                     textShadow: '0 1px 3px rgba(0,0,0,0.95)',

@@ -328,8 +328,20 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
     const ratio     = outputPerHour / inputPerHour;
     const rate      = inputPerHour * w * hours;
     const available = village.resources[input] || 0;
+    /*
+      DURMA SEBEBİ BİNAYA YAZILIYOR.
+
+      İşleme iki sebeple durabiliyor: girdi bitti ya da çıktıya yer
+      yok. İkisi de SESSİZDİ — oyuncu tam kadrolu bir değirmenin
+      hiçbir şey üretmediğini görüyor, sebebini hiçbir yerde bulamıyordu
+      (İlkan bildirdi: "depoda tahıl var ama değirmen un üretmiyor").
+
+      Bayrak her tikte yeniden yazılıyor, yani sebep ortadan kalkınca
+      kendiliğinden temizleniyor.
+    */
+    b.duraklama = null;
     let toConsume   = Math.min(available, rate);
-    if (toConsume <= 0) return;
+    if (toConsume <= 0) { b.duraklama = 'girdi_yok'; return; }
 
     // Çıktı için kalan yer kadar tüket — fazlası ham kaynağı boşa harcamak olur.
     // un/ekmek ambarda ortak yer paylaşır, o yüzden tavan ikisinin toplamına bakar.
@@ -339,9 +351,12 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
       ? (village.resources.un || 0) + (village.resources.ekmek || 0)
       : (village.resources[output] || 0);
     const room   = Math.max(0, cap - held);
-    if (room <= 0) return;                       // depo dolu: girdiye dokunma
+    // Depo dolu: girdiye DOKUNMA (yoksa ham kaynak çöpe gider) ama SÖYLE
+    if (room <= 0) { b.duraklama = 'depo_dolu'; return; }
     toConsume = Math.min(toConsume, room / ratio);
-    if (toConsume <= 0) return;
+    if (toConsume <= 0) { b.duraklama = 'depo_dolu'; return; }
+    // Kısmen sığdıysa yine dolu sayılıyor: oyuncu yavaşlamanın sebebini görsün
+    if (toConsume < Math.min(available, rate)) b.duraklama = 'depo_dolu';
 
     village.resources[input]  -= toConsume;
     village.resources[output]  = (village.resources[output] || 0) + toConsume * ratio;

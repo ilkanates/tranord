@@ -26,6 +26,68 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16m',
+    tarih: '16 Eylül 2026',
+    baslik: 'Üretim zinciri, elçilik listesi ve eşya kartı',
+    notlar: [
+      {
+        id: '20260916-uretim-durdu-sebebi',
+        tur: 'duzeltme',
+        metin: 'İŞLEME BİNASI NEDEN DURDUĞUNU SÖYLÜYOR. Tam kadrolu '
+          + 'bir değirmen hiçbir şey üretmeyebiliyordu ve ekranda '
+          + 'sebep yazmıyordu. Artık binanın kartında yazıyor: '
+          + '"un deposu dolu — yer açılana kadar tahıl harcanmıyor" '
+          + 'ya da "tahıl bitti — tarlalara işçi at". Değirmen '
+          + 'DEPODAKİ tahılı zaten işliyordu; tarlada işçi olmasa bile '
+          + 'ambardaki stok un oluyor.',
+      },
+      {
+        id: '20260916-ambar-buyudu',
+        tur: 'denge',
+        metin: 'AMBAR İKİ KATINDAN FAZLA BÜYÜDÜ: 2.500 → 6.000 taban, '
+          + 'her seviye +1.250 yerine +3.000. Tahıl deposu una ve '
+          + 'ekmeğe göre beş kat büyüktü, yani değirmen birkaç saatte '
+          + 'ambarı doldurup duruyordu. Artık oran 1:2.',
+      },
+      {
+        id: '20260916-depo-tavani-tek-kaynak',
+        tur: 'duzeltme',
+        metin: 'DEPO TAVANI EKRANDA YANLIŞ YAZIYORDU. Kereste için '
+          + '200 gösterilirken gerçek tavan 800\'dü; sayı iki ayrı '
+          + 'yerde hesaplanıyor ve biri eski değerlerde kalmıştı. '
+          + 'Artık tek kaynaktan geliyor.',
+      },
+      {
+        id: '20260916-elcilik-oyuncu-listesi',
+        tur: 'yenilik',
+        metin: 'ELÇİLİKTE OYUNCU LİSTESİ VE ARAMA. Davet için oyuncunun '
+          + 'adını tam olarak yazmak gerekiyordu — adı bilmiyorsan '
+          + 'kimseyi davet edemiyordun. Artık liste geliyor, içinde '
+          + 'arama var ve her satırın kendi DAVET düğmesi. Satır kimin '
+          + 'hangi birlikte olduğunu ve daveti zaten gönderdiysen '
+          + 'bunu da söylüyor.',
+      },
+      {
+        id: '20260916-amblem-kayboluyordu',
+        tur: 'duzeltme',
+        metin: 'BİRLİK KURARKEN AMBLEMLER GÖRÜNMÜYORDU. Amblem listesi '
+          + 'bağlantıdan birkaç saniye sonra boşalıyordu; seçici '
+          + 'bomboş bir satıra dönüyordu. Artık on iki amblem de '
+          + 'yerinde duruyor.',
+      },
+      {
+        id: '20260916-esya-karti-nadirlik',
+        tur: 'duzeltme',
+        metin: 'EŞYA KARTI GERİ GELDİ. Kahraman eşyasının üstüne '
+          + 'gelince tek satırlık "çıkarmak için tıkla" balonu '
+          + 'çıkıyordu; eşyanın özellikleri kayıptı. Artık kartın '
+          + 'tamamı geri geldi ve eşyanın nadirlik rengine boyandı — '
+          + 'efsanevi bir eşyanın kartı bir bakışta efsanevi '
+          + 'görünüyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16l',
     tarih: '16 Eylül 2026',
     baslik: 'Kahraman eşyalarının görselleri',

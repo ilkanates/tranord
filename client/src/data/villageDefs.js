@@ -239,12 +239,25 @@ const VILLAGE_DEFS = {
     baseCapacity:12000, capacityPerLevel:6000,
     buildBaseWork:25, buildMultiplier: 1.28, cost:{ kereste:50, yontmaTas:45 }
   },
+  /*
+    AMBAR KAPASİTESİ TAHIL DEPOSUNUN YARISI.
+
+    Eskiden 2.500 + 1.250/seviye idi; tahıl ambarı ise 12.000 +
+    6.000/seviye, yani GİRDİ deposu ÇIKTI deposunun BEŞ KATI. Zincir
+    yapısal olarak tıkanıyordu: silo tahılla doluyor, un+ekmek tavana
+    vuruyor, değirmen boşta kalıyordu. Oyuncunun gördüğü "depoda tahıl
+    var ama un üretilmiyor" (İlkan bildirdi).
+
+    Yeni değer tahılın tam yarısı: zincir artık kendi kendini
+    tıkamıyor, ama ekmek deposu hâlâ tahıl silosundan küçük — rafine
+    malın daha değerli ve daha az saklanabilir olması bilinçli.
+  */
   granary: { requires:[{ tip:"degirmen", seviye:1 }], cpPerLevel:1,
     name:'Erzak Ambarı', category:'depo', icon:'🍞',
     description:'Un ve ekmeği depolar. İkisi ORTAK bir tavanı paylaşır: tavan dolduğunda ikisi birden oranlı olarak kırpılır. Taban 600; bu bina Lvl 1 de +2500, sonraki her seviye +1250 ekler. Köylüler ve askerler önce ekmek, sonra un, en son ham tahıl yediği için dolu bir erzak ambarı açlığa karşı asıl tampondur. En yüksek seviyede ikincisi kurulabilir.',
     unique:true, repeatableWhenMaxed:true, maxLevel:20,
     stores:['un','ekmek'],
-    baseCapacity:2500, capacityPerLevel:1250,
+    baseCapacity:6000, capacityPerLevel:3000,
     buildBaseWork:25, buildMultiplier: 1.28, cost:{ kereste:50, tugla:75 }
   },
 

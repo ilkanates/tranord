@@ -752,6 +752,31 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, kind = 'hex', flo
                 <Row k={`${RES_LABEL[proc.input]} net`} v={`${signed(flows[proc.input].net)}/sa`}
                   c={flows[proc.input].net >= 0 ? C.good : C.danger} />
               )}
+              {/*
+                İŞLEME NEDEN DURDU. Sunucu her tikte yazıyor; sebep
+                ortadan kalkınca kendiliğinden temizleniyor.
+
+                Depo dolu SARI çünkü iyi bir sorun (ürettin, yerin
+                bitti); girdi yok KIRMIZI çünkü zincir kopmuş ve
+                tarlaya işçi gerekiyor.
+              */}
+              {building?.duraklama && (building.workers || 0) > 0 && (
+                <div style={{
+                  marginTop: 6, padding: '6px 8px', borderRadius: 5,
+                  fontFamily: FONT.ui, fontSize: 9.5, lineHeight: 1.45,
+                  background: building.duraklama === 'depo_dolu'
+                    ? 'rgba(242,187,96,0.10)' : 'rgba(255,111,120,0.10)',
+                  border: `1px solid ${building.duraklama === 'depo_dolu'
+                    ? C.warn : C.danger}44`,
+                  color: building.duraklama === 'depo_dolu' ? '#f5dca8' : '#f0b8bd',
+                }}>
+                  {building.duraklama === 'depo_dolu'
+                    ? `${RES_LABEL[proc.output]} deposu dolu — yer açılana kadar `
+                      + `${RES_LABEL[proc.input]} harcanmıyor. Ambarı büyüt ya da harca.`
+                    : `${RES_LABEL[proc.input]} bitti — tarlalara işçi at, `
+                      + 'yoksa bu bina boşta bekler.'}
+                </div>
+              )}
               {flows?.[proc.output] && (
                 <Row k={`${RES_LABEL[proc.output]} stok`}
                   v={flows[proc.output].capacity > 0
@@ -1974,6 +1999,7 @@ export default function VillageCenter({
                   tanim={birlikTanim}
                   seviye={selectedBuilding.level || 0}
                   benimId={birlik?.benimUserId ?? null}
+                  socket={socket}
                   hata={birlikHata}
                   onKur={onBirlikKur}
                   onDavet={onBirlikDavet}
