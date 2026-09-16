@@ -1004,11 +1004,31 @@ export default function VillageCenter({
    * yakınlaştırmadır. Popover konumu da bu ölçeği kullandığı için paneller
    * doğru yerde açılmaya devam ediyor.
    */
+  /*
+    İÇERİĞİN GERÇEK YÜKSEKLİĞİ kutunun tamamı değil.
+
+    Kutu kare (860×860) ama altıgen yerleşimin dikey açıklığı
+    genişliğin √3/2'si kadar — ölçüldü: içerik 850×736, üstte ve altta
+    124 birim boş. Yükseklik kısıtı bu boşluğu da sayınca sahne
+    olduğundan küçük kalıyordu. Kap `overflow: hidden` olduğu için
+    taşan kısım zaten BOŞLUK; bina kırpılmıyor.
+  */
+  const ICERIK_H = Math.round(H * SQRT3 / 2);
+
+  /*
+    TAVAN. Eskiden 1'di, yani sahne doğal boyunun üstüne hiç
+    çıkamıyordu: geniş ekranda yer 1,78 kat büyümeye yetse bile ölçek
+    1'de duruyordu (İlkan: "olabildiğince büyük olmalı"). 2 sınırı
+    dokudan geliyor — bina görselleri 1024 px ve 110 birimlik kutuya
+    çiziliyor, yani 2 katta bile kaynağın çok altında.
+  */
+  const SAHNE_EN_COK = 2;
+
   const fitScale = useMemo(() => {
     const bandW = Math.max(220, (viewSize.w || W) - 2 * railInset);
     const bandH = Math.max(220, (viewSize.h || H) - 12);
-    return Math.min(1, bandW / W, bandH / H);
-  }, [viewSize.w, viewSize.h, railInset]);
+    return Math.min(SAHNE_EN_COK, bandW / W, bandH / ICERIK_H);
+  }, [viewSize.w, viewSize.h, railInset, ICERIK_H]);
 
   const hoverable = useHoverable();
   const pinch = usePinchPan({

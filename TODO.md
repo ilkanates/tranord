@@ -222,6 +222,17 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Köy sahnesi olabildiğince büyük (16 Eylül 2026)
+- İlkan: *"köy merkezindeki altıgen daha büyük olsun, olabildiğince büyük olmalı"*.
+- **ÖNCE ÖLÇTÜM** (830×882 kap): sahne 562×498 çiziliyordu, ölçek 0,598. İki ayrı sebep buldum:
+  1. **Tavan 1 de kilitliydi** (`Math.min(1, ...)`). 1920×1080 de yer 1,78 kat büyümeye yetiyor ama ölçek 1 de duruyordu.
+  2. **Boş kutuya sığdırılıyordu.** Kutu 860×860 ama içerik **850×736** (`getBBox` ile ölçüldü): altıgen yerleşimin dikey açıklığı genişliğin √3/2 si kadar, üstte ve altta 124 birim boş. Yükseklik kısıtı bu boşluğu da sayınca sahne olduğundan küçük kalıyordu.
+- Düzeltme: tavan 2, yükseklik kısıtı `ICERIK_H = H × √3/2` (745) üzerinden.
+- **SONUÇ ÖLÇÜLDÜ**: 1920×1080 de ölçek **1,00 → 1,299** (%30 büyük). `kirpilanVarMi: false` — 29 bina görselinin hiçbiri kaba taşmıyor; kırpılan yalnız üstteki/alttaki BOŞLUK (üst 91 px, alt 34 px pay kaldı).
+- Dar pencerede (830 px) ölçek 0,598 te kaldı — orada **genişlik** kısıtlıyor (iki yan ray 2×158 px yer tutuyor), yani regresyon yok, kazanç da yok. Kazanç geniş ekranda.
+- **Doku çözünürlüğü sorun değil**: bina görselleri 1024×1024 ve sahnede 110 birimlik kutuya çiziliyor, 2 kat büyütmede bile kaynağın çok altında. Tavanın 2 olmasının sebebi bu.
+
+
 ### Arayüz ölçeği DOM ölçümünü bozuyordu + Esc ile kapatma + çark simgesi (16 Eylül 2026)
 - İlkan: *"ayarlar menüsündeki işareti tam çark yap, güneş gibi duruyor. bir de yazıları büyütme tuşu basınca açılan bina resimlerini de büyütüyor, resim ekrana sığmıyor ve tuşlara basılmıyor. bu büyüt tuşu yazıları ve gerekiyorsa yazıların içinde olduğu kutucukları büyütmeli."* + *"menülerden x yerine esc ile çıkabilmeliyiz"*.
 

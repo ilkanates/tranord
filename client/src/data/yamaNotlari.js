@@ -26,6 +26,29 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16d',
+    tarih: '16 Eylül 2026',
+    baslik: 'Köy sahnesi büyüdü',
+    notlar: [
+      {
+        id: '20260916-koy-sahnesi-buyudu',
+        tur: 'yenilik',
+        metin: 'KÖY MERKEZİNDEKİ ALTIGEN ARTIK EKRANI DOLDURUYOR. İki '
+          + 'sebepten gereksiz küçük kalıyordu. Birincisi ölçeğin tavanı '
+          + '1 de kilitliydi: geniş ekranda yer 1,8 kat büyümeye yetse '
+          + 'bile sahne doğal boyunda duruyordu. İkincisi sahne BOŞ '
+          + 'KUTUYA sığdırılıyordu — kutu kare ama altıgen yerleşimin '
+          + 'dikey açıklığı genişliğin √3/2 si kadar, yani üstte ve '
+          + 'altta 124 birimlik boşluk vardı ve yükseklik hesabı onu da '
+          + 'sayıyordu. Ölçüldü: 1920×1080 ekranda sahne ölçeği 1,00 '
+          + 'den 1,30 a çıktı, yani %30 daha büyük — ve tek bir bina '
+          + 'bile kırpılmıyor. Dar ekranlarda sahne yine genişliğe göre '
+          + 'sığıyor, bir şey değişmedi. İki parmakla yakınlaştırma '
+          + 'eskisi gibi çalışıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16c',
     tarih: '16 Eylül 2026',
     baslik: 'Yazı büyütme artık resmi büyütmüyor · Esc · çark simgesi',
