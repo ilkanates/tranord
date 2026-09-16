@@ -24,6 +24,7 @@ import { useState } from 'react';
 import { C, FONT, btn, num, label as lbl } from '../theme';
 import { RES_LABEL } from '../flows';
 import Icon from './Icons';
+import { ITEM_IMAGE } from './itemArt';
 
 /** Bedel listesi — "440 demirKulce" değil "440 Külçe Demir" */
 const bedelMetni = (bedel) => Object.entries(bedel || {})
@@ -495,6 +496,28 @@ export default function HeroPanel({
  * Tek çeşit eşya varken filtre HİÇ görünmüyor — süzecek bir şey yokken
  * süzgeç göstermek yalnız yer kaplar.
  */
+/**
+ * Eşya görseli — üretilmiş resmi varsa onu, yoksa eski çizgi ikonu gösterir.
+ * Haritada olmayan eşya sessizce ikona düşüyor, yani görselleri tek tek
+ * eklemek arayüzü hiçbir aşamada bozmuyor.
+ */
+function EsyaGorsel({ esya, def, size = 20, renk }) {
+  const src = esya?.key ? ITEM_IMAGE[esya.key] : null;
+  if (src) {
+    return (
+      <img src={src} alt="" draggable={false} style={{
+        width: size, height: size, objectFit: 'cover',
+        borderRadius: 5, display: 'block',
+        border: `1px solid ${renk}55`,
+      }} />
+    );
+  }
+  return (
+    <Icon name={esya?.ikon || def?.ikon || 'migfer'} size={Math.round(size * 0.55)}
+      color={renk} strokeWidth={1.4} />
+  );
+}
+
 function CantaFiltresi({ envanter, slotlar, filtre, onFiltre }) {
   const sayac = new Map();
   let kullanilirSayi = 0;
@@ -991,8 +1014,8 @@ function KusamIzgarasi({
                 cursor: esya ? 'pointer' : 'default',
                 transition: 'opacity .15s, border-color .15s, background .15s',
               }}>
-              <Icon name={esya?.ikon || def.ikon || 'migfer'} size={20}
-                color={esya ? esya.renk : C.iceSoft} strokeWidth={1.4} />
+              <EsyaGorsel esya={esya} def={def} size={38}
+                renk={esya ? esya.renk : C.iceSoft} />
               <span style={{
                 fontFamily: FONT.ui, fontSize: 8.5, lineHeight: 1.25,
                 color: esya ? esya.renk : C.textFaint,
@@ -1141,7 +1164,7 @@ function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, o
               cursor: kullanilir ? 'default' : 'grab',
               background: 'rgba(12,20,32,0.45)', border: `1px solid ${e.renk}44`,
             }}>
-            <Icon name={e.ikon} size={18} color={e.renk} strokeWidth={1.4} />
+            <EsyaGorsel esya={e} size={34} renk={e.renk} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: FONT.ui, fontSize: 11.5, color: e.renk }}>{e.ad}</div>
               <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>

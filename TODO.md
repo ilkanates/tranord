@@ -215,6 +215,16 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Kahraman eşya görselleri (16 Eylül 2026)
+- İlkan: *"hero itemleri için görseller yükledim, onları da al oyuna."*
+- `client/src/components/itemArt.js` — bina haritasından (`buildingArt.js`) AYRI dosya: iki liste farklı hızda büyüyor, aynı dosyada olsalardı her eşya eklemesi bina dosyasını da kilitlerdi.
+- **KAPSAM ÖLÇÜLDÜ**: `heroItemDefs` 30 eşya tanımlıyor, klasörde 30 jpg var, `ITEM_IMAGE` haritasında 30 giriş — **görseli olmayan eşya yok, sahipsiz dosya yok**. Anahtarlar sunucu tanımıyla birebir.
+- `EsyaGorsel` iki yerde kullanılıyor: kuşam ızgarasında **38 px**, çantada **34 px** (tarayıcıda ikisi de ölçüldü). Görseli olmayan eşya sessizce eski çizgi ikonuna düşüyor, yani görselleri tek tek eklemek arayüzü hiçbir aşamada bozmuyor.
+- Boyut: 30 dosya, toplam **1,5 MB**, ortalama 53 KB (512×512). nginx bunları `location ~* \.(jpg|…)$` dalından 1 gün önbellekle veriyor.
+- **TARAYICIDA DOĞRULANDI**: kahramana 12 eşya verilip ekran açıldı — çantada 16 görsel yüklendi (hepsi 512×512), beş eşya kuşanılınca ızgarada nadirlik renginde çerçeveyle çıktı. Konsolda eşya görselleriyle ilgili hata yok.
+- Not: bu iş çalışma kopyasında commit edilmemiş duruyordu; İlkan onaylayınca alındı.
+
+
 ### Elçilik ve birlik (16 Eylül 2026)
 - İlkan'ın tarifi: *"elçilik kuran kişiler birlik oluşturabilir, birliğin adını ve amblemini seçer, sonra birliğe oyuncu davet eder. elçilikten davetler kısmına girip oyuncu adı aratıp daveti yollar. karşı taraf kabul ederse birliğe katılır. birlik oyuncuları haritada alanları yeşil çerçeve ile gözükür. iki birlik oyuncusunun alanı yan yana ise aralarına koyu yeşil çizgi çizilir. birlik oyuncularına saldırmak serbesttir. kurucu birliğe adam alabilir çıkartabilir, 2 yetkili alt yönetici seçilebilir. buradaki kral ve alt yöneticilerini Nord mitolojisine göre ayarla, yarl vs gibi terimler kullan."*
 

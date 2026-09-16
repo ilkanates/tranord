@@ -26,6 +26,25 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16l',
+    tarih: '16 Eylül 2026',
+    baslik: 'Kahraman eşyalarının görselleri',
+    notlar: [
+      {
+        id: '20260916-esya-gorselleri',
+        tur: 'yenilik',
+        metin: 'KAHRAMAN EŞYALARININ ARTIK GERÇEK GÖRSELLERİ VAR. '
+          + 'Otuz eşyanın hepsi — dokuz slotun tamamı ve diriltme '
+          + 'iksiri — çizgi ikonu yerine kendi resmiyle görünüyor; hem '
+          + 'çantada hem kuşam ızgarasında. Çerçeve rengi yine '
+          + 'nadirliği söylüyor, yani "bu ne" ile "bu ne kadar iyi" '
+          + 'sorularının ikisi de bir bakışta cevaplanıyor. Görseli '
+          + 'olmayan bir eşya eklenirse sessizce eski ikona düşüyor, '
+          + 'yani ekran hiçbir aşamada bozulmuyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16k',
     tarih: '16 Eylül 2026',
     baslik: 'ELÇİLİK VE BİRLİK',
