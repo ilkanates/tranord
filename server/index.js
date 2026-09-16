@@ -1211,6 +1211,8 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
     HERO.bonuslar(kahraman).saldiriGucu || 0);
   kahraman.macera = null;
   kahraman.nerede = 'koy';
+  // Görev zinciri "ilk maceranı tamamla" adımını bundan ölçüyor
+  kahraman.maceraTamamlanan = (kahraman.maceraTamamlanan || 0) + 1;
 
   HERO.xpEkle(kahraman, sonuc.xp);
   const hasar = HERO.hasarVer(kahraman, sonuc.can);

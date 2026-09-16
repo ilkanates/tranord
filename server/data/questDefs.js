@@ -453,6 +453,29 @@ const QUESTS = [
     reward: { res: { demirKulce: 400, tahil: 400 }, kp: 45 },
   },
   {
+    id: 'ilkMacera', title: 'Yola Çık', zorunlu: false,
+    text: 'Kahramanını bir maceraya gönder ve dönmesini bekle. Macera hakkı '
+      + 'kendiliğinden birikir; konağın seviyesi kaç hak biriktirebileceğini '
+      + 'belirler.',
+    hint: 'Macera kahramanın EŞYA bulabildiği tek yol — yağmadan eşya '
+      + 'düşmez. Kısa macera az XP ve az hasar, uzun macera fazlası; '
+      + 'kahraman canı yetmiyorsa uzun maceraya çıkamaz.',
+    tab: 'kahraman',
+    cond: { tur: 'maceraTamam', adet: 1 },
+    reward: { res: { tahil: 300, demirKulce: 200 }, kp: 35 },
+  },
+  {
+    id: 'ilkKusam', title: 'Kuşan', zorunlu: false,
+    text: 'Maceradan düşen bir eşyayı kahramanına kuşandır. Eşya çantada '
+      + 'dururken hiçbir işe yaramaz — bonusu ancak slota takılınca verir.',
+    hint: 'Her eşyanın bir slotu var (kılıç, kalkan, miğfer, zırh, at…) ve '
+      + 'her slotta tek eşya durur. Nadirlik rengi bonusun büyüklüğünü '
+      + 'gösterir; aynı eşyanın daha iyi nadirliği çıkarsa değiştirebilirsin.',
+    tab: 'kahraman',
+    cond: { tur: 'kusanilanEsya', adet: 1 },
+    reward: { res: { kereste: 300, tugla: 300 }, kp: 35 },
+  },
+  {
     id: 'kosk', title: 'Yeni Topraklar', zorunlu: true,
     text: 'Köşk kur. Lvl 10\'da göçmen eğitip ikinci köyünü kurabilirsin.',
     hint: 'Köy Merkezi > Yönetim > Köşk.',

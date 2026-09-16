@@ -232,6 +232,14 @@ function yeniKahraman(usKoyu = null) {
     /** Biriken macera hakkı ve bir sonrakine kalan ilerleme */
     maceraSayisi: 0,
     maceraIlerleme: 0,
+    /**
+     * TAMAMLANAN MACERA SAYISI — biriken HAK (`maceraSayisi`) değil,
+     * bitirilen macera. İkisi ayrı: hak harcandıkça azalıyor, bu
+     * yalnız artıyor. Görev zinciri "ilk maceranı tamamla" adımını
+     * bununla ölçüyor; haktan ölçseydik macerayı başlatmak yeterli
+     * sayılırdı ve oyuncu ödülü sonucu görmeden alırdı.
+     */
+    maceraTamamlanan: 0,
     /** Yoldaki macera — { tip, kalanSaat } ya da null */
     macera: null,
     /**
@@ -269,6 +277,12 @@ function duzelt(k) {
   if (typeof k.olumSayisi !== 'number') k.olumSayisi = 0;
   if (typeof k.maceraSayisi !== 'number') k.maceraSayisi = 0;
   if (typeof k.maceraIlerleme !== 'number') k.maceraIlerleme = 0;
+  /*
+    Alan sonradan eklendi; eski kayıtlarda yok. Sıfırdan başlaması
+    doğru: geçmişteki maceraları geri sayamayız ve görev zinciri yan
+    hedef, yani kimsenin ilerlemesi geri gitmiyor.
+  */
+  if (typeof k.maceraTamamlanan !== 'number') k.maceraTamamlanan = 0;
   if (k.macera && typeof k.macera !== 'object') k.macera = null;
   if (typeof k.misafirSlot !== 'string') k.misafirSlot = k.misafirSlot || null;
   if (typeof k.donusKalanSaat !== 'number') k.donusKalanSaat = 0;

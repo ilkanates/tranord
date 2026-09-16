@@ -106,6 +106,25 @@ function questOlcu(cond, session) {
       if (!kah) return 0;
       return HERO.xpSeviyesi(kah.xp || 0);
     }
+    /*
+      TAMAMLANAN MACERA — başlatılan değil. Haktan ölçseydik macerayı
+      yola çıkarmak görevi bitirirdi ve oyuncu ödülü sonucu görmeden
+      alırdı; maceranın öğrettiği şey tam da sonucu.
+    */
+    case 'maceraTamam': {
+      const kah = koyler.map(v => v.kahraman).find(Boolean);
+      return kah ? (kah.maceraTamamlanan || 0) : 0;
+    }
+    /*
+      KUŞANILMIŞ EŞYA SAYISI — envanterdeki değil. Eşya kuşanılmadan
+      hiçbir işe yaramıyor; envanteri saysaydık görev, oyuncuya asıl
+      öğretmek istediği hareketi (slota tak) yaptırmadan biterdi.
+    */
+    case 'kusanilanEsya': {
+      const kah = koyler.map(v => v.kahraman).find(Boolean);
+      if (!kah) return 0;
+      return Object.values(kah.kusanilan || {}).filter(Boolean).length;
+    }
     default: return 0;
   }
 }

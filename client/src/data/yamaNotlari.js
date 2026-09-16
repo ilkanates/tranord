@@ -26,6 +26,23 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16o',
+    tarih: '16 Eylül 2026',
+    baslik: 'Kahraman görevleri',
+    notlar: [
+      {
+        id: '20260916-kahraman-gorevleri',
+        tur: 'yenilik',
+        metin: 'GÖREV ZİNCİRİNE İKİ KAHRAMAN ADIMI EKLENDİ. "Yola Çık" '
+          + 'ilk maceranı tamamlamanı, "Kuşan" da maceradan düşen bir '
+          + 'eşyayı kahramanına takmanı istiyor. İkisi de yan hedef — '
+          + 'ana hattı kesmiyor. Macera kahramanın eşya bulabildiği '
+          + 'tek yol, eşya da çantada dururken hiçbir işe yaramıyor; '
+          + 'bu iki adım o ikisini gösteriyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16n',
     tarih: '16 Eylül 2026',
     baslik: 'Grup mesajları',

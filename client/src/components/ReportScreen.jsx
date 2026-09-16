@@ -286,6 +286,7 @@ function Row({ r, active, unread, onClick }) {
   const yon = yonBilgisi(r);
   // Sol şerit SEFER TÜRÜNÜ gösteriyor; sonuç rengi alt satırdaki yazıda
   const accent = unread ? mc : C.line;
+  const kenar = active ? C.lineBright : unread ? `${v.col}3d` : C.lineSoft;
   return (
     <div onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
@@ -293,7 +294,14 @@ function Row({ r, active, unread, onClick }) {
       background: active
         ? 'rgba(143,220,255,0.12)'
         : unread ? 'rgba(14,28,44,0.72)' : 'rgba(8,15,23,0.34)',
-      border: `1px solid ${active ? C.lineBright : unread ? `${v.col}3d` : C.lineSoft}`,
+      /*
+        Kısayol yok: `border` + `borderLeft` karışımı React'te yeniden
+        çizimde çakışıyor (konsolda uyarı). Sol şerit seferin türünü
+        söylüyor, kaybolması sessiz bir gerileme olurdu.
+      */
+      borderTop: `1px solid ${kenar}`,
+      borderRight: `1px solid ${kenar}`,
+      borderBottom: `1px solid ${kenar}`,
       borderLeft: `3px solid ${active ? C.ice : accent}`,
       opacity: unread || active ? 1 : 0.62,
       transition: 'opacity .14s, background .14s',

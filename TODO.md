@@ -94,8 +94,8 @@ tasarımın kaydı olarak duruyor.
 #### Aşama 5 — Bağlama ve denge (savaş ayağı YAPILDI)
 - ~~Kahraman **sefere katılır**, savaş hesabına tek birimlik özel giriş.~~
 - ~~**Raporda** kahramanın ne yaptığı ayrı satır.~~
-- ~~Görev zincirine kahraman adımları~~ — iki tanesi eklendi (*konağı kur*,
-  *seviye 3*). Macera ve eşya gelince ikisi daha eklenmeli.
+- ~~Görev zincirine kahraman adımları~~ — **TAMAMLANDI**: dört adım (*konağı kur*,
+  *seviye 3*, *ilk macera*, *ilk kuşam*). Bkz. Tamamlandı.
 - ~~Kahramanın **hızı** ve at slotu~~ — yapıldı: at eki birim tanımlarından
   ölçülüyor, nadirlik hızı büyütüyor, macera süresi hıza bağlı.
 - KALAN: kahramanın ganimet payı; macera/eşya geldikten sonra uçtan uca
@@ -281,6 +281,14 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 - **TARAYICIDA UÇTAN UCA DOĞRULANDI**: elçilik kuruldu (Lvl 20), panel "Elçiliğin Lvl 20, yani birliğe 60 üye sığar" diyor; "Kuzey Kurtları" kuruldu, panel "sen: Konung · 1/60" gösteriyor; oyuncu adıyla davet gönderildi ve "CEVAP BEKLEYENLER" listesinde GERİ AL düğmesiyle belirdi. Diskte de doğrulandı (`alliances` 1 kayıt, `alliance_members` konung, `alliance_invites` 1 davet). Olmayan bir ada davet `oyuncu_yok` ile reddedildi.
 - Testler: `birlik.test.js` 11 kilit — rütbe merdiveni, yetki tablosu, atma zinciri, Jarl tavanı, üye tavanı sayıları, elçilik şartı, tavanın KABUL ANINDA bakılması, ad doğrulaması (görünmez karakter dahil), amblem listesi, saldırı serbestliği ve elçilik binasının tavanıyla birlik tavanının tutması.
+
+### Görev zincirine kahraman adımları tamamlandı (16 Eylül 2026)
+- TODO'da bekleyen madde: *"iki tanesi eklendi (konağı kur, seviye 3), macera ve eşya gelince ikisi daha eklenmeli."* İkisi de artık oyunda, adımlar eklendi.
+- **"Yola Çık"** (`ilkMacera`) — ilk macerayı TAMAMLA. **Biriken haktan (`maceraSayisi`) ölçülmüyor**: haktan ölçseydik macerayı yola çıkarmak görevi bitirirdi ve oyuncu ödülü sonucu görmeden alırdı; maceranın öğrettiği şey tam da sonucu. Bunun için yeni bir sayaç geldi: `maceraTamamlanan` (yalnız artıyor, hak harcandıkça azalıyor — ikisi ayrı kavram).
+- **"Kuşan"** (`ilkKusam`) — bir eşyayı SLOTA TAK. **Envanterden ölçülmüyor**: envanteri saysaydık eşyanın düşmesi yeterdi ve görev, oyuncuya asıl öğretmek istediği hareketi yaptırmadan biterdi. Eşya çantada dururken hiçbir bonus vermiyor; "eşyam var ama kahramanım güçlenmedi" hâli tam olarak bu yüzden oluşuyordu.
+- İkisi de **yan hedef** (`zorunlu: false`), zincirin kahraman kolunun geri kalanı gibi: kahraman güçlü ama oyunu oynamak için şart değil.
+- Eski kayıtlarda `maceraTamamlanan` yok; `duzelt()` sıfırlıyor — yoksa `undefined + 1` NaN üretir ve görev bir daha asla tamamlanmazdı. Geçmiş maceralar geri sayılmıyor (sayılamaz da), ama yan hedef olduğu için kimsenin ilerlemesi geri gitmiyor.
+- **Testler**: `gorev-kahraman.test.js` 5 kilit — iki adımın zincirde ve yan hedef olduğu, yoldaki maceranın tamamlanmış sayılmadığı, çantadaki eşyanın kuşanılmış sayılmadığı, kahramanı olmayan oyuncuda ölçümün çökmeden sıfır döndüğü (koşullar her `emitVillage`'da ölçülüyor; fırlatırsa oyuncunun bütün paketi giderdi) ve eski kaydın sıfırdan başladığı.
 
 ### Grup mesajlaşması — konulu, çok kişili (16 Eylül 2026)
 - İlkan: *"mesajlaşmalarda yeni bir msj kısmı oluştur birlik oyuncuları için. yeni msj grubu oluşturulabilsin bu bir kişi yada birden fazla kişi olabilsin yada direk birlik seçilebilsin. msj gruplarında konu yazılabilmeli. mesele defans konulu bir birlik içi toplu msj laşma yapılabilmeli."*
