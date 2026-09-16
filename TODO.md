@@ -170,11 +170,6 @@ Bu zincir sırayla ilerlemek zorunda:
 
 ## 🟢 Oyun mekaniği
 
-### Moral bonusu
-- Küçük köy büyüğe saldırırsa saldırgana bonus (Travian mantığı).
-- Formül: `moral = min(1, (saldıran_nüfus / savunan_nüfus)^0.2)`.
-- Köy puan sistemi netleşince eklenir.
-
 ### Pazar — kalanlar
 NPC takası, oyuncular arası teklif ve tüccar yürüyüşü **yapıldı**
 (`server/game/pazar.js`, `pazarYol.js`; `pazar_takas`, `pazar_teklif_ac/
