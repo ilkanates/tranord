@@ -26,6 +26,59 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16f',
+    tarih: '16 Eylül 2026',
+    baslik: 'Macera eşyaları ve kendi köyüne destek',
+    notlar: [
+      {
+        id: '20260916-macera-esya-slot-adaleti',
+        tur: 'duzeltme',
+        metin: 'MACERADAN SÜREKLİ AT DÜŞMESİNİN SEBEBİ BULUNDU. Eşya '
+          + 'kurası bütün kuşanılabilir eşyalardan DÜZ çekiyordu; at '
+          + 'slotunda 6 eşya var (köy beygiri, zırhlı at, savaş atı, '
+          + 'fiyort midillisi, bozkır atı, kuzey rüzgârı), diğer '
+          + 'slotlarda 3, kolyede 2. Ölçüldü: düşen her eşyanın '
+          + '%20,7 si at çıkıyordu — herhangi bir silahın TAM İKİ '
+          + 'KATI. Oysa kahramanın tek at slotu var, ikinci at hiçbir '
+          + 'şey ilerletmiyor. Kura artık ÖNCE SLOTU seçiyor, sonra o '
+          + 'slottaki eşyayı: her slot eşit sıklıkta düşüyor, at payı '
+          + '%20,7 den %11,1 e indi ve kalan sekiz slotun hepsi buna '
+          + 'karşılık yükseldi.',
+      },
+      {
+        id: '20260916-macera-esya-orani-2',
+        tur: 'denge',
+        metin: 'EŞYA DÜŞME ORANLARI BİR KEZ DAHA YÜKSELDİ. Kısa '
+          + 'macerada %12 den %22 ye, uzun macerada %22 den %32 ye. '
+          + 'Ölçüm: kuşanılabilir bir parça kısa macerada her 9,4 '
+          + 'seferde birden her 5,2 seferde bire, uzun macerada her '
+          + '2,6 seferden her 1,8 sefere indi. Sebebi şu: ham düşme '
+          + 'temposu ile İLERLEME temposu aynı şey değil — düşen '
+          + 'eşyaların %56 sı sıradan nadirlikte ve aynı slota ikinci '
+          + 'kez sıradan bir parça gelmek hiçbir şeyi değiştirmiyor. '
+          + 'Seyrekliği nadirlik kurası taşımalı (efsane hâlâ %1,2), '
+          + 'kura temposu değil.',
+      },
+      {
+        id: '20260916-kendi-koyune-destek',
+        tur: 'duzeltme',
+        metin: 'KENDİ KÖYÜNDEN KENDİ KÖYÜNE DESTEK GÖNDEREBİLİYORSUN. '
+          + 'Sunucu buna zaten izin veriyordu ve köy penceresinde '
+          + 'DESTEK düğmesi de hazırdı; ama o pencere hiç '
+          + 'açılamıyordu. İki ayrı kapı kapalıydı: haritada kendi '
+          + 'köyüne tıklamak pencereyi açmak yerine yalnızca haritayı '
+          + 'ORTALIYORDU (tek köylü oyundan kalma bir davranış), '
+          + 'ayrıca yakın zumda kendi ikinci köyünün tıklanabilir '
+          + 'merkezi hiç çizilmiyordu. Artık ortalama yalnız '
+          + 'BULUNDUĞUN köye kalıyor; öbür köylerine tıklayınca '
+          + 'mesafesini, nüfusunu ve ordusunu gösteren pencere açılıyor '
+          +'ve oradan DESTEK ile HAMMADDE gönderiyorsun. Saldırı ve '
+          + 'yağma düğmeleri kendi köyünde çıkmıyor — kendi kaynağını '
+          + 'kendinden çalmak diye bir şey yok.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16e',
     tarih: '16 Eylül 2026',
     baslik: 'Sade köy görünümü',

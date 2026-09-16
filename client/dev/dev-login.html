@@ -180,7 +180,9 @@
       let r = await post('/auth/login', { email, password });
       if (!r.ok && r.status === 401) {
         say('Hesap bulunamadı, oluşturuluyor…');
-        r = await post('/auth/register', { email, password });
+        const username = (email.split('@')[0] || 'dev')
+          .replace(/[^A-Za-z0-9_-]/g, '').slice(0, 16) || 'dev';
+        r = await post('/auth/register', { email, password, username });
       }
       if (!r.ok) { go.disabled = false; return say('Hata: ' + (r.data.error || r.status), 'err'); }
       localStorage.setItem('tranord_token', r.data.token);

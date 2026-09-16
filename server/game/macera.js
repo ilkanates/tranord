@@ -87,13 +87,13 @@ const MACERA_TIPLERI = {
   kisa: {
     ad: 'Kısa Macera', saat: 2,
     xp: 40, can: 8,
-    odulSayisi: 1, esyaSansi: 0.12,
+    odulSayisi: 1, esyaSansi: 0.22,
     aciklama: 'Yakın çevre. Az deneyim, az risk.',
   },
   uzun: {
     ad: 'Uzun Macera', saat: 6,
     xp: 130, can: 32,
-    odulSayisi: 2, esyaSansi: 0.22,
+    odulSayisi: 2, esyaSansi: 0.32,
     aciklama: 'Uzak diyarlar. Çok deneyim, ciddi yıpranma.',
   },
 };
@@ -197,11 +197,18 @@ function maceraUygunMu(k, tip, canTavan) {
  * Ödül havuzu ağırlıkları. Hammadde en sık, asker ortada, eşya en seyrek
  * — eşya maceranın hikâyesi, hammadde ise her seferki teselli.
  *
- * ÖLÇÜLDÜ (200.000 macera, yeni oranlar): kısa maceraların %12'sinde,
- * uzun maceraların %39'unda eşya düşüyor. Diriltme iksiri düşüldükten
- * sonra KUŞANILABİLİR eşya kısada ~10 macerada bir, uzunda ~3 macerada
+ * ÖLÇÜLDÜ (300.000 macera, güncel oranlar): kısa maceraların %22'sinde,
+ * uzun maceraların %54'ünde eşya düşüyor. Diriltme iksiri düşüldükten
+ * sonra KUŞANILABİLİR eşya kısada ~5 macerada bir, uzunda ~1,8 macerada
  * bir geliyor. Uzun macera eşya avının asıl yolu olarak duruyor: iki
  * ödül çekiyor ve canın dört katını götürüyor, karşılığı bu olmalı.
+ *
+ * ORANLAR BİR KEZ DAHA YÜKSELTİLDİ (kısa 0,12→0,22 · uzun 0,22→0,32).
+ * Sebep: düşen eşyaların %56'sı SIRADAN nadirlikte ve oyuncunun 9 slotu
+ * var. Ham tempo ilerleme temposu değil — aynı slota üçüncü kez sıradan
+ * bir eşya düşmek hiçbir şey ilerletmiyor. Kura temposu bu yüzden
+ * "her macerada bir ödül" hissi verecek kadar cömert olmalı; asıl
+ * seyrekliği nadirlik kurası zaten sağlıyor (efsane %1,2).
  */
 /*
   DİKKAT — BURADA EŞYA YOK, BİLEREK.
@@ -223,6 +230,38 @@ const ODUL_AGIRLIK = { hammadde: 55, asker: 30 };
 const IKSIR_SANSI = 0.12;
 /** Kura yalnız KUŞANILABİLİR eşyalardan çekiyor; iksir ayrı zar */
 const KUSANILABILIR = HERO_ITEM_KEYS.filter(k => HERO_ITEMS[k].slot);
+
+/**
+ * KURA ÖNCE SLOTU SEÇİYOR, SONRA O SLOTTAN EŞYAYI.
+ *
+ * İlkan: *"attan başka bir şey düşmedi, bir enayilik var"*. Haklıydı:
+ * kura eşya listesinden DÜZ çekiyordu ve at slotunda 6 eşya var
+ * (köy beygiri, zırhlı at, savaş atı, fiyort midillisi, bozkır atı,
+ * kuzey rüzgârı) — diğer slotlarda 3, kolyede 2. Ölçüldü: düşen her
+ * kuşanılabilir eşyanın **%20,7'si at** çıkıyordu, yani herhangi bir
+ * silahın iki katı. Oysa oyuncunun TEK at slotu var; ikinci at üçüncü
+ * ata dönüşmüyor, sadece envanteri şişiriyor.
+ *
+ * Yeni kural: önce 9 slottan biri EŞİT şansla, sonra o slottaki
+ * eşyalardan biri. At payı %20,7'den %11,1'e iniyor, kalan bütün
+ * slotlar buna karşılık yükseliyor. Kural aynı zamanda okunabilir:
+ * "her slot eşit sıklıkta düşer" cümlesi bir slota eşya eklendiğinde
+ * de bozulmuyor — eski kurada yeni bir at tanımlamak bütün dengeyi
+ * sessizce kaydırıyordu.
+ */
+const SLOT_HAVUZU = (() => {
+  const g = {};
+  for (const k of KUSANILABILIR) (g[HERO_ITEMS[k].slot] ||= []).push(k);
+  return g;
+})();
+const SLOT_ANAHTARLARI = Object.keys(SLOT_HAVUZU);
+
+/** Rastgele bir kuşanılabilir eşya — slot eşit, slot içi eşit */
+function kusanilabilirSec(rnd) {
+  const slot = SLOT_ANAHTARLARI[Math.floor(rnd() * SLOT_ANAHTARLARI.length)];
+  const havuz = SLOT_HAVUZU[slot];
+  return havuz[Math.floor(rnd() * havuz.length)];
+}
 
 const HAMMADDELER = ['odun', 'kil', 'tas', 'demir'];
 /** Macerada bulunabilen birimler — pahalı/özel olanlar havuzda YOK */
@@ -282,7 +321,7 @@ function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0) {
       */
       const key = rnd() < IKSIR_SANSI
         ? 'diriltmeIksiri'
-        : KUSANILABILIR[Math.floor(rnd() * KUSANILABILIR.length)];
+        : kusanilabilirSec(rnd);
       oduller.push({
         tur: 'esya', key, nadirlik: nadirlikSec(rnd),
         kullanilir: KULLANILABILIR.has(key),

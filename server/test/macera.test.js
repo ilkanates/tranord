@@ -137,6 +137,12 @@ test('KUŞANILABİLİR eşya makul bir tempoda düşüyor', () => {
 
     Kahramanın on küsur slotu var; bir seti toplamak makul sürmeli ama
     bir haftada bitmemeli.
+
+    ORANLAR BİR KEZ DAHA YÜKSELTİLDİ (İlkan aynı şikâyeti tekrarladı).
+    Ham tempo ile İLERLEME temposu aynı şey değil: düşenlerin %56'sı
+    SIRADAN nadirlikte ve aynı slota ikinci kez sıradan bir eşya düşmek
+    hiçbir şey ilerletmiyor. Seyrekliği nadirlik kurası taşıyor, tempo
+    değil.
   */
   const N = 20000;
   const tempo = (tip) => {
@@ -151,12 +157,45 @@ test('KUŞANILABİLİR eşya makul bir tempoda düşüyor', () => {
 
   const kisa = tempo('kisa');
   const uzun = tempo('uzun');
-  assert.ok(kisa > 6 && kisa < 14,
-    `kısa macerada parça ${kisa.toFixed(1)} macerada bir — 6-14 aralığında olmalı`);
-  assert.ok(uzun > 1.8 && uzun < 4,
-    `uzun macerada parça ${uzun.toFixed(1)} macerada bir — 1,8-4 aralığında olmalı`);
+  assert.ok(kisa > 3.5 && kisa < 7,
+    `kısa macerada parça ${kisa.toFixed(1)} macerada bir — 3,5-7 aralığında olmalı`);
+  assert.ok(uzun > 1.3 && uzun < 2.6,
+    `uzun macerada parça ${uzun.toFixed(1)} macerada bir — 1,3-2,6 aralığında olmalı`);
   assert.ok(uzun < kisa,
     'uzun macera eşya avının asıl yolu olmalı: canın dört katını götürüyor');
+});
+
+test('eşya kurası SLOTLARI eşit dağıtıyor — at havuzu diğerlerini bastırmıyor', () => {
+  /*
+    GERÇEK BİR HATANIN KİLİDİ. İlkan: *"attan başka bir şey düşmedi,
+    bir enayilik var"*. Haklıydı: kura eşya listesinden DÜZ çekiyordu
+    ve at slotunda 6 eşya var, diğer slotlarda 3 (kolyede 2). Ölçüldü:
+    düşen her kuşanılabilir eşyanın %20,7'si at çıkıyordu — herhangi
+    bir silahın tam iki katı. Oysa oyuncunun TEK at slotu var.
+
+    Bu test kuralı kilitliyor: kura önce SLOTU seçiyor, sonra o
+    slottaki eşyayı. Böylece bir slota yeni eşya eklemek dengeyi
+    sessizce kaydıramıyor.
+  */
+  const N = 60000;
+  const sayac = {};
+  for (let i = 0; i < N; i++) {
+    for (const o of M.maceraSonucu('uzun').oduller) {
+      if (o.tur !== 'esya' || o.key === 'diriltmeIksiri') continue;
+      const slot = HERO_ITEMS[o.key].slot;
+      sayac[slot] = (sayac[slot] || 0) + 1;
+    }
+  }
+  const slotlar = Object.keys(sayac);
+  assert.equal(slotlar.length, 9, 'dokuz slotun hepsinden eşya düşmeli');
+
+  const toplam = Object.values(sayac).reduce((a, b) => a + b, 0);
+  const beklenen = 100 / slotlar.length;                  // %11,1
+  for (const [slot, n] of Object.entries(sayac)) {
+    const pay = 100 * n / toplam;
+    assert.ok(Math.abs(pay - beklenen) < 1.5,
+      `${slot} payı %${pay.toFixed(1)} — beklenen ~%${beklenen.toFixed(1)}`);
+  }
 });
 
 test('ödül havuzunda ÖLÜ eşya ağırlığı yok', () => {

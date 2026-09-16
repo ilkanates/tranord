@@ -222,6 +222,27 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Macera eşya kurası: at çarpıklığı + oranlar (16 Eylül 2026)
+- İlkan: *"item düşme yüzdelerini arttır, attan başka item düşmedi, bir enayilik var."* Enayilik GERÇEKTEN vardı.
+- **ÖNCE ÖLÇTÜM** (300.000 macera): düşen her kuşanılabilir eşyanın **%20,7 si at**. Sebep kurada: `KUSANILABILIR[Math.floor(rnd() * KUSANILABILIR.length)]` düz çekiyordu ve at slotunda **6 eşya** var, diğer slotlarda 3, kolyede 2. Yani at, herhangi bir silahın tam iki katı sıklıkta düşüyordu — oyuncunun TEK at slotu olmasına rağmen.
+- Düzeltme: kura önce **SLOTU** seçiyor (9 slot, eşit şans), sonra o slottaki eşyayı. `SLOT_HAVUZU` + `kusanilabilirSec()`. At payı **%20,7 → %11,1**, kalan sekiz slot buna karşılık yükseldi. Kural bir slota yeni eşya eklendiğinde de bozulmuyor — eskisinde yeni bir at tanımlamak dengeyi sessizce kaydırıyordu.
+- Oranlar yükseldi: `esyaSansi` kısa **0,12 → 0,22**, uzun **0,22 → 0,32**. Gerekçe: ham tempo ilerleme temposu değil — düşenlerin %56 sı SIRADAN nadirlikte, aynı slota ikinci sıradan parça hiçbir şey ilerletmiyor. Seyrekliği nadirlik kurası taşıyor (efsane %1,2), tempo değil.
+- **SONUÇ ÖLÇÜLDÜ**: kuşanılabilir parça kısada her **9,4 → 5,2** macerada bir, uzunda her **2,6 → 1,8** macerada bir. Slot payları %11,0 ± 0,2.
+- Eşyanın envantere yazılma yolu (`maceraIlerlet` → `kahraman.envanter` → `envanterOzeti`) baştan sona okundu: orada eşya yutan bir hata YOK, parmak izi de `envanter.length` taşıyor. Sorun yalnızca kuradaydı.
+- Testler: mevcut tempo kilidi zaten yakaladı (sınırlar güncellendi), üstüne **slot adaleti kilidi** eklendi — dokuz slotun hepsi düşmeli ve hiçbirinin payı %11,1 den 1,5 puandan fazla sapmamalı.
+
+### Kendi köyüne destek gönderilemiyordu (16 Eylül 2026)
+- İlkan: *"kendi köyümden kendi köyüme destek atamıyorum"*.
+- Sunucu izin veriyordu (`send_army` · `p.userId === userId && mode !== 'takviye'` reddediyor, takviye geçiyor), `ForeignVillagePanel` de `canReinforce` ile DESTEK düğmesini çiziyordu, `SendArmyPanel` de `kind === 'self'` te kipleri takviyeye daraltıyordu. **Bütün zincir hazırdı, panele ulaşılamıyordu.**
+- İki kapı kapalıydı:
+  1. `clickVillage` `kind === 'self'` olan HER köyde haritayı ortalayıp `return` ediyordu. Tek köylü oyundan kalma bir davranış; sunucu `self` i userId ye göre veriyor, yani ikinci köyüm de `self`.
+  2. Yakın zumda (`scale >= Z_TERRAIN`) kendi öbür köyümün TIKLANABİLİR ÇEKİRDEĞİ hiç çizilmiyordu: çekirdeği yalnız `visibleForeign` çiziyor ve o `self` i eliyor. Uzaklaşmadan tıklamak imkânsızdı.
+- Düzeltme: ortalama yalnız AKTİF köye (`v.key === kk(wq, wr)`); ayrı bir `visibleSelf` listesi kendi öbür köylerime `ForeignCore` çiziyor (CLAIM_GREEN, çerçeve tekrarı yok — o zaten claim yolundan geliyor); hover kartı da artık kendi öbür köylerimde çıkıyor.
+- `mapPanels.jsx`: başlıktaki alt satır `self` te `tierLabel` okuyordu, **"undefined · -14,0"** yazıyordu. Artık "KENDİ KÖYÜN · -14,0".
+- **TARAYICIDA UÇTAN UCA DOĞRULANDI**: iki köylü test hesabı açıldı, yakın zumda ikinci köyün çekirdeği (`vc--14-0`) çiziliyor, tıklayınca pencere "Bergsund · KENDİ KÖYÜN · -14,0 · Mesafe 6 hex" ile açılıyor, SALDIR/YAĞMA/KEŞFET yok, DESTEK + HAMMADDE var. DESTEK → 20 Fjordvakt gönderildi, sunucu `army_sent` döndü (6 hex, 1029 sn), `army_error` gelmedi.
+- Yan düzeltme: `client/dev/dev-login.html` hesap AÇAMIYORDU — `/auth/register` artık `username` istiyor, sayfa yollamıyordu. Ad e-postanın @ öncesinden türetiliyor. (Bu dosya yalnız yerel geliştirmede, üretime çıkmıyor.)
+
+
 ### Sade köy görünümü ayarı (16 Eylül 2026)
 - İlkan: *"ayarlara bir ayar ekle. isteyen köy merkezinde bina görselleri olmadan sadece amblemlerle köyü görebilsin ama amblemler resmin kapladığı alanı kaplasın yani büyüsün. işçi ve bina lvl i daha görünür olsun."*
 - `ayarlar.js` ye `sadeKoy` eklendi (varsayılan **kapalı**, tarayıcıda saklanıyor); Ayarlar → Görünüm sekmesinde **KÖY MERKEZİ** başlığı altında anahtar.

@@ -595,14 +595,18 @@ export function ForeignVillagePanel({
   */
   onKisayol = null, onHammadde = null,
 }) {
-  const color = v.kind === 'player' ? '#ff6f78' : C.ice;
+  const color = v.kind === 'self' ? '#7fe04d'
+    : v.kind === 'player' ? '#ff6f78' : C.ice;
   const ratio = myArmy && v.army ? v.army / Math.max(1, myArmy) : null;
 
   return (
     <div style={popoverStyle(popoverPos, { width: 268 })} className="tn-rise">
       <PopHead icon="koy" iconColor={color} title={v.name}
         /* Oyuncu köyünde sahibinin adı yazsın — 'oyuncu' bilgi vermiyor */
-        sub={`${v.kind === 'player' ? (v.owner || 'oyuncu') : v.tierLabel} · ${v.key}`} onClose={onClose} />
+        /* Kendi köyümde `tierLabel` yok — "undefined · 3,1" yazardı */
+        sub={`${v.kind === 'self' ? 'kendi köyün'
+          : v.kind === 'player' ? (v.owner || 'oyuncu')
+          : v.tierLabel} · ${v.key}`} onClose={onClose} />
       <div style={{ ...popBody, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {v.kind === 'player' && v.owner && <Row k="Sahibi" v={v.owner} c={color} />}
         {v.distance != null && <Row k="Mesafe" v={`${v.distance} hex`} c={C.iceSoft} />}

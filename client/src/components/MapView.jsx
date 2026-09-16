@@ -1522,6 +1522,28 @@ export default function MapView({
     };
   }), [shownVillages, colOf]);
 
+  /*
+    KENDİ ÖBÜR KÖYLERİM — yakın zumda tıklanabilir çekirdek.
+
+    `visibleForeign` `self` i eliyor çünkü toprak çerçevesini zaten
+    claim yolu çiziyor; ama çekirdek de oradan geliyordu, dolayısıyla
+    kendi ikinci köyümün merkezine YAKIN ZUMDA tıklanamıyordu. Ayrı bir
+    liste tutuyoruz: yalnız çekirdek, kendi rengiyle (CLAIM_GREEN),
+    çerçeve tekrarı yok. Aktif köy dışarıda — onun merkezi zaten kendi
+    tarla ızgarasında.
+  */
+  const visibleSelf = useMemo(() => {
+    if (scale < Z_TERRAIN) return [];
+    const aktif = kk(wq, wr);
+    const halfW = (size.w / 2 + PAD) / scale + 4 * S;
+    const halfH = (size.h / 2 + PAD) / scale + 4 * S;
+    return shownVillages.filter(v => {
+      if (v.kind !== 'self' || v.key === aktif) return false;
+      const p = hexToPixel(v.q, v.r, S);
+      return Math.abs(p.x + cullX) <= halfW && Math.abs(p.y + cullY) <= halfH;
+    });
+  }, [shownVillages, scale, size.w, size.h, cullX, cullY, wq, wr]);
+
   const visibleForeign = useMemo(() => {
     if (scale < Z_TERRAIN) return [];
     const halfW = (size.w / 2 + PAD) / scale + 4 * S;
@@ -1681,7 +1703,17 @@ export default function MapView({
   };
   const clickVillage = (v) => {
     if (suppressClick.current) return;
-    if (v.kind === 'self') { recenter(Math.max(scale, 1.6)); return; }
+    /*
+      ORTALAMA YALNIZ AKTİF KÖYE. Eskiden `kind === 'self'` olan her köy
+      ortalanıp geçiliyordu; çoklu köyde bu, kendi ikinci köyüme DESTEK
+      göndermenin tek kapısını kapatıyordu (İlkan bildirdi). Aktif köye
+      tıklamak hâlâ ortalıyor — orada gönderecek bir şey yok, hedef
+      zaten kendisi.
+    */
+    if (v.kind === 'self' && v.key === kk(wq, wr)) {
+      recenter(Math.max(scale, 1.6));
+      return;
+    }
     setSelField(null);
     setSelVillage(prev => (prev?.key === v.key ? null : v));
   };
@@ -1689,7 +1721,12 @@ export default function MapView({
   // ── Hover kartı içeriği ──
   const hoverCard = useMemo(() => {
     if (selField || selVillage) return null;
-    if (hoverVillage && hoverVillage.kind !== 'self') {
+    /*
+      AKTİF köyün hover kartı yok (zaten bakılan köy); kendi ÖBÜR
+      köylerimin var — mesafesini ve ordusunu görmeden destek
+      göndermek karanlıkta karar vermek olurdu.
+    */
+    if (hoverVillage && !(hoverVillage.kind === 'self' && hoverVillage.key === kk(wq, wr))) {
       const v = hoverVillage;
       const ratio = myArmy && v.army ? v.army / Math.max(1, myArmy) : null;
       return {
@@ -1881,6 +1918,14 @@ export default function MapView({
               })}
               {visibleForeign.map(v => (
                 <ForeignCore key={`k${v.key}`} v={v} color={colorOf(v)}
+                  sefer={yoldakiSeferler[v.key] || null} scale={scale}
+                  hovered={hoverVillage?.key === v.key || selVillage?.key === v.key}
+                  onEnter={() => setHoverVillage(v)}
+                  onLeave={() => setHoverVillage(h => (h?.key === v.key ? null : h))}
+                  onClick={() => clickVillage(v)} />
+              ))}
+              {visibleSelf.map(v => (
+                <ForeignCore key={`s${v.key}`} v={v} color={CLAIM_GREEN}
                   sefer={yoldakiSeferler[v.key] || null} scale={scale}
                   hovered={hoverVillage?.key === v.key || selVillage?.key === v.key}
                   onEnter={() => setHoverVillage(v)}
