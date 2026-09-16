@@ -142,6 +142,12 @@ const SES_VARSAYILAN = () => Object.fromEntries(
 
 const VARSAYILAN = () => ({
   olcek: 1,
+  /*
+    SADE KÖY — bina görselleri yerine büyük amblem.
+    Varsayılan KAPALI: görseller oyunun kimliği, sade görünüm bir
+    tercih. Açan oyuncu köyü şema gibi okuyor.
+  */
+  sadeKoy: false,
   sesAcik: true,        // ana ses anahtarı — kapalıyken hiçbir olay sesi çıkmaz
   sesSeviyesi: 0.7,     // ana ses seviyesi; olay seviyeleri bununla ÇARPILIR
   olaylar: SES_VARSAYILAN(),
@@ -160,6 +166,7 @@ function oku() {
 
   const out = {
     olcek: sayi(Number(ham.olcek), OLCEK_EN_AZ, OLCEK_EN_COK, v.olcek),
+    sadeKoy: ham.sadeKoy === undefined ? v.sadeKoy : !!ham.sadeKoy,
     sesAcik: ham.sesAcik === undefined ? v.sesAcik : !!ham.sesAcik,
     sesSeviyesi: sayi(Number(ham.sesSeviyesi), 0, 1, v.sesSeviyesi),
     olaylar: { ...v.olaylar },
@@ -225,6 +232,14 @@ export function olcekAyarla(v) {
   if (yeni === durum.olcek) return;
   durum = { ...durum, olcek: yeni };
   yaz(durum); olcegiUygula(); duyur();
+}
+
+/** Sade köy görünümü — bina görselleri yerine büyük amblem */
+export function sadeKoyAyarla(acik) {
+  const yeni = !!acik;
+  if (yeni === durum.sadeKoy) return;
+  durum = { ...durum, sadeKoy: yeni };
+  yaz(durum); duyur();
 }
 
 export function sesAcikAyarla(acik) {

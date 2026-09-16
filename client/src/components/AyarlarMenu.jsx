@@ -22,7 +22,7 @@ import { createPortal } from 'react-dom';
 import { C, FONT, label as lbl, num } from '../theme';
 import Icon from './Icons';
 import {
-  ayarlar, ayarlariDinle, olcekAyarla, sesAcikAyarla, sesSeviyesiAyarla,
+  ayarlar, ayarlariDinle, olcekAyarla, sadeKoyAyarla, sesAcikAyarla, sesSeviyesiAyarla,
   olayAyarla, ayarlariSifirla, SES_OLAYLARI, OLCEK_ADIMLARI,
   OLCEK_EN_AZ, OLCEK_EN_COK,
 } from '../ayarlar';
@@ -268,6 +268,16 @@ function Gorunum({ a }) {
           Kışla · 3 işçi · kalan süre <span style={num({ color: C.frost })}>12:40</span>
         </div>
       </div>
+
+      <Baslik>Köy merkezi</Baslik>
+      <Anahtar
+        ad="Sade köy görünümü"
+        aciklama={'Bina görsellerini kapatır; her hexte binanın amblemi '
+          + 'görselin kapladığı alan kadar büyük çizilir. İşçi sayacı ve '
+          + 'seviye yazısı da büyür. Hangi binanın hangisi olduğunu ve '
+          + 'nerede işçi eksik olduğunu bir bakışta görmek için.'}
+        acik={a.sadeKoy}
+        onDegis={sadeKoyAyarla} />
     </>
   );
 }

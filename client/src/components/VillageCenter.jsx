@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import BuildMenu from './BuildMenu';
 import { useEsc } from '../useEsc';
+import { ayarlar, ayarlariDinle } from '../ayarlar';
 // DOM ölçümü ↔ CSS uzayı: zoom'lu arayüzde rect GERÇEK piksel verir
 import { kutuOlcusu } from '../olcum';
 import CapitalPanel from './CapitalPanel';
@@ -1111,6 +1112,14 @@ export default function VillageCenter({
   const posterMinH = darEkran ? 150 : Math.max(150, denetimH + 49);
 
   /*
+    SADE KÖY GÖRÜNÜMÜ (ayarlardan). Depoyu doğrudan dinliyoruz:
+    ayar oyuncunun makinesinde, sunucu paketinde değil — köy görünümü
+    bir tercih, oyun durumu değil.
+  */
+  const [sade, setSade] = useState(() => !!ayarlar().sadeKoy);
+  useEffect(() => ayarlariDinle(a => setSade(!!a.sadeKoy)), []);
+
+  /*
     ESC BİNA PANELİNİ KAPATIR (İlkan'ın isteği). En çok açılıp kapanan
     pencere bu; her seferinde sağ üstteki çarpıya gitmek gerekiyordu.
   */
@@ -1210,7 +1219,13 @@ export default function VillageCenter({
               : 'rgba(158,200,234,0.4)';
             const sw = isSelected ? 3.2 : isHovered ? 3 : isCenter ? 2.4 : 1.4;
 
-            const tex = isCenter ? MERKEZ_IMG : (building ? BUILDING_TEXTURE[building.type] : null);
+            /*
+              SADE GÖRÜNÜMDE GÖRSEL YOK. `hasTex` false olunca hem
+              `<image>` hem de onun küçük tepe amblemi düşüyor; yerine
+              aşağıdaki BÜYÜK amblem çiziliyor.
+            */
+            const tex = sade ? null
+              : (isCenter ? MERKEZ_IMG : (building ? BUILDING_TEXTURE[building.type] : null));
             const hasTex = !!tex;
             const clipId = `vc-${q}-${r}`;
             const idle = building && building.level >= 1
@@ -1261,8 +1276,47 @@ export default function VillageCenter({
                   );
                 })()}
 
+{/*
+                  SADE GÖRÜNÜM — amblem GÖRSELİN YERİNİ dolduruyor.
+
+                  İlkan: *"amblemler resmin kapladığı alanı kaplasın yani
+                  büyüsün"*. Görsel S*2 = 110 birimlik kutuyu dolduruyordu;
+                  amblem S*1.15 ≈ 63 birim, yani kutuyu dolduruyor ama
+                  altıgenin kenarına dayanmıyor (dayasaydı seviye yazısı ve
+                  işçi sayacı amblemin üstüne binerdi).
+                */}
+                {building && sade && (() => {
+                  const em = hexEmblem(building.type);
+                  /*
+                    YERLEŞİM: hexin dikey açıklığı 2S. Alttan yukarı LVL
+                    yazısı, onun üstünde işçi sayacı, kalanı amblemin.
+                    İlk denemede amblem S*1.15 idi ve alt kenarı sayacın
+                    üstüne biniyordu (tarayıcıda görüldü).
+                  */
+                  const es = S * 0.92;
+                  const ey = y - S * 0.26;
+                  return (
+                    <g opacity={building.building ? 0.45 : 1}>
+                      <g transform={`translate(${x} ${ey}) rotate(${em.rot}) translate(${-es / 2} ${-es / 2})`}>
+                        <Icon name={em.icon} size={es} color={edge} strokeWidth={1.2} />
+                      </g>
+                    </g>
+                  );
+                })()}
+
+                {/* SADE GÖRÜNÜMDE MERKEZ — görseli yok, kendi amblemi var */}
+                {isCenter && sade && (() => {
+                  const es = S * 0.92;
+                  const ey = y - S * 0.26;
+                  return (
+                    <g transform={`translate(${x} ${ey}) translate(${-es / 2} ${-es / 2})`}>
+                      <Icon name="anaBina" size={es} color="#f0c860" strokeWidth={1.2} />
+                    </g>
+                  );
+                })()}
+
                 {/* Bina ikonu (texture'lı olanlar hariç) */}
-                {building && !hasTex && (
+                {building && !hasTex && !sade && (
                   <g transform={`translate(${x - 13} ${y - 20})`}
                     opacity={building.building ? 0.4 : 1}>
                     <Icon name={buildingIcon(building.type)} size={26} color={edge} strokeWidth={1.4} />
@@ -1297,13 +1351,21 @@ export default function VillageCenter({
                   // eksikti, o yüzden kulelerin okçu sayacı hiç görünmüyordu.
                   const maxW = maxWorkersOf(building.type, d, building.level);
                   if (maxW <= 0) return null;
+                  /*
+                    SADE GÖRÜNÜMDE SAYAÇ BÜYÜK. Görsel yokken hexte yer
+                    var ve İlkan'ın istediği tam da bu: "işçi ve bina
+                    lvl'i daha görünür olsun".
+                  */
+                  const kw = sade ? 46 : 32;
+                  const kh = sade ? 20 : 14;
                   return (
-                    <g transform={`translate(${x - 16} ${y + 4})`}>
-                      <rect x="0" y="0" width="32" height="14" rx="3"
+                    <g transform={`translate(${x - kw / 2} ${y + (sade ? S * 0.20 : 4)})`}>
+                      <rect x="0" y="0" width={kw} height={kh} rx={sade ? 4 : 3}
                         fill={idle ? 'rgba(58,20,26,0.9)' : 'rgba(8,20,32,0.88)'}
-                        stroke={idle ? C.dangerDim : 'rgba(45,76,115,0.7)'} strokeWidth="0.8" />
-                      <text x="16" y="7.5" textAnchor="middle" dominantBaseline="middle"
-                        fontFamily={FONT.num} fontSize="9" fontWeight="500"
+                        stroke={idle ? C.dangerDim : 'rgba(45,76,115,0.7)'}
+                        strokeWidth={sade ? 1.1 : 0.8} />
+                      <text x={kw / 2} y={kh / 2 + 0.5} textAnchor="middle" dominantBaseline="middle"
+                        fontFamily={FONT.num} fontSize={sade ? 13 : 9} fontWeight={sade ? 700 : 500}
                         fill={idle ? '#f0b8bd' : C.iceSoft} style={{ userSelect: 'none' }}>
                         {building.workers || 0}/{maxW}
                       </text>
@@ -1313,8 +1375,8 @@ export default function VillageCenter({
 
                 {/* Seviye / süre */}
                 {building && (
-                  <text x={x} y={y + S - 12} textAnchor="middle" dominantBaseline="middle"
-                    fontFamily={FONT.head} fontSize={11} fontWeight="700"
+                  <text x={x} y={y + S - (sade ? 15 : 12)} textAnchor="middle" dominantBaseline="middle"
+                    fontFamily={FONT.head} fontSize={sade ? 15 : 11} fontWeight="700"
                     /*
                       SON SEVİYEDEKİ BİNA ALTIN YAZIYOR (İlkan'ın isteği:
                       "full olduğunu anlayayım").

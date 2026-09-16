@@ -222,6 +222,15 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Sade köy görünümü ayarı (16 Eylül 2026)
+- İlkan: *"ayarlara bir ayar ekle. isteyen köy merkezinde bina görselleri olmadan sadece amblemlerle köyü görebilsin ama amblemler resmin kapladığı alanı kaplasın yani büyüsün. işçi ve bina lvl i daha görünür olsun."*
+- `ayarlar.js` ye `sadeKoy` eklendi (varsayılan **kapalı**, tarayıcıda saklanıyor); Ayarlar → Görünüm sekmesinde **KÖY MERKEZİ** başlığı altında anahtar.
+- Sahne tarafı: `sade` açıkken `tex` null yapılıyor, yani hem `<image>` hem de onun küçük tepe amblemi düşüyor; yerine hexEmblem den gelen amblem `S*0.92` boyunda çiziliyor. Merkez binanın kendi altın amblemi var.
+- İşçi sayacı sade modda 32×14 den **46×20** ye, yazı 9 dan **13** e; LVL yazısı 11 den **15** e çıkıyor.
+- **YERLEŞİM ÖLÇÜLEREK DÜZELTİLDİ**: ilk denemede amblem `S*1.15` ve merkezi `y−0,16S` idi; alt kenarı y+22,7 ye iniyor, sayaç y+16,5 te başlıyordu — tarayıcıda üst üste bindikleri görüldü. Hexin 2S lik dikey açıklığı alttan yukarı bölündü: LVL yazısı, üstünde sayaç (`y+0,20S`), kalanı amblem (`y−0,26S` merkezli, `S*0.92`). Üçü de birbirine değmiyor.
+- Tarayıcıda doğrulandı: anahtar açıkken amblemler ve sayaçlar büyük ve ayrık, kapatınca görseller geri geliyor; tercih sayfa yenilendikten sonra da duruyor. Konsolda hata yok.
+
+
 ### Köy sahnesi olabildiğince büyük (16 Eylül 2026)
 - İlkan: *"köy merkezindeki altıgen daha büyük olsun, olabildiğince büyük olmalı"*.
 - **ÖNCE ÖLÇTÜM** (830×882 kap): sahne 562×498 çiziliyordu, ölçek 0,598. İki ayrı sebep buldum:

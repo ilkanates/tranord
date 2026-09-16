@@ -26,6 +26,25 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16e',
+    tarih: '16 Eylül 2026',
+    baslik: 'Sade köy görünümü',
+    notlar: [
+      {
+        id: '20260916-sade-koy-gorunumu',
+        tur: 'yenilik',
+        metin: 'AYARLARA "SADE KÖY GÖRÜNÜMÜ" EKLENDİ (Görünüm sekmesi). '
+          + 'Açınca köy merkezindeki bina görselleri kapanıyor ve her '
+          + 'hexte binanın AMBLEMİ görselin kapladığı alan kadar büyük '
+          + 'çiziliyor. İşçi sayacı ve LVL yazısı da büyüyor: köy artık '
+          + 'bir şema gibi okunuyor, hangi binanın hangisi olduğunu ve '
+          + 'nerede işçi eksik olduğunu yakınlaşmadan görüyorsun. '
+          + 'Görselleri seviyorsan hiçbir şey değişmiyor — ayar '
+          + 'varsayılan olarak KAPALI ve tercih tarayıcında saklanıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16d',
     tarih: '16 Eylül 2026',
     baslik: 'Köy sahnesi büyüdü',
