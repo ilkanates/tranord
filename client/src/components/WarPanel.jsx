@@ -65,6 +65,14 @@ export function IncomingAlert({ incoming = [] }) {
 export function MarchPanel({
   marches = [], incoming = [], unitDefs = {}, maxMarches = 8, onRecall,
   kahraman = null, hourSeconds = 3600, worldSpeed = 1,
+  /*
+    ÖTEKİ KÖYLERİMDEN çıkan seferler. `marches` tanımı gereği yalnız
+    AKTİF köyün seferleri; çoklu köyde ikinci köyünden çıkan ordu
+    hiçbir listede görünmüyordu ve görmek için köy değiştirmek
+    gerekiyordu. Geri çağırma aktif köyden yapıldığı için bunlar salt
+    okunur — satırda hangi köyden çıktığı yazıyor.
+  */
+  digerSeferler = [],
 }) {
   const mine = marches;
 
@@ -210,6 +218,48 @@ export function MarchPanel({
             </div>
           );
         })}
+
+        {digerSeferler.length > 0 && (
+          <>
+            <div style={{
+              ...lbl({ fontSize: 7.5, letterSpacing: 1.2 }),
+              marginTop: 4, paddingTop: 6, borderTop: `1px solid ${C.lineSoft}`,
+            }}>
+              ÖTEKİ KÖYLERİMDEN ({digerSeferler.length})
+            </div>
+            {digerSeferler.map(m => {
+              const back = m.phase === 'return';
+              const col = back ? C.good : MODE_COLOR[m.mode] || C.ice;
+              return (
+                <div key={`${m.fromSlot}-${m.id}`} style={{
+                  display: 'flex', alignItems: 'center', gap: 9,
+                  padding: '6px 9px', borderRadius: 5,
+                  background: 'rgba(8,17,28,0.35)', border: `1px solid ${col}33`,
+                }}>
+                  <Icon name={back ? 'depo' : MODE_ICON[m.mode] || 'ordu'} size={13} color={col} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim }}>
+                      <b style={{ color: C.iceSoft }}>{m.fromName}</b>
+                      {' '}köyünden {back ? 'dönüyor' : `${MODE_LABEL[m.mode] || m.mode} →`}
+                      {!back && <b style={{ color: C.frost }}> {m.toName}</b>}
+                    </div>
+                    <div style={{ marginTop: 2 }}>
+                      <UnitList units={m.units} unitDefs={unitDefs} color={C.textMute} />
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={lbl({ fontSize: 7, letterSpacing: 0.9 })}>
+                      {back ? 'EVE' : 'VARIŞ'}
+                    </div>
+                    <div style={num({ fontSize: 13, color: col })}>
+                      {fmtTime(m.kalanTimeLeft)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {incoming.map(inc => (
           <div key={inc.key} style={{

@@ -222,6 +222,30 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Kahraman seferde mahsur kalıyordu + Seferler ekranı bütün köyleri gösteriyor (16 Eylül 2026)
+- İlkan: *"kahraman bir yere gitmiş dönmemiş seferde gözüküyor buglandı. bir de kimin nerede olduğunu hangi ekrandan bakabilirim"*.
+
+**BUG — kahraman `nerede: "sefer"` olarak mahsur kalıyor.**
+- Kahraman orduyla birlikte YÜRÜMÜYOR (bilinçli): savaş çözülür çözülmez üssünde sayılıyor, dönüş yolu yalnız orduya ait. Eve dönüşü yazan **tek satır** `processMarches` içinde ve yalnız `m.kahramanSonuc` doluysa çalışıyor — yani ancak gerçekten bir savaş olduysa.
+- Savaşın hiç olmadığı **iki yol** var ve ikisinde de kahraman sonsuza kadar seferde kalıyordu:
+  1. **Sefer geri çağrıldı** (ilk 90 sn). `seferGeriCagir` seferi döndürüyor, savaş yok, `kahramanSonuc` yazılmıyor.
+  2. **Hedef yok oldu.** `resolveArrival` `!target` dalında "hedef_yok" raporuyla orduyu döndürüyor, savaş yok.
+- **Bedeli ağır**: hem sefer hem macera kapısı `nerede === "koy"` şartına bakıyor, yani mahsur kahraman **kalıcı olarak kullanılamaz** hâle geliyordu.
+- **İki katmanlı düzeltme.** (A) Geri çağırma artık kahramanı da eve alıyor ve sefere iliştirilmiş kahraman kaydını siliyor — olmayan bir savaşın XP/hasarı uygulanmasın. (B) `kahramanMahsurKaldiysaOnar` her tikte çalışıyor: kahraman "seferde" görünüyor ama köylerinin hiçbirinde onu taşıyan sefer yoksa üssüne alınıyor. **Bu ağ mevcut mahsur kahramanları da kurtarıyor** (İlkanınki dahil) ve aklıma gelmeyen üçüncü bir yolu da kapatıyor. Onaracak bir şey yoksa hiçbir şey yapmıyor.
+- Yeni test dosyası `server/test/kahraman-mahsur.test.js` (4 test): iki mahsur kalma yolunu, mahsur kalmanın BEDELİNİ (macera kapısı kapanıyor) ve zaten kapalı olan üçüncü yolu (seferde ölen kahraman üssüne dönüyor) kilitliyor. Testler 307 → **311**.
+
+**"Kimin nerede olduğunu hangi ekrandan bakabilirim" — Seferler ekranı genişletildi.**
+- `village.marches` tanımı gereği **tek köyün** seferleri. Çoklu köyde ikinci köyünden çıkan ordu hiçbir listede görünmüyordu; görmek için köy değiştirip Seferler'e tekrar bakmak gerekiyordu. Gelen saldırı uyarısı zaten bütün köyler için vardı (`villageList`), giden sefer yoktu.
+- Sunucu `digerKoySeferleri(session)` gönderiyor, panel alt bölümde **"ÖTEKİ KÖYLERİMDEN"** başlığıyla listeliyor: hangi köyden çıktı, nereye, birlikler ve varışa kalan süre (`kalanTimeLeft` — canlı geri sayım).
+- Salt okunur: geri çağırma soket işleyicisi aktif köye (`v()`) bakıyor, o yüzden çağırmak için o köye geçmek gerekiyor. Satırda çıktığı köyün adı yazıyor.
+
+**Oyuncunun "ne nerede" için bakacağı ekranlar** (mevcut durum):
+- **Seferler**: giden seferler (artık bütün köyler), gelen saldırılar, kahramanın durumu (macera/sefer/takviye/dönüyor)
+- **Ordu**: evdeki ordu, köyümdeki misafir takviyeler, başka köylerde duran kendi askerim
+- **Harita**: o an yürüyen seferlerin canlı rozetleri (kılıç/kalkan/dürbün/çadır + geri sayım)
+- **Köylüler**: işçilerin hangi tarlada/binada olduğu
+
+
 ### Oyun tasarım dökümanı v2 — denge paketi sonrası yenilendi (16 Eylül 2026)
 - İlkan: *"tekrar bir oyun tasarımı dosyası oluştur ve olanı yenile. bütün üretim masraflarını, sürelerini, saldırı savunma güçlerini, hızlarını, taşıma kapasitelerini ekle. tekrar analiz edeceğim"*.
 - `docs/OYUN-TASARIMI.md` **sıfırdan üretildi** (1.748 satır). v1 (14 Eylül) denge paketinden önceydi ve artık neredeyse her sayısı yanlıştı.

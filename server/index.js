@@ -442,6 +442,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     takviyelerim: takviyelerimiBul(session.userId),
     // Haritadaki canlı kılıç rozeti bunu kullanıyor
     yoldakiSeferler: yoldakiSeferlerim(session),
+    // Seferler ekranı: öteki köylerimden çıkan ordular da görünsün
+    digerKoySeferleri: digerKoySeferleri(session),
     // Merkez taşınırsa eski merkezde kaç tarla düşecek — uyarı için
     merkezTasimaBedeli: merkezTasimaBedeli(session),
     // Acemi kalkanı — oyuncu ne kadar korunduğunu görmeli (madde 12)
@@ -613,6 +615,7 @@ function runTickForUser(userId, session) {
       kadar yol var. Anında dönseydi "saldırı gelince kahramanı çek"
       risksiz bir hamle olurdu.
     */
+    kahramanMahsurKaldiysaOnar(session, userId);
     if (kahraman.nerede === 'donuyor') {
       kahraman.donusKalanSaat = Math.max(0, (kahraman.donusKalanSaat || 0) - gameHours);
       if (kahraman.donusKalanSaat <= 0) {
@@ -985,6 +988,33 @@ function merkezTasimaBedeli(session) {
   return { tarla, seviye, merkezAd: merkez.name || session.capitalSlot };
 }
 
+/**
+ * DİĞER KÖYLERİMDEN çıkan seferler — Seferler ekranının alt bölümü.
+ *
+ * Aktif köyünki zaten `marches` alanında gidiyor; burada yalnız
+ * ÖTEKİLER var, her biri çıktığı köyün adıyla.
+ */
+function digerKoySeferleri(session) {
+  const out = [];
+  for (const [slotKey, v] of session.villages) {
+    if (slotKey === session.activeSlot) continue;
+    const koyAdi = WORLD.playerBySlot.get(slotKey)?.name
+      || WORLD.slotByKey.get(slotKey)?.name || slotKey;
+    for (const m of v.marches || []) {
+      out.push({
+        id: m.id, mode: m.mode, phase: m.phase,
+        toName: m.toName, toKey: m.toKey,
+        fromSlot: slotKey, fromName: koyAdi,
+        units: { ...(m.units || {}) },
+        // 'TimeLeft' eki İSTEMCİDE canlı sayım demek (bkz. flows · shiftTimers)
+        kalanTimeLeft: GT.clockToRealSeconds(
+          GT.hoursToClock(Math.max(0, m.remainingHours ?? 0)), WORLD.speed),
+      });
+    }
+  }
+  return out;
+}
+
 function yoldakiSeferlerim(session) {
   const out = {};
   for (const v of session.villages.values()) {
@@ -1185,6 +1215,35 @@ const koyBosMu = KUSATMA.koyBosMu;
  *
  * @returns {object|null} kahraman nesnesi, ya da hiç konak yoksa null
  */
+/**
+ * MAHSUR KALMIŞ KAHRAMANI EVE AL — kendi kendini kapatan onarım.
+ *
+ * Kahraman "seferde" görünüyor ama onu taşıyan bir sefer yoksa, o
+ * kayıt yalanıyor demektir. Bu duruma iki bilinen yoldan giriliyordu
+ * (geri çağırma ve hedefin yok olması); ikisi de kaynakta kapatıldı
+ * ama bu ağ ÜÇÜNCÜ bir yolu da kapatıyor — ve halihazırda mahsur olan
+ * kahramanları kurtarıyor.
+ *
+ * Onarılacak bir şey yoksa hiçbir şey yapmıyor, bu yüzden her tikte
+ * güvenle çalışabiliyor.
+ *
+ * TAKVİYE DURUMUNA DOKUNMUYOR: orada kahraman gerçekten başka bir
+ * köyde duruyor ve kaydı ev sahibinin köyünde (`misafirKahraman`).
+ */
+function kahramanMahsurKaldiysaOnar(session, userId) {
+  const kk = kahramanDurumu(session);
+  if (!kk || kk.nerede !== 'sefer') return false;
+
+  for (const koy of session.villages.values()) {
+    for (const m of koy.marches || []) {
+      if (m.kahramanUserId === userId) return false;      // gerçekten yolda
+    }
+  }
+  kk.nerede = 'koy';
+  console.log(`[KAHRAMAN] userId=${userId} seferde mahsur kalmıştı, üssüne alındı`);
+  return true;
+}
+
 function kahramanDurumu(session, { yarat = false } = {}) {
   const merkez = session.villages.get(session.capitalSlot)
     || session.villages.values().next().value;
@@ -3937,6 +3996,23 @@ io.on('connection', async socket => {
   socket.on('sefer_geri_cagir', ({ marchId } = {}) => {
     const res = ARMY.seferGeriCagir(v(), marchId);
     if (!res.ok) return socket.emit('army_error', { reason: res.reason });
+    /*
+      KAHRAMAN DA EVE DÖNÜYOR. Sefer geri çağrılınca savaş hiç olmuyor,
+      yani `kahramanSonuc` yazılmıyor ve kahramanı eve alan tek satır
+      (bkz. processMarches) hiç çalışmıyordu: kahraman `nerede: 'sefer'`
+      olarak mahsur kalıyor, bir daha ne sefere ne maceraya
+      çıkabiliyordu.
+
+      Sefere iliştirilmiş kahraman kaydı da siliniyor: dönüş ayağında
+      olmayan bir savaşın XP'si ve hasarı uygulanmasın.
+    */
+    if (res.march.kahramanUserId) {
+      const kk = kahramanDurumu(session);
+      if (kk && kk.nerede === 'sefer') kk.nerede = 'koy';
+      res.march.kahraman = null;
+      res.march.kahramanUserId = null;
+      res.march.kahramanSonuc = null;
+    }
     dirty(); emit();
     console.log(`[SEFER İPTAL] ${userEmail} → ${res.march.toName} (${res.march.mode})`);
   });

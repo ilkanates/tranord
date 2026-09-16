@@ -1230,6 +1230,7 @@ function Game({ token, onLogout }) {
                   unitDefs={village.unitDefs || {}}
                   maxMarches={village.marchInfo?.maxMarches || 8}
                   kahraman={village.kahraman}
+                  digerSeferler={village.digerKoySeferleri || []}
                   hourSeconds={village.marchInfo?.hourSeconds || 3600}
                   worldSpeed={village.worldSpeed || 1}
                   onRecall={seferGeriCagir} />

@@ -26,6 +26,39 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16a',
+    tarih: '16 Eylül 2026',
+    baslik: 'Seferde mahsur kalan kahraman kurtarıldı',
+    notlar: [
+      {
+        id: '20260916-kahraman-mahsur',
+        tur: 'duzeltme',
+        metin: 'KAHRAMAN "SEFERDE" YAZILI KALIP BİR DAHA DÖNMÜYORDU. '
+          + 'Kahraman orduyla birlikte yürümüyor: savaş biter bitmez '
+          + 'üssünde sayılıyor. Ama onu eve alan satır yalnız GERÇEKTEN '
+          + 'BİR SAVAŞ olduysa çalışıyordu. Savaşın hiç olmadığı iki yol '
+          + 'vardı — seferi ilk 90 saniyede GERİ ÇAĞIRMAK ve hedef köyün '
+          + 'yok olması. İkisinde de kahraman sonsuza kadar "seferde" '
+          + 'kalıyor, bir daha ne sefere ne maceraya çıkabiliyordu. '
+          + 'Artık geri çağırma kahramanı da eve alıyor; ayrıca her '
+          + 'saniye çalışan bir emniyet ağı "seferde görünüyor ama onu '
+          + 'taşıyan sefer yok" durumunu kendiliğinden onarıyor. Mahsur '
+          + 'kalmış kahramanın varsa bu güncellemeyle üssüne döndü.',
+      },
+      {
+        id: '20260916-diger-koy-seferleri',
+        tur: 'yenilik',
+        metin: 'SEFERLER EKRANI ARTIK BÜTÜN KÖYLERİNİ GÖSTERİYOR. '
+          + 'Liste yalnız o an baktığın köyün seferlerini gösteriyordu; '
+          + 'ikinci köyünden çıkan ordu hiçbir yerde görünmüyor, görmek '
+          + 'için köy değiştirmek gerekiyordu. Alt bölümde "ÖTEKİ '
+          + 'KÖYLERİMDEN" başlığıyla hepsi listeleniyor — hangi köyden '
+          + 'çıktığı, nereye gittiği ve varışa kalan süre. Geri çağırma '
+          + 'yine seferin çıktığı köyden yapılıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-15b',
     tarih: '15 Eylül 2026',
     baslik: 'Saldırı ekranındaki tahmin artık titremiyor',

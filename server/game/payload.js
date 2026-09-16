@@ -344,6 +344,7 @@ function buildPayload(village, tickMs, opts = {}) {
       `marches` yalnız aktif köyün seferleri olduğu için yetmiyor.
     */
     yoldakiSeferler: opts.yoldakiSeferler || {},
+    digerKoySeferleri: opts.digerKoySeferleri || [],
     merkezTasimaBedeli: opts.merkezTasimaBedeli || null,
     /*
       ACEMİ KALKANI. Görünmeyen bir koruma korumak değil güven sorunu:
