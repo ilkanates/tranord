@@ -282,6 +282,18 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - **TARAYICIDA UÇTAN UCA DOĞRULANDI**: elçilik kuruldu (Lvl 20), panel "Elçiliğin Lvl 20, yani birliğe 60 üye sığar" diyor; "Kuzey Kurtları" kuruldu, panel "sen: Konung · 1/60" gösteriyor; oyuncu adıyla davet gönderildi ve "CEVAP BEKLEYENLER" listesinde GERİ AL düğmesiyle belirdi. Diskte de doğrulandı (`alliances` 1 kayıt, `alliance_members` konung, `alliance_invites` 1 davet). Olmayan bir ada davet `oyuncu_yok` ile reddedildi.
 - Testler: `birlik.test.js` 11 kilit — rütbe merdiveni, yetki tablosu, atma zinciri, Jarl tavanı, üye tavanı sayıları, elçilik şartı, tavanın KABUL ANINDA bakılması, ad doğrulaması (görünmez karakter dahil), amblem listesi, saldırı serbestliği ve elçilik binasının tavanıyla birlik tavanının tutması.
 
+### Eşya görsellerinin yönü tekleştirildi (16 Eylül 2026)
+- İlkan: *"itemlerin yönünü düzenle, biri sağa biri sola bakmasın."*
+- **ÖNCE SAYILDI, SONRA ÇEVRİLDİ.** Otuz görselin hepsi etiketli bir kontakt sayfasına dizilip bakıldı; yönü gerçekten belli olan iki grup var: **atlar (6)** ve **çizmeler (3)**. Zırh, kalkan, miğfer, bileklik ve kolyeler cepheden çizilmiş, yönleri yok.
+- **Yön LEFT seçildi** çünkü en büyük yönlü grup olan atların 4'ü zaten sola bakıyordu. Sağ seçilseydi dört atın sanatı değişecekti; sol seçilince iki at + üç çizme (beş dosya) aynalandı ve atların çoğunluğu olduğu gibi kaldı.
+- Aynalanan dosyalar: `kuzeyRuzgari`, `savasAti`, `demirNalliCizme`, `kurtPostuCizme`, `kutupTilkisiPostu`.
+- **AYNALAMA ASILDAN YAPILDI** (`items/yedek/`, 1024×1024), canlı 512'lik dosyadan değil: canlıdan aynalasaydık ikinci bir JPEG kaybı binerdi. Asıl aynalanıp yeniden 512'ye indirildi, yani canlı dosya yine asıldan tek kuşak uzakta. Kalite 92, boyutlar 56–67 KB (eskisiyle aynı aralıkta).
+- **`items/yedek/` ELLENMEDİ**: orası İlkan'ın verdiği asılların arşivi. Yukarıdaki beş dosya arşivdeki asıllara göre AYNALI — arşivden yeniden türetilirse aynalama tekrar uygulanmalı.
+- Aynalanan hiçbir görselde yazı/rün yok (kontrol edildi); `runBileklik` rünlü ama yönsüz olduğu için listede değil.
+- **DOĞRULANDI**: çevirme sonrası kontakt sayfasında altı atın ve üç çizmenin hepsi sola bakıyor; oyunda kuşam ızgarasında yan yana duran çizme ve at aynı yöne bakıyor.
+
+**AÇIK KALAN (ayrı konu):** iki görselin kendi çerçevesi var — `kuzeyRuzgari` koyu bir tablo çerçevesi, `zincirEtek` açık renkli bir kenarlık. Ötekilerin zemini kenara kadar düz. Kırpılabilir ama bu yön değil çerçeve meselesi; İlkan'a soruldu.
+
 ### Görev zincirine kahraman adımları tamamlandı (16 Eylül 2026)
 - TODO'da bekleyen madde: *"iki tanesi eklendi (konağı kur, seviye 3), macera ve eşya gelince ikisi daha eklenmeli."* İkisi de artık oyunda, adımlar eklendi.
 - **"Yola Çık"** (`ilkMacera`) — ilk macerayı TAMAMLA. **Biriken haktan (`maceraSayisi`) ölçülmüyor**: haktan ölçseydik macerayı yola çıkarmak görevi bitirirdi ve oyuncu ödülü sonucu görmeden alırdı; maceranın öğrettiği şey tam da sonucu. Bunun için yeni bir sayaç geldi: `maceraTamamlanan` (yalnız artıyor, hak harcandıkça azalıyor — ikisi ayrı kavram).

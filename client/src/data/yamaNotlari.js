@@ -26,6 +26,22 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16p',
+    tarih: '16 Eylül 2026',
+    baslik: 'Eşya görselleri aynı yöne bakıyor',
+    notlar: [
+      {
+        id: '20260916-esya-yonu',
+        tur: 'duzeltme',
+        metin: 'EŞYALARIN YÖNÜ DÜZELDİ. Atların ikisi sağa, dördü sola '
+          + 'bakıyordu; çizmelerin burnu da atların ters yönündeydi. '
+          + 'Kuşam ızgarasında yan yana duran iki eşyanın birbirine '
+          + 'ters bakması göze batıyordu. Artık yönü belli olan her '
+          + 'eşya sola bakıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16o',
     tarih: '16 Eylül 2026',
     baslik: 'Kahraman görevleri',
