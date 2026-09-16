@@ -57,9 +57,11 @@ const SKIL_METIN = {
     renk: '#7fb4ff',
   },
   uretim: {
-    ad: 'Hammadde Üretimi', kisa: 'Köye kaynak', birim: '+3/sa her ham kaynak',
-    detay: 'Odun, kil, taş ve demire saatlik düz ek. Yalnız kahramanın '
-      + 'durduğu köye işler.',
+    ad: 'Hammadde Üretimi', kisa: 'Köye kaynak', birim: '+%0,2/puan · tavan %20',
+    detay: 'Odun, kil, taş ve demir tarlalarının üretimini YÜZDE olarak '
+      + 'büyütür — tarlaların büyüdükçe bonus da büyür. Tahıla işlemez. '
+      + 'Yalnız kahramanın durduğu köye işler. Tavanda maxlı bir merkez '
+      + 'köyde saatte ~900 kaynak eder.',
     renk: '#4ecfa8',
   },
 };
@@ -1025,7 +1027,7 @@ function ToplamBonus({ kahraman }) {
     ['Saldırı gücü', toplam.saldiriGucu || 0, esyaKah.saldiri || 0, ''],
     ['Orduya saldırı', toplam.saldiriYuzde || 0, 0, '%'],
     ['Köye savunma', toplam.savunmaYuzde || 0, 0, '%'],
-    ['Kaynak üretimi', toplam.uretimSaatlik || 0, 0, '/sa'],
+    ['Kaynak üretimi', toplam.uretimYuzde || 0, 0, '%'],
     ['Can tavanı', kahraman?.canTavan || 0, esyaKah.can || 0, ''],
     ['İyileşme', kahraman?.iyilesmeSaatlik || 0, esyaKah.iyilesme || 0, '/sa'],
     ['Hız', kahraman?.hiz || 0, esyaKah.hiz || 0, ''],

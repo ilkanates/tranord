@@ -48,6 +48,37 @@ function orduYemi(army) {
 }
 
 /**
+ * BU KÖYÜN BESLEDİĞİ BÜTÜN ASKERLERİN GÜNLÜK EKMEĞİ — TEK KAYNAK.
+ *
+ * Kural: bir asker her zaman bir köyün ekmeğini yer.
+ *   · köyde duruyorsa          → o köy            (army)
+ *   · misafir olarak duruyorsa → EV SAHİBİ        (takviyeler)
+ *   · yoldaysa                 → seferi TAŞIYAN köy (marches)
+ *
+ * Bu fonksiyon HEM gerçek tüketimi düşen `processFoodConsumption` HEM
+ * ekranda gösterilen `getConsumptionRates` tarafından çağrılıyor.
+ * Ayrı ayrı hesaplandıkları için ayrışmışlardı: ekran misafirleri
+ * sayıyor, ambar saymıyordu (ölçüldü: 12,50 gösterilip 7,50
+ * düşülüyordu). İkisinin tek bir yerden okuması bu sınıf hatayı
+ * kapatıyor.
+ */
+function koyunAskerYemi(village) {
+  let gunluk = orduYemi(village?.army);
+  for (const m of village?.marches || []) gunluk += orduYemi(m.units);
+  for (const t of village?.takviyeler || []) gunluk += orduYemi(t.units);
+  return gunluk;
+}
+
+/** Aynı kümenin BAŞ sayısı — yalnız ekranda "kaç asker besliyorum" için */
+function koyunAskerSayisi(village) {
+  const say = (o) => Object.values(o || {}).reduce((s, n) => s + (Number(n) || 0), 0);
+  let n = say(village?.army);
+  for (const m of village?.marches || []) n += say(m.units);
+  for (const t of village?.takviyeler || []) n += say(t.units);
+  return n;
+}
+
+/**
  * Birim eğitim süresi — oyun DAKİKASI (1 eğitmen referansı).
  * Ekipman sayısı × 5 dk, en az 3 dk. Travian kışla süreleriyle aynı mertebe.
  */
@@ -239,7 +270,21 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
     if (b.workers > 0 && b.level >= 1) {
       // Distance penalty + tile bonus (bonus resource == b.type ise uygulanır)
       const multiplier = getSlotTotalMultiplier(slotKey, b.type, village);
-      const perHour = b.workers * def.baseProductionPerWorker * multiplier;
+      /*
+        KAHRAMANIN ÜRETİM SKİLİ — TARLA ÇARPANI olarak.
+
+        Eskiden dört ham kaynağa saatlik DÜZ ek yazılıyordu (aşağıda,
+        tarla döngüsünün dışında). İlkan yüzde istedi: düz ek yeni
+        köyde üretimi beşe katlıyor, maxlı köyde %6,5'te kalıyordu.
+        Yüzde perHour üzerinden işliyor, yani mesafe cezası ve arazi
+        bonusu da hesaba girmiş olan GERÇEK üretimle orantılı.
+
+        TAHIL HARİÇ: düz ek de tahıla dokunmuyordu. Ekmek oyunun dar
+        boğazı; kahramanı açlığın çaresi yapmak onu ortadan kaldırırdı.
+      */
+      const kahYuzde = (b.type === 'tahil') ? 0 : (village.kahramanUretimYuzde || 0);
+      const perHour = b.workers * def.baseProductionPerWorker * multiplier
+        * (1 + kahYuzde / 100);
       village.resources[b.type] = (village.resources[b.type] || 0) + perHour * hours;
     }
 
@@ -254,24 +299,16 @@ function processTick(village, hours = GT.HOURS_PER_TICK) {
   });
 
   /*
-    KAHRAMANIN ÜRETİM SKİLİ — dört HAM kaynağa saatlik DÜZ ek.
-
-    Tarlalara yüzde bonus değil, düz ek: yüzde olsaydı tarlası olmayan
-    yeni oyuncuya hiçbir şey vermez, geç oyunda ise tarla yatırımını
-    gereksizleştirecek kadar büyürdü. Düz ek erken oyunda hissediliyor,
-    geç oyunda tarlaların yanında küçük kalıyor.
+    KAHRAMANIN ÜRETİM SKİLİ artık YUKARIDA, tarla döngüsünün içinde
+    (`kahramanUretimYuzde`). Buradaki düz ek bilerek kaldırıldı:
+    tarlası olmayan hex'e bedava kaynak yazıyordu, yani skil tarla
+    yatırımının YERİNE geçebiliyordu.
 
     Değeri index.js her tikte yazıyor (kahraman kaydı OTURUMDA); alan
-    yoksa hiçbir şey olmuyor, yani kahramansız köy eskisiyle birebir aynı.
+    yoksa çarpan 1 kalıyor, yani kahramansız köy eskisiyle birebir aynı.
     İŞLENMİŞ mallara dokunmuyor — değirmen/fırın zincirini atlamak
     üretim ekonomisinin tamamını anlamsızlaştırırdı.
   */
-  const kahEk = village.kahramanUretimSaatlik || 0;
-  if (kahEk > 0) {
-    for (const kaynak of ['odun', 'kil', 'tas', 'demir']) {
-      village.resources[kaynak] = (village.resources[kaynak] || 0) + kahEk * hours;
-    }
-  }
 
   // Depo kapasiteleri — İŞLEMEDEN ÖNCE hesaplanır.
   // Sebep: çıktı deposu doluyken girdi tüketilip çıktı çöpe atılıyordu
@@ -385,8 +422,12 @@ function processRevir(village, hours) {
 // Yeterli yiyecek yoksa isStarving=true → her STARVE_HOURS_PER_LOSS oyun saatinde 1 nüfus.
 function processFoodConsumption(village, hours = GT.HOURS_PER_TICK) {
   const army    = Object.values(village.army || {}).reduce((s, c) => s + c, 0);
-  // Tüketim artık BİRİM BAŞINA (madde 7) — sayıya değil kademeye bakıyor
-  const orduGunluk = orduYemi(village.army);
+  /*
+    Tüketim BİRİM BAŞINA (madde 7) — sayıya değil kademeye bakıyor.
+    Ve artık YOLDAKİ ve MİSAFİR askerleri de içeriyor: ikisi de
+    hiçbir köyün faturasına yazılmıyordu (bkz. koyunAskerYemi).
+  */
+  const orduGunluk = koyunAskerYemi(village);
   /**
    * DÜZELTME — asker yemeği İKİ KEZ sayılıyordu: sivil payı `population`
    * üzerinden hesaplanıyordu ama `population` askerleri de içeriyor, yani
@@ -886,22 +927,18 @@ function getConsumptionRates(village) {
     sayılıyor. Bu yüzden sivil hesabından da düşülmüyor; yalnız asker
     yemeğine biniyor.
   */
-  let misafir = 0;
-  for (const t of village.takviyeler || []) {
-    for (const n of Object.values(t.units || {})) misafir += n || 0;
-  }
-  const army   = kendiOrdu + misafir;
+  const army   = koyunAskerSayisi(village);
   const pop    = Math.max(0, (village.population || 0) - kendiOrdu - seferde);   // yalnız SİVİLLER
   const horses = (village.equipment && village.equipment.at) || 0;
 
   const villagerFood = (pop    * FOOD_PER_VILLAGER_PER_DAY) / HOURS_PER_DAY;
   /*
-    MİSAFİR ASKER de kendi kademesinden yiyor: takviye birimleri tek tek
-    toplanıyor, "misafir sayısı × 6" değil.
+    MİSAFİR ve YOLDAKİ asker de kendi kademesinden yiyor: birimler tek
+    tek toplanıyor, "asker sayısı × 6" değil. Hesap `koyunAskerYemi`
+    içinde — gerçek tüketimi düşen fonksiyon da aynı yerden okuyor ki
+    ekran ile ambar bir daha ayrışmasın.
   */
-  let misafirGunluk = 0;
-  for (const t of village.takviyeler || []) misafirGunluk += orduYemi(t.units);
-  const soldierFood  = (orduYemi(village.army) + misafirGunluk) / HOURS_PER_DAY;
+  const soldierFood  = koyunAskerYemi(village) / HOURS_PER_DAY;
   const horseGrain   = (horses * GRAIN_PER_HORSE_PER_DAY)   / HOURS_PER_DAY;
 
   return {
@@ -998,7 +1035,7 @@ function getFoodOutlook(village) {
 
 module.exports = {
   processTick,
-  birimYemi, orduYemi,
+  birimYemi, orduYemi, koyunAskerYemi, koyunAskerSayisi,
   processRevir,
   getFoodOutlook,
   processUnitQueues,

@@ -87,3 +87,92 @@ test('açlık başlayınca bayrak dönüyor', () => {
   TICK.processTick(v, 1);
   assert.equal(TICK.getFoodOutlook(v).aclik, true);
 });
+
+/**
+ * GÖSTERİLEN TÜKETİM ile AMBARDAN DÜŞEN AYNI OLMALI.
+ *
+ * Eski test yalnız iki GÖSTERİM fonksiyonunu (`getFoodOutlook` ve
+ * `getConsumptionRates`) karşılaştırıyordu; ikisi de takviyeyi
+ * sayıyordu, dolayısıyla test yeşil yanıyordu. Ekmeği GERÇEKTEN düşen
+ * `processFoodConsumption` ise takviyeyi hiç saymıyordu.
+ *
+ * Ölçüldü (hata duruyorken): 10 kendi + 20 misafir askerli köyde ekran
+ * 12,50 ekmek/sa diyordu, ambardan 7,50 düşüyordu — 20 misafir bedava
+ * yiyordu ve ekran doğru sayıyı gösterdiği için hata görünmüyordu.
+ *
+ * Bu test ekranı değil AMBARI ölçüyor: bir tik işletip kaybolan
+ * yiyeceği sayıyor.
+ */
+test('gösterilen tüketim AMBARDAN DÜŞENLE aynı (misafir ve yoldaki asker dahil)', () => {
+  const kur = ({ misafir = false, seferde = false } = {}) => {
+    const v = createVillage(0, 0);
+    v.army = { fjordvakt: 10 };
+    v.takviyeler = misafir
+      ? [{ id: 1, userId: 7, slotKey: '3,0', units: { fjordvakt: 20 }, at: Date.now() }]
+      : [];
+    v.marches = seferde
+      ? [{ id: 1, mode: 'takviye', phase: 'return', units: { fjordvakt: 15 },
+          remainingHours: 3 }]
+      : [];
+    // Üretim sıfır olsun ki ölçüm yalnız TÜKETİMİ görsün
+    for (const t of Object.values(v.productionTiles)) t.workers = 0;
+    v.resources.ekmek = 500; v.resources.un = 0; v.resources.tahil = 0;
+    return v;
+  };
+
+  for (const durum of [{}, { misafir: true }, { seferde: true },
+    { misafir: true, seferde: true }]) {
+    const v = kur(durum);
+    const gosterilen = TICK.getConsumptionRates(v).foodPerHour;
+    const once = v.resources.ekmek;
+    TICK.processTick(v, 1);
+    const dusen = once - v.resources.ekmek;
+    assert.ok(Math.abs(gosterilen - dusen) < 0.02,
+      `${JSON.stringify(durum)} → ekranda ${gosterilen}/sa ama ambardan `
+      + `${dusen.toFixed(2)}/sa düştü`);
+  }
+});
+
+/**
+ * BİR ASKER HER ZAMAN BİR KÖYÜN EKMEĞİNİ YER.
+ *
+ * İlkan: *"askerler desteğe gittikleri köye ulaştıkları an o köyden
+ * ekmek yemeye başlarlar. aynı şekilde ben desteğimi geri çektiğim anda
+ * da benim köyden ekmek tüketmeye başlarlar."*
+ *
+ * Kural üç kümeye birden bakmayı gerektiriyor:
+ *   · köyde duran        → o köy         (army)
+ *   · misafir olarak duran → EV SAHİBİ   (takviyeler)
+ *   · yolda olan         → seferi TAŞIYAN köy (marches)
+ *
+ * Üçüncüsü İlkan'ın ikinci cümlesinin karşılığı: geri çağırma askeri
+ * ev sahibinin `takviyeler`inden alıp sahibinin `marches`ine koyuyor,
+ * yani devir teslim geri çağırma ANINDA oluyor. Yoldaki asker
+ * sayılmasaydı o an asker kimsenin beslemediği kümeye düşerdi —
+ * ayrıca "orduyu uzun sefere yolla, ekmekten kaç" deliği açılırdı.
+ */
+test('yoldaki ve misafir asker de bir köyün faturasına yazılıyor', () => {
+  const bos = createVillage(0, 0);
+  bos.army = {};
+  const taban = TICK.koyunAskerYemi(bos);
+
+  const evde = createVillage(0, 0);
+  evde.army = { fjordvakt: 20 };
+
+  const yolda = createVillage(0, 0);
+  yolda.army = {};
+  yolda.marches = [{ id: 1, mode: 'takviye', phase: 'return',
+    units: { fjordvakt: 20 }, remainingHours: 3 }];
+
+  const misafirli = createVillage(0, 0);
+  misafirli.army = {};
+  misafirli.takviyeler = [{ id: 1, userId: 7, slotKey: '3,0',
+    units: { fjordvakt: 20 }, at: Date.now() }];
+
+  const evdeYem = TICK.koyunAskerYemi(evde) - taban;
+  assert.ok(evdeYem > 0, 'evdeki asker yemeli');
+  assert.equal(TICK.koyunAskerYemi(yolda) - taban, evdeYem,
+    'YOLDAKİ asker, evdekiyle aynı yemi seferi taşıyan köye yazmalı');
+  assert.equal(TICK.koyunAskerYemi(misafirli) - taban, evdeYem,
+    'MİSAFİR asker, evdekiyle aynı yemi EV SAHİBİNE yazmalı');
+});

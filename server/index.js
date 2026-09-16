@@ -634,9 +634,9 @@ function runTickForUser(userId, session) {
     sefere çıkınca ya da üssü taşınınca eski köyde artık kalmasın.
   */
   const uretimEk = (kahraman && (kahraman.nerede || 'koy') === 'koy')
-    ? HERO.bonuslar(kahraman).uretimSaatlik : 0;
+    ? HERO.bonuslar(kahraman).uretimYuzde : 0;
   for (const [slotKey, village] of session.villages) {
-    village.kahramanUretimSaatlik =
+    village.kahramanUretimYuzde =
       (uretimEk > 0 && slotKey === kahraman?.usSlot) ? uretimEk : 0;
   }
 

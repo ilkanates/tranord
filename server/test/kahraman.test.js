@@ -128,7 +128,7 @@ test('ÖLÜ kahraman HİÇBİR bonus vermez', () => {
   K.puanDagit(k, 'saldiriPuani', 50);
   K.puanDagit(k, 'uretim', 50);
   const once = K.bonuslar(k);
-  assert.ok(once.saldiriGucu > 0 && once.uretimSaatlik > 0);
+  assert.ok(once.saldiriGucu > 0 && once.uretimYuzde > 0);
 
   const h = K.hasarVer(k, 99999);
   assert.equal(h.oldu, true);
@@ -137,7 +137,7 @@ test('ÖLÜ kahraman HİÇBİR bonus vermez', () => {
   assert.equal(sonra.saldiriGucu, 0);
   assert.equal(sonra.saldiriYuzde, 0);
   assert.equal(sonra.savunmaYuzde, 0);
-  assert.equal(sonra.uretimSaatlik, 0);
+  assert.equal(sonra.uretimYuzde, 0);
   assert.deepEqual(sonra.birim.piyade, { saldiri: 0, savunma: 0 },
     'ölümün canı yakmalı; yarım bonus ölümü sıradanlaştırırdı');
 });
@@ -332,4 +332,65 @@ test('Kahraman Konağı binası tanımlı ve iki tarafta aynı', async () => {
   assert.equal(S.kahramanKonagi.unique, true, 'kahraman tek — konak da tek');
   assert.equal(C.kahramanKonagi.maxLevel, S.kahramanKonagi.maxLevel);
   assert.deepEqual(C.kahramanKonagi.cost, S.kahramanKonagi.cost);
+});
+
+/**
+ * ÜRETİM SKİLİ YÜZDE — düz ek DEĞİL.
+ *
+ * İlkan: *"kahramanın hammadde üretimine lvl verdiğimde rakam olarak
+ * değil yüzde olarak üretimi arttırsın. max seviyede 1000 hammadde
+ * üretimi arttırsın."*
+ *
+ * Eski hâli puan başına +3/saat düz ekti. Düz ek YENİ köyde üretimi
+ * beşe katlıyor (altı Lvl 1 tarla ~66 odun/saat üretiyor, +300 geliyor),
+ * maxlı köyde ise %6,5'te kalıyordu — yani tam ters yönde çalışıyordu:
+ * tarla yatırımının YERİNE geçiyor, ödülü olmuyordu.
+ *
+ * Tavan ÖLÇÜLEREK seçildi: maxlı merkez köy (tür başına 5 tarla, Lvl 20)
+ * ham kaynak başına ~4.620/saat üretiyor; %20'si +924/saat, yani
+ * İlkan'ın istediği "max seviyede 1000".
+ */
+test('üretim skili YÜZDE veriyor ve tavanı %20', () => {
+  const k = yeni();
+  k.harcanmamisPuan = 400;
+
+  K.puanDagit(k, 'uretim', 10);
+  assert.equal(K.bonuslar(k).uretimYuzde, 2,
+    'puan başına %0,2 olmalı — 10 puan %2 eder');
+
+  K.puanDagit(k, 'uretim', 90);          // toplam 100 = skil tavanı
+  const tam = K.bonuslar(k).uretimYuzde;
+  assert.equal(tam, 20, `tavan %20 olmalı, %${tam} çıktı`);
+
+  /*
+    SAYI DEĞİL YÜZDE. Eski alan adı (`uretimSaatlik`) bilerek yok:
+    dursaydı tick.js ya da arayüz yanlışlıkla ona bakmaya devam
+    edebilir, bonus sessizce kaybolurdu.
+  */
+  assert.equal(K.bonuslar(k).uretimSaatlik, undefined,
+    'düz ek alanı kaldırılmış olmalı');
+});
+
+test('üretim yüzdesi maxlı köyde İlkan\'ın istediği büyüklüğe denk geliyor', () => {
+  /*
+    SAYIYI KİLİTLEYEN TEST. Tavan yüzdesi tek başına bir şey ifade
+    etmiyor; anlamı "maxlı köyde ne kadar eder" sorusunda. Tarla
+    tanımları ya da tavan değişirse bu test hangi yönde kaydığını
+    söylesin diye duruyor.
+  */
+  const PROD = require('../data/productionDefs');
+  const k = yeni();
+  k.harcanmamisPuan = 400;
+  K.puanDagit(k, 'uretim', 100);
+  const yuzde = K.bonuslar(k).uretimYuzde;
+
+  const odun = PROD.odun;
+  const L20 = odun.levels[19].workers * odun.baseProductionPerWorker;
+  const TARLA_SAYISI = 5;                 // 25 slot / 5 kaynak türü
+  const saatlik = TARLA_SAYISI * L20;
+  const bonus = saatlik * yuzde / 100;
+
+  assert.ok(bonus > 800 && bonus < 1200,
+    `maxlı merkez köyde bonus ${Math.round(bonus)}/saat — `
+    + 'İlkan "max seviyede 1000" istedi, 800-1200 aralığında olmalı');
 });

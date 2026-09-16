@@ -222,6 +222,26 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Kahramanın üretim skili düz ek yerine YÜZDE (16 Eylül 2026)
+- İlkan: *"kahramanın hammadde üretimine lvl verdiğimde rakam olarak değil yüzde olarak üretimi arttırsın. max seviyede 1000 hammadde üretimi arttırsın."*
+- Eski hâli `puanBasina: 3` düz saatlik ek (tavanda +300/sa) ve tarla döngüsünün DIŞINDA, doğrudan kaynağa yazılıyordu. Eğrisi tersti: yeni köyde (altı Lvl 1 tarla ≈ 66 odun/sa) üretimi beşe katlıyor, maxlı köyde %6,5'te kalıyordu — skil tarla yatırımının ödülü değil YERİNE geçiyordu.
+- Yeni hâli `puanBasina: 0.2`, `tavanYuzde: 20` — diğer iki yüzde skiliyle aynı şekil, oyuncu tek bir ölçek aklında tutuyor. Çarpan `perHour` üzerinden uygulanıyor (tarla döngüsünün İÇİNDE), yani mesafe cezası ve arazi bonusu hesaba girmiş GERÇEK üretimle orantılı.
+- **TAVAN ÖLÇÜLEREK SEÇİLDİ.** Maxlı merkez köy (25 slot, tür başına 5 tarla, Lvl 20) ham kaynak başına ~4.620/saat üretiyor; %20'si **+924/saat** — İlkan'ın istediği "max seviyede 1000" tam buraya düşüyor. (%1000 okunuşu ölçümle elendi: +46.200/saat ederdi.)
+- **SONUÇ ÖLÇÜLDÜ** (maxlı köy, tik başına): odun 4.620 → 5.544 (+924), kil 4.435 → 5.322 (+887), taş 4.389 → 5.267 (+878), demir 2.734 → 3.281 (+547). Dördü de tam %20,0. Tahıl 3.024 → 3.024, değişmedi.
+- Tahıl bilerek hariç — eski düz ek de tahıla dokunmuyordu. Ekmek oyunun dar boğazı; kahramanı açlığın çaresi yapmak dar boğazı kaldırırdı.
+- Alan adı `uretimSaatlik` → `uretimYuzde` olarak DEĞİŞTİRİLDİ (eski ad bırakılmadı): dursaydı tick.js ya da arayüz yanlışlıkla ona bakmaya devam eder, bonus sessizce kaybolurdu. `kahraman.test.js` eski adın artık `undefined` olduğunu da kilitliyor.
+- Arayüz metni ve toplam bonus satırı `/sa` yerine `%` gösteriyor. Tarayıcıda doğrulandı: 100 puan verilince "100/100" ve açıklama "+%0,2/puan · tavan %20".
+
+### Misafir ve yoldaki asker ekmek yemiyordu (16 Eylül 2026)
+- İlkan: *"askerler desteğe gittikleri köye ulaştıkları an o köyden ekmek yemeye başlarlar. aynı şekilde ben desteğimi geri çektiğim anda da benim köyden ekmek tüketmeye başlarlar. bunu kontrol et öyle değilse düzelt."* **Kontrol edildi, öyle değildi.**
+- **Delik 1 — misafir bedava yiyordu.** `getConsumptionRates` (ekranda gösterilen) takviyeleri sayıyordu, ekmeği GERÇEKTEN düşen `processFoodConsumption` saymıyordu. Ölçüldü: 10 kendi + 20 misafir askerli köyde ekran **12,50/sa** diyor, ambardan **7,50/sa** düşüyordu. Ekran doğru sayıyı gösterdiği için hata görünmüyordu; `takviye.test.js`'teki "misafiri ev sahibi besler" kararı da kâğıt üstünde kalmıştı.
+- **Delik 2 — yoldaki asker hiçbir yerde yemiyordu.** `createMarch` askerleri `village.army`'den çıkarıyor ve sefer boyunca kimse yemini ödemiyordu. Geri çağırma da askeri ev sahibinin `takviyeler`inden alıp sahibinin `marches`ine koyuyor — yani İlkan'ın "geri çektiğim anda benim köyden yemeye başlasın" dediği an, asker tam da kimsenin beslemediği kümeye geçiyordu. Ayrıca sömürü: orduyu uzun sefere yollayıp ekmek faturasından kaçmak.
+- Kural tek cümleye indi: **bir asker her zaman bir köyün ekmeğini yer** — köyde duruyorsa o köy (`army`), misafirse EV SAHİBİ (`takviyeler`), yoldaysa seferi TAŞIYAN köy (`marches`). Saldırı/yağma seferleri de dahil; ayrı tutmak "saldırıya yolla, bedava beslen" deliğini açardı.
+- **Hatanın kökü iki fonksiyonun aynı şeyi ayrı ayrı hesaplamasıydı.** Tek kaynak `koyunAskerYemi()` / `koyunAskerSayisi()` yazıldı; hem gerçek tüketim hem ekran oradan okuyor.
+- **SONUÇ ÖLÇÜLDÜ** (ekran / ambar): sade 7,50 / 7,50 · misafirli 12,50 / 12,50 · seferli 9,38 / 9,38 · misafir+seferli 14,38 / 14,38. Dördü de tutuyor.
+- Eski test yalnız iki GÖSTERİM fonksiyonunu karşılaştırıyordu (ikisi de misafiri sayıyordu, o yüzden yeşil yanıyordu). Yeni test **AMBARI** ölçüyor: bir tik işletip kaybolan yiyeceği sayıyor. **Kilidin tuttuğu doğrulandı** — hata geri konunca test "ekranda 12.5/sa ama ambardan 7.50/sa düştü" diye patlıyor.
+
+
 ### İkinci köy kalıcı kilitleniyordu — ÖN KOŞUL AĞACININ AÇTIĞI HATA (16 Eylül 2026)
 - İlkan: *"2. köy kurarken köy içindeki üretim alanlarını yapmak için ana bina seviyesi istiyor ama ana binayı da işlenmiş hammaddeler olmadan kuramıyorum, hiçbir türlü yeni köyü geliştiremiyorum"* → sonra tam teşhisi kendi koydu: *"ana bina tuğla ile yükseltilebiliyor, tuğlacı da ana bina lvl istiyor, birbirlerini kilitliyor yani."*
 - **BU BENİM AÇTIĞIM HATA** (`d39d063` · ön koşul ağacı). Zincir:

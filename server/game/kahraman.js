@@ -129,11 +129,23 @@ const SKILLER = {
     birim: 'yuzde',
     tavanYuzde: 20,
   },
+  /*
+    ÜRETİM SKİLİ YÜZDE (İlkan'ın kararı). Eskiden puan başına +3/saat
+    düz ekti: altı Lvl 1 tarlalı yeni köyde saatlik üretimi beşe
+    katlıyor, maxlı köyde ise %6,5'te kalıyordu. Yüzde ters yönde
+    çalışıyor ve tarla yatırımını ödüllendiriyor.
+
+    TAVAN ÖLÇÜLEREK SEÇİLDİ: maxlı merkez köy ham kaynak başına
+    ~4.620/saat üretiyor, %20'si +924/saat — İlkan'ın istediği
+    "max seviyede 1000" tam buraya düşüyor.
+  */
   uretim: {
     ad: 'Hammadde Üretimi',
-    aciklama: 'Kahramanın bulunduğu köyün ham kaynak üretimine saatlik ek.',
-    puanBasina: 3,         // saatte adet, her ham kaynak için
-    birim: 'saatlik',
+    aciklama: 'Kahramanın bulunduğu köyün ham kaynak üretimine YÜZDE ek. '
+      + 'Tarlaların üretimiyle birlikte büyür; tahıla işlemez.',
+    puanBasina: 0.2,       // yüzde
+    birim: 'yuzde',
+    tavanYuzde: 20,
   },
 };
 
@@ -345,7 +357,7 @@ function skilleriSifirla(k) {
  */
 function bonuslar(k) {
   const bos = {
-    saldiriGucu: 0, saldiriYuzde: 0, savunmaYuzde: 0, uretimSaatlik: 0,
+    saldiriGucu: 0, saldiriYuzde: 0, savunmaYuzde: 0, uretimYuzde: 0,
     zirhlanmaYuzde: 0, hiz: KAHRAMAN_TABAN_HIZ, suvari: false,
     birim: { piyade: { saldiri: 0, savunma: 0 }, suvari: { saldiri: 0, savunma: 0 } },
   };
@@ -371,7 +383,7 @@ function bonuslar(k) {
       + (kusam.kahraman.saldiri || 0),
     saldiriYuzde: yuzdeKap(s.saldiriBonus, SKILLER.saldiriBonus),
     savunmaYuzde: yuzdeKap(s.savunmaBonus, SKILLER.savunmaBonus),
-    uretimSaatlik: (s.uretim || 0) * SKILLER.uretim.puanBasina,
+    uretimYuzde: yuzdeKap(s.uretim, SKILLER.uretim),
     /** Alınan hasarı azaltan yüzde — yalnız eşyadan gelir, tavana kırpılı */
     zirhlanmaYuzde: zirhlanmaYuzdesi(k),
     /** Yürüyüş hızı ve savaş sınıfı — ikisi de AT slotuna bağlı */

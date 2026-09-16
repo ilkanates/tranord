@@ -26,6 +26,49 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16i',
+    tarih: '16 Eylül 2026',
+    baslik: 'Üretim skili yüzde oldu · asker yemi muhasebesi',
+    notlar: [
+      {
+        id: '20260916-uretim-skili-yuzde',
+        tur: 'denge',
+        metin: 'KAHRAMANIN HAMMADDE ÜRETİMİ SKİLİ ARTIK YÜZDE VERİYOR. '
+          + 'Eskiden puan başına saatte +3 düz ek veriyordu, yani '
+          + 'tavanda +300/saat. Bu tam ters yönde çalışıyordu: yeni '
+          + 'köyde (altı Lvl 1 tarla, saatte ~66 odun) üretimi beşe '
+          + 'katlıyor, maxlı köyde ise %6,5\'te kalıyordu — yani skil '
+          + 'tarla yatırımının ÖDÜLÜ değil, YERİNE geçiyordu. Artık '
+          + 'puan başına %0,2, tavan %20. Ölçüldü: maxlı bir merkez '
+          + 'köyde tavandaki skil odunda +924/saat, kilde +887, taşta '
+          + '+878, demirde +547 ediyor — dört kaynakta toplam '
+          + '+3.236/saat. Bonus tarlalarınla birlikte büyüyor, yani '
+          + 'tarla yükseltmek artık kahramanı da güçlendiriyor. Tahıla '
+          + 'işlemiyor (eski düz ek de işlemiyordu): ekmek oyunun dar '
+          + 'boğazı ve kahramanı açlığın çaresi yapmak onu ortadan '
+          + 'kaldırırdı.',
+      },
+      {
+        id: '20260916-asker-yemi-muhasebesi',
+        tur: 'duzeltme',
+        metin: 'MİSAFİR VE YOLDAKİ ASKER ARTIK EKMEK YİYOR. İki delik '
+          + 'vardı. Birincisi: takviye olarak gelen asker EV SAHİBİNİN '
+          + 'ekmeğini yemesi gerekiyordu ve ekranda öyle yazıyordu ama '
+          + 'ambardan HİÇ düşmüyordu — ölçüldü, 10 kendi + 20 misafir '
+          + 'askerli köyde ekran 12,50 ekmek/sa diyor, gerçekte 7,50 '
+          + 'düşüyordu. Takviye bedava kalkandı ve ekran doğru sayıyı '
+          + 'gösterdiği için fark edilmiyordu. İkincisi: YOLDAKİ asker '
+          + 'hiçbir köyün faturasına yazılmıyordu; orduyu uzun bir '
+          + 'sefere yollayıp ekmek masrafından kaçmak mümkündü. '
+          + 'Kural artık tek cümle: BİR ASKER HER ZAMAN BİR KÖYÜN '
+          + 'EKMEĞİNİ YER — köyde duruyorsa o köyün, misafirse ev '
+          + 'sahibinin, yoldaysa seferi taşıyan köyün. Böylece desteğe '
+          + 'gönderdiğin asker VARDIĞI an karşı köyün ekmeğine geçiyor, '
+          + 'geri çağırdığın an da senin köyüne dönüyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16h',
     tarih: '16 Eylül 2026',
     baslik: 'İkinci köy kilidi açıldı · haritada oyuncu renkleri',
