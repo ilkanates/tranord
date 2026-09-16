@@ -142,6 +142,39 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS messages_to_idx   ON messages (to_user_id, id DESC);
     CREATE INDEX IF NOT EXISTS messages_from_idx ON messages (from_user_id, id DESC);
 
+    CREATE TABLE IF NOT EXISTS message_threads (
+      id             SERIAL PRIMARY KEY,
+      konu           TEXT NOT NULL,
+      tip            TEXT NOT NULL DEFAULT 'ozel',
+      kurucu_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      /*
+        BİRLİK GRUBUNDA ÜYE SATIRI YOK: katılımcı birliğin o anki
+        üyeleri. Yabancı anahtar YOK çünkü birlik dağılınca grup
+        silinmesin — konu geçmişi kalsın, erişim kendiliğinden kapansın.
+      */
+      alliance_id    INTEGER,
+      at             TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS thread_members (
+      thread_id  INTEGER REFERENCES message_threads(id) ON DELETE CASCADE,
+      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      /* Son okunan mesaj kimliği — mesaj başına satır yazmamak için */
+      okundu_id  INTEGER NOT NULL DEFAULT 0,
+      at         TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (thread_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS thread_messages (
+      id           SERIAL PRIMARY KEY,
+      thread_id    INTEGER REFERENCES message_threads(id) ON DELETE CASCADE,
+      from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      govde        TEXT NOT NULL,
+      at           TIMESTAMP DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS thread_messages_idx ON thread_messages (thread_id, id);
+    CREATE INDEX IF NOT EXISTS thread_members_user_idx ON thread_members (user_id);
+
     CREATE TABLE IF NOT EXISTS message_blocks (
       user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
       blocked_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -477,6 +510,143 @@ async function loadAllVillages() {
 //  MESAJLAŞMA
 // ═══════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+//  GRUP MESAJLAŞMASI
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GRUP KUR. Özel grupta kurucu da üye satırı alıyor; birlik grubunda
+ * kimse almıyor (katılımcı birliğin o anki üyeleri).
+ */
+async function grupKur({ konu, tip, kurucuId, allianceId = null, uyeIdler = [] }) {
+  const { rows } = await pool.query(
+    `INSERT INTO message_threads (konu, tip, kurucu_user_id, alliance_id)
+     VALUES ($1, $2, $3, $4) RETURNING id, at`,
+    [konu, tip, kurucuId, allianceId]);
+  const id = rows[0].id;
+  if (tip === 'ozel') {
+    const hepsi = [...new Set([Number(kurucuId), ...uyeIdler.map(Number)])];
+    for (const uid of hepsi) {
+      await pool.query(
+        `INSERT INTO thread_members (thread_id, user_id) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`, [id, uid]);
+    }
+  }
+  return { id, at: rows[0].at };
+}
+
+/** Tek grup — üye kimlikleriyle. Erişim denetimi ÇAĞIRANIN işi. */
+async function grupBul(threadId) {
+  const { rows } = await pool.query(
+    `SELECT id, konu, tip, kurucu_user_id, alliance_id, at
+     FROM message_threads WHERE id = $1`, [threadId]);
+  if (!rows[0]) return null;
+  const g = rows[0];
+  const uyeler = await pool.query(
+    'SELECT user_id, okundu_id FROM thread_members WHERE thread_id = $1', [g.id]);
+  return {
+    id: g.id, konu: g.konu, tip: g.tip,
+    kurucuId: g.kurucu_user_id, birlikId: g.alliance_id, at: g.at,
+    uyeIdler: uyeler.rows.map(r => r.user_id),
+    okunduIdler: Object.fromEntries(uyeler.rows.map(r => [r.user_id, r.okundu_id])),
+  };
+}
+
+/**
+ * OYUNCUNUN GRUPLARI — özel üyelikleri + (birlikteyse) birliğin grupları.
+ *
+ * Tek sorguda birleştiriliyor: iki ayrı sorgu döndürüp uygulamada
+ * birleştirmek aynı grubu iki kez getirebilirdi.
+ */
+async function gruplarim(userId, allianceId = null) {
+  const { rows } = await pool.query(
+    `SELECT t.id, t.konu, t.tip, t.kurucu_user_id, t.alliance_id, t.at,
+            COALESCE(m.okundu_id, 0) AS okundu_id,
+            s.id AS son_id, s.govde AS son_govde, s.at AS son_at,
+            s.from_user_id AS son_user_id, su.display_name AS son_ad,
+            (SELECT COUNT(*)::int FROM thread_messages x
+              WHERE x.thread_id = t.id
+                AND x.id > COALESCE(m.okundu_id, 0)
+                AND x.from_user_id IS DISTINCT FROM $1) AS okunmamis
+     FROM message_threads t
+     LEFT JOIN thread_members m ON m.thread_id = t.id AND m.user_id = $1
+     LEFT JOIN LATERAL (
+       SELECT id, govde, at, from_user_id FROM thread_messages
+       WHERE thread_id = t.id ORDER BY id DESC LIMIT 1
+     ) s ON TRUE
+     LEFT JOIN users su ON su.id = s.from_user_id
+     WHERE m.user_id IS NOT NULL
+        OR (t.tip = 'birlik' AND t.alliance_id IS NOT NULL AND t.alliance_id = $2)
+     ORDER BY COALESCE(s.id, 0) DESC, t.id DESC`,
+    [userId, allianceId]);
+  return rows.map(r => ({
+    id: r.id, konu: r.konu, tip: r.tip, kurucuId: r.kurucu_user_id,
+    birlikId: r.alliance_id, at: r.at, okunduId: r.okundu_id,
+    okunmamis: r.okunmamis || 0,
+    son: r.son_id ? {
+      id: r.son_id, govde: r.son_govde, at: r.son_at,
+      userId: r.son_user_id, ad: r.son_ad,
+    } : null,
+  }));
+}
+
+/** Grubun özel üyeleri — birlik grubunda boş döner */
+async function grupUyeleri(threadId) {
+  const { rows } = await pool.query(
+    `SELECT m.user_id, u.display_name
+     FROM thread_members m LEFT JOIN users u ON u.id = m.user_id
+     WHERE m.thread_id = $1`, [threadId]);
+  return rows.map(r => ({ userId: r.user_id, ad: r.display_name }));
+}
+
+async function grupMesajYaz({ threadId, fromUserId, govde }) {
+  const { rows } = await pool.query(
+    `INSERT INTO thread_messages (thread_id, from_user_id, govde)
+     VALUES ($1, $2, $3) RETURNING id, at`,
+    [threadId, fromUserId, govde]);
+  return { id: rows[0].id, at: rows[0].at };
+}
+
+async function grupAkisi(threadId, { limit = 200 } = {}) {
+  const { rows } = await pool.query(
+    `SELECT m.id, m.from_user_id, m.govde, m.at, u.display_name
+     FROM thread_messages m LEFT JOIN users u ON u.id = m.from_user_id
+     WHERE m.thread_id = $1 ORDER BY m.id DESC LIMIT $2`,
+    [threadId, Math.min(500, Math.max(1, limit))]);
+  return rows.reverse().map(r => ({
+    id: r.id, userId: r.from_user_id, ad: r.display_name,
+    govde: r.govde, at: r.at,
+  }));
+}
+
+/**
+ * OKUNDU İŞARETLE — geri gitmiyor.
+ *
+ * `GREATEST` şart: birkaç sekme açıkken eski bir kimlik gelebiliyor ve
+ * okunmuş sohbet yeniden okunmamış görünürdü.
+ */
+async function grupOkundu(threadId, userId, sonId) {
+  await pool.query(
+    `INSERT INTO thread_members (thread_id, user_id, okundu_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (thread_id, user_id)
+     DO UPDATE SET okundu_id = GREATEST(thread_members.okundu_id, $3)`,
+    [threadId, userId, Number(sonId) || 0]);
+  return true;
+}
+
+async function grupAyril(threadId, userId) {
+  const { rowCount } = await pool.query(
+    'DELETE FROM thread_members WHERE thread_id = $1 AND user_id = $2',
+    [threadId, userId]);
+  return rowCount > 0;
+}
+
+async function grupSil(threadId) {
+  await pool.query('DELETE FROM message_threads WHERE id = $1', [threadId]);
+  return true;
+}
+
 /** Oyuncu adıyla kullanıcı bul — mesaj alıcısı adla seçiliyor */
 async function findUserByDisplayName(name) {
   const res = await pool.query(
@@ -690,6 +860,8 @@ module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
   uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,
+  grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
+  grupOkundu, grupAyril, grupSil,
   findUserByDisplayName, mesajYaz, mesajKutusu, mesajOkunmamisSayisi,
   mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
   setDisplayName, loadDisplayNames, renameVillage,

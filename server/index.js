@@ -23,10 +23,13 @@ const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVi
         setDisplayName, loadDisplayNames, renameVillage,
         findUserById, findUserByDisplayName,
         mesajYaz, mesajKutusu, mesajOkunmamisSayisi, mesajOkundu, mesajSil,
+        grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
+        grupOkundu, grupAyril, grupSil,
         engelEkle, engelKaldir, engelListesi, engelliMi } = require('./db');
 const BIRLIK = require('./game/birlik');
 const BIRLIKS = require('./game/birlikServis');
 const MESAJ = require('./game/mesaj');
+const GRUP = require('./game/mesajGrup');
 const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
 const { QUEST_BY_ID } = require('./data/questDefs');
@@ -2638,6 +2641,195 @@ io.on('connection', async socket => {
     socket.emit('mesaj_engel_listesi', { liste: await engelListesi(userId) });
   });
 
+
+  /*
+    ═══════════════════════════════════════════════════════════════
+      GRUP MESAJLAŞMASI — konulu, çok kişili yazışma
+    ═══════════════════════════════════════════════════════════════
+
+    İlkan: *"yeni mesaj grubu oluşturulabilsin, bu bir kişi ya da birden
+    fazla kişi olabilsin ya da direk birlik seçilebilsin. mesaj
+    gruplarında konu yazılabilmeli."*
+
+    ERİŞİM HER İSTEKTE YENİDEN HESAPLANIYOR (`grupErisimi`), oturuma
+    yazılmıyor: birlik üyeliği her an değişiyor ve birlik yazışması bir
+    güvenlik sınırı — birlikten atılan kişi savunma planını okumamalı.
+  */
+  const grupHata = (reason) =>
+    socket.emit('grup_sonuc', { ok: false, reason,
+      message: GRUP.HATA_METNI[reason] || 'Grup işlemi yapılamadı.' });
+
+  /**
+   * GRUBUN KATILIMCILARI. Birlik grubunda liste veritabanında DEĞİL,
+   * birliğin o anki üyeleri — yayın da oraya gidiyor.
+   */
+  const grupKatilimcilari = (g) => (g.tip === 'birlik'
+    ? [...(BIRLIKS.birlik(g.birlikId)?.uyeler.keys() || [])].map(Number)
+    : g.uyeIdler.map(Number));
+
+  const grupErisimi = (g) => GRUP.erisebilirMi(g, userId, BIRLIKS.birlikIdOf(userId));
+
+  /** Listeyi ilgili herkese taze yolla — kimse elle yenilemek zorunda kalmasın */
+  const grupListesiYolla = async (uid) => {
+    try {
+      const s = io.sockets.adapter.rooms.get(userRoom(uid));
+      if (!s || !s.size) return;                 // çevrimdışı: açılışta zaten çekecek
+      const liste = await gruplarim(uid, BIRLIKS.birlikIdOf(uid));
+      io.to(userRoom(uid)).emit('grup_listesi', { gruplar: liste });
+    } catch (err) {
+      console.error('[GRUP] liste yollanamadı:', err.message);
+    }
+  };
+
+  socket.on('grup_listesi', async () => {
+    try {
+      socket.emit('grup_listesi',
+        { gruplar: await gruplarim(userId, BIRLIKS.birlikIdOf(userId)) });
+    } catch (err) {
+      console.error('[GRUP] liste:', err.message);
+      socket.emit('grup_listesi', { gruplar: [] });
+    }
+  });
+
+  socket.on('grup_kur', async ({ konu, adlar = [], birlik = false } = {}) => {
+    try {
+      const birlikId = birlik ? BIRLIKS.birlikIdOf(userId) : null;
+      if (birlik && !birlikId) return grupHata('birlik_yok');
+
+      /*
+        ADLAR KİMLİĞE BURADA ÇEVRİLİYOR. İstemciye kullanıcı numarası
+        vermiyoruz (doğrudan mesajda da öyle): ad zaten benzersiz.
+      */
+      const uyeIdler = [];
+      if (!birlik) {
+        for (const ad of adlar.slice(0, GRUP.EN_COK_UYE + 1)) {
+          const u = await findUserByDisplayName(ad);
+          if (!u) return grupHata('oyuncu_yok');
+          /*
+            BENİ ENGELLEYEN KİŞİ GRUBA ALINMIYOR — sessizce. Hata
+            döndürmek "seni engelledi" demek olurdu; doğrudan mesajda da
+            engel sessiz çalışıyor.
+          */
+          if (await engelliMi(u.id, userId)) continue;
+          uyeIdler.push(u.id);
+        }
+      }
+
+      const dg = GRUP.grupDogrula({ konu, uyeIdler, birlikId, kurucuId: userId });
+      if (!dg.ok) return grupHata(dg.reason);
+
+      const kayit = await grupKur({
+        konu: dg.konu, tip: dg.tip, kurucuId: userId,
+        allianceId: birlikId, uyeIdler: dg.uyeIdler,
+      });
+      socket.emit('grup_sonuc', { ok: true, id: kayit.id, kuruldu: true });
+
+      const g = await grupBul(kayit.id);
+      for (const uid of grupKatilimcilari(g)) await grupListesiYolla(uid);
+    } catch (err) {
+      console.error('[GRUP] kur:', err.message);
+      grupHata('grup_yok');
+    }
+  });
+
+  socket.on('grup_ac', async ({ id } = {}) => {
+    try {
+      const g = await grupBul(id);
+      if (!g || !grupErisimi(g)) return grupHata('grup_yok');
+      /*
+        BİRLİK GRUBUNDA ÜYELER BİRLİKTEN OKUNUYOR, üye tablosundan
+        değil: tabloda yalnız okundu kayıtları var.
+      */
+      const uyeler = g.tip === 'birlik'
+        ? grupKatilimcilari(g).map(uid => ({
+          userId: uid, ad: WORLD.ownerByUser.get(uid) || `oyuncu#${uid}` }))
+        : await grupUyeleri(g.id);
+      socket.emit('grup_akis', {
+        id: g.id, konu: g.konu, tip: g.tip,
+        kurucuId: g.kurucuId, benimId: userId,
+        birlikAd: g.tip === 'birlik' ? (BIRLIKS.birlik(g.birlikId)?.ad || null) : null,
+        uyeler, mesajlar: await grupAkisi(g.id),
+      });
+    } catch (err) {
+      console.error('[GRUP] aç:', err.message);
+      grupHata('grup_yok');
+    }
+  });
+
+  socket.on('grup_gonder', async ({ id, govde } = {}) => {
+    try {
+      const g = await grupBul(id);
+      if (!g || !grupErisimi(g)) return grupHata('grup_yok');
+      const dg = GRUP.govdeDogrula(govde);
+      if (!dg.ok) return grupHata(dg.reason);
+
+      /*
+        HIZ SINIRI DOĞRUDAN MESAJLA ORTAK. Ayrı sayaç olsaydı grup,
+        mesaj sınırını aşmanın yolu olurdu — üstelik tek mesajla altmış
+        kişiye ulaşan bir yol.
+      */
+      const hiz = MESAJ.hizSiniri(userId);
+      if (!hiz.ok) return socket.emit('grup_sonuc', { ok: false, reason: hiz.reason,
+        message: MESAJ.HATA_METNI[hiz.reason] });
+      MESAJ.gonderimiKaydet(userId);
+
+      const kayit = await grupMesajYaz({
+        threadId: g.id, fromUserId: userId, govde: dg.govde });
+      // Yazan kendi mesajını okumuş sayılır
+      await grupOkundu(g.id, userId, kayit.id);
+      socket.emit('grup_sonuc', { ok: true, id: g.id, mesajId: kayit.id });
+
+      for (const uid of grupKatilimcilari(g)) {
+        if (uid !== userId) io.to(userRoom(uid)).emit('grup_mesaj_geldi', { id: g.id });
+        await grupListesiYolla(uid);
+      }
+      socket.emit('grup_ac_yenile', { id: g.id });
+    } catch (err) {
+      console.error('[GRUP] gönder:', err.message);
+      grupHata('grup_yok');
+    }
+  });
+
+  socket.on('grup_okundu', async ({ id, sonId } = {}) => {
+    try {
+      const g = await grupBul(id);
+      if (!g || !grupErisimi(g)) return;
+      await grupOkundu(g.id, userId, sonId);
+      await grupListesiYolla(userId);
+    } catch (err) {
+      console.error('[GRUP] okundu:', err.message);
+    }
+  });
+
+  socket.on('grup_ayril', async ({ id } = {}) => {
+    try {
+      const g = await grupBul(id);
+      if (!g || !grupErisimi(g)) return grupHata('grup_yok');
+      if (!GRUP.ayrilabilirMi(g, userId)) return grupHata('birlikten_ayrilinmaz');
+      const kalanlar = grupKatilimcilari(g);
+      await grupAyril(g.id, userId);
+      socket.emit('grup_sonuc', { ok: true, id: g.id, ayrildim: true });
+      for (const uid of kalanlar) await grupListesiYolla(uid);
+    } catch (err) {
+      console.error('[GRUP] ayrıl:', err.message);
+      grupHata('grup_yok');
+    }
+  });
+
+  socket.on('grup_dagit', async ({ id } = {}) => {
+    try {
+      const g = await grupBul(id);
+      if (!g || !grupErisimi(g)) return grupHata('grup_yok');
+      if (!GRUP.dagitabilirMi(g, userId)) return grupHata('yetki_yok');
+      const kalanlar = grupKatilimcilari(g);
+      await grupSil(g.id);
+      socket.emit('grup_sonuc', { ok: true, id: g.id, dagildi: true });
+      for (const uid of kalanlar) await grupListesiYolla(uid);
+    } catch (err) {
+      console.error('[GRUP] dağıt:', err.message);
+      grupHata('grup_yok');
+    }
+  });
 
   /* ══ BİRLİK ═══════════════════════════════════════════════════════
      Sekiz olay, hepsi aynı kalıpta: servis çağrılıyor, hata varsa

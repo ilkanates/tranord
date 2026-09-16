@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { C, FONT, panel, btn, label as lbl, num } from '../theme';
 import { useViewport } from '../responsive';
 import Icon from './Icons';
+import GroupMessages from './GroupMessages';
 
 const GOVDE_EN_COK = 2000;
 
@@ -34,14 +35,18 @@ function fmtZaman(at) {
 
 /** Sohbet listesindeki satır — karşı oyuncu, son mesaj, okunmamış sayısı */
 function SohbetSatiri({ s, secili, onClick }) {
+  const kenar = secili ? C.lineBright : s.okunmamis ? `${C.ice}3d` : C.lineSoft;
   return (
     <div onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
       padding: '9px 10px', borderRadius: 6,
       background: secili ? 'rgba(143,220,255,0.12)'
         : s.okunmamis ? 'rgba(14,28,44,0.72)' : 'rgba(8,15,23,0.34)',
-      border: `1px solid ${secili ? C.lineBright
-        : s.okunmamis ? `${C.ice}3d` : C.lineSoft}`,
+      /* Kısayol yok: `border` + `borderLeft` karışımı React'te
+         yeniden çizimde çakışıyor ve sol şerit sıraya bağlı kalıyor. */
+      borderTop: `1px solid ${kenar}`,
+      borderRight: `1px solid ${kenar}`,
+      borderBottom: `1px solid ${kenar}`,
       borderLeft: `3px solid ${s.okunmamis ? C.ice : C.line}`,
       opacity: s.okunmamis || secili ? 1 : 0.72,
     }}>
@@ -122,8 +127,14 @@ function Balon({ m, onSil }) {
   );
 }
 
-export default function MessageScreen({ socket, playerName = '' }) {
+export default function MessageScreen({ socket, playerName = '', birlik = null }) {
   const vp = useViewport();
+  /*
+    SEKME BURADA, ADRESTE DEĞİL: mesaj ekranının kendisi zaten bir
+    sekmenin içinde ve oyuncu ekrandan çıkıp döndüğünde kişilere
+    dönmesi doğru — grup listesi kalıcı bir yer değil, bir uğrak.
+  */
+  const [bolum, setBolum] = useState('kisiler');
   const [mesajlar, setMesajlar] = useState([]);
   const [engelliler, setEngelliler] = useState([]);
   const [acikAd, setAcikAd] = useState(null);       // seçili sohbetin karşı adı
@@ -440,7 +451,7 @@ export default function MessageScreen({ socket, playerName = '' }) {
         <Icon name="bilgi" size={14} color={C.iceDeep} />
         <span style={lbl({ fontSize: 9, letterSpacing: 1.5 })}>Mesajlar</span>
         <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute }}>
-          · {sohbetler.length} sohbet
+          {bolum === 'kisiler' ? `· ${sohbetler.length} sohbet` : '· konulu gruplar'}
         </span>
         <span style={{
           marginLeft: 'auto', fontFamily: FONT.ui, fontSize: 9, color: C.textFaint,
@@ -448,6 +459,21 @@ export default function MessageScreen({ socket, playerName = '' }) {
           Adın <b style={{ color: C.textMute }}>{playerName || '—'}</b> olarak görünür.
         </span>
       </div>
+
+      {/* ── Kişiler · Gruplar ── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {[['kisiler', 'KİŞİLER'], ['gruplar', 'GRUPLAR']].map(([k, ad]) => (
+          <button key={k} onClick={() => setBolum(k)}
+            style={btn(bolum === k ? 'primary' : 'ghost',
+              { padding: '6px 16px', fontSize: 9.5, letterSpacing: 1.2 })}>
+            {ad}
+          </button>
+        ))}
+      </div>
+
+      {bolum === 'gruplar' && <GroupMessages socket={socket} birlik={birlik} />}
+
+      {bolum === 'kisiler' && (<>
 
       {uyari && (
         <div style={{
@@ -492,6 +518,8 @@ export default function MessageScreen({ socket, playerName = '' }) {
         engellediğin kişi bunu göremez, mesajı sana ulaşmaz. Sildiğin mesaj yalnız
         senin kutundan kalkar.
       </div>
+
+      </>)}
     </div>
   );
 }

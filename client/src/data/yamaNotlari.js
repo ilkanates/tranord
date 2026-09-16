@@ -26,6 +26,35 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16n',
+    tarih: '16 Eylül 2026',
+    baslik: 'Grup mesajları',
+    notlar: [
+      {
+        id: '20260916-grup-mesajlari',
+        tur: 'yenilik',
+        metin: 'KONULU GRUP MESAJLARI GELDİ. Mesajlar ekranında artık '
+          + 'iki bölüm var: KİŞİLER ve GRUPLAR. Yeni grup açarken önce '
+          + 'bir konu yazıyorsun ("Defans çağrısı" gibi), sonra ya '
+          + 'listeden oyuncu seçiyorsun (en çok 20) ya da tek '
+          + 'işaretle BÜTÜN BİRLİĞİNİ. Aynı birlik için istediğin '
+          + 'kadar ayrı konu açabilirsin — savunma çağrısı sohbetin '
+          + 'içinde kaybolmuyor.',
+      },
+      {
+        id: '20260916-birlik-yazismasi',
+        tur: 'yenilik',
+        metin: 'BİRLİK YAZIŞMASI BİRLİĞİN KENDİSİNE BAĞLI: birliğe '
+          + 'katılan konuyu hazır bulur, birlikten çıkan aynı anda '
+          + 'erişimini kaybeder. Listede yeşil şeritle işaretli — '
+          + 'yazdığının bütün birliğe gittiğini bir bakışta '
+          + 'görüyorsun. Birlik yazışmasından tek tek ayrılmak yok; '
+          + 'özel gruptan AYRIL ile çıkabilir, kurduğun grubu '
+          + 'DAĞIT ile kapatabilirsin.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16m',
     tarih: '16 Eylül 2026',
     baslik: 'Üretim zinciri, elçilik listesi ve eşya kartı',

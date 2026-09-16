@@ -18,29 +18,47 @@ const FILE = process.env.TRANORD_DEV_DATA
   ? path.resolve(process.env.TRANORD_DEV_DATA)
   : path.join(__dirname, '.dev-data.json');
 
-let db = {
+/**
+ * BOŞ ŞEMA — TEK KAYNAK.
+ *
+ * Hem dosya yokken başlangıç değeri, hem dosya varken eksik alanların
+ * tamamlayıcısı. İki ayrı listede tutulurken ayrıştı: birlik tabloları
+ * yalnız ikinci listede vardı ve dosyasız açılışta `loadAlliances()`
+ * tanımsız diziye `.map` çağırıyordu.
+ */
+const BOS_DB = () => ({
   users: [], villages: {}, world: {}, playerSlots: {}, nextUserId: 1,
   // Mesajlaşma — db.js'teki messages / message_blocks tablolarının karşılığı
   messages: [], nextMessageId: 1, blocks: [],
-};
+  // Grup mesajlaşması — message_threads / thread_members / thread_messages
+  threads: [], threadMembers: [], threadMessages: [],
+  nextThreadId: 1, nextThreadMessageId: 1,
+  // Birlik — alliances / alliance_members / alliance_invites
+  alliances: [], allianceMembers: [], allianceInvites: [],
+  nextAllianceId: 1, nextInviteId: 1,
+});
+
+let db = BOS_DB();
 
 function load() {
   try {
     if (fs.existsSync(FILE)) {
-      db = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-      db.users ||= [];
-      db.villages ||= {};
-      db.world ||= {};
-      db.playerSlots ||= {};
-      db.nextUserId ||= db.users.length + 1;
-      db.messages ||= [];
-      db.nextMessageId ||= (db.messages.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
-      db.blocks ||= [];
-      db.alliances ||= [];
-      db.allianceMembers ||= [];
-      db.allianceInvites ||= [];
-      db.nextAllianceId ||= (db.alliances.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
-      db.nextInviteId ||= (db.allianceInvites.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
+      /*
+        EKSİK ALANLAR BOŞ ŞEMADAN TAMAMLANIYOR: eski bir kayıt dosyası
+        yeni tabloları bilmiyor. Tek tek yazmak yerine şemadan almak,
+        yeni tablo eklerken burayı güncellemeyi unutmayı imkânsız
+        kılıyor — nitekim birlik tabloları tam tersi yönde unutulmuştu.
+      */
+      db = { ...BOS_DB(), ...JSON.parse(fs.readFileSync(FILE, 'utf8')) };
+      // Sayaçlar mevcut en büyük kimliğin üstünden devam etmeli
+      const sonra = (liste) => liste.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
+      db.nextUserId = Math.max(db.nextUserId || 1, db.users.length + 1);
+      db.nextMessageId = Math.max(db.nextMessageId || 1, sonra(db.messages));
+      db.nextThreadId = Math.max(db.nextThreadId || 1, sonra(db.threads));
+      db.nextThreadMessageId =
+        Math.max(db.nextThreadMessageId || 1, sonra(db.threadMessages));
+      db.nextAllianceId = Math.max(db.nextAllianceId || 1, sonra(db.alliances));
+      db.nextInviteId = Math.max(db.nextInviteId || 1, sonra(db.allianceInvites));
       migrateToMultiVillage();
     }
   } catch (err) {
@@ -406,6 +424,133 @@ async function mesajSil(userId, id) {
   return true;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  GRUP MESAJLAŞMASI — db.js ile AYNI sözleşme
+// ═══════════════════════════════════════════════════════════════
+
+async function grupKur({ konu, tip, kurucuId, allianceId = null, uyeIdler = [] }) {
+  const t = {
+    id: db.nextThreadId++, konu, tip,
+    kurucu_user_id: Number(kurucuId),
+    alliance_id: allianceId == null ? null : Number(allianceId),
+    at: new Date().toISOString(),
+  };
+  db.threads.push(t);
+  /*
+    BİRLİK GRUBU ÜYE SATIRI YAZMIYOR: katılımcı birliğin o anki üyeleri.
+    Kuruluşta kopyalansaydı birlikten atılan biri yazışmayı okumaya
+    devam ederdi.
+  */
+  if (tip === 'ozel') {
+    for (const uid of new Set([Number(kurucuId), ...uyeIdler.map(Number)])) {
+      db.threadMembers.push({ thread_id: t.id, user_id: uid, okundu_id: 0 });
+    }
+  }
+  persist();
+  return { id: t.id, at: t.at };
+}
+
+const grupSatiri = (t) => ({
+  id: t.id, konu: t.konu, tip: t.tip,
+  kurucuId: t.kurucu_user_id, birlikId: t.alliance_id, at: t.at,
+});
+
+async function grupBul(threadId) {
+  const t = db.threads.find(x => x.id === Number(threadId));
+  if (!t) return null;
+  const uyeler = db.threadMembers.filter(m => m.thread_id === t.id);
+  return {
+    ...grupSatiri(t),
+    uyeIdler: uyeler.map(m => m.user_id),
+    okunduIdler: Object.fromEntries(uyeler.map(m => [m.user_id, m.okundu_id || 0])),
+  };
+}
+
+async function gruplarim(userId, allianceId = null) {
+  const uid = Number(userId);
+  const bid = allianceId == null ? null : Number(allianceId);
+  return db.threads
+    .filter(t => db.threadMembers.some(m => m.thread_id === t.id && m.user_id === uid)
+      || (t.tip === 'birlik' && t.alliance_id != null && t.alliance_id === bid))
+    .map(t => {
+      const okunduId = db.threadMembers.find(
+        m => m.thread_id === t.id && m.user_id === uid)?.okundu_id || 0;
+      const akis = db.threadMessages
+        .filter(m => m.thread_id === t.id).sort((a, b) => a.id - b.id);
+      const son = akis[akis.length - 1] || null;
+      return {
+        ...grupSatiri(t),
+        okunduId,
+        /* Kendi yazdığım mesaj bana okunmamış görünmemeli */
+        okunmamis: akis.filter(m => m.id > okunduId && m.from_user_id !== uid).length,
+        son: son ? {
+          id: son.id, govde: son.govde, at: son.at,
+          userId: son.from_user_id, ad: adiniBul(son.from_user_id),
+        } : null,
+      };
+    })
+    // En son konuşulan üstte — boş grup en altta
+    .sort((a, b) => (b.son?.id || 0) - (a.son?.id || 0) || b.id - a.id);
+}
+
+async function grupUyeleri(threadId) {
+  return db.threadMembers
+    .filter(m => m.thread_id === Number(threadId))
+    .map(m => ({ userId: m.user_id, ad: adiniBul(m.user_id) }));
+}
+
+async function grupMesajYaz({ threadId, fromUserId, govde }) {
+  const m = {
+    id: db.nextThreadMessageId++, thread_id: Number(threadId),
+    from_user_id: Number(fromUserId), govde, at: new Date().toISOString(),
+  };
+  db.threadMessages.push(m);
+  persist();
+  return { id: m.id, at: m.at };
+}
+
+async function grupAkisi(threadId, { limit = 200 } = {}) {
+  return db.threadMessages
+    .filter(m => m.thread_id === Number(threadId))
+    .sort((a, b) => a.id - b.id)
+    .slice(-Math.min(500, Math.max(1, limit)))
+    .map(m => ({
+      id: m.id, userId: m.from_user_id, ad: adiniBul(m.from_user_id),
+      govde: m.govde, at: m.at,
+    }));
+}
+
+async function grupOkundu(threadId, userId, sonId) {
+  const tid = Number(threadId), uid = Number(userId);
+  let m = db.threadMembers.find(x => x.thread_id === tid && x.user_id === uid);
+  if (!m) {
+    /* Birlik grubunda üye satırı yok; okundu kaydı için ilk okumada açılıyor */
+    m = { thread_id: tid, user_id: uid, okundu_id: 0 };
+    db.threadMembers.push(m);
+  }
+  // Geri gitmesin: birkaç sekme açıkken eski kimlik gelebiliyor
+  m.okundu_id = Math.max(m.okundu_id || 0, Number(sonId) || 0);
+  persist();
+  return true;
+}
+
+async function grupAyril(threadId, userId) {
+  const n = db.threadMembers.length;
+  db.threadMembers = db.threadMembers.filter(
+    m => !(m.thread_id === Number(threadId) && m.user_id === Number(userId)));
+  persist();
+  return db.threadMembers.length < n;
+}
+
+async function grupSil(threadId) {
+  const tid = Number(threadId);
+  db.threads = db.threads.filter(t => t.id !== tid);
+  db.threadMembers = db.threadMembers.filter(m => m.thread_id !== tid);
+  db.threadMessages = db.threadMessages.filter(m => m.thread_id !== tid);
+  persist();
+  return true;
+}
+
 async function engelEkle(userId, blockedId) {
   const u = Number(userId), b = Number(blockedId);
   if (!db.blocks.some(x => x.user_id === u && x.blocked_id === b)) {
@@ -521,6 +666,8 @@ async function davetleriTemizle(userId) {
 }
 
 module.exports = {
+  grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
+  grupOkundu, grupAyril, grupSil,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
   uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,
   pool, initDB, createUser, findUserByEmail, findUserById,

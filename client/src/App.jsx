@@ -1436,7 +1436,8 @@ function Game({ token, onLogout }) {
               paddingLeft: railInset, paddingRight: railInset,
               paddingBottom: vp.mobile ? 64 : 0,
             }}>
-              <MessageScreen socket={socket} playerName={village.playerName || ''} />
+              <MessageScreen socket={socket} playerName={village.playerName || ''}
+                birlik={village.birlik || null} />
             </div>
           )}
 

@@ -282,6 +282,34 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - **TARAYICIDA UÇTAN UCA DOĞRULANDI**: elçilik kuruldu (Lvl 20), panel "Elçiliğin Lvl 20, yani birliğe 60 üye sığar" diyor; "Kuzey Kurtları" kuruldu, panel "sen: Konung · 1/60" gösteriyor; oyuncu adıyla davet gönderildi ve "CEVAP BEKLEYENLER" listesinde GERİ AL düğmesiyle belirdi. Diskte de doğrulandı (`alliances` 1 kayıt, `alliance_members` konung, `alliance_invites` 1 davet). Olmayan bir ada davet `oyuncu_yok` ile reddedildi.
 - Testler: `birlik.test.js` 11 kilit — rütbe merdiveni, yetki tablosu, atma zinciri, Jarl tavanı, üye tavanı sayıları, elçilik şartı, tavanın KABUL ANINDA bakılması, ad doğrulaması (görünmez karakter dahil), amblem listesi, saldırı serbestliği ve elçilik binasının tavanıyla birlik tavanının tutması.
 
+### Grup mesajlaşması — konulu, çok kişili (16 Eylül 2026)
+- İlkan: *"mesajlaşmalarda yeni bir msj kısmı oluştur birlik oyuncuları için. yeni msj grubu oluşturulabilsin bu bir kişi yada birden fazla kişi olabilsin yada direk birlik seçilebilsin. msj gruplarında konu yazılabilmeli. mesele defans konulu bir birlik içi toplu msj laşma yapılabilmeli."*
+
+**İKİ TİP GRUP, TEK TABLO.**
+- **ÖZEL** — üyeler kuruluşta seçiliyor, sabit kalıyor. Tavan **20 kişi**: tek istekle yüzlerce kişiye bildirim göndermek bir spam aracı; sayı birlik tavanının (60) altında bilerek tutuldu ki kalabalık yazışmanın yolu birlik olsun.
+- **BİRLİK** — üye listesi **YOK**; katılımcılar her okumada birliğin O ANKİ üyeleri. Birliğe katılan konuyu hazır buluyor, birlikten çıkan erişimini aynı anda kaybediyor. Üyeler kuruluşta kopyalansaydı **birlikten atılan biri savunma yazışmasını okumaya devam ederdi** — kozmetik bir tutarsızlık değil, güvenlik açığı.
+- **Aynı birlik için birden çok konu açılabilir.** İlkan'ın örneği ("defans konulu") tek bir birlik kanalı değil, KONUYA göre ayrılmış yazışma istiyor; tek kanal olsaydı savunma çağrısı sohbetin içinde kaybolurdu.
+
+**Kararlar.**
+- **Okundu takibi mesaj başına değil, `okundu_id` (son okunan kimlik) üzerinden.** Altmış kişilik bir grupta her mesaj için üye başına satır yazmak tek mesajda altmış yazma demekti. "Nereye kadar okudum" tek sayı; akış zaten sıralı. Geri gitmiyor (`GREATEST`): birkaç sekme açıkken eski kimlik gelip okunmuş sohbeti yeniden okunmamış gösteriyordu.
+- **Hız sınırı doğrudan mesajla ORTAK.** Ayrı sayaç olsaydı grup, mesaj sınırını aşmanın yolu olurdu — üstelik tek mesajla altmış kişiye ulaşan bir yol.
+- **Engelleyen kişi gruba sessizce alınmıyor.** Hata döndürmek "seni engelledi" demek olurdu; doğrudan mesajda da engel sessiz çalışıyor.
+- **Erişim her istekte yeniden hesaplanıyor**, oturuma yazılmıyor: birlik üyeliği her an değişiyor ve birlik yazışması bir güvenlik sınırı.
+- **Liste tek sorguda** geliyor (son mesaj + okunmamış sayısı dahil, LATERAL birleşim). Grup başına ayrı sorgu N+1 olurdu: on gruplu bir oyuncu ekranı her açtığında yirmi bir sorgu.
+- Birlik grubundan **tek tek ayrılmak yok**: izin verseydik "birlikte ama grubu görmeyen üye" hâli doğar ve Konung'un "herkese duyurdum" varsayımı yalan olurdu. Grubu yalnız kuran dağıtabilir.
+
+**Mimari** (birlik sistemiyle aynı desen): `game/mesajGrup.js` saf kurallar · `db.js`/`db.dev.js` üç tablo (`message_threads`, `thread_members`, `thread_messages`) aynı sözleşmeyle · `index.js` yedi soket olayı · `components/GroupMessages.jsx` ayrı ekran, `MessageScreen` içinde KİŞİLER/GRUPLAR sekmesi. İki liste bilerek karışmıyor: grup yazışmasında yanlış yere yazmak bir savunma planını düşmana yazmak olabilir.
+
+- **Testler**: `mesaj-grup.test.js` 10 saf kural + `mesaj-grup-uctan.test.js` 6 uçtan uca (yabancı ne listede görüyor ne akışı çekebiliyor ne yazabiliyor; yazamadığı VERİDE de doğrulandı, okunmamış sayısı alıcıda 1 yazanda 0, ayrılan ve dağıtılan gruplar).
+- **TARAYICIDA DOĞRULANDI**: birlik grubu kuruldu ("Defans çağrısı" · yeşil şerit · "Birlik yazışması · Kuzey Kurtları · 1 üye"), mesaj yazıldı ve akışta çıktı; arama ile iki oyuncu seçilip özel grup kuruldu ("Kuzey sınırı nöbeti" · 3 kişi). Konsolda hata yok.
+- Ek düzeltme: sohbet ve grup satırlarında `border` + `borderLeft` kısayolları karışıyordu (React uyarısı, sol şerit sıraya bağlı kalıyordu); dört kenar ayrı yazıldı.
+
+### Taze dev veritabanı eksik tablolarla açılıyordu (16 Eylül 2026)
+- Grup testleri her koşumda TEMİZ bir veri dosyasıyla başladığı için ortaya çıktı: varsayılan tablolar İKİ YERDE tanımlıydı (`let db = {...}` ve `load()` içindeki `||=` satırları) ve ayrışmıştı — `alliances`, `allianceMembers`, `allianceInvites` yalnız ikinci dalda vardı.
+- **Sonuç**: veri dosyası hiç yokken `loadAlliances()` tanımsız diziye `.map` çağırıyordu. **Ölçüldü**: eski kodda taze dosyayla "Cannot read properties of undefined (reading 'map')", düzeltmeden sonra sorunsuz açılıyor. Yerelde görünmüyordu çünkü herkesin dosyası çoktan oluşmuştu.
+- Artık tek kaynak: `BOS_DB()`. Dosya varsa üzerine okunuyor, eksik alanlar şemadan tamamlanıyor.
+- *Bu oturumda "aynı değer iki yerde" sınıfından **dördüncü** hata: asker yemi, inşa red sebebi, depo tavanı, dev şeması — beşincisi de aynı gün çıktı (amblem/statics).*
+
 ### Üretim zinciri: duran bina sebebini söylüyor (16 Eylül 2026)
 - İlkan: *"depoda tahıl var ama tahıl üretimim yok, o yüzden değirmen depodaki tahılı kullanıp un üretmiyor... depodaki hammaddeleri işlemesi lazım, bu mantık her üretim için geçerli."*
 - **ÖLÇÜLDÜ: değirmen DEPODAKİ tahılı zaten işliyordu** — tarlada sıfır işçiyle 900 tahıldan 471 un çıktı. Yani kural doğruydu, görünen davranış yanlıştı. Üç gerçek sebep vardı:
