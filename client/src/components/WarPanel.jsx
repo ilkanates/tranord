@@ -30,10 +30,22 @@ function UnitList({ units, color = C.textDim, unitDefs = {} }) {
   );
 }
 
-// ── Gelen saldırı uyarısı ────────────────────────────────────────────
-export function IncomingAlert({ incoming = [] }) {
-  if (!incoming.length) return null;
-  const next = incoming[0];
+/**
+ * GELEN SALDIRI UYARISI — yalnız DÜŞMAN seferleri.
+ *
+ * Takviye buraya girmiyor: `dost` bayraklı sefer bir yardım, tehdit
+ * değil. Süzgeci burada tutuyoruz ki çağıran her yerde tekrar edilmesin.
+ *
+ * `onKapat` verilirse sağda bir çarpı çıkıyor. Şerit ekranın üstünde
+ * `position: fixed` duruyor ve altındaki düğmeleri yutuyordu
+ * (İlkan: *"başka şeylere basmamı engelliyor, özellikle telefonda"*);
+ * uyarıyı silmek yerine kapatılabilir yapmak doğrusu — saldırı hâlâ
+ * Seferler sekmesinde duruyor.
+ */
+export function IncomingAlert({ incoming = [], onKapat = null }) {
+  const dusman = incoming.filter(i => !i.dost);
+  if (!dusman.length) return null;
+  const next = dusman[0];
   return (
     <div style={panel({
       padding: '9px 11px', marginBottom: 9,
@@ -46,7 +58,7 @@ export function IncomingAlert({ incoming = [] }) {
           fontFamily: FONT.head, fontSize: 14, fontWeight: 600, color: '#ffb8bd',
           letterSpacing: 0.6,
         }}>
-          {incoming.length > 1 ? `${incoming.length} SALDIRI YOLDA` : 'SALDIRI YOLDA'}
+          {dusman.length > 1 ? `${dusman.length} SALDIRI YOLDA` : 'SALDIRI YOLDA'}
         </div>
         <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>
           {next.fromName} → köyün · yaklaşık {next.sizeApprox || '?'} asker ·
@@ -57,6 +69,16 @@ export function IncomingAlert({ incoming = [] }) {
         <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>VARIŞ</div>
         <div style={num({ fontSize: 17, color: C.danger })}>{fmtTime(next.timeLeft)}</div>
       </div>
+      {onKapat && (
+        <button type="button" aria-label="Uyarıyı kapat"
+          onClick={(e) => { e.stopPropagation(); onKapat(); }}
+          style={{
+            flexShrink: 0, width: 30, height: 30, marginRight: -4,
+            display: 'grid', placeItems: 'center',
+            background: 'transparent', border: 'none', borderRadius: 5,
+            color: '#ffb8bd', fontSize: 17, lineHeight: 1, cursor: 'pointer',
+          }}>×</button>
+      )}
     </div>
   );
 }
@@ -261,27 +283,42 @@ export function MarchPanel({
           </>
         )}
 
-        {incoming.map(inc => (
-          <div key={inc.key} style={{
-            display: 'flex', alignItems: 'center', gap: 9,
-            padding: '7px 9px', borderRadius: 5,
-            background: 'rgba(255,111,120,0.09)', border: `1px solid ${C.danger}55`,
-          }}>
-            <Icon name="uyari" size={14} color={C.danger} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: FONT.ui, fontSize: 11, color: '#ffb8bd' }}>
-                <b>{inc.fromName}</b> köyüne {MODE_LABEL[inc.mode] || inc.mode} gönderdi
+        {incoming.map(inc => {
+          /*
+            DOST TAKVİYE YEŞİL. Aynı kırmızı kutuda "TAKVİYE gönderdi"
+            yazıyordu: rengi tehdit, sözü yardım diyordu. Savunan
+            yardımın yolda olduğunu görmeli ama onu saldırı sanmamalı.
+          */
+          const dost = !!inc.dost;
+          const renk = dost ? C.good : C.danger;
+          return (
+            <div key={inc.key} style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              padding: '7px 9px', borderRadius: 5,
+              background: dost ? 'rgba(87,201,138,0.09)' : 'rgba(255,111,120,0.09)',
+              border: `1px solid ${renk}55`,
+            }}>
+              <Icon name={dost ? 'kalkan' : 'uyari'} size={14} color={renk} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: FONT.ui, fontSize: 11,
+                  color: dost ? '#b6ecca' : '#ffb8bd',
+                }}>
+                  {dost
+                    ? <><b>{inc.fromName}</b> köyüne TAKVİYE gönderiyor</>
+                    : <><b>{inc.fromName}</b> köyüne {MODE_LABEL[inc.mode] || inc.mode} gönderdi</>}
+                </div>
+                <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute, marginTop: 1 }}>
+                  yaklaşık {inc.sizeApprox || '?'} asker · {inc.fromKey}
+                </div>
               </div>
-              <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute, marginTop: 1 }}>
-                yaklaşık {inc.sizeApprox || '?'} asker · {inc.fromKey}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={lbl({ fontSize: 7, letterSpacing: 0.9 })}>VARIŞ</div>
+                <div style={num({ fontSize: 14, color: renk })}>{fmtTime(inc.timeLeft)}</div>
               </div>
             </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={lbl({ fontSize: 7, letterSpacing: 0.9 })}>VARIŞ</div>
-              <div style={num({ fontSize: 14, color: C.danger })}>{fmtTime(inc.timeLeft)}</div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

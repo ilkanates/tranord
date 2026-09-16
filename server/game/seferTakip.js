@@ -28,6 +28,16 @@ const GT = require('./gameTime');
 const GIZLI_MODLAR = new Set(['scout', 'yerlesim']);
 
 /**
+ * TAKVİYE SALDIRI DEĞİL — kırmızı uyarıyı tetiklemez.
+ *
+ * Listeden çıkarmıyoruz: savunan, yardımın yolda olduğunu ve ne zaman
+ * varacağını bilmeli, savunma kararını o belirliyor. Yalnız `dost`
+ * bayrağıyla işaretleniyor; arayüz kırmızı "SALDIRI YOLDA" şeridini ve
+ * köy değiştiricideki tehdit sayacını buna bakarak atlıyor.
+ */
+const DOST_MODLAR = new Set(['takviye']);
+
+/**
  * Sefer taşıyan tüm köyler — oyuncu oturumları + NPC'ler.
  * Ad NOTU: 'allVillages' denemez — bootServer içinde aynı adlı bir yerel
  * değişken var (DB'den yüklenen köy listesi) ve gölgeleme karışıklık yaratır.
@@ -64,9 +74,14 @@ function gelenSeferSayilari(slotKeys) {
   for (const entry of marchingVillages()) {
     for (const m of entry.village.marches || []) {
       if (m.phase !== 'outbound' || GIZLI_MODLAR.has(m.mode)) continue;
+      /*
+        TAKVİYE TEHDİT SAYACINA GİRMEZ — kimden gelirse gelsin. Eskiden
+        yalnız `slotKeys.has(m.fromKey)` ile, yani KENDİ köylerimden
+        geleni eliyordu; müttefik takviyesi sayaçta saldırı gibi
+        görünüyordu (İlkan bildirdi).
+      */
+      if (DOST_MODLAR.has(m.mode)) continue;
       if (!slotKeys.has(m.toKey)) continue;
-      // Kendi köyünden kendi köyüne takviye uyarı sayılmaz
-      if (slotKeys.has(m.fromKey)) continue;
       say.set(m.toKey, (say.get(m.toKey) || 0) + 1);
     }
   }
@@ -84,6 +99,7 @@ function incomingMarchesFor(slotKey) {
       out.push({
         key: `${entry.slotKey}#${m.id}`,
         mode: m.mode,
+        dost: DOST_MODLAR.has(m.mode),
         fromKey: m.fromKey, fromName: m.fromName,
         // Tam birim dökümü verilmiyor; büyüklük 10'a yuvarlanmış toplam olarak
         // veriliyor ki oyuncu savunma kararı verebilsin (ileride gözcü kulesi

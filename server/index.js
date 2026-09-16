@@ -3865,18 +3865,21 @@ io.on('connection', async socket => {
         const slot = p ? WORLD.slotByKey.get(targetKey) : null;
         if (!p || !slot) return fail('gecersiz_hedef');
         /*
-          KENDİ KÖYÜNE SALDIRAMAZSIN.
-          Yukarıdaki `targetKey === mySlot` yalnız AKTİF köyü karşılaştırıyor;
-          çoklu köyde oyuncu ikinci köyünü kendine çiftlik yapabilirdi
-          (yağma kendi kaynağını taşımak olurdu). Sahibe bakmak gerekiyor.
+          KENDİ KÖYÜNE HER KİP AÇIK (İlkan'ın kararı: *"kendi köyünde
+          yağma vs de gönderebilmelisin, diğer köyler ile aynı olmalı"*).
+
+          Eskiden yalnız TAKVİYE geçiyordu; gerekçe "yağma kendi
+          kaynağını taşımak olur" idi. Karar değişti: kendi köylerim
+          arasında kip ayrımı yok.
+
+          Açılan kapı bilerek açıldı: kendi köyüne yağma, tüccar
+          kapasitesini atlayarak ordunun taşıma kapasitesi kadar kaynak
+          taşımanın yolu; kendi köyüne saldırı ise iki taraftaki askerini
+          birden öldürür. İkisi de oyuncunun bileceği iş.
+
+          Tek istisna yukarıda duruyor: `targetKey === mySlot`, yani
+          İÇİNDE bulunduğun köy. Oraya sefer sıfır mesafeli olurdu.
         */
-        /*
-          TAKVİYE İSTİSNASI: kendi köyüne SALDIRAMAZSIN ama TAKVİYE
-          gönderebilirsin — çoklu köyde asıl kullanım bu (sınırdaki köyü
-          merkezden beslemek). Yağma kendi kaynağını taşımak olacağı için
-          saldırı yasağı aynen duruyor.
-        */
-        if (p.userId === userId && mode !== 'takviye') return fail('kendi_koyun');
         /*
           ACEMİ KALKANI (madde 12). Saldırı, yağma ve KEŞİF kapalı;
           takviye ile hammadde açık. Keşif de kapalı çünkü kalkanlı

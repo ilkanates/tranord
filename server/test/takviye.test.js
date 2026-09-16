@@ -237,3 +237,86 @@ test('geri çağırma: olmayan takviye reddedilir', () => {
     ARMY.takviyeGeriCagir(host, sahip, { userId: 42, slotKey: '0,0' }, 5).reason,
     'takviye_yok');
 });
+
+/**
+ * TAKVİYE SALDIRI DEĞİL — savunanın ekranında tehdit gibi görünmemeli.
+ *
+ * İlkan bildirdi: *"bir köye defans yolladığımda karşı tarafta saldırı
+ * geliyor yazıyor"*. `incomingMarchesFor` kipe hiç bakmıyordu, yalnız
+ * keşif ve yerleşim eleniyordu; müttefikin gönderdiği takviye kırmızı
+ * "SALDIRI YOLDA" şeridini açıyordu. Sayaç tarafında ise takviye yalnız
+ * KENDİ köyümden gelince eleniyordu (`slotKeys.has(m.fromKey)`), yani
+ * müttefik takviyesi tehdit sayacına giriyordu.
+ *
+ * Kilitlenen karar: takviye LİSTEDE kalıyor (savunan yardımın yolda
+ * olduğunu bilmeli) ama `dost: true` ile ve TEHDİT SAYACINA girmiyor.
+ */
+test('takviye uyarı listesinde DOST işaretli gelir, tehdit sayacına girmez', () => {
+  const { userSessions, WORLD } = require('../durum');
+  const { incomingMarchesFor, gelenSeferSayilari } = require('../game/seferTakip');
+
+  const dostKoy = {
+    marches: [
+      { id: 'd1', phase: 'outbound', mode: 'takviye', toKey: '1,1', fromKey: '5,5',
+        fromName: 'Müttefik', units: { spydvakt: 40 }, remainingHours: 2 },
+    ],
+  };
+  const dusmanKoy = {
+    marches: [
+      { id: 'x1', phase: 'outbound', mode: 'attack', toKey: '1,1', fromKey: '9,9',
+        fromName: 'Düşman', units: { fjordvakt: 60 }, remainingHours: 3 },
+    ],
+  };
+  userSessions.set(4101, { villages: new Map([['5,5', dostKoy]]), dirtySlots: new Set() });
+  userSessions.set(4102, { villages: new Map([['9,9', dusmanKoy]]), dirtySlots: new Set() });
+  try {
+    const gelen = incomingMarchesFor('1,1');
+    assert.equal(gelen.length, 2,
+      'takviye listeden ÇIKARILMAMALI — savunan yardımın yolda olduğunu bilmeli');
+
+    const tak = gelen.find(m => m.mode === 'takviye');
+    const sal = gelen.find(m => m.mode === 'attack');
+    assert.equal(tak.dost, true, 'takviye dost işaretli gelmeli');
+    assert.equal(sal.dost, false, 'saldırı dost işaretli GELMEMELİ');
+
+    const say = gelenSeferSayilari(new Set(['1,1']));
+    assert.equal(say.get('1,1'), 1,
+      'tehdit sayacı yalnız saldırıyı saymalı — müttefik takviyesi tehdit değil');
+  } finally {
+    userSessions.delete(4101);
+    userSessions.delete(4102);
+    WORLD.npcs.clear?.();
+  }
+});
+
+/**
+ * KENDİ KÖYÜMDEN KENDİ KÖYÜME TAKVİYE de tehdit değil.
+ *
+ * Eski kural bunu `slotKeys.has(m.fromKey)` ile eliyordu — yani ancak
+ * İKİ slot da istenen kümedeyse. Köy listesi tek slot sorduğunda
+ * (örneğin yalnız hedef köy) süzgeç kaçıyordu. Kip üzerinden elemek
+ * kümeden bağımsız çalışıyor.
+ */
+test('kendi köyüme gönderdiğim takviye tek slot sorulsa da tehdit sayılmaz', () => {
+  const { userSessions, WORLD } = require('../durum');
+  const { gelenSeferSayilari } = require('../game/seferTakip');
+
+  const kaynak = {
+    marches: [
+      { id: 't1', phase: 'outbound', mode: 'takviye', toKey: '2,2', fromKey: '3,3',
+        fromName: 'Merkez', units: { spydvakt: 30 }, remainingHours: 1 },
+    ],
+  };
+  userSessions.set(4103, {
+    villages: new Map([['3,3', kaynak], ['2,2', { marches: [] }]]),
+    dirtySlots: new Set(),
+  });
+  try {
+    const say = gelenSeferSayilari(new Set(['2,2']));   // yalnız HEDEF soruluyor
+    assert.equal(say.get('2,2'), undefined,
+      'kendi takviyem tehdit sayacına girmemeli');
+  } finally {
+    userSessions.delete(4103);
+    WORLD.npcs.clear?.();
+  }
+});

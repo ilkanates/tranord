@@ -625,6 +625,20 @@ function Game({ token, onLogout }) {
   const stampRef = useRef(0);
   const [beat, setBeat] = useState(0);
   const [tab, setTab] = useState('harita');
+  /*
+    GELEN SALDIRI ŞERİDİ KAPATILABİLİR.
+
+    İlkan: *"saldırı geliyor görseli başka şeylere basmamı engelliyor
+    özellikle telefonda"*. Şerit `position: fixed` ve telefonda ekran
+    genişliğinin %92'si kadar; altına denk gelen her düğmeyi yutuyordu
+    ve saldırı varış saatine kadar orada duruyordu.
+
+    Uyarıyı silmek çözüm değil — saldırının haberi hayati. Kapatılan
+    şeridin ANAHTARLARI saklanıyor: YENİ bir saldırı yola çıkınca
+    (anahtar listede yoksa) şerit kendiliğinden geri geliyor. Saldırı
+    zaten Seferler sekmesinde de duruyor.
+  */
+  const [uyariKapali, setUyariKapali] = useState([]);
   // Rehber kartında gösterilecek görev (listeden seçilirse); yoksa sunucunun sırası
   const [questFocus, setQuestFocus] = useState(null);
   /**
@@ -991,14 +1005,28 @@ function Game({ token, onLogout }) {
 
       {/* Gelen saldırı: hangi sekmede olursam olayım görünür. Seferler
           sekmesinde uyarı listenin başında zaten var, orada tekrar etmesin. */}
-      {tab !== 'sefer' && (village.incoming || []).length > 0 && (
-        <div onClick={() => setTab('sefer')} style={{
-          position: 'fixed', top: vp.mobile ? 96 : 62, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 900, width: 'min(420px, calc(var(--tn-vw) * 0.92))', cursor: 'pointer',
-        }} title="Seferler sekmesine git">
-          <IncomingAlert incoming={village.incoming} />
-        </div>
-      )}
+      {(() => {
+        /*
+          TAKVİYE ŞERİT AÇMAZ. `dost` seferler yardım; kırmızı "SALDIRI
+          YOLDA" şeridini onlar için açmak (İlkan bildirdi) olmayan bir
+          tehdide karşı ordu toplatırdı. Süzgeç burada da lazım: yalnız
+          dost sefer varken eski kod BOŞ ama `position: fixed` bir kutu
+          çiziyor, o kutu da altındaki düğmeleri yutuyordu.
+        */
+        const dusman = (village.incoming || []).filter(i => !i.dost);
+        const kapali = new Set(uyariKapali);
+        const acik = dusman.filter(i => !kapali.has(i.key));
+        if (tab === 'sefer' || !acik.length) return null;
+        return (
+          <div onClick={() => setTab('sefer')} style={{
+            position: 'fixed', top: vp.mobile ? 96 : 62, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 900, width: 'min(420px, calc(var(--tn-vw) * 0.92))', cursor: 'pointer',
+          }} title="Seferler sekmesine git">
+            <IncomingAlert incoming={acik}
+              onKapat={() => setUyariKapali(dusman.map(i => i.key))} />
+          </div>
+        );
+      })()}
 
       <main style={{
         flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden',

@@ -46,7 +46,12 @@ const YIKILABILIR = Object.entries(VILLAGE_DEFS)
 
 const ERR = {
   konum_yok: 'Köyünün dünya konumu yok.',
-  kendi_koyun: 'Kendi köyüne saldıramazsın.',
+  /*
+    Bu sebep ARTIK yalnız İÇİNDE bulunduğun köye sefer için geliyor;
+    kendi öbür köylerine her kip açıldı. Eski metin ("kendi köyüne
+    saldıramazsın") yeni kuralı yanlış anlatıyordu.
+  */
+  kendi_koyun: 'Şu an bulunduğun köye sefer gönderemezsin — önce başka bir köye geç.',
   sefer_limiti: 'Aynı anda daha fazla sefer yürütemezsin.',
   gecersiz_hedef: 'Bu hedefe sefer açılamaz.',
   // PvP açıldı; sunucu bu sebebi artık göndermiyor ama eski istemciler
@@ -213,18 +218,9 @@ export default function SendArmyPanel({
     ekran keşif kipinde açılmalı; varsayılana düşüp oyuncuyu kipi tekrar
     seçmeye zorlamak, kısayolu kısayol olmaktan çıkarırdı.
 
-    KENDİ KÖYÜNE yalnız takviye gidiyor; oraya gelen kip ne olursa olsun
-    takviye kazanıyor (sunucu da aynı ayrımı yapıyor).
   */
   baslangicKip = null,
 }) {
-  /*
-    KENDİ KÖYÜNE YALNIZ TAKVİYE. Panel kendi köyün için de açılıyor (çoklu
-    köyde sınırdaki köyü beslemek asıl kullanım), ama yağma/saldırı/keşif
-    orada anlamsız — sunucu da zaten reddediyor. Mod listesi buna göre
-    daralıyor ve varsayılan takviye oluyor, yoksa oyuncu "YAĞMAYA GÖNDER"
-    düğmesini görüp sunucudan hata yiyordu.
-  */
   /*
     KAHRAMAN HANGİ MODLARDA? Sunucudaki KAHRAMAN_MODLARI ile aynı liste
     (index.js). Saldırı ve yağmada savaşır, takviyede gittiği köyü savunur.
@@ -235,14 +231,18 @@ export default function SendArmyPanel({
     takviye: 'Başka köyde takviyede', donuyor: 'Eve dönüş yolunda',
   };
 
-  const yalnizTakviye = target?.kind === 'self';
-  const moduller = useMemo(
-    () => (yalnizTakviye ? MODES.filter(m => m.key === 'takviye') : MODES),
-    [yalnizTakviye]);
+  /*
+    KENDİ KÖYÜM DE DİĞERLERİYLE AYNI (İlkan'ın kararı). Kip listesi
+    artık daralmıyor; yalnız VARSAYILAN kip kendi köyümde takviye,
+    çünkü çoklu köyde oraya gönderilen şey neredeyse her zaman destek.
+    Oyuncu isterse üstteki kip düğmelerinden yağmaya geçiyor.
+  */
+  const kendiKoyum = target?.kind === 'self';
+  const moduller = MODES;
 
   const [mode, setMode] = useState(() => {
-    if (yalnizTakviye) return 'takviye';
-    return MODES.some(m => m.key === baslangicKip) ? baslangicKip : 'raid';
+    if (MODES.some(m => m.key === baslangicKip)) return baslangicKip;
+    return kendiKoyum ? 'takviye' : 'raid';
   });
   const [hedefBina, setHedefBina] = useState('');
   // İkinci mancınık hedefi — yalnız atölye Lvl 10'dan itibaren

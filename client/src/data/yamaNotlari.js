@@ -26,6 +26,53 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-16g',
+    tarih: '16 Eylül 2026',
+    baslik: 'Takviye saldırı değil · kendi köyüne her kip',
+    notlar: [
+      {
+        id: '20260916-takviye-saldiri-degil',
+        tur: 'duzeltme',
+        metin: 'DESTEK GÖNDERDİĞİN KÖYDE ARTIK "SALDIRI YOLDA" YAZMIYOR. '
+          + 'Gelen sefer uyarısı kipe hiç bakmıyordu: yalnız keşif ve '
+          + 'göçmen eleniyordu, dolayısıyla müttefikinin yolladığı '
+          + 'TAKVİYE savunanın ekranında kırmızı bir saldırı uyarısı '
+          + 'olarak çıkıyordu. Köy değiştiricideki kırmızı tehdit sayacı '
+          + 'da aynı şekilde takviyeyi sayıyordu. Takviye listeden '
+          + 'ÇIKARILMADI — yardımın yolda olduğunu ve ne zaman '
+          + 'varacağını görmen gerek — ama artık YEŞİL ve kalkan '
+          + 'simgesiyle, "TAKVİYE gönderiyor" diye duruyor. Kırmızı '
+          + 'uyarıyı ve tehdit sayacını yalnız gerçek saldırılar '
+          + 'tetikliyor.',
+      },
+      {
+        id: '20260916-uyari-seridi-kapatilabilir',
+        tur: 'duzeltme',
+        metin: 'SALDIRI UYARISI ŞERİDİ ARTIK KAPATILABİLİYOR. Şerit '
+          + 'ekranın üstünde sabit duruyordu ve telefonda genişliğin '
+          + 'neredeyse tamamını kapladığı için altına denk gelen '
+          + 'düğmelere basılamıyordu — saldırı varana kadar da orada '
+          + 'kalıyordu. Sağındaki çarpıya basınca kapanıyor; YENİ bir '
+          + 'saldırı yola çıkınca kendiliğinden geri geliyor. Kapatsan '
+          + 'da saldırı Seferler sekmesinde duruyor, hiçbir bilgi '
+          + 'kaybolmuyor.',
+      },
+      {
+        id: '20260916-kendi-koyune-her-kip',
+        tur: 'yenilik',
+        metin: 'KENDİ KÖYLERİN ARASINDA HER KİP AÇIK. Önceden kendi '
+          + 'köyüne yalnız TAKVİYE gönderebiliyordun; artık yağma, '
+          + 'saldırı ve keşif de gidiyor — kendi köyün haritada başka '
+          + 'her köyle aynı. Kendi köyünü yağmalamak, tüccar '
+          + 'kapasitesini beklemeden ordunun taşıma kapasitesi kadar '
+          + 'kaynak taşımanın bir yolu; kendi köyüne saldırmak ise iki '
+          + 'taraftaki askerini de öldürür. İkisi de senin bileceğin iş. '
+          + 'Tek kural duruyor: İÇİNDE bulunduğun köye sefer '
+          + 'gönderemezsin.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-16f',
     tarih: '16 Eylül 2026',
     baslik: 'Macera eşyaları ve kendi köyüne destek',

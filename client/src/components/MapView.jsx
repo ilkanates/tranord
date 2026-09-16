@@ -2185,12 +2185,12 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
         <ForeignVillagePanel v={selVillage} myArmy={myArmy} popoverPos={popoverPos}
           intel={intel[selVillage.key] || null}
           /*
-            PvP AÇIK: NPC ve başka oyuncuların köyleri hedef olabilir.
-            KENDİ köyüne saldıramazsın ama TAKVİYE gönderebilirsin — çoklu
-            köyde asıl kullanım bu (sınırdaki köyü merkezden beslemek).
-            Sunucu da aynı ayrımı yapıyor (mode !== 'takviye' ise reddediyor).
+            PvP AÇIK — ve kendi köyüm de diğerleriyle AYNI (İlkan'ın
+            kararı). Eskiden kendi köyüme yalnız DESTEK düğmesi çıkıyordu;
+            artık saldırı, yağma ve keşif de var. Sunucu da aynı: kip
+            ayrımı yalnız İÇİNDE bulunduğun köye kaldı.
           */
-          canAttack={selVillage.kind === 'npc' || selVillage.kind === 'player'}
+          canAttack
           canReinforce={selVillage.kind === 'self' || selVillage.kind === 'player'}
           onAttack={() => { setSendMode(null); setSendTarget(selVillage); setSelVillage(null); }}
           onKisayol={(kip) => {

@@ -222,6 +222,24 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 
 ## ✅ Tamamlandı
 
+### Takviye saldırı sayılıyordu + uyarı şeridi tıklamayı yutuyordu (16 Eylül 2026)
+- İlkan: *"bir köye defans yolladığımda karşı tarafta saldırı geliyor yazıyor. ek olarak saldırı geliyor görseli başka şeylere basmamı engelliyor özellikle telefonda."*
+- **Hata 1 — kip süzgeci yoktu.** `incomingMarchesFor` yalnız `GIZLI_MODLAR` (keşif, yerleşim) eliyordu; takviye kırmızı "SALDIRI YOLDA" şeridini açıyordu. `gelenSeferSayilari` (köy değiştiricideki tehdit sayacı) ise takviyeyi **yalnız kendi köyümden gelince** eliyordu (`slotKeys.has(m.fromKey)`), o da iki slotun birden istenen kümede olmasına bağlıydı — müttefik takviyesi sayaçta saldırı gibi görünüyordu.
+- Düzeltme: `DOST_MODLAR = new Set(['takviye'])`. Takviye **listede kalıyor** (savunan yardımın yolda olduğunu ve ne zaman varacağını bilmeli) ama `dost: true` ile geliyor; tehdit sayacına hiç girmiyor. Arayüzde yeşil zemin + kalkan simgesi + "TAKVİYE gönderiyor"; kırmızı şerit `dost` olmayanları süzüyor.
+- **Hata 2 — şerit `position: fixed` bir tıklama tuzağıydı.** Genişliği `min(420px, 92vw)`, telefonda ekranın neredeyse tamamı; altındaki düğmeler basılamıyordu ve saldırı varana kadar orada duruyordu. Üstelik yalnız DOST sefer varken bile **boş ama yine de fixed** bir kutu çiziliyordu (`incoming.length > 0` koşulu kipe bakmıyordu), yani hiç saldırı yokken de tıklama yutuluyordu.
+- Düzeltme: şeride çarpı eklendi (`onKapat`); kapatılan saldırıların anahtarları tutuluyor, **YENİ** bir saldırı yola çıkınca şerit kendiliğinden geri geliyor. Koşul artık düşman seferi üzerinden, yani dost sefer boş kutu açmıyor.
+- **TARAYICIDA ÖLÇÜLDÜ**: hedef köyde 3 gelen sefer varken (2 takviye + 1 yağma) şerit **"SALDIRI YOLDA"** (tekil) diyor — eskiden "3 SALDIRI YOLDA" derdi. Çarpıya basınca `position:fixed, zIndex:900` kutu sayısı **1 → 0**. Seferler sekmesinde takviye satırları `rgba(87,201,138,.09)` yeşil, yağma satırı `rgba(255,111,120,.09)` kırmızı.
+- Testler: `takviye.test.js`'e iki kilit — takviye `dost` işaretli gelir ve tehdit sayacına girmez; kendi köyüme gönderdiğim takviye **tek slot sorulsa da** tehdit sayılmaz (eski süzgecin kaçtığı hâl).
+
+### Kendi köyüne her kip açıldı (16 Eylül 2026)
+- İlkan: *"KENDİ KÖYÜNDE YAĞMA VS DE GÖNDEREBİLMELİSİN, DİĞER KÖYLER İLE AYNI OLMALI."*
+- `send_army` içindeki `p.userId === userId && mode !== 'takviye'` → `kendi_koyun` kuralı kaldırıldı. İstemci tarafında `canAttack` kendi köyümde de açık, `SendArmyPanel` kip listesini artık daraltmıyor (yalnız **varsayılan** kip kendi köyümde takviye, çünkü oraya gönderilen şey neredeyse hep destek).
+- **AÇILAN KAPIYI NOT EDİYORUM**: kendi köyüne yağma, tüccar kapasitesini ve pazar sistemini atlayarak ordunun taşıma kapasitesi kadar kaynak taşımanın yolu; kendi köyüne saldırı iki taraftaki askeri birden öldürür. İkisi de bilinçli olarak oyuncuya bırakıldı.
+- Tek yasak duruyor: `targetKey === mySlot`, yani **İÇİNDE bulunduğun** köy — orada sefer sıfır mesafeli olurdu.
+- Yeni canlı soket testi `kendi-koy-sefer.test.js`: gerçek sunucuda ikinci köy kurup dört kipi de gönderiyor (hepsi `army_sent`), ayrıca aktif köye seferin hâlâ `kendi_koyun` ile reddedildiğini kilitliyor.
+- Tarayıcıda da doğrulandı: kendi ikinci köyüme yağma gönderildi, sunucu kabul etti, hedef köyün ekranında kırmızı saldırı uyarısı olarak göründü.
+
+
 ### Macera eşya kurası: at çarpıklığı + oranlar (16 Eylül 2026)
 - İlkan: *"item düşme yüzdelerini arttır, attan başka item düşmedi, bir enayilik var."* Enayilik GERÇEKTEN vardı.
 - **ÖNCE ÖLÇTÜM** (300.000 macera): düşen her kuşanılabilir eşyanın **%20,7 si at**. Sebep kurada: `KUSANILABILIR[Math.floor(rnd() * KUSANILABILIR.length)]` düz çekiyordu ve at slotunda **6 eşya** var, diğer slotlarda 3, kolyede 2. Yani at, herhangi bir silahın tam iki katı sıklıkta düşüyordu — oyuncunun TEK at slotu olmasına rağmen.
