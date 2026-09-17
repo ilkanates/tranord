@@ -25,15 +25,20 @@ const ARMY = require('./army');
  * Lvl 1'de eski hızın aynısı (1/saat = 24/gün), her seviye +0.6:
  *   lvl 1 → 1.0/sa   lvl 5 → 3.4/sa   lvl 10 → 6.4/sa   lvl 11 → 7.0/sa
  */
-const POP_PER_HOUR_BASE = 1.0;
+const POP_PER_HOUR_BASE = 3.0;
 
 /**
- * Seviye başına artış 0,6 → 2. Eski hızda (Lvl 11'de 7 kişi/oyun saati)
- * tahılın besleyebildiği ~9.500 kişilik orduyu kurmak 56 oyun günü sürüyordu.
- * Yeni hızda Lvl 11 = 21, Lvl 20 = 39 kişi/saat; ana binayı yükseltmek de
- * gerçekten değerli oluyor.
+ * Seviye başına artış 0,6 → 2 → 4.
+ *
+ * İkinci artış İlkan'ın bildirimiyle geldi: *"dünya kadar kılıcım var ama
+ * adam yokluğundan asker basamıyorum."* Lvl 20'de 39 kişi/oyun saatiydi;
+ * bin kişilik bir ordu için gereken nüfus tek başına 26 oyun saati
+ * sürüyordu.
+ *
+ * Yeni hızda Lvl 11 = 43, Lvl 20 = 79 kişi/oyun saati. Ana binayı
+ * yükseltmek hâlâ en değerli nüfus yatırımı.
  */
-const POP_PER_HOUR_STEP = 2.0;
+const POP_PER_HOUR_STEP = 4.0;
 
 function popPerGameHour(anaBinaLevel) {
   const lv = Math.max(0, Math.floor(anaBinaLevel || 0));
@@ -64,11 +69,24 @@ function isciKapasitesi(village) {
  * BOŞ İŞÇİ TAMPONU — köyün taşımasına izin verilen işsiz sayısı.
  *
  * Sabit bir sayı olsaydı büyük köyde anlamsız kalırdı; kapasiteyle
- * ölçekleniyor. 600 kapasitelik bir köyde 80 kişilik rezerv: yeni bir
- * bina dikince hemen adam bulunur ama binlerce kişi istiflenemez.
+ * ölçekleniyor.
+ *
+ * ── ASIL DARBOĞAZ BURASIYDI (İlkan bildirdi) ────────────────────────
+ *
+ * 20 + %10 iken ölçüldü: 906 işçi kapasiteli bir köyde tampon 111. Köy
+ * 4.550 kişi taşıyabildiği hâlde boşta 111 kişi birikince büyüme
+ * TAMAMEN duruyordu. Asker eğitimi boş işçi tüketiyor, yani bin asker
+ * basmak isteyen oyuncu 111'erlik dokuz dalga beklemek zorundaydı.
+ *
+ * 100 + %40 ile aynı köyde tampon 462 — dört kat daha derin bir havuz.
+ *
+ * TAMAMEN KALDIRILMADI: siviller de yiyecek tüketiyor (bkz. tick.js ·
+ * getConsumptionRates), yani gerçek tavan zaten tahılda. Ama tamponsuz
+ * bir köy bir gecede on binlerce boş sivil biriktirip aç kalır ve oyuncu
+ * neden köylü kaybettiğini anlamazdı.
  */
-const ISCI_TAMPON_TABAN = 20;
-const ISCI_TAMPON_ORAN  = 0.10;
+const ISCI_TAMPON_TABAN = 100;
+const ISCI_TAMPON_ORAN  = 0.40;
 
 function isciTamponu(village) {
   return ISCI_TAMPON_TABAN + ISCI_TAMPON_ORAN * isciKapasitesi(village);

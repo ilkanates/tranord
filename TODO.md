@@ -306,6 +306,17 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Nüfus darboğazı: asker basacak adam yoktu (17 Eylül 2026)
+- İlkan: *"nüfus çoğalma hızını ve limitini acil arttır. Dünya kadar kılıcım var ama adam yokluğundan asker basamıyorum."*
+- **ASIL DARBOĞAZ TAVAN DEĞİL, BOŞ İŞÇİ TAMPONUYDU.** Ölçüldü (6 ev Lvl 5, Lvl 20 ana bina, 18 tarla Lvl 20): nüfus tavanı **4.550**, işçi kapasitesi 906, ama boş işçi tamponu **111**. Köy dört bin beş yüz kişi taşıyabildiği hâlde boşta 111 kişi birikince büyüme TAMAMEN duruyordu. Asker eğitimi boş işçi tükettiği için bin asker basmak 111'erlik dokuz dalga beklemek demekti — elindeki kılıç yığını tam bu yüzden işe yaramıyordu. İlkan tavanı sorun sanmıştı; ölçüm başka yeri gösterdi.
+- **FRENİ GEVŞETMEK GÜVENLİ, ÇÜNKÜ ASIL FREN TAHIL.** Siviller de yiyecek tüketiyor (`tick.js · getConsumptionRates`), yani nüfusu büyütmek tahıl faturasını da büyütüyor ve gerçek tavan zaten ekonomide. Tampon **tamamen kaldırılmadı**: tamponsuz bir köy bir gecede on binlerce boş sivil biriktirip aç kalır ve oyuncu neden köylü kaybettiğini anlamazdı.
+- Yeni değerler ve ölçümleri (aynı köy):
+  - boş işçi tamponu **20 + %10 → 100 + %40** · 111 → **462**
+  - büyüme hızı **1 + (lv−1)×2 → 3 + (lv−1)×4** · Lvl 20'de 39 → **79 kişi/oyun saati**
+  - ev başına kişi **150 → 250**, evsiz taban **50 → 150** · tavan 4.550 → **7.650**
+  - yeni köy (tek ev Lvl 1, Lvl 3 ana bina): tavan 400 · hız 11 · tampon 108
+- İstemcideki ikiz değerler (`client/src/data/villageDefs.js`) birlikte güncellendi; `tanim-ikizleri.test.js` ikisini karşılaştırıyor.
+
 ### Yükseltilen eşya kuşanınca seviyesini kaybediyordu (17 Eylül 2026)
 - İlkan: *"bir itemi lvl atlatıp giyip çıkardığımda lvl'i kayboluyor."*
 - **ALAN LİSTESİ YERİNE NESNENİN KENDİSİ.** `kusan` slota yeni bir nesne yazıyordu: `{ key: giris.key, nadirlik: giris.nadirlik }`. Yani envanter girdisinin yalnız İKİ alanı taşınıyordu; seviye alanı sonradan eklendiği için burada sessizce düşüyordu. Oyuncu gümüş ödeyip yükselttiği eşyayı bir kez kuşanınca Lvl 1'e dönüyordu — geri alınamaz bir kayıp.

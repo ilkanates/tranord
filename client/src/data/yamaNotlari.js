@@ -26,6 +26,32 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17l',
+    tarih: '17 Eylül 2026',
+    baslik: 'Nüfus dört kat derinleşti',
+    notlar: [
+      {
+        id: '20260917-nufus-tamponu',
+        tur: 'denge',
+        metin: 'ASKER BASACAK ADAM BULAMIYORDUN — sebebi tavan değil, '
+          + 'BOŞ İŞÇİ TAMPONUYDU. Köy 4.550 kişi taşıyabildiği hâlde '
+          + 'boşta 111 kişi birikince nüfus büyümesi tamamen duruyordu; '
+          + 'asker eğitimi boş işçi tükettiği için bin asker basmak '
+          + 'yüzerlik dokuz dalga beklemek demekti. Tampon dört kat '
+          + 'derinleşti (aynı köyde 111 → 462).',
+      },
+      {
+        id: '20260917-nufus-hizi-tavani',
+        tur: 'denge',
+        metin: 'NÜFUS HIZI VE TAVANI DA ARTTI. Büyüme Lvl 20 ana binada '
+          + '39 → 79 kişi/oyun saati. Evler seviye başına 150 yerine '
+          + '250 kişi taşıyor, evsiz taban 50 → 150. Altı Lvl 5 evli bir '
+          + 'köyde tavan 4.550 → 7.650. Asıl fren yine tahıl: siviller '
+          + 'de yiyor, yani büyüyen nüfus büyüyen bir tahıl faturası.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17k',
     tarih: '17 Eylül 2026',
     baslik: 'İki yeni eşya, sikkeler ve yaşlanan dünya',

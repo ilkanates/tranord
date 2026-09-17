@@ -310,7 +310,7 @@ const VILLAGE_DEFS = {
   ev: { requires:[{ tip:"anaBina", seviye:2 }], cpPerLevel:1,
     name:'Ev', category:'nufus', icon:'🏠',
     description:'Nüfus TAVANINI belirleyen bina: her seviye +100 kişi. Tavan yalnız SİVİLLERİ sınırlar; asker evden çıkıp kışlaya gider. Büyüme HIZI evden değil ANA BİNADAN gelir — ev dolu bir köyde ana binayı yükseltmek büyümeyi hızlandırmaz, önce ev gerekir. En fazla Lvl 5 çıkar ama köyde BİRDEN FAZLA ev kurulabilir; nüfusu büyütmenin yolu yeni ev açmaktır.',
-    unique:false, maxLevel:5, populationPerLevel: 150,
+    unique:false, maxLevel:5, populationPerLevel: 250,
     buildBaseWork:15, buildMultiplier: 1.28, cost:{ kereste:50, tugla:75 }
   },
 
@@ -321,6 +321,6 @@ const VILLAGE_DEFS = {
 };
 
 /** Evsiz köyün taban nüfus kapasitesi — sunucudaki BASE_POPULATION ile aynı */
-export const BASE_POPULATION = 50;
+export const BASE_POPULATION = 150;
 
 export default VILLAGE_DEFS;
