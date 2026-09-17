@@ -276,6 +276,13 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Mobilde sayfa sağa kayıyordu (17 Eylül 2026)
+- İlkan: *"mobilde sıralama ekranına girince sağa kayıyor."*
+- **ÖLÇÜLDÜ** (375 px ekran): `#root`'un `scrollWidth`'i 548, `scrollLeft`'i 94 — bütün sayfa 94 px sağa kaymıştı.
+- **İKİ KUSUR ÜST ÜSTE:** (1) üst bar telefona sığmıyor — sağdaki küme (nüfus · kese · müzik · ayarlar · profil · çıkış) 340 px, marka + köy değiştirici 149 px, toplam 489 px; geliştirme menüsü hariç ölçüldü, yani yayındaki derlemede de böyle. (2) `overflow-x: hidden` bir KAYDIRMA KABI yaratıyor — kullanıcının sürmesini engeller ama tarayıcının kaydırmasını engellemez. Alt sekmedeki son düğmeye basınca tarayıcı onu görünür kılmak için en yakın kaydırılabilir kabı, yani sayfanın kendisini sürüyordu. Sıralama ekranıyla ilgisi yoktu; o düğme sadece şeridin en sağındaydı.
+- **DÜZELTME:** `#root` yatayda `clip` (kaydırma kabı yaratmıyor, dolayısıyla `scrollIntoView` de bir şey kaydıramıyor; dikey kaydırma etkilenmiyor) + üst barın sağ kümesi telefonda daralıyor ve sığmazsa kendi içinde kayıyor. Kırpma tek başına olsaydı taşan düğmeler erişilemez kalırdı.
+- Doğrulandı: kök `scrollWidth` 548 → 375, `scrollLeft` 0, masaüstü etkilenmiyor.
+
 ### Ordu dengesi: süvari kışlayı anlamsız kılıyordu (17 Eylül 2026)
 - İlkan: *"bu dediğin doğruysa oyunda dengesizlik var. Hem kışla hem ahır full olmalı; senin bahsettiğin senaryoda diğer birimlere hiç gerek yok."* Haklıydı, ölçüm doğruladı.
 - **ÖLÇÜLEN DENGESİZLİK** (ekipman Lvl 20): Jernridder en iyi piyadeyi HER BAŞLIKTA yeniyordu — saldırı 124.8'e 107.3, yaya savunma 124.0'a 92.0, hız 7'ye 3, taşıma 85'e 35 — ve **aynı silahçı + zırhçı yükünü** kullanıyordu. Tek farkı 2 ekmekti.

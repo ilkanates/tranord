@@ -102,13 +102,26 @@ html, body {
   ekranın sağından solundan kesiliyordu (İlkan bildirdi: "ekran sağdan
   soldan kesiliyor").
 */
+/*
+  YATAYDA `clip`, DİKEYDE `hidden` — ikisi AYNI ŞEY DEĞİL.
+
+  `overflow-x: hidden` bir KAYDIRMA KABI yaratıyor: kullanıcı süremez
+  ama tarayıcı sürebilir. Odaklanan bir düğmeyi görünür kılmak için
+  tarayıcı en yakın kaydırılabilir kabı kaydırıyor ve o kap sayfanın
+  kendisi oluyordu — telefonda alt sekmedeki son düğmeye basınca bütün
+  ekran 94 px sağa kayıyordu (İlkan bildirdi, ölçüldü).
+
+  `clip` kaydırma kabı yaratmıyor; taşan şey görünmüyor ve HİÇBİR ŞEY
+  onu görünür kılmak için düzeni oynatamıyor.
+*/
 #root {
   zoom: var(--tn-olcek, 1);
   width: 100%;
   height: var(--tn-vh);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: hidden;
+  overflow-x: clip;
 }
 
 h1, h2, h3, h4 {

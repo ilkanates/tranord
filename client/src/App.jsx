@@ -494,10 +494,25 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
       </nav>
 
       {/* Hız + kullanıcı */}
-      <div style={{
+      <div className={dar ? 'tn-scroll' : undefined} style={{
         display: 'flex', alignItems: 'center', gap: dar ? 4 : 12,
-        padding: dar ? '0 6px' : '0 14px', flexShrink: 0,
-        marginLeft: dar ? 'auto' : 0,
+        padding: dar ? '0 6px' : '0 14px',
+        /*
+          TELEFONDA DARALABİLİR VE KENDİ İÇİNDE KAYAR.
+
+          Ölçüldü (375 px): bu küme 340 px, solundaki marka + köy
+          değiştirici 149 px — toplam 489, yani telefona sığmıyor.
+          `flexShrink: 0` iken taşan kısım sayfanın dışına çıkıyor ve
+          #root'u kaydırılabilir yapıyordu; artık kök kırpıyor
+          (index.css · overflow-x: clip), o yüzden taşan düğmeler
+          ERİŞİLEMEZ olurdu. Kendi içinde kaydırınca profil ve çıkış
+          parmakla ulaşılabilir kalıyor.
+
+          Masaüstünde bir şey değişmiyor: orada küme zaten sığıyor.
+        */
+        flexShrink: dar ? 1 : 0,
+        minWidth: 0,
+        overflowX: dar ? 'auto' : 'visible',
         borderLeft: `1px solid ${C.lineSoft}`,
       }}>
 {/*

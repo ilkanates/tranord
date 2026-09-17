@@ -31,6 +31,20 @@ export const YAMA_NOTLARI = [
     baslik: 'Kışla yeniden anlamlı: at iki kat uzun sürüyor',
     notlar: [
       {
+        id: '20260917-mobil-saga-kayma',
+        tur: 'duzeltme',
+        metin: 'TELEFONDA EKRAN SAĞA KAYIYORDU. Alt şeritteki son '
+          + 'sekmelere (İstatistik, Yardım) basınca bütün sayfa 94 '
+          + 'piksel sağa kayıyor, sol kenar ekran dışında kalıyordu. '
+          + 'İki sebep üst üste binmişti: üst bar 375 piksellik bir '
+          + 'telefona sığmıyordu (489 px gerekiyordu) ve sayfanın '
+          + 'kırpma kuralı tarayıcının kendi kaydırmasını engellemiyordu '
+          + '— odaklanan düğmeyi görünür kılmak için sayfayı o '
+          + 'kaydırıyordu. Artık sayfa hiçbir şekilde kayamıyor; üst '
+          + 'barın sağ ucu sığmazsa kendi içinde kayıyor, profil ve '
+          + 'çıkış düğmeleri erişilebilir kalıyor.',
+      },
+      {
         id: '20260917-at-suresi-denge',
         tur: 'denge',
         metin: 'AT ÜRETİMİ 4 SAATTEN 8 SAATE ÇIKTI. Sebebi şuydu: '
