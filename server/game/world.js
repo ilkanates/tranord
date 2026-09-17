@@ -27,7 +27,21 @@
 const WORLD_RADIUS  = 134;   // 3*134*135+1 = 54.271 hex
 const CLAIM_RADIUS  = 2;     // köyün sahip olduğu halka (18 tarla)
 const MIN_DISTANCE  = 6;     // köy merkezleri arası min mesafe (2+2+1 tampon)
-const NPC_TARGET    = 200;
+/**
+ * NPC SAYISI — 200 → 700.
+ *
+ * 200'de dünya boş görünüyordu: 1.729 slotun %12'si doluydu ve
+ * oyuncunun görüş alanında çoğu zaman hiçbir komşu yoktu.
+ *
+ * ÖLÇÜLDÜ (dizüstü, Pi 4 ~4 kat yavaş): saniyelik maliyet yalnız
+ * `stepVillage` ve 700 NPC'de Pi'de ~15 ms, yani %1,5 CPU. Asıl
+ * sınır CPU değil AÇILIŞ TOHUMLAMASI'ydı (köy başına ~28 ms); o
+ * yüzden tohumlama açılışı bloke etmiyor (bkz. index.js · npcTohumKuyrugu).
+ *
+ * %40 doluluk bilinçli: kalanı hem oyuncuların ikinci köylerine hem de
+ * NPC'lerin kuracağı köylere yer bırakıyor.
+ */
+const NPC_TARGET    = 700;
 const SPAWN_RADIUS  = 12;    // oyuncular bu halkanın içinde doğar
 
 // ── Deterministik karma ─────────────────────────────────────────────

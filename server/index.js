@@ -986,6 +986,17 @@ async function bootWorld() {
   let created = 0, restored = 0;
   for (const slot of npcSlots) {
     const rec = savedByKey.get(slot.key);
+    if (!rec) {
+      /*
+        YENİ KÖY AÇILIŞTA KURULMUYOR. Tohumlama köy başına ~28 ms ve
+        yüzlerce yeni köy sunucuyu dakikalarca kapalı tutardı. Kuyruğa
+        alınıyor, dinleme başladıktan sonra tik başına birkaç tanesi
+        kuruluyor (bkz. npcTohumKuyrugu).
+      */
+      WORLD.tohumKuyrugu.push(slot);
+      created++;
+      continue;
+    }
     if (rec) {
       /**
        * `quiet` YALNIZCA tohumlamada atanıyordu (seedNpcVillage) ve kayda
@@ -1041,11 +1052,8 @@ async function bootWorld() {
       + `${(catchupSum / catchupCount).toFixed(1)} · en fazla ${catchupMax} oyun saati`);
   }
 
-  // Yeni tohumlanan köyler diskte yok — ilk turda yazılmalı
-  if (created > 0) {
-    for (const [key] of WORLD.npcs) if (!savedByKey.has(key)) WORLD.dirtyNpcs.add(key);
-  }
-  console.log(`[WORLD] ${WORLD.slots.length} slot · ${WORLD.npcs.size} NPC (${created} yeni, ${restored} kayıtlı) · ${Date.now() - t0} ms`);
+  console.log(`[WORLD] ${WORLD.slots.length} slot · ${WORLD.npcs.size} NPC yüklendi`
+    + ` (${restored} kayıtlı, ${created} kuyrukta) · ${Date.now() - t0} ms`);
 }
 
 /**
@@ -1065,6 +1073,37 @@ function kalkanLog(etiket, err) {
 
 // NPC yaşam döngüsü
 let npcLastTick = Date.now();
+/**
+ * TİK BAŞINA KURULAN YENİ NPC KÖYÜ.
+ *
+ * Köy kurmak ~28 ms (dizüstü) / ~110 ms (Pi). İkisi bir tikin beşte
+ * birini yiyor ve geri kalanı dünyaya kalıyor; 500 köylük bir kuyruk
+ * yaklaşık dört dakikada bitiyor. Daha büyük bir sayı açılışı yeniden
+ * ağırlaştırır, daha küçüğü dünyanın dolmasını gereksiz uzatır.
+ */
+const NPC_TOHUM_PER_TICK = 2;
+
+/**
+ * Kuyruktan birkaç NPC köyü kur. Açılışı bloke etmemek için buradalar
+ * (bkz. durum.js · tohumKuyrugu).
+ */
+function npcTohumTiki() {
+  if (!WORLD.tohumKuyrugu.length) return;
+  for (let i = 0; i < NPC_TOHUM_PER_TICK && WORLD.tohumKuyrugu.length; i++) {
+    const slot = WORLD.tohumKuyrugu.shift();
+    /* Oyuncu bu arada oraya oturduysa slot artık NPC'nin değil */
+    if (WORLD.npcs.has(slot.key) || WORLD.playerBySlot.has(slot.key)) continue;
+    try {
+      WORLD.npcs.set(slot.key, { slot, village: seedNpcVillage(slot) });
+      /* Kaydedilmezse her açılışta yeniden ve BAŞKA bir köy olarak kurulur */
+      WORLD.dirtyNpcs.add(slot.key);
+    } catch (err) { kalkanLog(`NPC tohumlama ${slot.key}`, err); }
+  }
+  if (!WORLD.tohumKuyrugu.length) {
+    console.log(`[WORLD] tohumlama bitti · ${WORLD.npcs.size} NPC`);
+  }
+}
+
 setInterval(() => {
   const nowReal = Date.now();
   const hours = GT.realMsToGameHours(Math.min(5000, nowReal - npcLastTick), WORLD.speed);
@@ -1089,6 +1128,7 @@ setInterval(() => {
       }
     } catch (err) { kalkanLog(`NPC ${n.slot.key}`, err); }
   }
+  try { npcTohumTiki(); } catch (err) { kalkanLog('npcTohumTiki', err); }
   try { processMarches(hours); } catch (err) { kalkanLog('processMarches', err); }
   try { processPazarGonderileri(hours); } catch (err) { kalkanLog('pazarGonderileri', err); }
 }, NPC_TICK_MS);

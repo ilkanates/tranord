@@ -57,6 +57,16 @@ const WORLD = {
    */
   dirtyNpcs: new Set(),
   /**
+   * TOHUMLANMAYI BEKLEYEN NPC SLOTLARI.
+   *
+   * Yeni bir NPC köyü kurmak ~28 ms sürüyor (ölçüldü). Açılışta yüzlercesini
+   * kurmak sunucuyu dakikalarca kapalı tutardı; bu yüzden yeni slotlar buraya
+   * giriyor ve dinleme başladıktan sonra tik başına birkaç tanesi kuruluyor
+   * (bkz. index.js · npcTohumTiki). Dünya ilk dakikalarda seyrek başlıyor,
+   * sonra doluyor — kapalı bir sunucudan iyi.
+   */
+  tohumKuyrugu: [],
+  /**
    * DÜNYA HIZI — üst bardaki çubuk bunu ayarlar. Oyuncu köyü, NPC'ler ve
    * SEFERLER aynı çarpanla akar; aksi hâlde ekonomi 128× koşarken ordular
    * gerçek zamanda sürünür ve saldırı denemek imkânsız olurdu.

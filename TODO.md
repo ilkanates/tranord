@@ -164,6 +164,64 @@ Bu zincir sırayla ilerlemek zorunda:
 
 ---
 
+## 🟠 Büyük iş: NPC sistemi — yaşayan bir dünya (18 Eylül 2026)
+
+İlkan'ın tarifi: *"NPC sistemini geliştir, çok daha fazla NPC köyü olsun
+ve bunlar gelişsinler, item alsınlar, saldırsınlar, köy büyütsünler.
+Çok büyük bir NPC sistemi kur, yapay zekâ gibi yapılsınlar."*
+
+**BUGÜNKÜ HÂLİ.** NPC'ler sahte bir büyüme eğrisi değil, oyuncunun
+oynadığı MOTORUN AYNISI ile çalışıyor (`npcAi.js` · `processTick`):
+işçi atıyor, bina kuruyor, yükseltiyor, ekipman üretiyor, asker
+eğitiyor. Yakındaki oyuncuya yağma da gönderiyorlar. **Olmayanlar:**
+birbirleriyle savaş, ikinci köy kurma, kahraman/eşya, kişilik farkı.
+
+**ÖLÇÜM** (dizüstü; Pi 4 kabaca 4 kat yavaş):
+
+| NPC | `stepVillage`/tik | AI turu | heap |
+|---|---|---|---|
+| 200 | 1.08 ms | 5.16 ms | 14 MB |
+| 800 | 4.32 ms | 19.75 ms | 26 MB |
+
+Saniyelik maliyet yalnız `stepVillage`; AI turu ~100 dakikada bir
+koşuyor. Yani sayı CPU'dan değil, açılış tohumlamasından ve harita
+çiziminden sınırlıydı.
+
+### Aşama 1 — Dünya dolsun (200 → 700) — ~~YAPILDI~~
+Bkz. Tamamlandı · "NPC dünyası 700 köye çıktı".
+
+### Aşama 2 — NPC'ler birbirine saldırsın
+Bugün NPC yalnız OYUNCUYA saldırıyor; aralarındaki dünya donuk.
+- `maybeNpcRaid` hedef seçimini NPC'leri de kapsayacak şekilde genişlet.
+- **Dikkat:** bugünkü kod yorumunda *"NPC-NPC savaşı 200 köyün
+  dengelenmiş ekonomisini bozar"* yazıyor ve bu doğru bir endişe.
+  Kazanan büyür, kaybeden küçülür — istenen bu, ama ordusu sıfırlanan
+  köy bir daha toparlanamazsa dünya zamanla boşalır. Kayıp oranına
+  tavan ve toparlanma süresi gerekiyor.
+- Oyuncu bunu HİSSETMELİ: haritada "şu an kim kime saldırıyor" görünsün.
+
+### Aşama 3 — NPC'ler yeni köy kursun
+Harita zamanla dolsun; dünya oyuncu girmeden de değişsin.
+- Kültür puanı ve göçmen zaten motorun içinde — NPC'nin bunları
+  kullanması gerekiyor.
+- Kuyruk altyapısı hazır (`durum.js · tohumKuyrugu`): çalışma anında
+  köy eklemek artık açılışı bloke etmiyor.
+- **Sınır şart:** dünya doluluğu %60'ı aşmamalı (bkz. `npc-dunya.test.js`),
+  yoksa oyuncunun ikinci köyüne yer kalmaz.
+
+### Aşama 4 — NPC kahramanı ve eşyası
+- NPC'nin kahramanı olsun, maceraya çıksın, eşya kuşansın.
+- Açık artırmaya girsinler — pazar tek oyunculu bir ekonomi olmaktan
+  çıkar. *(Açık: NPC'nin gümüşü nereden gelecek? Yağma ganimeti mi,
+  üretim mi? Sonsuz gümüş açık artırmayı anlamsızlaştırır.)*
+
+### Aşama 5 — Kişilikler
+Her NPC'ye karakter: saldırgan · ekonomist · savunmacı. Bugün hepsi
+aynı kararı veriyor, yani dünyada 700 tane aynı köy var. Kişilik,
+davranışı tek bir katsayı yerine gerçekten farklılaştıran şey.
+
+---
+
 ## 🟢 Oyun mekaniği
 
 ### Pazar — kalanlar
@@ -275,6 +333,13 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### NPC dünyası 700 köye çıktı, tohumlama açılışı bloke etmiyor (18 Eylül 2026)
+- İlkan: *"çok daha fazla NPC köyü olsun."* 200'de 1.729 slotun %12'si doluydu; oyuncunun görüş alanında çoğu zaman hiçbir komşu yoktu.
+- **ÖNCE ÖLÇÜLDÜ, SONRA SAYI KONULDU.** Dizüstünde 200 NPC → `stepVillage` 1.08 ms/tik, 800 NPC → 4.32 ms. Doğrusal. Pi 4'te (≈4 kat yavaş) 700 NPC ~15 ms, yani **%1,5 CPU**. AI turu (~69 ms) 100 dakikada bir koşuyor. CPU sınır değildi.
+- **ASIL SINIR AÇILIŞ TOHUMLAMASIYDI.** Köy kurmak ~28 ms (dizüstü) / ~110 ms (Pi); 500 yeni köy Pi'de sunucuyu **bir dakika** kapalı tutardı ve bu her NPC artışında tekrarlanırdı. Tohumlama açılıştan çıkarıldı: kayıtlı köyler açılışta yükleniyor (ucuz), yeni slotlar `durum.js · tohumKuyrugu`'na giriyor ve dinleme başladıktan sonra tik başına 2 tanesi kuruluyor. **Ölçüldü: açılış 56 ms**, 500 köy ~4 dakikada tamamlanıyor. Dünya ilk dakikalarda seyrek başlıyor — kapalı bir sunucudan iyi.
+- Bu aynı zamanda 3. aşamanın altyapısı: NPC'ler köy kurmaya başlayınca dünya çalışma anında büyüyecek ve aynı kuyruk kullanılacak.
+- **%40 doluluk bilinçli.** Kalan %60 hem oyuncuların ikinci köylerine hem de NPC'lerin kuracağı köylere yer bırakıyor; `npc-dunya.test.js` bu cümleyi kilitliyor (doluluk %20–60 arasında kalmalı, doğuş halkası boş kalmalı).
 
 ### Uzak haritada oyuncu adları (17 Eylül 2026)
 - İlkan: *"uzak harita modunda oyuncuların adı yazsın."*

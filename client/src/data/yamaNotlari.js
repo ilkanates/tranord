@@ -26,6 +26,35 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-18a',
+    tarih: '18 Eylül 2026',
+    baslik: 'Dünya kalabalıklaştı: 200 köy yerine 700',
+    notlar: [
+      {
+        id: '20260918-npc-700',
+        tur: 'yenilik',
+        metin: 'DÜNYADA ARTIK 700 NPC KÖYÜ VAR (eskiden 200). Harita '
+          + '1.729 köy yeri taşıyor ve bunun yalnız %12\'si doluydu — '
+          + 'uzaklaştığında çoğu zaman görüş alanında tek bir komşu '
+          + 'bile olmuyordu. Artık %40 dolu; kalanı hem senin ikinci '
+          + 'köylerine hem de ilerideki NPC genişlemesine ayrıldı. '
+          + 'NPC\'ler sahte bir eğriyle değil, senin oynadığın motorun '
+          + 'aynısıyla yaşıyor: işçi atıyor, bina kuruyor, ekipman '
+          + 'üretiyor, asker eğitiyor.',
+      },
+      {
+        id: '20260918-npc-acilis',
+        tur: 'duzeltme',
+        metin: 'SUNUCU AÇILIŞI ARTIK BEKLETMİYOR. Yeni bir NPC köyü '
+          + 'kurmak zaman alıyor ve 500 köyü açılışta kurmak sunucuyu '
+          + 'bir dakika kapalı tutardı. Artık kayıtlı köyler anında '
+          + 'yükleniyor, yeni köyler sunucu çalışırken arka planda '
+          + 'kuruluyor — dünya ilk birkaç dakikada seyrek başlayıp '
+          + 'doluyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17p',
     tarih: '17 Eylül 2026',
     baslik: 'Kışla yeniden anlamlı: at iki kat uzun sürüyor',
