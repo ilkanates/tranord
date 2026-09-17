@@ -16,6 +16,7 @@ import { EQ_LABEL } from '../flows';
 import { unitImage } from '../data/unitImages';
 import { unitLore } from '../data/unitLore';
 import Icon from './Icons';
+import Amblem from './Amblem';
 
 const CAT_LABEL = { piyade: 'Piyade', suvari: 'Süvari', kusatma: 'Kuşatma' };
 const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069' };
@@ -93,8 +94,7 @@ export default function UnitDetail({ type, def, count, equipmentDefs = {}, onClo
             }} />
         ) : (
           <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
-            <Icon name={def.category === 'suvari' ? 'at' : 'kalkan'}
-              size={64} color={C.lineBright} strokeWidth={1.1} />
+            <Amblem type={type} size={96} color={C.lineBright} />
           </div>
         )}
 

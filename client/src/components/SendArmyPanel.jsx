@@ -20,6 +20,7 @@ import VILLAGE_DEFS from '../data/villageDefs';
 import BUILDING_DEFS from '../data/buildingDefs';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
+import Amblem from './Amblem';
 
 const MODES = [
   { key: 'raid',   label: 'YAĞMA',       icon: 'depo',   color: C.warn,
@@ -176,9 +177,15 @@ function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
         width: 26, height: 36, borderRadius: 3, overflow: 'hidden',
         background: '#0b1420', flexShrink: 0,
       }}>
-        {img && <img src={img} alt="" draggable={false} style={{
-          width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 12%',
-        }} />}
+        {img ? (
+          <img src={img} alt="" draggable={false} style={{
+            width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 12%',
+          }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+            <Amblem type={u} size={22} color={C.iceDeep} />
+          </div>
+        )}
       </div>
 
       <div style={{ minWidth: 0, flex: 1 }}>

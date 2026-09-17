@@ -5,6 +5,7 @@ import { unitImage } from '../data/unitImages';
 import UnitDetail from './UnitDetail';
 import Icon from './Icons';
 import { Qty, QueueList } from './queueUI';
+import Amblem from './Amblem';
 
 // Birim eğitim süresi — oyun DAKİKASI. Sunucudaki getUnitTrainMinutes ile
 // birebir: ekipman sayısı × 5 dk, en az 3 dk; eğitmen sayısına bölünür ve
@@ -98,7 +99,6 @@ function UnitCard({
    */
   const st = guncelStats || def.stats;
   const yukseltilmis = !!guncelStats && Math.round(st.saldiri) !== Math.round(def.stats?.saldiri ?? 0);
-  const cav = def.category === 'suvari';
 
   const [hov, setHov] = useState(false);
 
@@ -142,7 +142,7 @@ function UnitCard({
           }} />
       ) : (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
-          <Icon name={cav ? 'at' : 'kalkan'} size={30} color={C.lineBright} strokeWidth={1.2} />
+          <Amblem type={u} size={38} color={C.lineBright} />
         </div>
       )}
 

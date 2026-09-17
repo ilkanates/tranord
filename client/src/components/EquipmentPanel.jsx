@@ -4,6 +4,7 @@ import { useViewport } from '../responsive';
 import { EQ_LABEL, RES_LABEL, gameMinutesToRealSeconds, QTY_TAVAN } from '../flows';
 import Icon from './Icons';
 import { PanelShell, WorkerNote, Qty, OrderButton, QueueList } from './queueUI';
+import Amblem from './Amblem';
 
 /**
  * Silahçı / Zırhçı / Ahır — ekipman siparişi ve kuyruk.
@@ -111,7 +112,7 @@ export default function EquipmentPanel({
               border: `1px solid ${full ? 'rgba(232,99,111,0.35)' : C.lineSoft}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Icon name={eq} size={14} color={full ? C.dangerDim : C.iceSoft} />
+                <Amblem type={eq} size={16} color={full ? C.dangerDim : C.iceSoft} />
                 <span style={{ fontFamily: FONT.ui, fontSize: 10.5, fontWeight: 500, color: C.text }}>
                   {EQ_LABEL[eq] || def.name}
                 </span>

@@ -64,3 +64,10 @@ client/public/muzik/*.mp3
 # Commit yardimcilari (oturumluk, depoya girmez)
 commit-msg*.txt
 commit*.ps1
+
+# Amblem KAYNAKLARI — 1254 px orijinaller, 23 MB.
+# Oyuna giren dosyalar 128 px siluetler (amblems/*.png, toplam 194 KB);
+# yedek klasörü yalnız yeniden üretmek için duruyor ve her klonu
+# yüz kat büyütürdü. `unitEmblems.js` zaten tek yıldızlı glob ile
+# yalnız üst klasörü tarıyor, yani bu klasör pakete de girmiyor.
+client/src/assets/amblems/yedek/

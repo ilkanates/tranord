@@ -35,7 +35,7 @@ export const YAMA_NOTLARI = [
         tur: 'duzeltme',
         metin: 'YÜKSELTTİĞİN EŞYA KUŞANINCA SEVİYESİNİ KAYBEDİYORDU. '
           + 'Gümüş ödeyip Lvl 4 yaptığın kılıcı bir kez takıp çıkarınca '
-          + 'Lvl 1'e dönüyordu — geri alınamaz bir kayıp. Kuşanma '
+          + 'Lvl 1\'e dönüyordu — geri alınamaz bir kayıp. Kuşanma '
           + 'eşyanın yalnız adını ve nadirliğini taşıyordu; seviye '
           + 'sonradan eklendiği için sessizce düşüyordu. Artık eşyanın '
           + 'tamamı taşınıyor.',
