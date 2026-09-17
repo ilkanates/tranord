@@ -31,6 +31,17 @@ export const YAMA_NOTLARI = [
     baslik: 'Nüfus dört kat derinleşti',
     notlar: [
       {
+        id: '20260917-rapor-nadirlik-rengi',
+        tur: 'duzeltme',
+        metin: 'MACERA RAPORU SIRADAN EŞYAYI EFSANEVİ GİBİ GÖSTERİYORDU. '
+          + 'Nadirlik rengi olmayan eski raporlarda yedek renk turuncu '
+          + 'yazıyordu — turuncu da efsanevi nadirliğin rengi. Artık '
+          + 'renk bilinmiyorsa nötr duruyor. Eşyanın adı zaten '
+          + 'nadirliğini taşıyor ("Efsanevi Bozkır Atı"), yani bilgi '
+          + 'kaybolmuyor. Çanta ve kuşam ızgarası doğruydu, yalnız '
+          + 'rapor satırı yanıltıyordu.',
+      },
+      {
         id: '20260917-nufus-tamponu',
         tur: 'denge',
         metin: 'ASKER BASACAK ADAM BULAMIYORDUN — sebebi tavan değil, '

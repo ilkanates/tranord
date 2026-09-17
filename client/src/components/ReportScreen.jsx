@@ -299,7 +299,17 @@ function titleOf(r) {
 function MaceraOdul({ o, unitDefs }) {
   const esya = o.tur === 'esya';
   const gumus = o.tur === 'gumus';
-  const nadirlikRenk = o.renk || C.warn;   // nadirlik rengi sunucudan
+  /*
+    YEDEK RENK NÖTR OLMALI. Eskiden `|| C.warn` yazıyordu ve C.warn
+    turuncu — yani EFSANEVİ nadirliğin rengi. Rengi olmayan her eski
+    rapor satırı sıradan bir eşyayı efsanevi gibi gösteriyordu (İlkan
+    bildirdi). Bir yedek değer asla anlamlı bir değerin yerine
+    geçmemeli; hele en nadir olanın.
+
+    Bilgi kaybolmuyor: eşyanın ADI zaten nadirliği taşıyor
+    ("Efsanevi Bozkır Atı"), yalnız renk susuyor.
+  */
+  const nadirlikRenk = o.renk || C.frost;
 
   const renk = esya ? nadirlikRenk
     : gumus ? C.iceSoft
