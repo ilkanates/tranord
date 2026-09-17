@@ -276,6 +276,13 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Uzak haritada oyuncu adları (17 Eylül 2026)
+- İlkan: *"uzak harita modunda oyuncuların adı yazsın."*
+- Etiket `scale > 0.72` ile kapalıydı ve açıkken KÖY ADINI yazıyordu. Uzaklaşınca sorulan soru değişiyor — yakında "bu köy hangisi", uzakta "burası kimin" — ve dünya görünümünde köy adları o işi hiç yapmıyordu.
+- **Aynı satır zoom'a göre cevabını değiştiriyor:** yakında `v.name`, uzakta `v.owner`. İki ayrı etiketi üst üste yazmak haritayı kalabalıklaştırırdı.
+- **Uzakta yalnız oyuncu köyleri etiketleniyor.** NPC'nin sahibi yok ve dünyada yüzlercesi var; hepsini yazmak haritayı okunmaz yapardı. NPC'nin ne olduğu rengi ve kademe halkasından okunuyor.
+- **Yazı boyu düzeltildi.** Eski etiketteki `8 / max(0.5, scale)` kelepçesi 0.5'in altında yazıyı ekranda KÜÇÜLTÜYORDU (dünya zoom'unda 0.3 → 4.8 px), yani tam gereken yerde okunmuyordu. Sahip etiketi `/ scale` ile ölçekleniyor, ekrandaki boyu her zoom'da sabit; koyu kontur ile arazinin üstünde okunuyor.
+
 ### Mobilde sayfa sağa kayıyordu (17 Eylül 2026)
 - İlkan: *"mobilde sıralama ekranına girince sağa kayıyor."*
 - **ÖLÇÜLDÜ** (375 px ekran): `#root`'un `scrollWidth`'i 548, `scrollLeft`'i 94 — bütün sayfa 94 px sağa kaymıştı.

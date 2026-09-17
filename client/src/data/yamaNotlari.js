@@ -31,6 +31,19 @@ export const YAMA_NOTLARI = [
     baslik: 'Kışla yeniden anlamlı: at iki kat uzun sürüyor',
     notlar: [
       {
+        id: '20260917-harita-oyuncu-adi',
+        tur: 'yenilik',
+        metin: 'UZAK HARİTADA OYUNCU ADLARI YAZIYOR. Uzaklaşınca '
+          + 'sorulan soru değişiyor: yakında "bu köy hangisi", uzakta '
+          + '"burası kimin". Etiket artık zoom\'a göre cevabını '
+          + 'değiştiriyor — yakında köyün adı, uzakta sahibinin adı. '
+          + 'Yalnız oyuncu köyleri etiketleniyor; NPC\'lerin sahibi yok '
+          + 've dünyada yüzlercesi var, hepsini yazmak haritayı okunmaz '
+          + 'yapardı. Yazı boyu da düzeltildi: eski hesapta dünya '
+          + 'görünümünde 4.8 piksele düşüyor, yani tam gereken yerde '
+          + 'okunmuyordu.',
+      },
+      {
         id: '20260917-mobil-saga-kayma',
         tur: 'duzeltme',
         metin: 'TELEFONDA EKRAN SAĞA KAYIYORDU. Alt şeritteki son '

@@ -900,11 +900,39 @@ function VillageMark({ v, scale, color, hovered, selected, onEnter, onLeave, onC
           fill="none" stroke={color} strokeWidth={1.2} opacity={0.85} />
       )}
       <SeferRozeti x={x} y={y} r={rad} sefer={sefer} scale={scale} />
+      {/*
+        YAKINDA KÖYÜN ADI, UZAKTA SAHİBİNİN ADI.
+
+        Uzaklaşınca sorulan soru değişiyor: yakında "bu köy hangisi",
+        uzakta "burası kimin". Aynı satır zoom'a göre cevabını
+        değiştiriyor; iki ayrı etiketi üst üste yazmak haritayı
+        kalabalıklaştırırdı.
+      */}
       {scale > 0.72 && (
         <text x={x} y={y + rad + 9 / Math.max(0.5, scale)} textAnchor="middle"
           fontFamily={FONT.ui} fontSize={8 / Math.max(0.5, scale)}
           fill={on ? C.frost : C.textFaint} style={{ userSelect: 'none' }}>
           {v.name}
+        </text>
+      )}
+      {/*
+        UZAK GÖRÜNÜM — YALNIZ OYUNCU KÖYLERİ. NPC'nin sahibi yok ve
+        dünyada onlardan yüzlerce var; hepsini yazmak haritayı okunmaz
+        yapardı. NPC'nin ne olduğu rengi ve kademe halkasından okunuyor.
+
+        BOYUT `/ scale` İLE: eski etiketteki `max(0.5, scale)` kelepçesi
+        0.5'in altında yazıyı ekranda küçültüyordu (dünya zoom'unda 4.8
+        piksele iniyordu) — yani tam gereken yerde okunmuyordu. Burada
+        bölen kelepçesiz, ekrandaki boy her zoom'da aynı.
+      */}
+      {scale <= 0.72 && v.owner && (isSelf || v.kind === 'player') && (
+        <text x={x} y={y + rad + 10 / scale} textAnchor="middle"
+          fontFamily={FONT.ui} fontSize={9 / scale}
+          fill={on ? C.frost : (isSelf ? color : C.textDim)}
+          style={{ userSelect: 'none', pointerEvents: 'none' }}
+          stroke="rgba(4,9,15,0.85)" strokeWidth={2.5 / scale}
+          paintOrder="stroke">
+          {v.owner}
         </text>
       )}
     </g>
