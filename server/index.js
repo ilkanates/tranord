@@ -5635,6 +5635,14 @@ io.on('connection', async socket => {
             olmasın (güç ve birim bonusuyla aynı gerekçe).
           */
           suvari: HERO.suvariMi(kah),
+          /*
+            TAŞIMA KAPASİTESİ ve CAN da donduruluyor: ganimet payı ata
+            bağlı (bkz. kahraman.js · tasimaKapasitesi) ve bayılan
+            kahraman yük taşımıyor — ikisi de varışta değil çıkışta
+            ölçülmeli, yoksa yolda at takıp payı büyütmek mümkün olurdu.
+          */
+          tasima: HERO.tasimaKapasitesi(kah),
+          can: Math.max(0, Math.round(kah.can || 0)),
           // Eşyaların birim bonusu da DONDURULUYOR — yolda eşya
           // değiştirip saldırıyı büyütmek mümkün olmasın
           birim: b.birim || null,

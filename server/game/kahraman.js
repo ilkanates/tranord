@@ -692,6 +692,37 @@ function hizi(k) {
 }
 
 /**
+ * KAHRAMANIN TAŞIDIĞI GANİMET — BİRİM TANIMLARINDAN ÖLÇÜLÜYOR.
+ *
+ * Yaya kahraman bir piyade kadar, atlı kahraman bir süvari kadar
+ * taşıyor. Hızdaki kuralın aynısı (bkz. AT_HIZ_EKI): at, kahramana bir
+ * süvarinin taşımasını veriyor. Bugünkü değerler ≈46 ve ≈96.
+ *
+ * Kuşatma ve göçmen SAYILMIYOR — ikisinin de kapasitesi 0 ve ortalamayı
+ * anlamsızca aşağı çekerdi.
+ */
+const TASIMA_TABAN = (() => {
+  const ort = (tur) => {
+    const k = Object.values(UNIT_DEFS)
+      .filter(d => d.category === tur && d.stats?.kapasite > 0)
+      .map(d => d.stats.kapasite);
+    return k.length ? k.reduce((a, b) => a + b, 0) / k.length : 0;
+  };
+  return { yaya: Math.round(ort('piyade')), atli: Math.round(ort('suvari')) };
+})();
+
+/**
+ * Kahramanın taşıma kapasitesi. At slotu doluysa süvari tabanı.
+ *
+ * Kahramansız sefer bu sayıyı hiç görmüyor; orduya EKLENİYOR
+ * (bkz. army.js · takeLoot çağrısı), yerine geçmiyor.
+ */
+function tasimaKapasitesi(k) {
+  if (!k || !k.var) return 0;
+  return KUSAM.suvariMi(k) ? TASIMA_TABAN.atli : TASIMA_TABAN.yaya;
+}
+
+/**
  * SÜVARİ Mİ? At slotu doluysa evet — savaşta ham gücü süvari tarafına
  * yazılıyor (bkz. combat.js · kahramanSuvari).
  */
@@ -867,6 +898,7 @@ module.exports = {
   duzelt,
   ZIRHLANMA_TAVANI, zirhlanmaYuzdesi,
   KAHRAMAN_TABAN_HIZ, KAHRAMAN_HIZ_TAVANI, AT_HIZ_EKI, hizi, suvariMi,
+  TASIMA_TABAN, tasimaKapasitesi,
   bulunduguSlot, seferEngeli,
   XP_OLDURULEN_BASINA, SAVAS_TABAN_YUZDE, savasSonucu,
   CAN_IKSIRI_KEY, SKIL_KITABI_KEY,

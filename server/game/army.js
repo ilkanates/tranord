@@ -885,32 +885,13 @@ function resolveArrival(march, origin, target, opts = {}) {
   }
 
   /*
-    KUŞATMA FAZI — savaştan SONRA, yalnız saldıran KAZANDIYSA.
-
-    Sıra önemli: kuşatma ganimetten ÖNCE işliyor, çünkü mancınık depoyu
-    vurabiliyor. Depo seviyesi düşünce tavan da düşüyor ve fazlası
-    kayboluyor — yağmalanacak mal da o kadar azalıyor. Tersi sırada
-    oyuncu önce deposunu boşaltıp sonra binasını kaybederdi.
-  */
-  const kusatmaSonuc = (res.winner === 'attacker')
-    ? KUSATMA.uygula(target, survivors, march.kusatmaHedefi || null)
-    : null;
-
-  // Ganimet: hayatta kalan varsa taşınır. Keşifte ve tam yok olmada yok.
-  const loot = survTotal > 0
-    ? takeLoot(target, carryCapacity(survivors), march.mode)
-    : {};
-
-  march.units = survivors;
-  march.loot  = loot;
-  march.phase = 'return';
-  // Yükle dönüşte de aynı süre — hız yükle değişmiyor (basit tutuldu)
-  march.remainingHours = march.legHours;
-
-  /*
     KAHRAMANIN HESABI. Burada yalnız HESAPLANIYOR, uygulanmıyor: kahraman
     kaydı saldıranın oturumunda duruyor ve bu dosya oturumu görmüyor.
     Sefere iliştirilen sonucu index.js (processMarches) işliyor.
+
+    GANİMETTEN ÖNCE: ganimet payı "kahraman ayakta mı" sorusuna bakıyor
+    ve cevabı bu blok yazıyor. Aşağıda dursaydı soru sorulduğunda cevap
+    henüz yok olurdu (testte tam olarak bu yakalandı).
   */
   if (march.kahraman) {
     /*
@@ -927,6 +908,43 @@ function resolveArrival(march, origin, target, opts = {}) {
       defenderDead, res.attackerLossRate || 0,
       march.kahraman.canTavani || 0, savasOldu);
   }
+
+  /*
+    KUŞATMA FAZI — savaştan SONRA, yalnız saldıran KAZANDIYSA.
+
+    Sıra önemli: kuşatma ganimetten ÖNCE işliyor, çünkü mancınık depoyu
+    vurabiliyor. Depo seviyesi düşünce tavan da düşüyor ve fazlası
+    kayboluyor — yağmalanacak mal da o kadar azalıyor. Tersi sırada
+    oyuncu önce deposunu boşaltıp sonra binasını kaybederdi.
+  */
+  const kusatmaSonuc = (res.winner === 'attacker')
+    ? KUSATMA.uygula(target, survivors, march.kusatmaHedefi || null)
+    : null;
+
+  /*
+    KAHRAMANIN TAŞIMA PAYI. Kahraman savaşıyor ve yara alıyor ama
+    ganimet hesabında hiç yoktu — tek bir odun taşımıyordu.
+    Kapasitesi orduya EKLENİYOR (bkz. kahraman.js · tasimaKapasitesi).
+
+    BAYILDIYSA TAŞIMIYOR: canı biten kahraman eve ışınlanıyor, yükü
+    omzunda götürmesi tuhaf olurdu. Can, sefere iliştirilmiş anlık
+    görüntüden okunuyor; hasar bu savaşta hesaplanan.
+  */
+  const kahCan = (march.kahraman?.can ?? null);
+  const kahAyakta = !march.kahraman ? false
+    : (kahCan === null ? true : kahCan - (march.kahramanSonuc?.hasar || 0) > 0);
+  const kahTasima = kahAyakta ? (march.kahraman.tasima || 0) : 0;
+
+  // Ganimet: hayatta kalan varsa taşınır. Keşifte ve tam yok olmada yok.
+  const loot = (survTotal > 0 || kahTasima > 0)
+    ? takeLoot(target, carryCapacity(survivors) + kahTasima, march.mode)
+    : {};
+
+  march.units = survivors;
+  march.loot  = loot;
+  march.phase = 'return';
+  // Yükle dönüşte de aynı süre — hız yükle değişmiyor (basit tutuldu)
+  march.remainingHours = march.legHours;
 
   march.reportId = `${march.id}-${now}`;
   const report = {
@@ -1024,6 +1042,15 @@ function resolveArrival(march, origin, target, opts = {}) {
     fromName: march.fromName, fromKey: march.fromKey, toName,
     outcome: 'savas', winner: res.winner,
     attackerUnits: report.sent,
+    /*
+      SAVUNANIN KENDİ ORDUSU. Eskiden yazılmıyordu ("oyuncu zaten
+      biliyor") ama o andaki ordu artık yok: savaş onu değiştirdi ve
+      MİSAFİR TAKVİYELER de savunmaya katılmıştı — oyuncu köyünü kimin
+      savunduğunu hiç göremiyordu. Saldıranın raporundaki `theirSent`
+      ile aynı anlık görüntü; iki rapor aynı savaşı aynı sayılarla
+      anlatsın.
+    */
+    defenderUnits: { ...defenderUnits },
     myLosses: res.defenderLosses || {}, theirLosses: res.attackerLosses || {},
     loot, wallBonusPct: res.wallBonusPct,
     attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,
