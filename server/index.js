@@ -4676,9 +4676,14 @@ io.on('connection', async socket => {
     */
     const kahAday = (kahramaniGotur && KAHRAMAN_MODLARI.has(mode))
       ? kahramanDurumu(session) : null;
-    const kahHazir = !!(kahAday && kahramanKonagi(session)
-      && kahAday.usSlot === mySlot
-      && (kahAday.nerede || 'koy') === 'koy' && !kahAday.olu);
+    /*
+      TEK KAYNAK: aynı kural istemcide de okunuyor (SendArmyPanel).
+      Burada elle yazılıyken ikisi ayrışmıştı — konağı olmayan
+      kahramanda arayüz kutuyu açık gösteriyor, sunucu kahramanı
+      sessizce almıyordu.
+    */
+    const kahEngel = kahAday ? HERO.seferEngeli(kahAday, mySlot) : 'kahraman_yok';
+    const kahHazir = !!kahAday && !kahEngel;
 
     const res = ARMY.createMarch(village, {
       mode, units, distance: dist,
@@ -4703,13 +4708,8 @@ io.on('connection', async socket => {
       bayıltabilirdi ve oyuncu kahramanını geri alamazdı.
     */
     if (kahramaniGotur && KAHRAMAN_MODLARI.has(mode)) {
-      const kah = kahramanDurumu(session);
-      const konak = kahramanKonagi(session);
-      const uygun = kah && konak
-        && kah.usSlot === mySlot                 // kahraman BU köyde
-        && (kah.nerede || 'koy') === 'koy'       // seferde/macerada değil
-        && !kah.olu;                             // ölü değil
-      if (uygun) {
+      const kah = kahAday;
+      if (kahHazir) {
         const b = HERO.bonuslar(kah);
         res.march.kahraman = {
           gucu: b.saldiriGucu, saldiriYuzde: b.saldiriYuzde,
@@ -4724,10 +4724,28 @@ io.on('connection', async socket => {
           birim: b.birim || null,
         };
         res.march.kahramanUserId = userId;
+        /*
+          BAŞKA KÖYDE MİSAFİRKEN YOLA ÇIKIYORSA EV SAHİBİ KAYDI SİLİNİR.
+          Kahraman kendi köyüne takviyeye gönderilmiş olabiliyor ve artık
+          oradan sefere çıkabiliyor; misafir kaydı kalsaydı o köy olmayan
+          bir kahramanın savunma bonusunu almaya devam ederdi.
+        */
+        if (kah.misafirSlot) {
+          const evSahibi = villageAtSlot(kah.misafirSlot);
+          if (evSahibi?.village?.misafirKahraman?.userId === userId) {
+            delete evSahibi.village.misafirKahraman;
+            if (evSahibi.userId) markUserDirty(evSahibi.userId, kah.misafirSlot);
+          }
+          kah.misafirSlot = null;
+        }
         kah.nerede = 'sefer';
       }
-      // Uygun değilse sefer yine gidiyor, yalnız kahramansız. Reddetmek,
-      // ölü kahraman yüzünden saldırıyı tamamen iptal etmek olurdu.
+      /*
+        UYGUN DEĞİLSE SEFER YİNE GİDİYOR AMA SESSİZ DEĞİL. Reddetmek ölü
+        kahraman yüzünden saldırıyı tamamen iptal etmek olurdu; susmak
+        ise oyuncunun kahramanını yolladığını sanıp savaşı kahramansız
+        vermesi demekti (İlkan bildirdi).
+      */
     }
     /*
       MANCINIK HEDEFI — istemci bina TIPI gonderiyor (slot degil): saldiran
@@ -4758,6 +4776,12 @@ io.on('connection', async socket => {
     socket.emit('army_sent', {
       id: res.march.id, toName: tgtName, mode,
       seconds: res.march.legSeconds, distance: dist,
+      /*
+        KAHRAMAN İSTENDİ AMA GELMEDİYSE SEBEBİ. Boş bırakmak, oyuncuya
+        kahramanı yolladığını düşündürüyordu.
+      */
+      kahramanAtlandi: (kahramaniGotur && KAHRAMAN_MODLARI.has(mode) && kahEngel)
+        ? kahEngel : null,
     });
     console.log(`[SEFER] ${userEmail} → ${tgtName} (${mode}, ${dist} hex, ${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
   });
@@ -4933,7 +4957,30 @@ io.on('connection', async socket => {
       // `tag` aynen geri döner: aynı anda birden fazla ekran tahmin isteyebilir
       // (savaş simülatörü + saldırı ekranı), yanıtı kim istediyse o eşleştirsin.
       const { attacker = {}, defender = {}, surLevel = 0, hendekLevel = 0, kulePct = 0, mode = 'normal', tag = null,
-        attackerLevels = null, defenderLevels = null } = payload;
+        attackerLevels = null, defenderLevels = null, kahraman: kahramanIste = false } = payload;
+
+      /*
+        KAHRAMAN TAHMİNE GİRİYOR — ama yalnız GERÇEKTEN gidebilecekse.
+
+        Gücü burada hesaplanıyor, istemciden alınmıyor: uydurulmuş bir
+        kahraman gücüyle tahmin istenebilirdi. Uygunluk seferin
+        kendisiyle AYNI kuraldan okunuyor (HERO.seferEngeli), yoksa
+        tahmin kahramanlı çıkıp sefer kahramansız giderdi.
+      */
+      let kahramanEk = {};
+      if (kahramanIste) {
+        const kah = kahramanDurumu(session);
+        const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
+        if (kah && !HERO.seferEngeli(kah, mySlot)) {
+          const kb = HERO.bonuslar(kah);
+          kahramanEk = {
+            kahramanSaldiriGucu: kb.saldiriGucu || 0,
+            kahramanSaldiriYuzde: kb.saldiriYuzde || 0,
+            kahramanSuvari: HERO.suvariMi(kah),
+            kahramanBirimSaldiri: kb.birim || null,
+          };
+        }
+      }
       /**
        * Simülatörde saldıran taraf oyuncunun kendisi sayılıyor: yükseltme
        * verilmediyse KENDİ ekipman seviyeleri kullanılıyor, yoksa tahmin
@@ -4944,6 +4991,7 @@ io.on('connection', async socket => {
         surLevel, hendekLevel, kulePct, mode,
         attackerLevels: attackerLevels || v().equipmentLevels || null,
         defenderLevels,
+        ...kahramanEk,
       }) });
     } catch (err) {
       socket.emit('battle_result', { ok: false, tag: payload?.tag ?? null, error: err.message });

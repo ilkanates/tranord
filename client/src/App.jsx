@@ -1121,6 +1121,7 @@ function Game({ token, onLogout }) {
               world={village.world}
               kahraman={village.kahraman}
               activeSlot={village.activeSlot}
+              kendiKoyler={village.villages || []}
               birlikId={village.birlik?.id || null}
               pazar={village.pazar || null}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}

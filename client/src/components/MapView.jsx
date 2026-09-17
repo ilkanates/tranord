@@ -1090,6 +1090,10 @@ function HaritaGonderi({ target, socket, resources, pazar, onClose }) {
 
 export default function MapView({
   socket, world, productionTiles = {}, maxProductionSlots = 6, anaBina,
+  /* Oyuncunun KENDİ köy listesi (slot→ad) — sefer paneli kahramanın
+     hangi köyde olduğunu adıyla söyleyebilsin diye. Aşağıdaki
+     `villages` DÜNYA karoları; ikisi ayrı şeyler. */
+  kendiKoyler = [],
   freeWorkers = 0, resources = {}, flows = {}, railInset = 0, myArmy = 0,
   army = {}, unitDefs = {}, unitStatsNow = {}, intel = {}, marchInfo = {},
   /*
@@ -2401,6 +2405,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
           army={army} unitDefs={unitDefs} unitStatsNow={unitStatsNow} marchInfo={marchInfo}
           intel={intel[sendTarget.key] || null}
           kahraman={kahraman} activeSlot={activeSlot}
+          villages={kendiKoyler}
           baslangicKip={sendMode}
           onClose={() => { setSendTarget(null); setSendMode(null); }} />
       )}

@@ -26,6 +26,44 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17b',
+    tarih: '17 Eylül 2026',
+    baslik: 'Kahraman sefere neden katılmıyor',
+    notlar: [
+      {
+        id: '20260917-kahraman-sessiz-dusme',
+        tur: 'duzeltme',
+        metin: 'KAHRAMAN SESSİZCE GERİDE KALIYORDU. Kutuyu işaretleyip '
+          + 'sefer yolladığında kahraman uygun değilse ordu onsuz '
+          + 'gidiyor ama sana hiçbir şey söylenmiyordu — kahramanını '
+          + 'yolladığını sanıp savaşı kahramansız veriyordun. Artık '
+          + 'gönderim ekranında "Kahraman gitmedi" uyarısı ve sebebi '
+          + 'yazıyor.',
+      },
+      {
+        id: '20260917-kahraman-bulundugu-koy',
+        tur: 'yenilik',
+        metin: 'KAHRAMAN BULUNDUĞU KÖYDEN SEFERE ÇIKIYOR. Eskiden '
+          + 'yalnız konağının olduğu köyden yollanabiliyordu; başka '
+          + 'köyüne takviyeye gönderdiysen oradan sefere çıkaramıyor, '
+          + 'geri çağırmak zorunda kalıyordun. Artık fiilen hangi '
+          + 'köydeyse oradan yürüyor. Ayrıca "başka köyde" uyarısı '
+          + 'artık HANGİ köy olduğunu adıyla söylüyor.',
+      },
+      {
+        id: '20260917-kahraman-bonus-dogrulama',
+        tur: 'duzeltme',
+        metin: 'KAHRAMANIN SALDIRI BONUSU ÖLÇÜLDÜ VE KİLİTLENDİ. '
+          + 'Saldırı Puanı kahramanın kendi vuruşu olarak orduya ham '
+          + 'ekleniyor; SALDIRI BONUSU ise ordunun TAMAMINI yüzdeyle '
+          + 'çarpıyor — ikisi birlikte çalışıyor, yani yüzde '
+          + 'kahramanın kendi gücünü de kapsıyor. Hatırlatma: Saldırı '
+          + 'Bonusu bir SKİL; puan dağıtmadıysan ordu yüzden %0 olur '
+          + 've kahraman yalnız kendi vuruşunu ekler.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17a',
     tarih: '17 Eylül 2026',
     baslik: 'Elçilik artık birliğin merkezi',

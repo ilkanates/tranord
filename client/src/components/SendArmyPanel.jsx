@@ -212,7 +212,7 @@ function UnitRow({ u, def, st, have, value, onChange, disabled, reason }) {
 
 export default function SendArmyPanel({
   socket, target, army = {}, unitDefs = {}, unitStatsNow = {}, marchInfo = {}, intel = null,
-  kahraman = null, activeSlot = null, onClose,
+  kahraman = null, activeSlot = null, villages = [], onClose,
   /*
     HARİTA KISAYOLUNDAN GELEN KİP. Oyuncu köye tıklayıp "KEŞFET" dediyse
     ekran keşif kipinde açılmalı; varsayılana düşüp oyuncuyu kipi tekrar
@@ -226,6 +226,24 @@ export default function SendArmyPanel({
     (index.js). Saldırı ve yağmada savaşır, takviyede gittiği köyü savunur.
   */
   const KAHRAMAN_MODLARI = new Set(['attack', 'raid', 'takviye']);
+  /*
+    KAHRAMAN İSTENDİ AMA GELMEDİ — SEBEBİ.
+
+    Sunucu seferi kahramansız yolluyor (ölü kahraman yüzünden saldırıyı
+    iptal etmek yanlış olurdu) ama artık susmuyor. Susması, oyuncunun
+    kahramanını yolladığını sanıp savaşı kahramansız vermesi demekti
+    (İlkan bildirdi).
+  */
+  const ATLANDI_METNI = {
+    kahraman_yok: 'Kahramanın olmadığı için',
+    olu: 'Kahramanın baygın olduğu için',
+    seferde: 'Kahraman zaten seferde olduğu için',
+    macerada: 'Kahraman macerada olduğu için',
+    donuyor: 'Kahraman eve dönüş yolunda olduğu için',
+    konak_yok: 'Kahraman Konağın olmadığı için',
+    baska_koyde: 'Kahraman başka köyde olduğu için',
+  };
+
   const NEREDE_ENGEL = {
     sefer: 'Zaten seferde', macera: 'Macerada',
     takviye: 'Başka köyde takviyede', donuyor: 'Eve dönüş yolunda',
@@ -355,13 +373,36 @@ export default function SendArmyPanel({
     ekran "Cannot access 'kahramanUygun' before initialization" diye
     çöküyordu (tarayıcıda görüldü).
   */
+  /*
+    KAHRAMANIN BULUNDUĞU KÖYÜN ADI. "Başka köyde" deyip hangisi olduğunu
+    söylememek, oyuncuyu kahramanını aramak için köyleri tek tek
+    gezdiriyordu.
+  */
+  const kahramanKoyu = (kahraman?.bulunduguSlot && villages.length)
+    ? (villages.find(v => v.slotKey === kahraman.bulunduguSlot)?.name || null)
+    : null;
+
+  /*
+    KURAL SUNUCUDAN: paket kahramanın FİİLEN bulunduğu slotu taşıyor
+    (üssü ya da takviyede olduğu köy). Burada elle yazılıyken sunucudaki
+    koşuldan ayrışmıştı ve konağı olmayan kahramanda kutu açık
+    görünüyordu — sunucu ise kahramanı sessizce almıyordu.
+
+    TAKVİYE ARTIK ENGEL DEĞİL: kahraman kendi başka köyünde misafirse o
+    köyden sefere çıkabiliyor, o yüzden 'takviye' durumu tek başına
+    kutuyu kapatmıyor; kapatan şey KÖYÜN FARKLI olması.
+  */
   const kahramanEngeli = !kahraman?.var ? 'Kahramanın yok'
     : kahraman.olu ? 'Ölü — önce diriltmen gerekiyor'
-      : (kahraman.nerede && kahraman.nerede !== 'koy')
+      : (kahraman.nerede === 'sefer' || kahraman.nerede === 'macera'
+        || kahraman.nerede === 'donuyor')
         ? NEREDE_ENGEL[kahraman.nerede] || 'Şu an başka bir işte'
-        : (activeSlot && kahraman.usSlot && kahraman.usSlot !== activeSlot)
-          ? 'Başka köyde — konağının olduğu köyden yollanır'
-          : null;
+        : !kahraman.bulunduguSlot
+          ? 'Kahraman Konağı yok — kahramanın yürüyecek bir yeri yok'
+          : (activeSlot && kahraman.bulunduguSlot !== activeSlot)
+            ? `${kahramanKoyu ? kahramanKoyu + ' köyünde' : 'Başka köyde'} — `
+              + 'sefer oradan çıkmalı'
+            : null;
   const kahramanUygun = !!kahraman?.var && !kahramanEngeli;
 
   /*
@@ -429,6 +470,13 @@ export default function SendArmyPanel({
         // Kule bonusu okçu dolulukla ölçekli geliyor — tahmin de bunu saymalı
         kulePct: intel.kulePct || 0,
         mode: mode === 'raid' ? 'raid' : 'normal',
+        /*
+          KAHRAMAN TAHMİNE DE GİRSİN. Girmiyordu: kutuyu işaretleyince
+          tahmindeki sayılar hiç değişmiyor, oyuncu da haklı olarak
+          "bonus yansımıyor" diyordu (İlkan bildirdi). Gücü sunucu
+          hesaplıyor; buradan yalnız "götürüyorum" bilgisi gidiyor.
+        */
+        kahraman: kahramanYuruyor,
       });
     }, 220);   // yazarken her tuşta istek atma
     return () => clearTimeout(t);
@@ -438,8 +486,13 @@ export default function SendArmyPanel({
       açıkken sunucuya saniyede bir gereksiz istek giderdi.
       eslint-disable-next-line react-hooks/exhaustive-deps
     */
+    /*
+      `kahramanYuruyor` de bağımlılık: kutu değişince tahmin yeniden
+      istenmeli, yoksa kahramanlı ve kahramansız tahmin aynı kalır —
+      düzeltmeye çalıştığımız yanılgının ta kendisi.
+    */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, mode, intelAnahtar, chosenTotal, JSON.stringify(chosen)]);
+  }, [socket, mode, intelAnahtar, chosenTotal, kahramanYuruyor, JSON.stringify(chosen)]);
 
   // ESC ile kapat
   useEffect(() => {
@@ -520,6 +573,17 @@ export default function SendArmyPanel({
               {sent.toName} — varış {fmtTime(sent.seconds)} sonra, dönüş bir o kadar.
               Seferi Ordu sekmesinden izleyebilirsin; sonuç savaş raporu olarak gelir.
             </div>
+            {sent.kahramanAtlandi && (
+              <div style={{
+                marginTop: 8, padding: '7px 9px', borderRadius: 5,
+                background: 'rgba(242,187,96,0.10)', border: `1px solid ${C.warn}44`,
+                fontFamily: FONT.ui, fontSize: 10.5, color: '#f5dca8', lineHeight: 1.55,
+              }}>
+                <b>Kahraman gitmedi.</b>{' '}
+                {ATLANDI_METNI[sent.kahramanAtlandi] || 'Uygun olmadığı için'} sefere
+                katılamadı; ordu kahramansız yola çıktı.
+              </div>
+            )}
             <button onClick={onClose} style={btn('primary', { width: '100%', marginTop: 10, padding: 8 })}>
               TAMAM
             </button>

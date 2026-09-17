@@ -297,6 +297,40 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
 - **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
 
+### Kahraman sefere neden katılmıyor — üç hata (17 Eylül 2026)
+- İlkan: *"başka bir köye saldırırken kahramanımı da gönderdiğimde saldırı bonusu orduya yansıyor mu, kesin kontrol yap. bir de kahramanı şu an saldırıya ekleyemiyorum, başka köyde diyor."*
+
+**SORU 1: BONUS YANSIYOR MU? — EVET, ÖLÇÜLDÜ.** Aynı savaş kahramanlı ve kahramansız çözülüp sayılar karşılaştırıldı (200 fjordvakt + 100 nordkamper → 150 fjordvakt, sursuz):
+
+| katkı | ölçüm |
+|---|---|
+| Saldırı Puanı (ham güç) | ordu toplamına **birebir** ekleniyor: 13.300 → 13.552 (+252) |
+| Saldırı Bonusu (yüzde) | ordunun **TAMAMINI** çarpıyor: %10 → ×1,1000 · %25 → ×1,2500 · %50 → ×1,5000 (tam) |
+| ikisi birlikte | (ordu + kahraman) × yüzde — yani yüzde kahramanın **kendi gücünü de kapsıyor**: 16.940 = (13.300 + 252) × 1,25 |
+| savaşa etkisi | saldıran kaybı 59 → **41** |
+
+- **ÖNEMLİ KAYIT — İlkan'ın kahramanında ordu yüzdesi %0.** Sebebi hata değil: yüzde `saldiriBonus` SKİLİNDEN geliyor (puan başına %0,2, tavan %20) ve kahramanda **300 skil puanı dağıtılmamış** duruyor. Puan dağıtılmadan kahraman yalnız kendi vuruşunu (252) ekliyor. Oyuncunun "bonus yansıyor mu" sorusunun asıl cevabı bu.
+- **Kilit**: `kahraman-saldiri-bonusu.test.js` 7 test — ham gücün birebir eklenmesi, yüzdenin ORDUNUN TAMAMINA uygulanması, ikisinin sırası, savaş SONUCUNUN değişmesi, atlı kahramanın gücünün süvari tarafına yazılması, raporda ayrı satır, ve sıfır bonusun hiçbir şeyi değiştirmemesi.
+
+**SORU 2: "BAŞKA KÖYDE" — ÜÇ AYRI HATA ÇIKTI.**
+
+1. **Kural ÜÇ yerde elle yazılıydı ve ayrışmıştı** (istemcide bir, sunucuda iki). İstemci *"usSlot doluysa ve farklıysa engelle"*, sunucu *"usSlot mySlot'a EŞİT olmalı"* diyordu. Konağı olmayan kahramanda (`usSlot = null`) istemci kutuyu **açık** gösteriyor, sunucu kahramanı **almıyordu**. Bu oturumda "aynı kural iki yerde" sınıfından **sekizinci** hata. Artık tek kaynak: `HERO.seferEngeli()`.
+2. **Sunucu kahramanı SESSİZCE düşürüyordu.** Uygun değilse sefer kahramansız gidiyor ve oyuncuya hiçbir şey söylenmiyordu — kahramanını yolladığını sanıp savaşı kahramansız veriyordu. Seferi iptal etmemek doğru (ölü kahraman yüzünden saldırıyı çöpe atmak olurdu) ama **susmak** değil. Sebep artık `army_sent` ile dönüyor ve gönderim ekranında sarı kutuda yazıyor.
+3. **Kahraman bulunduğu köyden çıkamıyordu.** Kural "yalnız konağın olduğu köyden" idi; kahraman kendi başka köyüne takviyeye gönderilebiliyor ama oradan sefere çıkamıyordu, tek çıkışı geri çağırmaktı. Artık **fiilen bulunduğu** köyden yürüyor (`bulunduguSlot` = takviyedeyse misafir olduğu köy, değilse üssü). Başkasının köyünde misafirken yine çıkamıyor — zaten oradan sefer gönderilemez, yani o dal kendiliğinden kapalı. Yola çıkarken ev sahibi köydeki misafir kaydı siliniyor, yoksa o köy olmayan bir kahramanın savunma bonusunu almaya devam ederdi.
+- Ayrıca uyarı artık **hangi köy** olduğunu adıyla söylüyor ("Bergsund köyünde — sefer oradan çıkmalı"); eskiden "Başka köyde" deyip bırakıyordu ve oyuncu kahramanını aramak için köyleri tek tek geziyordu.
+
+- **Kilit**: `kahraman-sefer-engel.test.js` 8 test — her dal (ev/başka köy/takviye/sefer/macera/dönüş/ölü/konaksız), slot verilmediğinde yalnız durum sorgulanması ve özetin `bulunduguSlot` taşıması.
+**DÖRDÜNCÜ VE ASIL HATA: SALDIRI TAHMİNİ KAHRAMANI HİÇ SAYMIYORDU.**
+- İlkan: *"saldırı bonusu olması lazım, 24 puan verdim kahramana."*
+- `simulate_battle` kahramanla ilgili **tek bir parametre almıyordu**: ne ham güç, ne ordu yüzdesi, ne süvari sınıfı, ne eşya birim bonusu. Oyuncu gönderim ekranında kutuyu işaretliyor, tahmindeki sayılar **kıl payı değişmiyor** ve haklı olarak "bonus yansımıyor" diyordu. Savaşın kendisi doğruydu — **tahmin yalan söylüyordu**, ki bu daha kötüsü: oyuncu kararını tahmine bakarak veriyor.
+- **Güç SUNUCUDA hesaplanıyor**, istemciden gelmiyor: istemci yalnız "kahramanı götürüyorum" diyebiliyor. Bonusu istemciden alsaydık uydurulmuş bir kahraman gücüyle tahmin istenebilirdi — üstelik tahmin ekranı hedefin savunmasını da gösterdiği için bu bilgi sızdırırdı.
+- **Uygunluk aynı tek kaynaktan** (`HERO.seferEngeli`): kahraman o köyden çıkamıyorsa tahmine de girmiyor. Yoksa tahmin kahramanlı, gerçek sefer kahramansız olurdu — tam da düzeltilmeye çalışılan yanılgı.
+- İstemcide `kahramanYuruyor` tahmin efektinin bağımlılığına eklendi: kutu değişince tahmin yeniden isteniyor.
+
+**BONUS EĞRİSİ DEĞİŞMEDİ** (İlkan'ın kararı: *"bonus böyle kalsın"*). Kayıt için ölçülen değerler: `saldiriBonus` puan başına %0,2, tavan %20 — yani 24 puan **%4,8**, tavan için 100 puan gerekiyor. Oyuncunun "bonus yok" hissinin sebebi eğri değil, tahmin ekranının yalan söylemesiydi.
+
+- **TARAYICIDA DOĞRULANDI**: kahramanlı sefer isteği gönderildi, sunucu `kahramanAtlandi: "konak_yok"` döndürdü ve sefer yine gitti — sessiz düşme bitti. Paket `usSlot`, `misafirSlot` ve `bulunduguSlot` alanlarını taşıyor.
+
 ### Elçilik birliğin merkezi oldu — diplomasi, günlük, profil, istatistik (17 Eylül 2026)
 - İlkan: *"elçilik binasına birlik ile alakalı her şeyi ekle. travianda ne varsa bizim elçilikte de olsun. benzer oyunlara da bak."*
 

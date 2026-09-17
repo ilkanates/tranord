@@ -255,6 +255,56 @@ function yeniKahraman(usKoyu = null) {
 }
 
 /**
+ * KAHRAMAN ŞU AN HANGİ KÖYDE?
+ *
+ * Takviyedeyse misafir olduğu köyde, değilse üssünde (konağının olduğu
+ * köy). İki ayrı alan olduğu için "kahraman nerede" sorusunun tek bir
+ * cevabı olmalı — yoksa her çağıran kendi yorumunu yapar.
+ */
+function bulunduguSlot(k) {
+  if (!k || !k.var) return null;
+  if ((k.nerede || 'koy') === 'takviye' && k.misafirSlot) return k.misafirSlot;
+  return k.usSlot || null;
+}
+
+/**
+ * BU KÖYDEN SEFERE KATILABİLİR Mİ?
+ *
+ * TEK KAYNAK: hem sunucu denetimi hem arayüzün kutuyu açıp kapaması
+ * buradan okuyor. Kural iki yerde yazılıyken ayrışmıştı — konağı
+ * olmayan kahramanda arayüz kutuyu açık gösteriyor, sunucu kahramanı
+ * sessizce almıyordu.
+ *
+ * @param {object} k kahraman kaydı
+ * @param {string|null} slotKey seferin ÇIKTIĞI köy
+ * @returns {string|null} engel anahtarı ya da null (uygun)
+ */
+function seferEngeli(k, slotKey = null) {
+  if (!k || !k.var) return 'kahraman_yok';
+  if (k.olu) return 'olu';
+  const nerede = k.nerede || 'koy';
+  if (nerede === 'sefer') return 'seferde';
+  if (nerede === 'macera') return 'macerada';
+  if (nerede === 'donuyor') return 'donuyor';
+  /*
+    KONAĞI YOKSA ÜSSÜ DE YOK. Kahraman kaydı duruyor (konak yıkılsa bile
+    silinmiyor — bir mancınık dalgası aylarca biriken kahramanı
+    sıfırlamasın) ama yürüyecek bir yeri yok.
+  */
+  const bulundugu = bulunduguSlot(k);
+  if (!bulundugu) return 'konak_yok';
+  /*
+    FİİLEN BULUNDUĞU KÖYDEN ÇIKIYOR — konağının olduğu köyden değil.
+    Kahraman kendi başka köyüne takviyeye gönderilebiliyor; oradan
+    sefere çıkamamak onu geri çağırmaktan başka seçenek bırakmıyordu.
+    Başkasının köyünde misafirken yine çıkamıyor: zaten oradan sefer
+    gönderilemez, yani bu dal kendiliğinden kapalı.
+  */
+  if (slotKey && bulundugu !== slotKey) return 'baska_koyde';
+  return null;
+}
+
+/**
  * ESKİ KAYITLARI DÜZELT.
  *
  * Kahraman sistemi geliştirilirken alanların şekli değişti: envanter
@@ -641,6 +691,12 @@ function ozet(k, konakSeviyesi = 0) {
   return {
     var: true,
     usSlot: k.usSlot || null,
+    /*
+      MİSAFİR SLOTU DA GİDİYOR: arayüz "kahraman şu an hangi köyde"
+      sorusunu ancak ikisini birlikte görerek cevaplayabiliyor.
+    */
+    misafirSlot: k.misafirSlot || null,
+    bulunduguSlot: bulunduguSlot(k),
     xp: Math.round(k.xp || 0),
     seviye: ilerleme.seviye,
     xpSimdiki: Math.round(ilerleme.simdiki),
@@ -731,6 +787,7 @@ module.exports = {
   SIFIRLAMA_TABAN, SIFIRLAMA_CARPANI, duzelt,
   ZIRHLANMA_TAVANI, zirhlanmaYuzdesi,
   KAHRAMAN_TABAN_HIZ, KAHRAMAN_HIZ_TAVANI, AT_HIZ_EKI, hizi, suvariMi,
+  bulunduguSlot, seferEngeli,
   XP_OLDURULEN_BASINA, SAVAS_HASAR_TAVANI, savasSonucu,
   seviyeIcinToplamXp, xpSeviyesi, seviyeIlerlemesi,
   canTavani, iyilesmeHizi,
