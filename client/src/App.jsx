@@ -231,10 +231,130 @@ function scaleLabel(hourSeconds, mult) {
   return `1 oyun saati = ${s.toFixed(s < 10 ? 1 : 0)} sn`;
 }
 
+/*
+  ÜST BAR ÖLÇEK TABANLARI — TEK KAYNAK.
+
+  ETIKET_TABANI hem "ne kadar küçülebilir" hem de "ne zaman etiketler
+  düşer" sorusunun cevabı. İki ayrı sayı olsaydı aralarında bir aralık
+  kalır ve şerit orada kırpılırdı — nitekim kalmıştı.
+*/
+const ETIKET_TABANI = 0.70;   // 13.5 px yazı ~9.5 px olur, hâlâ okunuyor
+const IKON_TABANI = 0.55;     // ikon 15 px; yarıya insa da taniniyor
+
 export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
   villages = [], activeSlot = null, onSwitchVillage, playerName = '',
   vp = { mobile: false, railW: 186 }, onOpenStatus, nufus = null }) {
   const dar = vp.mobile;
+
+  /*
+    SEKME ŞERİDİ SIĞMIYORSA ÖLÇEKLENİYOR (İlkan'ın isteği: "scroll
+    çıkmasın, scale olsun"). Sekmeler bir MENÜ — hepsinin aynı anda
+    görünmesi gerekiyor; kaydırma, varlığını bilmediğin bir sekmeyi
+    ekran dışında saklamak olurdu.
+  */
+  const navRef = useRef(null);
+  const navIcRef = useRef(null);
+  const [navOlcek, setNavOlcek] = useState(1);
+  const [navIkonSadece, setNavIkonSadece] = useState(false);
+  /*
+    ETİKETLİ doğal genişlik burada saklanıyor. İkon moduna geçince şerit
+    daralıyor; kararı o daralmış genişliğe göre verseydik "artık sığıyor"
+    deyip etiketleri geri açar, sonra yine sığmaz bulup kapatırdık.
+  */
+  const tamGenislikRef = useRef(0);
+  const ikonSadeceRef = useRef(false);
+  /*
+    Ölçüm işlevi dışarıdan da çağrılabilsin diye ref'te: mod değişince
+    yeniden ölçmek gerekiyor ve bu, gözlemcinin yakalayamadığı bir
+    değişim (şeridin kutusu değil, yalnız içeriği değişiyor).
+  */
+  const olcRef = useRef(null);
+
+  useEffect(() => {
+    const kap = navRef.current;
+    const ic = navIcRef.current;
+    if (!kap || !ic || dar) { setNavOlcek(1); setNavIkonSadece(false); return undefined; }
+    const olc = () => {
+      const yer = kap.clientWidth;
+      if (!yer) return;
+      /*
+        DOĞAL genişlik yalnız ETİKETLİ hâlde ölçülüyor ve saklanıyor.
+        Dönüşüm yerleşimi değiştirmediği için `scrollWidth` ölçek
+        uygulanmışken de doğru okunuyor — `getBoundingClientRect()`
+        ölçeklenmiş genişliği okur, ondan yeni ölçek üretir ve şerit her
+        karede küçülürdü.
+      */
+      if (!ikonSadeceRef.current && ic.scrollWidth) tamGenislikRef.current = ic.scrollWidth;
+      const tam = tamGenislikRef.current;
+      if (!tam) return;
+
+      /*
+        İKİ EŞİK: 0,72'nin altına inince etiketler düşüyor, 0,80'in
+        üstüne çıkınca geri geliyor. Tek eşik olsaydı pencere tam
+        sınırda birkaç piksel oynadığında şerit titrerdi.
+      */
+      const oran = yer / tam;
+      /*
+        EŞİK TABANLA AYNI SAYI OLMAK ZORUNDA. Ayrı seçilince arada
+        bir aralık kalıyordu: gereken ölçek 0,73 iken mod hâlâ
+        etiketli, taban ise 0,78 — şerit kırpılıyordu (ölçüldü).
+        Kural tek cümle: gereken ölçek tabanın altına düşüyorsa
+        etiketler düşer. Çıkış eşiği 0,86 — tam sınırda pencere
+        birkaç piksel oynadığında şerit titremesin diye.
+      */
+      const yeniIkon = ikonSadeceRef.current ? oran < 0.86 : oran < ETIKET_TABANI;
+      if (yeniIkon !== ikonSadeceRef.current) {
+        ikonSadeceRef.current = yeniIkon;
+        setNavIkonSadece(yeniIkon);
+        /*
+          Ölçeği ŞİMDİ hesaplamıyoruz: şerit hâlâ eski hâlinde çizili.
+          Aşağıdaki efekt, yeni hâl çizildikten sonra yeniden ölçüyor.
+        */
+        return;
+      }
+
+      /*
+        TABAN MODA GÖRE: etiketliyken 0,78 (altında yazı okunmuyor),
+        yalnız ikonken 0,55 — ikon 15 px, yarıya inse bile tanınıyor
+        ve buradaki tek amaç kaydırmayı tamamen bitirmek.
+      */
+      const suanki = ic.scrollWidth || tam;
+      const taban = ikonSadeceRef.current ? IKON_TABANI : ETIKET_TABANI;
+      setNavOlcek(suanki <= yer ? 1 : Math.max(taban, yer / suanki));
+    };
+    olcRef.current = olc;
+    olc();
+    /*
+      Yalnız KAP izleniyor: şeridin kendi kutusu kaba sıkıştığı için
+      değişmiyor, onu izlemek hiçbir zaman tetiklenmeyen bir dinleyici
+      olurdu.
+    */
+    const go = new ResizeObserver(olc);
+    go.observe(kap);
+    /*
+      PENCERE OLAYI DA DİNLENİYOR. ResizeObserver bazı ortamlarda
+      görünüm alanı değişiminde tetiklenmiyor (tarayıcı panelinde
+      ölçüldü: kap 328 → 928 oldu, geri çağrı hiç koşmadı ve şerit
+      eski ölçekte kaldı). İkisi birlikte hiçbir durumu kaçırmıyor.
+    */
+    window.addEventListener('resize', olc);
+    return () => {
+      go.disconnect();
+      window.removeEventListener('resize', olc);
+      olcRef.current = null;
+    };
+  }, [dar]);
+
+  /*
+    MOD DEĞİŞTİKTEN SONRA YENİDEN ÖLÇ.
+
+    `requestAnimationFrame` ile denendi ve yetmedi: geri çağrı React'in
+    yeni durumu ÇİZMESİNDEN ÖNCE koşuyor, yani şerit hâlâ etiketliyken
+    ölçülüyor ve ölçek tabana yapışıyordu (0,55, oysa 0,71 yetiyordu).
+    Efekt çizimden sonra koşuyor.
+  */
+  useEffect(() => { olcRef.current?.(); }, [navIkonSadece]);
+
   return (
     <header style={{
       flexShrink: 0, zIndex: 20, position: 'relative',
@@ -308,15 +428,33 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
         Alt bar hem basparmakla ulasilabilir hem de ust barda marka +
         koy secici + kullanici ile birlikte 8 sekme 390 px'e sigmiyordu.
       */}
-      <nav className="tn-scroll"
-        style={{ flex: 1, display: dar ? 'none' : 'flex', alignItems: 'stretch', paddingLeft: 6, minWidth: 0, overflowX: 'auto' }}>
+      {/*
+        ŞERİT KAYDIRMIYOR, ÖLÇEKLENİYOR (İlkan'ın isteği). Sekmeler bir
+        MENÜ: hepsinin aynı anda görünmesi gerekiyor. Kaydırma, varlığını
+        bilmediğin bir sekmeyi ekran dışında saklamak olurdu.
+      */}
+      <nav ref={navRef}
+        style={{
+          flex: 1, display: dar ? 'none' : 'flex', alignItems: 'stretch',
+          paddingLeft: 6, minWidth: 0, overflow: 'hidden',
+        }}>
+        <div ref={navIcRef} style={{
+          display: 'flex', alignItems: 'stretch',
+          transform: `scale(${navOlcek})`,
+          transformOrigin: 'left center',
+          /* Ölçek değişimi ani olmasın — pencere sürüklenirken zıplıyordu */
+          transition: 'transform .12s ease-out',
+        }}>
         {TABS.map(t => {
           const on = tab === t.key;
           return (
             <button key={t.key} data-tut={`tab-${t.key}`} onClick={() => setTab(t.key)}
+              /* İkon modunda etiket yok — fare için başlık şart */
+              title={navIkonSadece ? t.label : undefined}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
-                padding: '0 15px', border: 'none', background: 'transparent',
+                padding: navIkonSadece ? '0 11px' : '0 15px',
+                border: 'none', background: 'transparent',
                 borderBottom: `2px solid ${on ? C.ice : 'transparent'}`,
                 color: on ? C.frost : C.textFaint,
                 fontFamily: FONT.head, fontSize: 13.5, fontWeight: on ? 600 : 500,
@@ -331,7 +469,13 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
               onMouseOut={(e) => { if (!on) e.currentTarget.style.color = C.textFaint; }}
             >
               <Icon name={t.icon} size={15} color={on ? C.ice : C.textMute} />
-              {t.label}
+              {/*
+                DAR PENCEREDE YALNIZ İKON. İkonlar bilerek birbirinden
+                ayrı seçilmişti (bkz. yukarıdaki TABS yorumu), yani tek
+                başına ikon sekmeyi ayırt ediyor. Etiket düşünce şerit
+                üçte birine iniyor ve kaydırma gerekmeden sığıyor.
+              */}
+              {!navIkonSadece && t.label}
               {/* Okunmamış rapor sayacı — sekmeyi açınca sıfırlanır */}
               {badges[t.key] > 0 && (
                 <span style={{
@@ -344,6 +488,7 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
             </button>
           );
         })}
+        </div>
       </nav>
 
       {/* Hız + kullanıcı */}

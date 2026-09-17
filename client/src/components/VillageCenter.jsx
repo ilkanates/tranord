@@ -23,7 +23,7 @@ import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf, yikimOnayi } from
 import Icon, { buildingIcon } from './Icons';
 import usePinchPan from './usePinchPan';
 import KoyKartGorunumu from './KoyKartGorunumu';
-import { useHoverable, TAP } from '../responsive';
+import { useHoverable, TAP, BP } from '../responsive';
 // Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
 import surTexture from '../assets/buildings/sur-doku.jpg';
 // EKİPMAN ÜRETEN BİNALAR ARTIK SUNUCUDAN GELİYOR: payload'daki
@@ -938,7 +938,13 @@ export default function VillageCenter({
       const kayit = localStorage.getItem('tn.koyGorunum');
       if (kayit === 'hex' || kayit === 'kart') return kayit;
     } catch { /* depo kapalı — varsayılana düş */ }
-    return (typeof window !== 'undefined' && window.innerWidth < 760) ? 'kart' : 'hex';
+    /*
+      EŞİK UYGULAMANIN KENDİ KIRILMA NOKTASI (`BP.mobile`), elle
+      yazılmış bir sayı değil: iki yerde tutulsaydı biri değişince
+      sessizce ayrışırdı.
+    */
+    return (typeof window !== 'undefined' && window.innerWidth < BP.mobile)
+      ? 'kart' : 'hex';
   });
   const gorunumSec = (g) => {
     setGorunum(g);
@@ -1200,18 +1206,32 @@ export default function VillageCenter({
         display: 'flex', gap: 3, padding: 3, borderRadius: 7,
         background: 'rgba(6,11,18,0.82)', border: `1px solid ${C.lineSoft}`,
       }}>
-        {[['hex', 'koy', 'Köy sahnesi'], ['kart', 'kitap', 'Kart listesi']]
-          .map(([g, ikon, baslik]) => (
-            <button key={g} type="button" onClick={() => gorunumSec(g)} title={baslik}
-              style={{
-                display: 'grid', placeItems: 'center', cursor: 'pointer',
-                width: 30, height: 26, borderRadius: 5, border: 'none',
-                background: gorunum === g ? 'rgba(143,220,255,0.16)' : 'transparent',
-              }}>
-              <Icon name={ikon} size={14}
-                color={gorunum === g ? C.frost : C.textMute} />
-            </button>
-          ))}
+        {/*
+          SEÇİLİ GÖRÜNÜMÜN ADI YAZIYOR. İki ikon vardı ve telefonda
+          başlık balonu diye bir şey yok: hangisinin ne yaptığı belirsiz
+          kalıyordu (İlkan kart görünümünü telefonda bulamadı). Ad
+          yalnız SEÇİLİ olanda yazıyor — ikisinde de yazsaydı düğme
+          şeridi köy sahnesinin yarısını kaplardı.
+        */}
+        {[['hex', 'koy', 'SAHNE', 'Köy sahnesi'],
+          ['kart', 'kitap', 'KART', 'Kart listesi']].map(([g, ikon, kisa, baslik]) => (
+          <button key={g} type="button" onClick={() => gorunumSec(g)} title={baslik}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+              height: 28, padding: gorunum === g ? '0 9px' : '0 7px',
+              borderRadius: 5, border: 'none',
+              background: gorunum === g ? 'rgba(143,220,255,0.16)' : 'transparent',
+            }}>
+            <Icon name={ikon} size={14}
+              color={gorunum === g ? C.frost : C.textMute} />
+            {gorunum === g && (
+              <span style={{
+                fontFamily: FONT.ui, fontSize: 8.5, letterSpacing: 1,
+                color: C.frost,
+              }}>{kisa}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       <div ref={containerRef} {...(kartGorunumu ? {} : pinch.handlers)} style={{

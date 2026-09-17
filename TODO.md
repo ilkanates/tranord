@@ -274,6 +274,27 @@ kabul/iptal`). Bu maddede kalan:
 - Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
 - **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
 
+### Harita boyaması ve üst bar taşması (17 Eylül 2026)
+- İlkan: *"haritada oyuncu köylerini boyama, sadece dış çevresini çerçeve ile boya ve biraz kalın bir çizgi ile. Ek olarak ormanın etrafında da çerçeve yeşil, o da karıştırıyor — üretim alanlarının etrafındaki renkli çerçeveleri kaldır."* ve *"tepedeki menüler ekrana sığmadığı için scroll çıkıyor, çıkmayacak gibi ayarla, yani scale olsun PC'de."*
+
+**HARİTA — üç değişiklik.**
+1. **Sahiplik dolgusu kalktı.** Her sahipli hex oyuncunun renginde yarı saydam boyanıyordu; altındaki arazi dokusu (orman, taş, tarla) rengin altında kayboluyor ve harita renk lekesine dönüyordu. Sahiplik artık yalnız çerçeveyle anlatılıyor.
+2. **Çerçeve yalnız DIŞ SINIRDA ve kalın** (3,2 px). Her hex'in kendi altıgeni çiziliyordu: altı köylü bir oyuncunun toprağı içeriden petek ızgarasına dönüyor, dış hat iç çizgilerin arasında kayboluyordu. Artık yalnız **komşusu başkası olan** kenar çiziliyor — aynı OYUNCUYA ait komşu iç sayılıyor, yani bitişik köyleri tek toprak gibi okunuyor. Yan etki: daha az çizim.
+3. **Bonuslu karoların renkli çerçevesi kalktı.** Ormanınki yeşildi ve oyuncu sınırının yeşiliyle karışıyordu. Bonusun ne olduğu dokusundan ve yüzde rozetinden zaten belli.
+- Komşu testi için sahiplik haritası **tek geçişte** kuruluyor: her kenar için `list` dizisini taramak 2.160 hex'te altı kat iş olurdu.
+
+**ÜST BAR — iki aşamalı daralma.**
+- **ÖLÇÜLDÜ**: 900 px'lik pencerede marka + köy seçici + sağdaki denetimlerden sonra şeride 328 px kalıyor; 11 sekme etiketleriyle **1215 px** istiyor. Yalnız ölçek uygulasaydık 0,27 gerekirdi — yazı okunmaz olurdu.
+- Bu yüzden iki aşama: önce **ölçek** (0,70'e kadar), sonra **yalnız ikon** (ikonlar bilerek birbirinden ayrı seçilmişti, tek başına sekmeyi ayırt ediyorlar; etiket düşünce şerit 1215 → **461 px**'e iniyor). İkon modunda taban 0,55.
+- **EŞİK İLE TABAN AYNI SAYI** (`ETIKET_TABANI`): ayrı seçilince aralarında bir aralık kalıyordu — gereken ölçek 0,73 iken mod hâlâ etiketli, taban 0,78, şerit kırpılıyordu (ölçüldü). Kural tek cümle: *gereken ölçek tabanın altına düşüyorsa etiketler düşer.* Çıkış eşiği 0,86 — tam sınırda pencere birkaç piksel oynayınca şerit titremesin diye.
+- **İki ölçüm tuzağı yaşandı ve ikisi de not edildi:**
+  - `requestAnimationFrame` ile yeniden ölçmek YETMİYOR: geri çağrı React'in yeni durumu çizmesinden ÖNCE koşuyor, şerit hâlâ etiketliyken ölçülüyor ve ölçek tabana yapışıyordu. Çözüm: mod değişimine bağlı bir efekt (çizimden sonra koşuyor).
+  - `ResizeObserver` şeridin kendisinde hiç tetiklenmiyor: şerit bir flex öğesi, kabına sıkıştığı için **kutusu** hep aynı genişlikte, değişen yalnız `scrollWidth`. Ayrıca tarayıcı panelinde kap 328 → 928 olduğu hâlde geri çağrı hiç koşmadı; bu yüzden `window.resize` de dinleniyor.
+- Doğal genişlik `scrollWidth` ile okunuyor: CSS dönüşümü yerleşimi değiştirmediği için sayı ölçek uygulanmışken de doğru. `getBoundingClientRect()` ölçeklenmiş genişliği okur, ondan yeni ölçek üretir ve şerit her karede küçülürdü.
+- **DOĞRULANDI**: 1500 px'te etiketler duruyor, ölçek 0,734, görünen genişlik = kap genişliği (kırpma yok). 900 px'te etiketler düşüyor, ölçek 0,711, yine tam oturuyor. Hiçbir genişlikte kaydırma yok.
+
+**Kart görünümü düğmesi.** Telefonda iki küçük ikon vardı ve başlık balonu olmadığı için hangisinin ne yaptığı belirsizdi (İlkan kart görünümünü telefonda bulamadı); artık seçili görünümün adı yanında yazıyor. Ayrıca varsayılan eşiği elle yazılmış 760 yerine uygulamanın kendi kırılma noktasına (`BP.mobile`) bağlandı — sayı aynıydı ama iki yerde tutulunca er geç ayrışırdı.
+
 ### Köy kart görünümü (17 Eylül 2026)
 - TODO'daki madde: *"Oyuncu iki görünüm arasında seçebilsin; tercih saklansın. Üstte kategori sekmeleri, seçilen kategorinin binaları altta kart olarak açılır; oyuncu binayı köy görselinden değil karttan seçer ve NE SEÇTİĞİNİ NET GÖRÜR."*
 

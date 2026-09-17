@@ -413,35 +413,72 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worke
     if (owner.tile && showBadge && owner.tile[1] > 0) labels.push([x, y, owner.tile[1]]);
   }
 
-  // 2) sahiplik tonları — renge göre gruplanmış tek fill
-  if (owned.length) {
-    const byFill = new Map();
-    for (const [x, y, owner] of owned) {
-      let p = byFill.get(owner.fill);
-      if (!p) { p = new Path2D(); byFill.set(owner.fill, p); }
-      p.addPath(hexPath2D(x, y, S - 1));
-    }
-    for (const [fill, path] of byFill) { ctx.fillStyle = fill; ctx.fill(path); }
-  }
+  /*
+    2) SAHİPLİK DOLGUSU YOK (İlkan'ın kararı).
 
-  // 3) kenarlar — stile göre gruplanmış tek stroke.
-  // Sahipsiz hex'ler çok soluk; alınmış hex'ler köyün KENDİ renginde ve kalın.
+    Her sahipli hex oyuncunun renginde yarı saydam boyanıyordu ve
+    altındaki arazi dokusu — orman, taş, tarla — rengin altında
+    kayboluyordu. Sahiplik artık yalnız ÇERÇEVEYLE anlatılıyor; toprak
+    kendi dokusuyla görünüyor.
+  */
+
+  /*
+    3) KENARLAR — sahipli toprağın yalnız DIŞ SINIRI.
+
+    Her hex'in kendi altıgeni çiziliyordu: altı köylü bir oyuncunun
+    toprağı içeriden petek ızgarasına dönüyor, dış hat iç çizgilerin
+    arasında kayboluyordu. Artık yalnız komşusu BAŞKASI olan kenar
+    çiziliyor, o da kalın.
+
+    Sahiplik haritası tek geçişte kuruluyor: her kenar için `list`
+    dizisini taramak 2.160 hex'te altı kat iş olurdu.
+  */
+  const sahipHarita = new Map();
+  for (const [q, r, owner] of list) {
+    if (owner) sahipHarita.set(`${q},${r}`, owner);
+  }
+  /* Aynı OYUNCUYA ait komşu iç sayılır — köyler farklı olsa bile */
+  const kimlik = (o) => (o ? (o.v?.owner || o.v?.key || '') : null);
+
   const byStroke = new Map();
+  const addSeg = (style, sw, x, y, i) => {
+    const k = `${style}|${sw}`;
+    let e = byStroke.get(k);
+    if (!e) { e = { style, sw, path: new Path2D() }; byStroke.set(k, e); }
+    const a0 = (Math.PI / 3) * i, a1 = (Math.PI / 3) * (i + 1);
+    e.path.moveTo(x + (S - 1) * Math.cos(a0), y + (S - 1) * Math.sin(a0));
+    e.path.lineTo(x + (S - 1) * Math.cos(a1), y + (S - 1) * Math.sin(a1));
+  };
   const addStroke = (style, sw, x, y) => {
     const k = `${style}|${sw}`;
     let e = byStroke.get(k);
     if (!e) { e = { style, sw, path: new Path2D() }; byStroke.set(k, e); }
     e.path.addPath(hexPath2D(x, y, S - 1));
   };
+
   for (const [q, r, owner] of list) {
     const { x, y } = hexToPixel(q, r, S);
-    const b = worldTileBonus(q, r);
-    if (owner) addStroke(owner.col.line, owner.center ? 2.6 : 1.9, x, y);
-    else if (b) addStroke(`${TYPE_EDGE[b.resource]}44`, 0.9, x, y);
-    else addStroke('rgba(150,170,120,0.10)', 0.6, x, y);
+    if (owner) {
+      /* Yalnız dışa bakan kenarlar — komşusu aynı oyuncuysa iç sınır */
+      const ben = kimlik(owner);
+      for (let i = 0; i < 6; i++) {
+        const [dq, dr] = EDGE_N[i];
+        if (kimlik(sahipHarita.get(`${q + dq},${r + dr}`)) === ben) continue;
+        addSeg(owner.col.line, 3.2, x, y, i);
+      }
+      continue;
+    }
+    /*
+      BONUSLU HEX'İN RENKLİ ÇERÇEVESİ KALKTI: ormanınki yeşildi ve
+      oyuncu sınırının yeşiliyle karışıyordu (İlkan bildirdi). Bonusun
+      ne olduğu dokusundan ve yüzde rozetinden zaten belli.
+    */
+    addStroke('rgba(150,170,120,0.10)', 0.6, x, y);
   }
   for (const { style, sw, path } of byStroke.values()) {
-    ctx.strokeStyle = style; ctx.lineWidth = sw; ctx.stroke(path);
+    ctx.strokeStyle = style; ctx.lineWidth = sw;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.stroke(path);
   }
 
   // 3.5) yabancı tarlaların seviye etiketi

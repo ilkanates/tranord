@@ -26,6 +26,51 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17d',
+    tarih: '17 Eylül 2026',
+    baslik: 'Harita ve üst bar temizlendi',
+    notlar: [
+      {
+        id: '20260917-harita-cerceve',
+        tur: 'duzeltme',
+        metin: 'HARİTADA TOPRAK ARTIK BOYANMIYOR. Sahipli her altıgen '
+          + 'oyuncunun renginde yarı saydam boyanıyordu ve altındaki '
+          + 'arazi — orman, taş, tarla — rengin altında kayboluyordu. '
+          + 'Artık toprak kendi dokusuyla görünüyor; sahiplik yalnız '
+          + 'DIŞ ÇEVREYİ saran kalın bir çerçeveyle anlatılıyor. İç '
+          + 'kenarlar hiç çizilmiyor, yani bir oyuncunun toprağı tek '
+          + 'bir hat olarak okunuyor.',
+      },
+      {
+        id: '20260917-harita-bonus-cerceve',
+        tur: 'duzeltme',
+        metin: 'ÜRETİM ALANLARININ RENKLİ ÇERÇEVELERİ KALKTI. Bonuslu '
+          + 'her altıgen kendi kaynağının renginde ince bir çerçeve '
+          + 'alıyordu; ormanınki yeşildi ve oyuncu sınırının yeşiliyle '
+          + 'karışıyordu. Bonusun ne olduğu zaten dokusundan ve '
+          + 'üstündeki yüzde rozetinden belli.',
+      },
+      {
+        id: '20260917-ust-bar-olcek',
+        tur: 'duzeltme',
+        metin: 'ÜST MENÜ ARTIK KAYDIRILMIYOR, SIĞIYOR. Dar pencerede '
+          + 'sekme şeridi yatay kaydırılabilir hâle geliyor ve '
+          + 'sondaki sekmeler ekranın dışında kalıyordu. Artık şerit '
+          + 'küçülerek sığıyor; iyice darsa etiketler düşüp yalnız '
+          + 'ikonlar kalıyor (fareyle üstüne gelince adı çıkıyor). '
+          + 'Hiçbir genişlikte kaydırma çubuğu çıkmıyor.',
+      },
+      {
+        id: '20260917-gorunum-dugmesi',
+        tur: 'duzeltme',
+        metin: 'KÖY GÖRÜNÜM DÜĞMESİ ARTIK KENDİNİ TANITIYOR. İki '
+          + 'küçük ikon vardı ve telefonda hangisinin ne yaptığı '
+          + 'belirsizdi; artık seçili görünümün adı yanında yazıyor '
+          + '(SAHNE / KART).',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17c',
     tarih: '17 Eylül 2026',
     baslik: 'Köye kart görünümü geldi',
