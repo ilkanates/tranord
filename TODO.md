@@ -274,6 +274,21 @@ kabul/iptal`). Bu maddede kalan:
 - Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
 - **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
 
+### Kahramanın üssü konaktan ayrıldı — Travian modeli (17 Eylül 2026)
+- İlkan: *"kahramanı köyünü nasıl değiştireceğim? Şu an 2. köyümde, ilk köyüme gitsin oradan saldırıya katılsın istiyorum. Normal destek olarak ilk köyüme gönderip, gönderirken 'gittiği yeri kahramanın ana köyü yap' demeliyim."* → seçenek soruldu, cevap: *"Travian gibi olsun."*
+
+**ESKİ MODEL:** üs = Kahraman Konağı'nın olduğu köy ve **her tikte** oradan yeniden yazılıyordu (`kahramaniSenkronla`). Kahraman başka köyüne gitse bile üssü konakta kalıyor, taşınmanın hiçbir yolu olmuyordu.
+
+**YENİ MODEL — üs, kahramanın YAŞADIĞI köy:**
+- **Taşınmanın yolu mevcut takviye seferi.** Kahraman kendi köyüne takviyeye gidince varışta orası üssü oluyor (`usSlot = toKey`, `nerede = 'koy'`, `misafirSlot = null`). Ayrı bir "kahramanı taşı" düğmesi eklemedim: aynı işi ikinci bir kapıdan yapmak, iki ayrı yolun bakımını gerektirirdi.
+- **Başkasının köyünde misafir kalıyor**, orası üs olmuyor. Olsaydı kahraman başkasının toprağında yaşıyor sayılırdı ve ev sahibi onu istemediğinde gidecek yeri kalmazdı.
+- **Konak artık yalnız doğum, iyileşme ve diriliş için.** İyileşme ve macera birikimi kahramanın **bulunduğu köydeki** konak seviyesinden hesaplanıyor; herhangi bir köydeki konağı saysaydık, kahraman konaksız bir köye taşındığında bile tam hızla iyileşir ve konağı taşımanın anlamı kalmazdı. Konaksız köyde iyileşme **durmuyor**, taban hızda sürüyor — sıfır olsaydı konaksız köye taşınmak kahramanı kalıcı sakat bırakırdı.
+- **Üs artık silinmiyor.** Eskiden konak yıkılınca `usSlot` null oluyor ve kahraman "yürüyecek yeri yok" durumuna düşüyordu. Artık yalnız köyün KENDİSİ elden çıkarsa üs merkeze (yoksa kalan ilk köye) taşınıyor.
+- Diriltme bedeli zaten üssün köyünden alınıyordu; üs kahramanı takip ettiği için bu da kendiliğinden doğru yere kaydı.
+
+- **Testler**: `kahraman-us-tasima.test.js` 5 kilit (taşınan üsten sefer çıkabilme, eski üsten çıkamama, başkasının köyünde misafir kalma, konaksız köyde iyileşmenin durmaması, özetin `bulunduguSlot` taşıması).
+- **GERÇEK SUNUCUDA UÇTAN UCA DOĞRULANDI**: kahraman Alvstad'dan Bergsund'a takviye olarak gönderildi; varışta `usSlot=-14,0 nerede=koy misafirSlot=null` oldu ve **sonraki tiklerde orada kaldı** — konak hâlâ Alvstad'da (`2,0 Lvl1`) olmasına rağmen. Eski kodda bir sonraki tikte konağa geri dönerdi. Ölçüldü: Bergsund'dan sefere çıkabiliyor, Alvstad'dan `baska_koyde` ile reddediliyor.
+
 ### Harita boyaması ve üst bar taşması (17 Eylül 2026)
 - İlkan: *"haritada oyuncu köylerini boyama, sadece dış çevresini çerçeve ile boya ve biraz kalın bir çizgi ile. Ek olarak ormanın etrafında da çerçeve yeşil, o da karıştırıyor — üretim alanlarının etrafındaki renkli çerçeveleri kaldır."* ve *"tepedeki menüler ekrana sığmadığı için scroll çıkıyor, çıkmayacak gibi ayarla, yani scale olsun PC'de."*
 

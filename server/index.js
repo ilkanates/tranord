@@ -587,7 +587,12 @@ function emitVillage(session, { force = false, statics = false } = {}) {
       istemci o zaman ekranda "Kahraman Konağı kur" diyor. null yollasaydık
       "henüz yüklenmedi" ile "kahramanın yok" ayırt edilemezdi.
     */
-    kahraman: HERO.ozet(kahramanDurumu(session), kahramanKonagi(session)?.level || 0),
+    /*
+      KONAK SEVİYESİ KAHRAMANIN BULUNDUĞU KÖYDEN: ekrandaki iyileşme
+      hızı gerçekte işleyenle aynı sayı olmalı. Herhangi bir köydeki
+      konağı göstersek ekran yalan söylerdi.
+    */
+    kahraman: HERO.ozet(kahramanDurumu(session), kahramanKonakSeviyesi(session)),
   }));
 }
 
@@ -712,8 +717,15 @@ function runTickForUser(userId, session) {
   */
   const { kahraman, konak } = kahramaniSenkronla(session);
   if (kahraman) {
-    HERO.ilerlet(kahraman, gameHours, konak?.level || 0);
-    MACERA.maceraBiriktir(kahraman, gameHours, konak?.level || 0);
+    /*
+      İYİLEŞME VE MACERA BİRİKİMİ KAHRAMANIN BULUNDUĞU KÖYDEKİ KONAKTAN.
+      Herhangi bir köydeki konağı saysaydık, kahraman konaksız bir köye
+      taşındığında bile tam hızla iyileşirdi ve konağı taşımanın anlamı
+      kalmazdı.
+    */
+    const yerelKonak = konakSeviyesiOf(session, HERO.bulunduguSlot(kahraman));
+    HERO.ilerlet(kahraman, gameHours, yerelKonak);
+    MACERA.maceraBiriktir(kahraman, gameHours, yerelKonak);
     maceraIlerlet(session, kahraman, gameHours, konak);
     /*
       EVE DÖNÜŞ. Takviyeden geri çağrılan kahraman ışınlanmıyor: gidiş
@@ -1390,6 +1402,28 @@ function kahramanKonagi(session) {
 }
 
 /**
+ * BELİRLİ BİR KÖYDEKİ KONAK.
+ *
+ * İyileşme ve diriliş artık kahramanın BULUNDUĞU köydeki konağa bağlı
+ * (Travian modeli). Herhangi bir köydeki konağı saysaydık, kahraman
+ * konaksız bir köye taşındığında bile tam hızla iyileşirdi — yani
+ * konağı taşımanın bir anlamı kalmazdı.
+ */
+function konakSeviyesiOf(session, slotKey) {
+  const v = slotKey ? session.villages.get(slotKey) : null;
+  if (!v) return 0;
+  const b = Object.values(v.villageBuildings || {})
+    .find(x => x.type === 'kahramanKonagi' && (x.level || 0) > 0);
+  return b ? b.level : 0;
+}
+
+/** Kahramanın yaşadığı köydeki konak seviyesi — iyileşme ve diriliş bundan */
+function kahramanKonakSeviyesi(session) {
+  const k = kahramanDurumu(session);
+  return k ? konakSeviyesiOf(session, HERO.bulunduguSlot(k) || k.usSlot) : 0;
+}
+
+/**
  * Konak var ama kahraman yoksa kahramanı DOĞUR; konak yıkıldıysa
  * kahramanı SİLME — eşyası ve seviyesi kalır, yalnız üssü kaybolur.
  * Silseydik bir mancınık dalgası oyuncunun aylarca biriktirdiği
@@ -1397,13 +1431,30 @@ function kahramanKonagi(session) {
  */
 function kahramaniSenkronla(session) {
   const konak = kahramanKonagi(session);
-  if (!konak) {
-    const k = kahramanDurumu(session);
-    if (k) k.usSlot = null;
-    return { kahraman: k, konak: null };
+  /*
+    KONAK ARTIK YALNIZ DOĞUM KAPISI. Kahraman yoksa ve bir konak varsa
+    orada doğuyor; üssü orası oluyor. Bundan sonra üs kahramanın
+    yaşadığı köy — her tikte konaktan yeniden yazsaydık taşınma
+    imkânsız olurdu (İlkan: "Travian gibi olsun").
+  */
+  const vardi = !!kahramanDurumu(session);
+  const k = konak ? kahramanDurumu(session, { yarat: true }) : kahramanDurumu(session);
+  if (!k) return { kahraman: null, konak };
+  if (!vardi && konak) k.usSlot = konak.slotKey;
+
+  /*
+    EMNİYET: üs köyü elden çıktıysa (yıkıldı, fethedildi) kahraman
+    ortada kalmasın. Merkez köye, o da yoksa kalan ilk köye taşınıyor.
+    Üssü null bırakmak "yürüyecek yeri yok" durumu demekti.
+  */
+  if (!k.usSlot || !session.villages.has(k.usSlot)) {
+    const yeni = session.villages.has(session.capitalSlot)
+      ? session.capitalSlot : session.villages.keys().next().value || null;
+    if (yeni && k.usSlot !== yeni) {
+      k.usSlot = yeni;
+      if (k.nerede === 'koy') k.misafirSlot = null;
+    }
   }
-  const k = kahramanDurumu(session, { yarat: true });
-  if (k) k.usSlot = konak.slotKey;
   return { kahraman: k, konak };
 }
 
@@ -1855,9 +1906,25 @@ function processMarches(hours) {
           const ks = userSessions.get(m.kahramanUserId);
           const kk = ks ? kahramanDurumu(ks) : null;
           if (kk && !kk.olu) {
-            kk.nerede = 'takviye';
-            kk.misafirSlot = m.toKey;
-            tgt.village.misafirKahraman = { userId: m.kahramanUserId };
+            /*
+              KENDİ KÖYÜME GİTTİYSE ORASI ARTIK ÜSSÜ (İlkan: "Travian
+              gibi olsun"). Taşınmanın yolu bu: ayrı bir "kahramanı taşı"
+              düğmesi, aynı işi ikinci bir kapıdan yapmak olurdu.
+
+              BAŞKASININ köyünde misafir kalıyor — orayı üs saysaydık
+              kahraman başkasının toprağında yaşıyor olurdu ve ev sahibi
+              onu istemediğinde gidecek yeri kalmazdı.
+            */
+            const kendiKoyum = !!ks && ks.villages.has(m.toKey);
+            if (kendiKoyum) {
+              kk.usSlot = m.toKey;
+              kk.nerede = 'koy';
+              kk.misafirSlot = null;
+            } else {
+              kk.nerede = 'takviye';
+              kk.misafirSlot = m.toKey;
+              tgt.village.misafirKahraman = { userId: m.kahramanUserId };
+            }
             if (ks) markUserDirty(m.kahramanUserId, ks.capitalSlot);
           }
           m.kahramanSonuc = null;     // takviye savaş değil

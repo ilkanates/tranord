@@ -26,6 +26,40 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17e',
+    tarih: '17 Eylül 2026',
+    baslik: 'Kahraman köy değiştirebiliyor',
+    notlar: [
+      {
+        id: '20260917-kahraman-us-tasima',
+        tur: 'yenilik',
+        metin: 'KAHRAMANIN ÜSSÜ ARTIK YAŞADIĞI KÖY. Eskiden üs, '
+          + 'Kahraman Konağı\'nın olduğu köydü ve değiştirilemiyordu; '
+          + 'kahraman başka köyüne gitse bile üssü konakta kalıyordu. '
+          + 'Artık kahramanı kendi köyüne TAKVİYE olarak gönderdiğinde '
+          + 'orası onun yeni evi oluyor — misafir değil, oralı. Oradan '
+          + 'sefere de çıkabiliyor.',
+      },
+      {
+        id: '20260917-konak-iyilesme',
+        tur: 'denge',
+        metin: 'KONAK ARTIK İYİLEŞME VE DİRİLİŞ İÇİN. Kahramanın '
+          + 'BULUNDUĞU köydeki konak sayılıyor: konaksız bir köyde '
+          + 'kahraman yine iyileşiyor ama yalnız taban hızıyla, '
+          + 'diriltme bedeli de o köyün deposundan çıkıyor. Konağı '
+          + 'kahramanın yanına taşımak artık bir tercih.',
+      },
+      {
+        id: '20260917-kahraman-misafir',
+        tur: 'yenilik',
+        metin: 'BAŞKASININ KÖYÜNDE HÂLÂ MİSAFİRSİN. Birine takviye '
+          + 'gönderdiğinde kahraman orada savunmaya katılıyor ama '
+          + 'orası üssü olmuyor; geri çağırınca evine dönüyor. Üs '
+          + 'yalnız KENDİ köylerin arasında taşınıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17d',
     tarih: '17 Eylül 2026',
     baslik: 'Harita ve üst bar temizlendi',
