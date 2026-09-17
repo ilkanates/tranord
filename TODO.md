@@ -190,15 +190,11 @@ koşuyor. Yani sayı CPU'dan değil, açılış tohumlamasından ve harita
 ### Aşama 1 — Dünya dolsun (200 → 700) — ~~YAPILDI~~
 Bkz. Tamamlandı · "NPC dünyası 700 köye çıktı".
 
-### Aşama 2 — NPC'ler birbirine saldırsın
-Bugün NPC yalnız OYUNCUYA saldırıyor; aralarındaki dünya donuk.
-- `maybeNpcRaid` hedef seçimini NPC'leri de kapsayacak şekilde genişlet.
-- **Dikkat:** bugünkü kod yorumunda *"NPC-NPC savaşı 200 köyün
-  dengelenmiş ekonomisini bozar"* yazıyor ve bu doğru bir endişe.
-  Kazanan büyür, kaybeden küçülür — istenen bu, ama ordusu sıfırlanan
-  köy bir daha toparlanamazsa dünya zamanla boşalır. Kayıp oranına
-  tavan ve toparlanma süresi gerekiyor.
-- Oyuncu bunu HİSSETMELİ: haritada "şu an kim kime saldırıyor" görünsün.
+### Aşama 2 — NPC'ler birbirine saldırsın — ~~YAPILDI~~
+Bkz. Tamamlandı · "NPC'ler birbirine saldırıyor".
+- **KALAN:** oyuncu bunu haritada GÖRSÜN — "şu an kim kime saldırıyor"
+  işareti. Bugün yalnız kendi seferlerin haritada görünüyor; NPC
+  savaşları sıralamadaki yer değişiminden dolaylı hissediliyor.
 
 ### Aşama 3 — NPC'ler yeni köy kursun
 Harita zamanla dolsun; dünya oyuncu girmeden de değişsin.
@@ -333,6 +329,37 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### NPC'ler hiç gelişmiyordu — üç kilit, aynı hata deseni (18 Eylül 2026)
+- 2. aşamayı (NPC savaşı) ölçerken çıktı: **hiç sefer açılmıyordu.** Sebep savaş kodunda değildi — dünyada saldıracak ordu yoktu.
+- **ÖLÇÜM (700 kayıtlı NPC köyü):** fırın **0** · değirmen **0** · keresteci/taşçı/tuğlacı/demirci **0** · ev 34 · kışla **2** · ordusu olan köy **1**. Buna karşılık ahır 496, cephane 420, silahçı 364 — yani askeri atölyeleri kurup içini hiç dolduramıyorlardı.
+- **AYNI HATA DESENİ ÜÇ YERDE:** yapay zekâ bu binaları *yalnız YÜKSELTİYOR, hiç KURMUYORDU*. Hiç kurulmadığı için `buildingsOfType(...)[0]` her zaman undefined ve dal boşa dönüyordu.
+  1. **Yiyecek zinciri.** Fırın yok → ekmek üretimi 0 → `foodShort` KALICI true → `tryMilitary` daha ilk satırda dönüyor, üstelik 120 ağırlıklı yiyecek dalı her turu kapatıyordu. Köy sonsuza kadar acil yiyecek kipinde kilitliydi.
+  2. **İşleme zinciri.** Ham kaynaklar tavanda (1000) ama kereste 4, tuğla 5, yontma taş 12 — köy üretiyor, ürettiğini kullanamıyordu. Neredeyse her bina işlenmiş mal istiyor (kışla 60 kereste + 70 yontma taş), yani ev de kışla da alınamıyordu.
+  3. **Sıra hatası.** İlk düzeltmeden sonra köyler zenginleşince değirmen HER TUR başarıyla yükseliyor ve `return true` fırına hiç sıra bırakmıyordu (19 değirmen, 11 fırın). Eksik halkayı kurmak, var olan halkayı büyütmekten önceliklidir: değirmeni Lvl 10 yapmak fırını olmayan köyü doyurmuyor.
+- **ÖLÇÜLEN SONUÇ** (20 köy, 900 oyun saati):
+
+  | | önce | sonra |
+  |---|---|---|
+  | ortalama nüfus | 150 | **1.840** |
+  | fırın | 0 | 18/20 |
+  | kışla | 0 | 18/20 |
+  | ordusu olan köy | 0 | **15/20** |
+  | ortanca ordu | 0 | **215** |
+
+- **Yan etkisi: NPC yağması da dirildi.** `NPC_RAID_MIN_ARMY` 25 ve dünyada neredeyse hiçbir NPC'nin ordusu yoktu — "NPC'ler oyuncuya saldırır" özelliği açık görünüyor ama fiilen hiç çalışmıyordu.
+- İşleme dalının ağırlığı 20 → 55: ekonominin kilidi orası ve düşük ağırlıkta tarla/depo dalları her turu kapıyordu.
+
+### NPC'ler birbirine saldırıyor (18 Eylül 2026)
+- İlkan: *"NPC'ler ... saldırsınlar ... yapay zekâ gibi yapılsınlar."* Bugüne kadar NPC yalnız OYUNCUYA saldırıyordu; aralarındaki dünya donuktu.
+- Kodun eski notu *"NPC-NPC savaşı dengelenmiş ekonomiyi bozar"* diyordu ve endişe **haklıydı**. Çözüm savaşı hiç yapmamak değil, sınırlarını koymak — dört sınır:
+  1. **AYRI BÜTÇE.** Oyuncuya giden yağma tek bir küresel sayaçla kısıtlı (`lastNpcRaidAt`: dünyada 6 oyun saatinde bir). NPC savaşı o sayacı kullanmıyor; kullansaydı NPC'ler birbirine saldırdıkça oyuncuya hiç yağma gelmez, yani bir özellik diğerini sessizce kapatırdı.
+  2. **AYNI ANDA YOLDA OLAN SEFER TAVANI** (40). 700 NPC serbest bırakılırsa yüzlerce sefer aynı anda yolda olur; hem `processMarches` maliyeti hem de dünyanın okunabilirliği bundan zarar görür.
+  3. **EZİLMİŞ KÖY FARM OLMUYOR.** Ordusu eşiğin altındaki köye saldırı yok, her hedefin kendi bekleme süresi var. Bu, aşamanın en kritik sınırı: aksi hâlde güçlü NPC zayıf komşusunu sonsuza kadar yağmalar, o köy toparlanamaz ve **dünya zamanla boşalırdı**.
+  4. **YAĞMA, İŞGAL DEĞİL.** Kaynağın bir kısmı gidiyor, bina yıkılmıyor, köy yok olmuyor. Kazanan büyüyor, kaybeden fakirleşiyor ama ayakta kalıyor.
+- **HEDEF KENDİNDEN ZAYIF OLAN**, en yakın komşu. Rastgele hedef, güçlü bir köyün kendinden güçlüsüne koşup ordusunu eritmesi demekti; yakınlık hem daha ucuz hem daha inandırıcı.
+- **KARAR `game/npcSavas.js`'te, bağlantı `index.js`'te.** Kural index.js'te kalsaydı doğruluğunu ancak sunucuyu bir AI turu (100 dakika) izleyerek görebilirdim; ayrı modülde saniyede sınanıyor (`npc-savas.test.js`, 6 test).
+- Doğrulandı: AI turu geçici olarak 3 tike indirilip ~9.000 çağrı koşturuldu, hata yok; sefer kaydı `[NPC SAVAŞ]` satırıyla görülüyor.
 
 ### NPC dünyası 700 köye çıktı, tohumlama açılışı bloke etmiyor (18 Eylül 2026)
 - İlkan: *"çok daha fazla NPC köyü olsun."* 200'de 1.729 slotun %12'si doluydu; oyuncunun görüş alanında çoğu zaman hiçbir komşu yoktu.

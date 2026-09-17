@@ -629,6 +629,35 @@ function runNpcAi(v, slot) {
         return true;
       }
     }
+    /*
+      YİYECEK ZİNCİRİ — EKSİKSE KUR, VARSA YÜKSELT.
+
+      Burası eskiden yalnız YÜKSELTİYORDU ve NPC hiçbir zaman fırın ya da
+      değirmen KURMADIĞI için döngü boşa dönüyordu. Fırın olmayan köyde
+      ekmek üretimi sıfır, yani `foodShort` hiç kapanmıyor: köy sonsuza
+      kadar acil yiyecek kipinde kalıp ne ev ne kışla ne ordu yapıyordu
+      (ölçüldü: 700 köyde 0 fırın, 2 kışla, 1 ordu).
+
+      SIRA DEĞİRMEN → FIRIN: fırın değirmen Lvl 3 istiyor (villageDefs ·
+      requires) ve un üretilmeden ekmek yapılamıyor. Ters sırada kurma
+      denemesi her turda başarısız olurdu.
+    */
+    /*
+      ÖNCE EKSİK HALKAYI KUR, SONRA DERİNLEŞTİR. Ters sırada değirmen
+      her tur başarıyla yükseliyor ve `return true` fırına hiç sıra
+      bırakmıyordu (ölçüldü: 19 değirmen, 11 fırın, 2 aç köy). Değirmeni
+      Lvl 10 yapmak, fırını olmayan köyü doyurmuyor.
+    */
+    for (const t of ['degirmen', 'firin']) {
+      if (!has(v, t)) {
+        if (tryBuildVillage(v, t, bw)) return true;
+        /*
+          Değirmen kurulamadıysa fırını denemek anlamsız: un üretilmeden
+          ekmek yapılamıyor (villageDefs · firin requires degirmen).
+        */
+        break;
+      }
+    }
     for (const t of ['firin', 'degirmen']) {
       const b = buildingsOfType(v, t)[0];
       if (b && !b.building && tryUpgradeVillage(v, b, bw)) return true;
@@ -674,8 +703,30 @@ function runNpcAi(v, slot) {
   if (tileCount < maxProductionSlots(v)) add(60, () => tryBuildProduction(v, bw));
   add(45, () => tryUpgradeProduction(v, bw));
 
-  // İşleme binaları
-  add(20, () => {
+  /*
+    İŞLEME BİNALARI — EKSİKSE KUR, VARSA YÜKSELT.
+
+    Burası eskiden yalnız YÜKSELTİYORDU ve NPC hiçbir zaman keresteci,
+    tuğlacı, taşçı ya da demirci KURMADIĞI için liste hep boştu. Oysa
+    neredeyse her binanın maliyeti İŞLENMİŞ mal istiyor (kışla 60
+    kereste + 70 yontma taş), yani işleme zinciri olmayan köy başka
+    hiçbir şey de yapamıyor.
+
+    Ölçüldü (20 köy, 900 oyun saati): ham kaynaklar tavanda (1000) ama
+    kereste 4, tuğla 5, yontma taş 12 — köy üretiyor, ürettiğini
+    kullanamıyordu. Ev yok → nüfus tabanda; kışla yok → ordu yok; ordu
+    yok → NPC yağması fiilen ölü.
+
+    AĞIRLIK 20 → 55: bu dal ekonominin kilidi. Düşük ağırlıkta tarla
+    ve depo dalları her turu kapıyor, işleme sırası hiç gelmiyordu.
+
+    SIRA KERESTE ÖNCE: kereste hemen her binanın maliyetinde; sonra
+    yontma taş, tuğla, külçe.
+  */
+  add(55, () => {
+    for (const t of ['keresteci', 'tasci', 'tuglaci', 'demirci']) {
+      if (!has(v, t) && tryBuildVillage(v, t, bw)) return true;
+    }
     const proc = Object.values(v.villageBuildings)
       .filter(b => VILLAGE_DEFS[b.type]?.processes && !b.building)
       .sort((a, b) => a.level - b.level)[0];

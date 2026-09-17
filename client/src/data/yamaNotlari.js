@@ -31,6 +31,49 @@ export const YAMA_NOTLARI = [
     baslik: 'Dünya kalabalıklaştı: 200 köy yerine 700',
     notlar: [
       {
+        id: '20260918-npc-buyume',
+        tur: 'duzeltme',
+        metin: 'NPC KÖYLERİ HİÇ GELİŞMİYORDU — sebebi bulundu. 700 '
+          + 'köyün TAMAMINDA fırın ve değirmen yoktu, sadece 2\'sinde '
+          + 'kışla vardı ve yalnız 1 köyün ordusu vardı. Sebep iki '
+          + 'satırlık bir eksiklikti: yapay zekâ fırın, değirmen ve '
+          + 'işleme binalarını (keresteci, taşçı, tuğlacı, demirci) '
+          + 'yalnız YÜKSELTİYOR, hiç KURMUYORDU. Hiç kurulmadığı için '
+          + 'de yükseltecek bir şey bulamıyordu.',
+      },
+      {
+        id: '20260918-npc-buyume-sonuc',
+        tur: 'denge',
+        metin: 'SONUÇ: NPC köyleri artık senin gibi büyüyor. Ölçüldü '
+          + '(20 köy, 900 oyun saati): ortalama nüfus 150 → 1.840, '
+          + 'kışlası olan köy 0 → 18, ordusu olan köy 0 → 15, ortanca '
+          + 'ordu 0 → 215. Bu aynı zamanda NPC yağmalarını da diriltti: '
+          + 'yağma için en az 25 asker gerekiyordu ve dünyada neredeyse '
+          + 'hiçbir NPC\'nin ordusu yoktu, yani o özellik fiilen ölüydü. '
+          + 'Artık komşuların gerçekten tehlikeli.',
+      },
+      {
+        id: '20260918-npc-savas',
+        tur: 'yenilik',
+        metin: 'NPC KÖYLERİ ARTIK BİRBİRİNE SALDIRIYOR. Şimdiye kadar '
+          + 'yalnız sana saldırıyorlardı; aralarındaki dünya donuktu. '
+          + 'Artık güçlü köyler zayıf komşularını yağmalıyor, yani '
+          + 'harita sen hiçbir şey yapmasan da değişiyor: kazanan '
+          + 'büyüyor, kaybeden fakirleşiyor. Sıralamaya bakınca '
+          + 'köylerin yer değiştirdiğini göreceksin.',
+      },
+      {
+        id: '20260918-npc-savas-sinir',
+        tur: 'denge',
+        metin: 'SAVAŞ SINIRLI — dünya boşalmasın diye. Ordusu belli bir '
+          + 'eşiğin altına inmiş köye saldırılmıyor (yoksa güçlü bir '
+          + 'NPC zayıf komşusunu sonsuza kadar yağmalar ve o köy bir '
+          + 'daha toparlanamazdı), aynı köy arka arkaya vurulmuyor ve '
+          + 'kip YAĞMA: kaynağın bir kısmı gidiyor ama bina yıkılmıyor, '
+          + 'köy yok olmuyor. Ayrıca bu savaşlar SANA gelen yağmanın '
+          + 'bütçesini tüketmiyor — ikisi ayrı sayaçta.',
+      },
+      {
         id: '20260918-npc-700',
         tur: 'yenilik',
         metin: 'DÜNYADA ARTIK 700 NPC KÖYÜ VAR (eskiden 200). Harita '

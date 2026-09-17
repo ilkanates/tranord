@@ -67,6 +67,8 @@ const { buildPayload } = require('./game/payload');
 const { kesifMi, filtrele, sayilar: raporSayilari } = require('./game/raporTur');
 /* Sığınağın gizleme miktarı tek cümle — yağma, keşif ve arayüz oradan */
 const SIGINAK = require('./game/siginak');
+/* NPC'ler birbirine saldırırken hedefi kim seçiyor (bkz. game/npcSavas.js) */
+const NPC_SAVAS = require('./game/npcSavas');
 const { questState, questSync, questTamam, questPayload, questFingerprint,
         egitimGoruldu, egitimBitir } = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -1110,6 +1112,8 @@ setInterval(() => {
   npcLastTick = nowReal;
   WORLD.npcTick++;
   const runAi = WORLD.npcTick % NPC_AI_EVERY === 0;
+  /* Yoldaki NPC↔NPC seferi tur başına bir kez sayılıyor (bkz. aşağıda) */
+  let npcSavasInflight = runAi ? npcSavasSeferSayisi() : 0;
   for (const n of WORLD.npcs.values()) {
     /*
       Tek bozuk NPC bütün dünyayı durdurmasın: eskiden buradan fırlayan hata
@@ -1121,6 +1125,12 @@ setInterval(() => {
       if (runAi) {
         runNpcAi(n.village, n.slot);
         maybeNpcRaid(n);
+        /*
+          NPC↔NPC: yoldaki sefer sayısı tur başında BİR KEZ sayılıyor ve
+          saldırı açıldıkça elde artırılıyor. Her NPC için yeniden saymak
+          700 köyü 700 kez taramak olurdu.
+        */
+        if (maybeNpcVsNpcRaid(n, npcSavasInflight)) npcSavasInflight++;
         // Yapay zekâ turu = yapısal değişiklik olabilir + kaydın bayatlamasına
         // üst sınır (NPC_AI_EVERY_HOURS oyun saati). Kaynak artışı için kayıt
         // gerekmiyor, telafi onu hesaplıyor.
@@ -1180,6 +1190,35 @@ const NPC_RAID_COOLDOWN_HOURS = 6;
 const NPC_RAID_COOLDOWN_MS  = NPC_RAID_COOLDOWN_HOURS * GT.HOUR_SECONDS * 1000;
 /** Uygun NPC'nin her AI turunda (saatte bir) deneme şansı */
 const NPC_RAID_CHANCE       = 0.06;
+
+/* ── NPC ↔ NPC savaşı (aşama 2) ──────────────────────────────────── */
+const NPC_VS_NPC_ENABLED    = true;
+/** Komşu araması bu yarıçapta — dünya çapında hedef aramak anlamsız */
+const NPC_VS_NPC_DISTANCE   = 14;
+/** Uygun NPC'nin AI turunda saldırma şansı (oyuncuya olandan yüksek) */
+const NPC_VS_NPC_CHANCE     = 0.22;
+/**
+ * AYNI ANDA YOLDA OLABİLECEK NPC↔NPC SEFERİ.
+ *
+ * 700 NPC serbest bırakılırsa yüzlerce sefer aynı anda yolda olur; hem
+ * `processMarches` maliyeti hem de dünyanın okunabilirliği bundan zarar
+ * görür. 40, dünyanın canlı hissettirmesine yetiyor ve tik bütçesinin
+ * içinde kalıyor.
+ */
+const NPC_VS_NPC_MAX_INFLIGHT = 40;
+/**
+ * HEDEFİN EN AZ BU KADAR ORDUSU OLMALI.
+ *
+ * Ezilmiş köy FARM OLMAMALI: ordusu bitmiş bir komşuyu sonsuza kadar
+ * yağmalamak onu bir daha toparlanamaz hâle getirir ve dünya zamanla
+ * boşalır. Eşik, "kendini savunabilecek kadar ordusu var" demek.
+ */
+const NPC_VS_NPC_MIN_DEFENDER = 15;
+/** Aynı köye iki saldırı arası en az bu kadar OYUN SAATİ */
+const NPC_VS_NPC_TARGET_COOLDOWN_HOURS = 20;
+
+/** slotKey → en son ne zaman NPC saldırısı aldı (gerçek ms) */
+const npcHedefSonSaldiri = new Map();
 
 /**
  * HEDEF KÖYÜ BELLEKTE BULUNAMAZSA kaç OYUN SAATİ beklenir.
@@ -2595,9 +2634,108 @@ function playerRaidable(userId) {
 }
 
 /**
+ * ŞU AN KAÇ NPC↔NPC SEFERİ YOLDA.
+ *
+ * Sayaç tutmak yerine sayılıyor: sefer dönüşte/varışta siliniyor ve ayrı
+ * bir sayaç kaçınılmaz olarak gerçekle ayrışırdı (bu depoda defalarca
+ * oldu). 700 köy taranıyor ama yalnız AI turunda, yani ~100 dakikada bir.
+ */
+function npcSavasSeferSayisi() {
+  let n = 0;
+  for (const npc of WORLD.npcs.values()) {
+    for (const m of npc.village.marches || []) {
+      if (m.toKind === 'npc') n++;
+    }
+  }
+  return n;
+}
+
+/**
+ * NPC KOMŞUSUNA SALDIRIYOR — dünya kendi başına da yaşasın.
+ *
+ * İlkan: *"NPC'ler saldırsınlar, yapay zekâ gibi yapılsınlar."* Eskiden
+ * yalnız oyuncuya saldırıyorlardı ve aralarındaki dünya donuktu.
+ *
+ * DÖRT SINIR bu işi ekonomiyi bozmadan yapıyor:
+ *
+ *  1) AYRI BÜTÇE — oyuncuya giden yağmanın küresel sayacını (`lastNpcRaidAt`)
+ *     kullanmıyor. Kullansaydı NPC'ler birbirine saldırdıkça oyuncuya hiç
+ *     yağma gelmezdi; bir özellik diğerini sessizce kapatırdı.
+ *  2) AYNI ANDA YOLDA OLAN SEFER TAVANI (bkz. NPC_VS_NPC_MAX_INFLIGHT).
+ *  3) EZİLEN KÖY FARM OLMUYOR: hedefin ordusu eşiğin altındaysa saldırı
+ *     yok ve her hedefin kendi bekleme süresi var. Aksi hâlde güçlü NPC
+ *     zayıf komşusunu sonsuza kadar yağmalar, dünya boşalırdı.
+ *  4) YAĞMA, İŞGAL DEĞİL: kaynağın yarısı alınıyor, bina yıkılmıyor.
+ *     Kazanan büyüyor, kaybeden fakirleşiyor ama AYAKTA KALIYOR.
+ *
+ * HEDEF KENDİNDEN ZAYIF OLAN: güçlü köyler büyür, zayıflar baskı altında
+ * kalır — dünyada bir hiyerarşi oluşur. Rastgele hedef, güçlü bir köyün
+ * kendinden güçlüsüne koşup ordusunu eritmesi demekti.
+ */
+function maybeNpcVsNpcRaid(n, inflight) {
+  if (!NPC_VS_NPC_ENABLED) return false;
+  if (inflight >= NPC_VS_NPC_MAX_INFLIGHT) return false;
+  if (Math.random() > NPC_VS_NPC_CHANCE) return false;
+
+  const v = n.village;
+  if ((v.marches || []).length >= MAX_MARCHES_PER_TOWN) return false;
+  const total = ARMY.totalUnits(v.army);
+  if (total < NPC_RAID_MIN_ARMY) return false;
+
+  const gonderilecek = Math.floor(total * NPC_RAID_SEND_SHARE);
+  if (gonderilecek <= 0) return false;
+
+  const now = Date.now();
+  const beklemeMs = NPC_VS_NPC_TARGET_COOLDOWN_HOURS * GT.HOUR_SECONDS * 1000
+    / Math.max(0.01, WORLD.speed);
+
+  /*
+    HEDEF SEÇİMİ game/npcSavas.js'te: kural orada saniyede sınanabiliyor.
+    Burada kalsaydı doğruluğunu ancak sunucuyu bir AI turu (100 dakika)
+    izleyerek görebilirdim.
+  */
+  const adaylar = (function* () {
+    for (const [key, hedef] of WORLD.npcs) {
+      yield { key, slot: hedef.slot, ordu: ARMY.totalUnits(hedef.village.army) };
+    }
+  })();
+  const best = NPC_SAVAS.hedefSec(
+    { key: n.slot.key, slot: n.slot }, adaylar, gonderilecek,
+    (k) => npcHedefSonSaldiri.get(k),
+    {
+      now, beklemeMs,
+      mesafe: NPC_VS_NPC_DISTANCE,
+      minSavunma: NPC_VS_NPC_MIN_DEFENDER,
+      uzaklik: W.distanceBetween,
+    });
+  if (!best) return false;
+
+  const units = {};
+  for (const [k, cnt] of Object.entries(v.army)) {
+    const send = Math.floor(cnt * NPC_RAID_SEND_SHARE);
+    if (send > 0) units[k] = send;
+  }
+  if (ARMY.totalUnits(units) <= 0) return false;
+
+  const res = ARMY.createMarch(v, {
+    mode: 'raid', units, distance: best.dist,
+    fromKey: n.slot.key, fromName: n.slot.name,
+    toKey: best.key, toName: best.slot.name,
+    toKind: 'npc', ownerKind: 'npc',
+  });
+  if (!res.ok) return false;
+
+  npcHedefSonSaldiri.set(best.key, now);
+  markNpcDirty(n.slot.key);
+  console.log(`[NPC SAVAŞ] ${n.slot.name} → ${best.slot.name}`
+    + ` (${best.dist} hex, ${ARMY.totalUnits(units)} asker, savunma ${best.ordu})`);
+  return true;
+}
+
+/**
  * Güçlü bir NPC yakındaki oyuncuya yağma gönderir.
- * FAZ 1: NPC'ler yalnız OYUNCUYA saldırır, birbirlerine saldırmaz — NPC-NPC
- * savaşı 200 köyün dengelenmiş ekonomisini bozar ve görünür bir faydası yok.
+ * NPC'lerin BİRBİRİNE saldırısı ayrı bir işte (maybeNpcVsNpcRaid) ve ayrı
+ * bütçeyle: ikisi aynı sayacı paylaşsaydı biri diğerini kapatırdı.
  */
 function maybeNpcRaid(n) {
   if (!NPC_RAIDS_ENABLED) return;
