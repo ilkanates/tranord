@@ -10,11 +10,29 @@
  * düşer, arayüz hiçbir aşamada boş kutu göstermez.
  */
 import { unitEmblem } from '../data/unitEmblems';
+import Icon from './Icons';
 
+/**
+ * @param {string} [yedekIkon] Amblem yoksa çizilecek çizgi ikon adı.
+ *   Varsayılan `type`'ın kendisi: ekipman anahtarları (kilic, zirh…)
+ *   zaten ikon adıyla aynı. `null` verilirse hiçbir şey çizilmiyor.
+ */
 export default function Amblem({ type, size = 28, color = 'currentColor',
-                                 opacity = 1, title, style }) {
+                                 opacity = 1, title, style,
+                                 yedekIkon = undefined, strokeWidth = 1.6 }) {
   const src = unitEmblem(type);
-  if (!src) return null;
+  if (!src) {
+    /*
+      AMBLEM YOKSA ÇİZGİ İKON. Eskiden `null` dönüyordu ve çağıran
+      tarafın kendi yedeğini düşünmesi gerekiyordu; kimi düşündü kimi
+      düşünmedi, ekranlar birbirinden ayrıştı (İlkan: "yarısı farklı
+      yarısı farklı"). Karar artık burada, tek yerde.
+    */
+    const ad = yedekIkon === undefined ? type : yedekIkon;
+    if (!ad) return null;
+    return <Icon name={ad} size={size} color={color} strokeWidth={strokeWidth}
+      title={title} style={style} />;
+  }
   return (
     <span
       role={title ? 'img' : 'presentation'}

@@ -26,6 +26,76 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17m',
+    tarih: '17 Eylül 2026',
+    baslik: 'Raporlar artık kaybolmuyor',
+    notlar: [
+      {
+        id: '20260917-amblem-her-yerde',
+        tur: 'duzeltme',
+        metin: 'AYNI ASKER HER EKRANDA AYNI ARMAYLA ÇIKIYOR. Bazı '
+          + 'listelerde birimin kendi arması, bazılarında "at" ya da '
+          + '"kalkan" diye genel bir çizgi simge vardı; kuyrukta, ordu '
+          + 'listesinde ve silahçı yükseltmelerinde hâlâ eski simgeler '
+          + 'duruyordu. Artık tek kural: arması olan her şey armasıyla '
+          + 'çiziliyor, olmayan eski simgeye düşüyor. Simgeler de '
+          + 'büyütüldü — 10 pikselde arma okunmuyordu.',
+      },
+      {
+        id: '20260917-kalkan-yuvarlak',
+        tur: 'duzeltme',
+        metin: 'KALKAN ARMASI YUVARLAK DEĞİLDİ. Siluet 116×92 idi, yani '
+          + 'daire değil yatık elips; kare kutuda basık görünüyordu. '
+          + 'Düzeltildi.',
+      },
+      {
+        id: '20260917-kart-serit-cakismasi',
+        tur: 'duzeltme',
+        metin: 'KART GÖRÜNÜMÜNDE ÜST ŞERİT İÇ İÇE GİRİYORDU. Telefonda '
+          + '"KART"ın üstüne "HEPSİ", "MERKEZ"in üstüne "İŞLEME" '
+          + 'biniyordu: kategori düğmeleri kaydırma yerine ezilip '
+          + 'yazıları komşularının üstüne taşıyordu, görünüm anahtarı '
+          + 'için ayrılan yer de gerçek genişliğinden dardı. İkisi de '
+          + 'düzeltildi.',
+      },
+      {
+        id: '20260917-rapor-sayfalama',
+        tur: 'yenilik',
+        metin: 'BÜTÜN RAPORLARIN SAKLANIYOR. Eskiden köy başına yalnız '
+          + 'son 40 rapor tutuluyor, ekranda da 25 tanesi görünüyordu; '
+          + 'hareketli bir günün sonunda sabahki kuşatmanı bulamıyordun. '
+          + 'Artık köy başına 250 rapor saklanıyor ve liste sayfa sayfa '
+          + 'ilerliyor — listenin altındaki ÖNCEKİ / SONRAKİ ile.',
+      },
+      {
+        id: '20260917-rapor-sekme-sayilari',
+        tur: 'duzeltme',
+        metin: 'SEKME SAYILARI ARTIK TÜM RAPORLARI SAYIYOR. Sayfalama '
+          + 'gelince rozetler elde duran tek sayfayı sayar olmuştu; '
+          + 'yüzlerce raporu olan hesapta "HEPSİ 15" yazıyordu. Süzme '
+          + 'de sayım da artık sunucuda, bütün raporlar üzerinde: '
+          + 'KEŞİFLER sekmesine bastığında sayfa sayısı da o sekmenin '
+          + 'kendi sayfa sayısı oluyor.',
+      },
+      {
+        id: '20260917-rapor-mobil-akordeon',
+        tur: 'yenilik',
+        metin: 'TELEFONDA RAPOR SATIRIN ALTINDA AÇILIYOR. Ayrıntı ayrı '
+          + 'bir kutudaydı ve dar ekranda listenin altına düşüyordu: '
+          + 'her rapor için sayfanın en altına inip geri çıkmak '
+          + 'gerekiyordu. Artık satıra dokununca hemen altında açılıyor, '
+          + 'sağdaki ok açık olanı gösteriyor, ikinci dokunuş kapatıyor.',
+      },
+      {
+        id: '20260917-rapor-esya-gorseli',
+        tur: 'yenilik',
+        metin: 'MACERADAN DÜŞEN EŞYANIN GÖRSELİ BÜYÜDÜ. Eşya bulmak '
+          + 'seyrek ve raporun asıl konusu; küçük bir pul olarak '
+          + 'durduğunda satırdaki başka bir simgeden ayırt edilmiyordu.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17l',
     tarih: '17 Eylül 2026',
     baslik: 'Nüfus dört kat derinleşti',

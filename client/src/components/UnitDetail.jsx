@@ -151,7 +151,7 @@ export default function UnitDetail({ type, def, count, equipmentDefs = {}, onClo
               <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                 {(def.equipment || []).map(eq => (
                   <span key={eq} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    <Icon name={eq} size={10} color={C.textDim} />
+                    <Amblem type={eq} size={15} color={C.textDim} />
                     <span style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textDim }}>
                       {EQ_LABEL[eq] || equipmentDefs[eq]?.name || eq}
                     </span>

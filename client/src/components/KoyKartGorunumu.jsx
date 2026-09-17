@@ -23,6 +23,16 @@ import { useMemo, useState } from 'react';
 import { C, FONT, btn, label as lbl, num } from '../theme';
 import VILLAGE_DEFS from '../data/villageDefs';
 import { BUILDING_TEXTURE, TEXTURE_EMBLEM, MERKEZ_IMG } from './buildingArt';
+
+/**
+ * GÖRÜNÜM ANAHTARININ GENİŞLİĞİ — tek sayı, iki okuyucu.
+ *
+ * Anahtarı VillageCenter çiziyor (hex görünümünde de gerekiyor) ama
+ * yerini kart şeridinin ayırması gerekiyor. Ayrı ayrı tahmin edilince
+ * ikisi ayrıştı ve sekmeler anahtarın altına girdi; şimdi anahtara bu
+ * genişlik VERİLİYOR, şerit de aynı sayıyı okuyor.
+ */
+export const GORUNUM_ANAHTARI_W = 118;
 import Icon, { buildingIcon } from './Icons';
 
 const CAT_LABEL = {
@@ -190,6 +200,13 @@ export default function KoyKartGorunumu({
     <button key={k} type="button" onClick={() => setKategori(k)}
       style={btn(kategori === k ? 'primary' : 'ghost', {
         display: 'inline-flex', alignItems: 'center', gap: 6,
+        /*
+          BÜZÜLME YOK. Şerit yatay kaydırmalı; `flexShrink` açık
+          kalınca tarayıcı kaydırmaya başvurmadan önce düğmeleri
+          eziyordu ve `nowrap` yazı kutudan taşıp komşu sekmenin
+          üstüne biniyordu.
+        */
+        flexShrink: 0,
         fontSize: 9, padding: '6px 12px', letterSpacing: 0.6, whiteSpace: 'nowrap',
       })}>
       <span>{ad}</span>
@@ -226,8 +243,14 @@ export default function KoyKartGorunumu({
       */}
       <div className="tn-scroll" style={{
         display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 8,
-        /* Görünüm anahtarının yanından başlasın, üstüne binmesin */
-        paddingLeft: 78,
+        /*
+          GÖRÜNÜM ANAHTARININ YANINDAN BAŞLASIN. Anahtar bu şeridin
+          değil sahnenin çocuğu (hex görünümünde de duruyor), yani
+          yerini tarayıcı ayıramıyor — biz ayırıyoruz. Anahtar
+          `railInset + 10`'da, şeridin içeriği `railInset + 14`'te
+          başlıyor: aradaki 4 px düşülüyor, kalan 10 px nefes payı.
+        */
+        paddingLeft: GORUNUM_ANAHTARI_W + 6,
         position: 'sticky', top: 0, zIndex: 3,
         background: 'linear-gradient(to bottom, rgba(6,11,18,0.96) 70%, transparent)',
       }}>

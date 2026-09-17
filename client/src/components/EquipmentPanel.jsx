@@ -112,7 +112,7 @@ export default function EquipmentPanel({
               border: `1px solid ${full ? 'rgba(232,99,111,0.35)' : C.lineSoft}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Amblem type={eq} size={16} color={full ? C.dangerDim : C.iceSoft} />
+                <Amblem type={eq} size={24} color={full ? C.dangerDim : C.iceSoft} />
                 <span style={{ fontFamily: FONT.ui, fontSize: 10.5, fontWeight: 500, color: C.text }}>
                   {EQ_LABEL[eq] || def.name}
                 </span>

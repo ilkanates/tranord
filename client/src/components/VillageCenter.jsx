@@ -22,7 +22,7 @@ import { NameField } from './ProfilePanel';
 import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf, yikimOnayi } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import usePinchPan from './usePinchPan';
-import KoyKartGorunumu from './KoyKartGorunumu';
+import KoyKartGorunumu, { GORUNUM_ANAHTARI_W } from './KoyKartGorunumu';
 import { useHoverable, TAP, BP } from '../responsive';
 // Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
 import surTexture from '../assets/buildings/sur-doku.jpg';
@@ -1204,6 +1204,13 @@ export default function VillageCenter({
       <div style={{
         position: 'absolute', top: 8, left: railInset + 10, zIndex: 40,
         display: 'flex', gap: 3, padding: 3, borderRadius: 7,
+        /*
+          GENİŞLİK SABİT ve KART ŞERİDİYLE PAYLAŞILIYOR
+          (GORUNUM_ANAHTARI_W). Serbest bırakıldığında dar ekranda iki
+          satıra sarıyor ve kaç piksel yer kapladığı ekrandan ekrana
+          değişiyordu; şerit de ona göre yer ayıramıyordu.
+        */
+        width: GORUNUM_ANAHTARI_W, boxSizing: 'border-box', flexWrap: 'nowrap',
         background: 'rgba(6,11,18,0.82)', border: `1px solid ${C.lineSoft}`,
       }}>
         {/*

@@ -5,6 +5,7 @@ import { EQ_LABEL } from '../flows';
 import { unitImage } from '../data/unitImages';
 import UnitDetail from './UnitDetail';
 import Icon from './Icons';
+import Amblem from './Amblem';
 
 const CAT_LABEL = { piyade: 'Piyade', suvari: 'Süvari', kusatma: 'Kuşatma', gocmen: 'Göçmen', diger: 'Diğer' };
 const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069', gocmen: '#8fdcb0', diger: C.textDim };
@@ -214,8 +215,8 @@ function MiktarSecici({ units, sec, setSec, unitDefs }) {
           padding: '4px 7px', borderRadius: 5,
           background: 'rgba(8,17,28,0.6)', border: `1px solid ${C.lineSoft}`,
         }}>
-          <Icon name={unitDefs[u]?.category === 'suvari' ? 'at' : 'kalkan'}
-            size={12} color={C.iceDeep} />
+          <Amblem type={u} size={20} color={C.iceDeep}
+            yedekIkon={unitDefs[u]?.category === 'suvari' ? 'at' : 'kalkan'} />
           <span style={{
             flex: 1, minWidth: 0, fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -279,8 +280,8 @@ function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCag
         {Object.entries(units || {}).map(([k, n]) => (
           <span key={k} title={unitDefs[k]?.name || k}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-            <Icon name={unitDefs[k]?.category === 'suvari' ? 'at' : 'kalkan'}
-              size={11} color={C.iceDeep} />
+            <Amblem type={k} size={18} color={C.iceDeep}
+              yedekIkon={unitDefs[k]?.category === 'suvari' ? 'at' : 'kalkan'} />
             <span style={num({ fontSize: 10.5, color: C.text })}>{n}</span>
           </span>
         ))}
@@ -587,7 +588,7 @@ export default function ArmyPanel({
                             {(def.equipment || []).map(eq => (
                               <span key={eq} title={EQ_LABEL[eq] || equipmentDefs[eq]?.name || eq}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                                <Icon name={eq} size={10} color={C.textFaint} />
+                                <Amblem type={eq} size={15} color={C.textFaint} />
                               </span>
                             ))}
                           </div>

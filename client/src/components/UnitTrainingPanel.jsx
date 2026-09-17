@@ -370,7 +370,8 @@ export default function UnitTrainingPanel({
       {queue.length > 0 && (
         <QueueList queue={queue}
           nameOf={(o) => unitDefs[o.type]?.name || o.type}
-          iconOf={(o) => (unitDefs[o.type]?.category === 'suvari' ? 'at' : 'kalkan')}
+          /* Birimin KENDİ arması — kategoriye göre genel ikon değil */
+          iconOf={(o) => o.type}
           onCancel={onCancel}
           onReorder={onReorder} />
       )}

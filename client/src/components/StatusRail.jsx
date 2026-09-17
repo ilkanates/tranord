@@ -6,6 +6,7 @@ import { memo, useState } from 'react';
 import { C, FONT, label as lbl, num, fmtTime } from '../theme';
 import { EQ_LABEL, RES_LABEL, KUSATMA_KEYS, gameHoursToRealSeconds } from '../flows';
 import Icon, { buildingIcon } from './Icons';
+import Amblem from './Amblem';
 import { useHoverable } from '../responsive';
 
 // Ortak havuzu paylaşan türler (at ayrı: ahır deposu)
@@ -528,7 +529,7 @@ function StatusRail({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Icon name={k} size={13} color={poolFull ? C.warn : C.textDim} />
+                      <Amblem type={k} size={18} color={poolFull ? C.warn : C.textDim} />
                       <span style={{ flex: 1, fontFamily: FONT.ui, fontSize: 9.5, color: C.textDim }}>
                         {EQ_LABEL[k]}
                       </span>

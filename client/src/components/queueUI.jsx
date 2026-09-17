@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { C, FONT, btn, label as lbl, num, fmtTime } from '../theme';
 import { QTY_TAVAN } from '../flows';
 import Icon from './Icons';
+import Amblem from './Amblem';
 
 export const WAIT_LABEL = {
   isci_yok:            'işçi yok',
@@ -235,7 +236,12 @@ export function QueueList({
                 {!compact && (
                   <span style={num({ fontSize: 9, color: C.textMute, width: 14 })}>{i + 1}</span>
                 )}
-                {iconOf && <Icon name={iconOf(o)} size={compact ? 11 : 13}
+                {/*
+                  KUYRUKTA DA AMBLEM. `iconOf` artık ikon adı değil TİP
+                  döndürüyor; `Amblem` amblemi yoksa aynı adı çizgi
+                  ikon olarak deniyor, yani eski davranış kayıpsız.
+                */}
+                {iconOf && <Amblem type={iconOf(o)} size={compact ? 15 : 18}
                   color={active ? C.iceSoft : C.textFaint} />}
                 <span style={{
                   flex: 1, minWidth: 0, fontFamily: FONT.ui, fontSize: 10,

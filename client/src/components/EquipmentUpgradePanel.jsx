@@ -15,6 +15,7 @@ import { EQ_LABEL, gameMinutesToRealSeconds } from '../flows';
 import { CostRow } from './mapPanels';
 import { WAIT_LABEL } from './queueUI';
 import Icon from './Icons';
+import Amblem from './Amblem';
 
 /** Bu ekipman neyi büyütüyor — katkı tablosundan okunuyor, elle yazılmıyor */
 function etkiMetni(def) {
@@ -102,7 +103,7 @@ export default function EquipmentUpgradePanel({
               */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}
                 title={etkiMetni(equipmentDefs[eq])}>
-                <Icon name={eq} size={15} color={C.iceSoft} />
+                <Amblem type={eq} size={22} color={C.iceSoft} />
                 <span style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.text }}>
                   {EQ_LABEL[eq] || equipmentDefs[eq]?.name || eq}
                 </span>
