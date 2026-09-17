@@ -22,6 +22,7 @@ const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVi
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
         setDisplayName, loadDisplayNames, renameVillage,
         findUserById, findUserByDisplayName,
+        isaretleriOku, isaretYaz,
         mesajYaz, mesajKutusu, mesajOkunmamisSayisi, mesajOkundu, mesajSil,
         grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
         grupOkundu, grupAyril, grupSil,
@@ -317,7 +318,16 @@ function digerKoyFingerprint(session) {
 function birlikFingerprint(userId) {
   const ben = BIRLIKS.birligim(userId);
   const davet = (WORLD.davetByUser.get(Number(userId)) || []).length;
-  if (!ben) return `B-:${davet}`;
+  /*
+    İŞARET VE İLİŞKİ SAYISI PARMAK İZİNDE: biri değişince harita
+    renkleri yenilenmeli. İÇERİKLERİ değil SAYILARI — her
+    karşılaştırmada nesneyi dizeye çevirmek boşuna iş olurdu.
+    Birliksiz oyuncu da işaret koyabildiği için erken dönüşte de var.
+  */
+  const s = userSessions.get(Number(userId));
+  const isaretSayisi = Object.keys(s?.isaretler || {}).length;
+  const iliskiSayisi = Object.keys(s?.birlikIliskileri || {}).length;
+  if (!ben) return `B-:${davet}:${isaretSayisi}`;
   const b = BIRLIKS.birlik(ben.id);
   /*
     AÇIKLAMA UZUNLUĞU PARMAK İZİNDE — metnin kendisi değil. Profil
@@ -332,7 +342,8 @@ function birlikFingerprint(userId) {
   let cevrimici = 0;
   if (b) for (const uid of b.uyeler.keys()) if (userSessions.has(Number(uid))) cevrimici++;
   return `B${ben.id}:${ben.rutbe}:${b ? b.uyeler.size : 0}:${b?.ad || ''}`
-    + `:${b?.amblem || ''}:${acik}:${cevrimici}:${davet}`;
+    + `:${b?.amblem || ''}:${acik}:${cevrimici}:${davet}`
+    + `:${iliskiSayisi}:${isaretSayisi}`;
 }
 
 function structFingerprint(v) {
@@ -428,6 +439,31 @@ function kahramanFingerprint(session) {
  * ayrışmıştı). Arayüz düğmeyi buna bakarak açıp kapatıyor, sunucu da
  * aynı kaynağı kullanarak reddediyor.
  */
+/**
+ * BİRLİĞİMİN YÜRÜRLÜKTEKİ İLİŞKİLERİNİ OTURUMA AL — { birlikId: tur }.
+ *
+ * Diplomasi veritabanında duruyor ama `emitVillage` senkron; her yayında
+ * sorgu çalıştırmak tik yoluna gecikme sokardı. Bağlantıda bir kez
+ * okunuyor, sonra her diplomasi hamlesinde tazeleniyor.
+ *
+ * YALNIZ 'kabul' DURUMU: bekleyen teklif haritada renk değiştirmiyor.
+ */
+async function birlikIliskileriniTazele(session) {
+  try {
+    const ben = BIRLIKS.birligim(session.userId);
+    if (!ben) { session.birlikIliskileri = {}; return; }
+    const liste = await BIRLIKS.diplomasim(ben.id);
+    const out = {};
+    for (const d of liste) {
+      if (d.durum === 'kabul') out[d.otekiId] = d.tur;
+    }
+    session.birlikIliskileri = out;
+  } catch (err) {
+    console.error('[BİRLİK] ilişkiler okunamadı:', err.message);
+    session.birlikIliskileri = session.birlikIliskileri || {};
+  }
+}
+
 function birlikPaketi(userId) {
   const ben = BIRLIKS.birligim(userId);
   if (!ben) return null;
@@ -551,6 +587,19 @@ function emitVillage(session, { force = false, statics = false } = {}) {
       hâlükârda geliyor (birlikte olmayan oyuncu davet alabilir).
     */
     birlik: birlikPaketi(session.userId),
+    /*
+      HARİTA RENGİ İÇİN İKİ BİLGİ.
+
+      `birlikIliskilerim`: başka birlik kimliği → YÜRÜRLÜKTEKİ ilişki.
+      Bekleyen teklifler dışarıda — teklif gönderdin diye adamı yeşil
+      göstermek, onay gelmeden dost saymak olurdu.
+
+      İkisi de küçük ve yavaş değişiyor, o yüzden pakette; istek üzerine
+      alsaydık harita ilk açılışta yanlış renklerle çizilir, sonra
+      zıplardı.
+    */
+    birlikIliskilerim: session.birlikIliskileri || {},
+    isaretlerim: session.isaretler || {},
     birlikDavetlerim: BIRLIKS.davetlerim(session.userId,
       (uid) => WORLD.ownerByUser.get(Number(uid)) || null),
     birlikTanim: statics ? {
@@ -582,6 +631,12 @@ function emitVillage(session, { force = false, statics = false } = {}) {
       okunuyor, sonra mesaj gelince/okununca elle güncelleniyor.
     */
     mesajOkunmamis: session.mesajOkunmamis || 0,
+    /*
+      GRUP MESAJLARI AYRI ALAN, rozet istemcide TOPLANIYOR. Sunucuda
+      toplasaydık "kaç doğrudan, kaç grup" ayrımı kaybolurdu ve ileride
+      ekranda ayırmak istendiğinde veri yeniden gerekirdi.
+    */
+    grupOkunmamis: session.grupOkunmamis || 0,
     /*
       KAHRAMAN. Konağı olmayan oyuncuya `{ var: false }` gidiyor —
       istemci o zaman ekranda "Kahraman Konağı kur" diyor. null yollasaydık
@@ -617,10 +672,14 @@ function advanceVillage(village, gameHours, userId, slotKey = null) {
     if (b.yikiliyor && now >= b.yikimEndTime) {
       delete village.villageBuildings[key];
       /*
-        Son bina da gittiyse köy yok olur. Oyuncunun kendi eliyle köyünü
-        terk etme yolu bu; kuşatmayla aynı kural (bkz. koyBosMu).
+        Son BİNA da gittiyse köy yok olur: oyuncunun kendi eliyle köyünü
+        terk etme yolu bu.
+
+        Kuşatmadan AYRI kural (bkz. kusatma.js · binasiKalmadi): tarla
+        yıkılamadığı için "her şey bitsin" şartı burada hiç gerçekleşmez
+        ve terk etme yolu kapanırdı.
       */
-      if (userId && koyBosMu(village)) {
+      if (userId && binasiKalmadi(village)) {
         koyuYokEt(userId, slotKey, 'kendi yıkımı').catch(err =>
           console.error('[KÖY YIKIM] kendi yıkımı:', err?.message));
       }
@@ -1334,8 +1393,12 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
  */
 const KAHRAMAN_MODLARI = new Set(['attack', 'raid', 'takviye']);
 
-/** Köyün son binası da gitti mi? Kural kusatma.js'te (bkz. koyBosMu). */
+/**
+ * Düşman her şeyi yıktı mı (bina + tarla)? Kural kusatma.js'te.
+ * Sahibinin kendi yıkımı AYRI cümle — bkz. binasiKalmadi.
+ */
 const koyBosMu = KUSATMA.koyBosMu;
+const binasiKalmadi = KUSATMA.binasiKalmadi;
 
 /**
  * KAHRAMAN DURUMU — hesap başına, merkez köyün state'inde.
@@ -2658,6 +2721,32 @@ io.on('connection', async socket => {
     session.mesajOkunmamis = 0;
   }
 
+  /*
+    HARİTA İŞARETLERİ — aynı gerekçeyle bağlantıda bir kez. Haritanın
+    renkleri bunlara bakıyor; ilk çizimde eksik olsaydı harita yanlış
+    renklerle açılıp sonra zıplardı.
+  */
+  try {
+    session.isaretler = await isaretleriOku(userId);
+  } catch (err) {
+    console.error('[İŞARET] okunamadı:', err.message);
+    session.isaretler = {};
+  }
+  await birlikIliskileriniTazele(session);
+
+  /*
+    OKUNMAMIŞ GRUP MESAJI — bağlantıda bir kez. Doğrudan mesaj
+    sayacıyla aynı gerekçe: `emitVillage` senkron, oraya sorgu koymak
+    tik yoluna veritabanı gecikmesi sokardı.
+  */
+  try {
+    const liste = await gruplarim(userId, BIRLIKS.birlikIdOf(userId));
+    session.grupOkunmamis = liste.reduce((t, g) => t + (g.okunmamis || 0), 0);
+  } catch (err) {
+    console.error('[GRUP] okunmamış sayısı okunamadı:', err.message);
+    session.grupOkunmamis = 0;
+  }
+
   socketToUser.set(socket.id, userId);
   emitVillage(session, { force: true, statics: true });
 
@@ -2826,12 +2915,33 @@ io.on('connection', async socket => {
   const grupErisimi = (g) => GRUP.erisebilirMi(g, userId, BIRLIKS.birlikIdOf(userId));
 
   /** Listeyi ilgili herkese taze yolla — kimse elle yenilemek zorunda kalmasın */
+  /**
+   * GRUP LİSTESİNİ YOLLA VE OKUNMAMIŞ SAYACINI TAZELE.
+   *
+   * İkisi aynı yerde çünkü ikisi de AYNI sorgudan çıkıyor: sayaç için
+   * ayrı bir sorgu açmak aynı sayıyı iki yerden hesaplamak olurdu — bu
+   * projede "aynı değer iki yerde" hatası defalarca patladı.
+   *
+   * Sayaç değişmediyse yayın YOK: her grup mesajında bütün üyelere
+   * gereksiz tam paket gitmesin.
+   */
   const grupListesiYolla = async (uid) => {
     try {
-      const s = io.sockets.adapter.rooms.get(userRoom(uid));
-      if (!s || !s.size) return;                 // çevrimdışı: açılışta zaten çekecek
+      const oda = io.sockets.adapter.rooms.get(userRoom(uid));
+      const oturum = userSessions.get(Number(uid));
+      /* Ne oturumu ne soketi varsa yapacak bir şey yok */
+      if (!oturum && (!oda || !oda.size)) return;
+
       const liste = await gruplarim(uid, BIRLIKS.birlikIdOf(uid));
-      io.to(userRoom(uid)).emit('grup_listesi', { gruplar: liste });
+      if (oda && oda.size) io.to(userRoom(uid)).emit('grup_listesi', { gruplar: liste });
+
+      if (oturum) {
+        const toplam = liste.reduce((t, g) => t + (g.okunmamis || 0), 0);
+        if (oturum.grupOkunmamis !== toplam) {
+          oturum.grupOkunmamis = toplam;
+          emitVillage(oturum, { force: true });    // üst bardaki rozet güncellensin
+        }
+      }
     } catch (err) {
       console.error('[GRUP] liste yollanamadı:', err.message);
     }
@@ -3023,6 +3133,24 @@ io.on('connection', async socket => {
       if (s) emitVillage(s, { force: true });
     }
   };
+
+  /**
+   * OYUNCU İŞARETİ — haritada elle verilen renk.
+   *
+   * Renk boş gönderilirse işaret kalkıyor; ayrı bir "kaldır" olayı
+   * olsaydı iki yol aynı şeyi yapardı.
+   */
+  socket.on('oyuncu_isaretle', async ({ ad, renk = null } = {}) => {
+    const hedef = String(ad || '').trim();
+    if (!hedef) return;
+    try {
+      await isaretYaz(userId, hedef, renk ? String(renk).slice(0, 16) : null);
+      session.isaretler = await isaretleriOku(userId);
+      emitVillage(session, { force: true });
+    } catch (err) {
+      console.error('[İŞARET] yazılamadı:', err.message);
+    }
+  });
 
   socket.on('birlik_kur', async ({ ad, amblem } = {}) => {
     try {
@@ -3280,12 +3408,19 @@ io.on('connection', async socket => {
    * alıcı için ayrı hesap demekti — bu tek olay, hesabı yalnız ekranı
    * açık olan yapıyor.
    */
-  const diplomasiDegisti = (...birlikIdler) => {
+  const diplomasiDegisti = async (...birlikIdler) => {
     for (const bid of birlikIdler) {
       const b = BIRLIKS.birlik(bid);
       if (!b) continue;
       for (const uid of b.uyeler.keys()) {
         io.to(userRoom(Number(uid))).emit('birlik_diplomasi_degisti');
+        /*
+          HARİTA RENGİ DE DEĞİŞTİ: ilişki kopyası oturumda tutuluyor,
+          tazelemezsek savaş ilan edilen birlik haritada hâlâ gri
+          görünürdü.
+        */
+        const s = userSessions.get(Number(uid));
+        if (s) { await birlikIliskileriniTazele(s); emitVillage(s, { force: true }); }
       }
     }
   };
@@ -3294,21 +3429,21 @@ io.on('connection', async socket => {
     const r = await BIRLIKS.diplomasiTeklif({ userId, hedefBirlikId, tur });
     if (r.hata) return birlikHata(r.hata);
     birligeYayinla(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
-    diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+    await diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
   });
 
   socket.on('birlik_diplomasi_cevap', async ({ hedefBirlikId, kabul = true } = {}) => {
     const r = await BIRLIKS.diplomasiCevap({ userId, hedefBirlikId, kabul });
     if (r.hata) return birlikHata(r.hata);
     birligeYayinla(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
-    diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+    await diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
   });
 
   socket.on('birlik_diplomasi_bitir', async ({ hedefBirlikId } = {}) => {
     const r = await BIRLIKS.diplomasiBitir({ userId, hedefBirlikId });
     if (r.hata) return birlikHata(r.hata);
     birligeYayinla(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
-    diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
+    await diplomasiDegisti(BIRLIKS.birlikIdOf(userId), Number(hedefBirlikId));
   });
 
   socket.on('birlik_dagit', async () => {
@@ -4016,10 +4151,26 @@ io.on('connection', async socket => {
   socket.on('pazar_hammadde_gonder', ({ targetKey, kaynaklar } = {}) => {
     const village = v();
     const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
-    const red = (sebep) => socket.emit('build_refused', { reason: sebep });
+    /*
+      RET SEBEBİ PANELE GİDİYOR, ekranın tepesindeki genel şeride değil.
+      Panel isteği yollar yollamaz kapanıyordu; reddedilen gönderi hiç iz
+      bırakmıyordu (İlkan: *"tam tersini yapamıyorum"*). Artık panel
+      cevabı bekliyor ve sebebi düğmenin hemen üstünde yazıyor.
+    */
+    const red = (sebep) => socket.emit('hammadde_sonuc', { ok: false, sebep });
 
-    if (!PAZAR.pazarBinasi(village)) return red('Önce pazar kurman gerekiyor.');
-    if (!targetKey || targetKey === mySlot) return red('Hedef köy seç.');
+    if (!PAZAR.pazarBinasi(village)) {
+      return red('Gönderen köyde pazar yok — önce pazar kur.');
+    }
+    if (!targetKey) return red('Hedef köy seç.');
+    /*
+      BULUNDUĞUN KÖYE GÖNDEREMEZSİN — ve sebebi açıkça yazılıyor.
+      "Hedef köy seç" diyordu; oysa oyuncu hedefi SEÇMİŞTİ, sorun
+      seçtiği köyün zaten içinde durduğu köy olmasıydı.
+    */
+    if (targetKey === mySlot) {
+      return red('Zaten bu köydesin. Önce gönderecek köye geç.');
+    }
 
     const hedef = villageAtSlot(targetKey);
     if (!hedef?.village) return red('Hedef köy bulunamadı.');
@@ -4103,6 +4254,7 @@ io.on('connection', async socket => {
       markUserDirty(hedef.userId, targetKey);
     }
     dirty(); emit();
+    socket.emit('hammadde_sonuc', { ok: true, toplam, hedefAd: hedef.name });
     socket.emit('dev_result', { ok: true,
       message: `${toplam} kaynak ${hedef.name} köyüne yola çıktı` });
     console.log(`[PAZAR] ${userEmail} hediye: ${toplam} kaynak -> ${targetKey} (${mesafe} hex)`);

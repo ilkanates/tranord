@@ -26,6 +26,79 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17h',
+    tarih: '17 Eylül 2026',
+    baslik: 'Genç köyler tek mancınıkla silinmiyor',
+    notlar: [
+      {
+        id: '20260917-koy-yikim-tarlalar',
+        tur: 'denge',
+        metin: 'YENİ KURULAN KÖY TEK SALDIRIDA YOK OLUYORDU. Köyün yok '
+          + 'olması için "bütün binaları bitsin" deniyordu; ama yeni '
+          + 'köyün TEK binası var (Ana Bina). Bir mancınık, bir sefer '
+          + 've köy haritadan siliniyordu. Artık köyün yok olması için '
+          + 'BİNALARIN VE TARLALARIN hepsinin sıfırlanması gerekiyor — '
+          + 'yeni köyün dokuz tarlası ona zaman kazandırıyor.',
+      },
+      {
+        id: '20260917-mancinik-tarla',
+        tur: 'yenilik',
+        metin: 'MANCINIK ARTIK TARLA DA VURUYOR. Hedef listesinde ormanı, '
+          + 'kil ocağını, taş ocağını, demir madenini ve tahıl tarlasını '
+          + 'da seçebiliyorsun. Düşmanın ÜRETİMİNİ kesmenin yolu bu. '
+          + 'Aynı zamanda köy yıkımının da tek yolu: tarlalar ayaktayken '
+          + 'köy yok olmuyor.',
+      },
+      {
+        id: '20260917-hammadde-ret-sebebi',
+        tur: 'duzeltme',
+        metin: 'HAMMADDE GÖNDERİRKEN "HİÇBİR ŞEY OLMUYOR" BİTTİ. Panel '
+          + 'isteği yollar yollamaz kapanıyordu; sunucu reddederse '
+          + '(pazarın yok, tüccarın boşta değil, ya da zaten o köydesin) '
+          + 'hiçbir şey görmüyordun. Artık panel cevabı bekliyor ve '
+          + 'sebebi düğmenin hemen üstünde yazıyor. Bulunduğun köye '
+          + 'gönderme düğmesi de baştan kapanıyor.',
+      },
+    ],
+  },
+  {
+    surum: '2026-09-17g',
+    tarih: '17 Eylül 2026',
+    baslik: 'Haritada renk artık ne olduğunu söylüyor',
+    notlar: [
+      {
+        id: '20260917-harita-iliski-renk',
+        tur: 'yenilik',
+        metin: 'HARİTA RENKLERİ STANDART OLDU. Her oyuncuya ayrı ton '
+          + 'dağıtılıyordu; harita rengârenkti ama renk hiçbir şey '
+          + 'anlatmıyordu — mor bir köyün maviden farkı yoktu, ikisi '
+          + 'de yabancıydı. Artık dört renk var: KENDİ köylerin MAVİ, '
+          + 'dostlar (birlik arkadaşın, konfederasyon, saldırmazlık) '
+          + 'YEŞİL, tarafsızlar GRİ, savaştakiler KIRMIZI.',
+      },
+      {
+        id: '20260917-oyuncu-isaretleme',
+        tur: 'yenilik',
+        metin: 'İSTEDİĞİN OYUNCUYU İSTEDİĞİN RENKTE İŞARETLEYEBİLİRSİN. '
+          + 'Haritada bir köye tıkla, panelin altındaki renklerden '
+          + 'birini seç — o oyuncunun BÜTÜN köyleri o renge döner. '
+          + 'İşaret otomatik ilişkiyi ezer: "tarafsız görünüyor ama '
+          + 'bana saldırdı" diyebilirsin. İşaret hesabına kayıtlı, '
+          + 'yani telefonda da bilgisayarda da aynı.',
+      },
+      {
+        id: '20260917-harita-sinir-ayrimi',
+        tur: 'duzeltme',
+        metin: 'İKİ KÖYÜN BİRLEŞTİĞİ YERDEKİ KARIŞIKLIK GİTTİ. Komşu '
+          + 'iki köyün ortak kenarı aynı yerde iki kez çiziliyordu ve '
+          + 'hangisinin görüneceğini çizim sırası belirliyordu; mavi '
+          + 'ile kırmızı yan yana gelince biri ötekini tamamen '
+          + 'örtüyordu. Artık her toprağın çevresi hafifçe içeri '
+          + 'çekiliyor, iki renk de ayrı ayrı okunuyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17f',
     tarih: '17 Eylül 2026',
     baslik: 'Haritadaki beyaz dikişler gitti',

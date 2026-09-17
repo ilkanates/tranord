@@ -178,6 +178,37 @@ kabul/iptal`). Bu maddede kalan:
 - ~~Tüccar kapasitesinin pazar seviyesiyle ilişkisi~~ — **GÖZDEN GEÇİRİLMEYECEK**
   (İlkan'ın kararı, 16 Eylül 2026). Mevcut hâli bırakılıyor.
 
+### Sığınak — yağmadan kaçırılan hammadde (17 Eylül 2026)
+İlkan: *"hammaddeleri saklamak için sığınak yapılacak bina."*
+
+Travian'daki **Cranny** (Gizli Ambar). Köyde bir bina; seviyesine göre
+belli miktarda hammaddeyi yağmacıdan GİZLİYOR — saldırgan depoyu boşaltsa
+bile gizlenen kısım köyde kalıyor.
+
+**Neden gerekli**: şu an çevrimdışı bir oyuncu üst üste yağmalanınca
+sıfırlanıyor ve oyuna dönecek kaynağı kalmıyor. Yeni oyuncunun oyunda
+kalmasını sağlayan tek mekanik bu; satılan bir oyunda "bir gün
+giremedim, her şeyim gitti" en hızlı bırakma sebebi.
+
+**Yapılacaklar**
+- `data/villageDefs.js`'e `siginak` binası: seviye başına gizleme
+  kapasitesi, maliyet, nüfus.
+- Yağma hesabında gizlenen miktar düşülüyor. Tek yer: `army.js` ganimet
+  hesabı (`ganimet`/`loot`) — iki yere yazılırsa kaçınılmaz olarak
+  ayrışır (bu projede defalarca oldu).
+- Saldırganın raporunda gizlenen kısım GÖRÜNMEZ: "deposu boştu" demeli,
+  "500 odunu sakladı" dememeli. Yoksa sığınak istihbarat sızdırır.
+- İzci raporu da gizlenen kısmı göstermemeli — aynı gerekçe.
+- Kuşatma sığınağı yıkabilmeli (mancınık hedefi), yoksa savunmanın
+  cevabı olmayan bir duvar olur.
+
+**Karar bekleyenler**
+- Kapasite seviyeyle nasıl büyüyor — doğrusal mı, katlanan mı?
+- Her kaynak için AYRI kapasite mi (Travian böyle), yoksa tek havuz mu?
+- Birden fazla sığınak kurulabilecek mi? *(Öneri: hayır — Travian'da
+  kurulabiliyor ve yağmayı tamamen öldürüyor.)*
+- İşlenmiş mallar (kereste, tuğla…) da gizlenecek mi, yalnız ham mı?
+
 ---
 
 ## 🔵 Arayüz / içerik
@@ -190,7 +221,92 @@ kabul/iptal`). Bu maddede kalan:
 
 ---
 
+## 🟣 Büyük iş: Gümüş, altın ve açık artırma (17 Eylül 2026 — İlkan'ın tarifi)
+
+İlkan'ın sözleri: *"kahramanlar itemlerini satabilmeli gümüş karşılığında. gümüş ile de ileride birşeyler alabileceğiz. itemlerin min tutarları olsun, kimse almasa bile açık arttırma bitince o parayı kullanıcı alsın, item NPC'ye satılmış olsun. her satış 24 saat açık arttırmada dursun, fazla parayı veren alsın. gümüşün asıl kazanma olasılığı kahramanın maceraları olsun. başlangıçta herkese birkaç item alacak kadar gümüş verilsin. oyunda bir de altın olsun, yine bunu canlıya alınca bir miktar altın verelim kullanıcıya. kullanıcı altını gümüşe, gümüşü altına çevirebilsin. bunun için bir binaya gerek yok, kendi menüsü olsun yukarıda. altınla 1'e 1 hammadde ticareti yapabilsin. üretim bonusu, depo bonusu ve bina yapımını hızlı bitirme gibi şeylerde de kullanabilsin."*
+
+### 1. GÜMÜŞ — kahramanın parası
+- **Kaynağı asıl olarak MACERA** (İlkan'ın kararı). Yağmadan ya da üretimden gelmiyor: gümüş kahramana ait bir ekonomi, köy ekonomisinden ayrı durmalı.
+- **Başlangıç bakiyesi**: herkese birkaç eşya alacak kadar. *(Açık: "birkaç eşya" kaç gümüş? Eşya taban fiyatları belirlenince türetilebilir.)*
+- Harcama yeri: açık artırmadan eşya almak. İleride başka şeyler.
+
+### 2. AÇIK ARTIRMA — eşya pazarı
+- Kahraman eşyasını satışa koyuyor, **24 saat** açık kalıyor, **en yüksek teklifi veren** alıyor.
+- **TABAN FİYAT (min tutar) VAR ve kimse teklif vermezse bile satış OLUYOR**: süre bitince eşya "NPC'ye satılmış" sayılıyor, satıcı taban fiyatı alıyor. Bu, İlkan'ın açık isteği ve önemli bir denge kararı — eşya hiç satılmazsa oyuncu emeğinin karşılığını alamazdı.
+- **Açık sorular (denge kararı gerekiyor):**
+  - Taban fiyat nadirliğe göre mi, slota göre mi, ikisine birden mi?
+  - Teklif verirken gümüş rezerve ediliyor mu (yoksa aynı gümüşle on açık artırmaya girilebilir)?
+  - Teklifi geçilen oyuncuya gümüş anında mı dönüyor?
+  - Son dakika teklifi süreyi uzatıyor mu (snipe koruması)?
+  - Satıştan NPC'ye giden eşyalar dünyadan siliniyor mu, yoksa havuzda mı kalıyor?
+- **Mimari notu**: süre bitimi zamanlayıcı ister — mevcut sefer/kuyruk tikine bağlanabilir, ayrı bir zamanlayıcı kurmak ikinci bir zaman kaynağı olurdu (bu projede zaman TEK yerden akıyor: `gameTime.js`).
+
+### 3. EŞYA SEVİYESİ — eşyalar yükseltilebilsin
+- İlkan: *"itemlerin de lvl'leri 5 lvl arttırılabilecek, onu da ekle."*
+- Her eşya **5 seviye** yükseltilebilecek; bonusları seviyeyle büyüyecek.
+- **Açık sorular (denge kararı gerekiyor):**
+  - Yükseltmenin bedeli ne? Gümüş mü, altın mı, hammadde mi, ikisi birden mi? (Gümüş ekonomisiyle aynı turda karara bağlanmalı — eşya yükseltmek gümüşün ikinci harcama yeri olabilir ve açık artırma fiyatlarını doğrudan etkiler.)
+  - Seviye başına artış sabit mi (her seviye +%20) yoksa katlanan mı?
+  - Nadirlik ile seviye nasıl birleşiyor? Sıradan bir eşyanın Lvl 5'i, efsanevi bir eşyanın Lvl 1'inden güçlü olmalı mı? (Olursa nadirlik anlamsızlaşır; olmazsa sıradan eşyayı yükseltmek boşa yatırım olur.)
+  - Yükseltilmiş eşya açık artırmada satılabilir mi, satılırsa taban fiyatı seviyesiyle büyüyor mu?
+  - Yükseltme başarısız olabilir mi (risk) yoksa her zaman kesin mi? *(Öneri: kesin olsun — bu oyunda başka hiçbir yerde "ödedin ama olmadı" yok, tek istisna tutarsız olurdu.)*
+- **Mimari notu**: eşya kaydı şu an `{ key, nadirlik }` (bkz. `kusam.js`); seviye üçüncü bir alan olarak girecek ve `kusamBonuslari` onu çarpan olarak okuyacak. Bonus hesabı TEK yerde duruyor, orada çarpmak yeterli — iki yere yazmak bu projede defalarca patladı.
+
+### 4. ALTIN — gerçek para karşılığı
+- **Canlıya geçince kullanıcıya bir miktar altın verilecek** (İlkan'ın kararı).
+- **Altın ↔ gümüş çevrilebilir.** *(Açık: kur ne? Tek yönlü mü çift yönlü mü? Çift yönlü ve sabit kurda, iki para birimi tek para birimine düşer — kur farkı ya da tek yön düşünülmeli.)*
+- **Altınla 1'e 1 hammadde ticareti** — oyuncu altını hammaddeye çevirebiliyor. *(Açık: "1'e 1" hangi ölçek? 1 altın = 1 hammadde mi, yoksa 1 altın = 1 birim paket mi?)*
+- Altının kullanım alanları: **üretim bonusu**, **depo bonusu**, **bina yapımını anında bitirme**. *(Açık: bonuslar ne kadar, ne kadar sürer, üst üste binebilir mi?)*
+- **BİNAYA GEREK YOK**: kendi menüsü üst barda. Pazar binasından ayrı — pazar köyler arası hammadde ticareti, bu hesap düzeyinde bir cüzdan.
+
+### 5. YAPILMADAN ÖNCE KARAR BEKLEYENLER
+Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle konulmamalı:
+- Gümüş/altın kurları, taban fiyatlar, bonus oranları ve süreleri.
+- Altın gerçek parayla mı alınacak (ödeme sağlayıcısı gerekir) yoksa yalnız hediye mi?
+- Altın bonusları oyunu "öde-kazan" hâline getirmemeli; üretim/depo bonusu ile bina hızlandırma bu dengenin tam sınırında.
+
+---
+
+## 🔵 Küçük işler (17 Eylül 2026)
+
+### ~~Grup mesajı gelince sayaç artmıyor~~ — **YAPILDI**
+
+### ~~Birlik grup mesajlarına elçilikten de girilebilsin~~ — **YAPILDI**
+
+<details><summary>Eski notlar</summary>
+
+### Grup mesajı gelince sayaç artmıyor
+- İlkan: *"grup mesajlarından gelen mesajlarda mesaj kısmında uyarı çıkmıyor."*
+- Üst bardaki Mesajlar rozeti yalnız DOĞRUDAN mesajları sayıyor (`mesajOkunmamis`); grup mesajları sayılmıyor, yani gruba yazılan mesaj ekranda hiçbir iz bırakmıyor.
+- Yapılacak: okunmamış grup mesajı sayısı da rozete eklenmeli. Veri zaten var — `gruplarim` her satırda `okunmamis` döndürüyor; toplamı oturuma yazıp `mesajOkunmamis` ile birlikte göstermek yeterli. Rozet iki sayının TOPLAMI olmalı, ayrı ikinci bir rozet oyuncuya iki yere bakmayı öğretirdi.
+
+### Birlik grup mesajlarına elçilikten de girilebilsin
+- İlkan: *"birlik içi grup mesajlarına elçilikten de girilebilir."*
+- Şu an yalnız Mesajlar > GRUPLAR sekmesinden. Elçilikte birlik grubu varsa oradan da açılabilmeli — birliğin yazışması birliğin merkezinde dursun.
+- Yapılacak: Elçilik panelinde beşinci bir sekme ya da ÜYELER sekmesinde "Birlik yazışması" kısayolu; mevcut `GroupMessages` bileşeni aynen kullanılır (yeni panel yazılmamalı — grup ekranı zaten tek kaynak).
+
+</details>
+
+
+---
+
 ## ✅ Tamamlandı
+
+### Genç köy tek mancınıkla siliniyordu (17 Eylül 2026)
+- İlkan: *"birinin ana binasını yıkarken köy direk kayboluyor galiba, ilk onu çözmen lazım."*
+- **ÖLÇÜLDÜ, doğrulandı.** Yeni kurulan köyün TEK binası var (`villageState.js` · `'0,0': anaBina Lvl 1`). Köyün yok olma şartı "bütün binaları bitsin"di; genç köyde bu şart "ana bina bitsin"e eşitti. Bir mancınık, bir sefer, köy haritadan siliniyordu. `kusatma.js`'in kendi başlığı bunun tersini söylüyordu: *"Tek bir mancınık dalgasının köyü silmesi satılan bir oyun için fazla sertti."* Kural öyle yazılmıştı ama genç köyde tersini yapıyordu.
+- **Düzeltme: `koyBosMu` artık TARLALARI da sayıyor.** Köy ancak binaları VE tarlaları sıfırlanınca yok oluyor — Travian'ın "nüfus sıfırlanınca ölür" kuralının karşılığı. Ölçüm: aynı köy 1 dalgada değil **6 dalgada** düşüyor (en çıplak hâliyle; gerçek kurulum dokuz tarlalı).
+- **Tarlaları saymak, mancınığın tarlayı VURABİLMESİNİ zorunlu kıldı**: vurulamayan bir şeyi sayınca köy ölümsüz olurdu — dosyanın tarlaları eskiden dışarıda tutma sebebi tam olarak buydu. İkisi aynı kararın iki yüzü. Mancınık hedef listesine tarlalar eklendi (`SendArmyPanel` · iki `optgroup`: Köy binaları / Tarlalar), rapor tarlanın ADINI taşıyor (`ad` alanı sunucuda yazılıyor — `VILLAGE_DEFS`'te tarla adı yok, istemci ham anahtarı gösterirdi).
+- **TERK ETME YOLU AYRI CÜMLEYE ALINDI** (`binasiKalmadi`). Yıkım düğmesi yalnız köy binalarında var; tarla yıkılamıyor. Terk etmeyi de "her şey bitsin"e bağlasaydık oyuncu köyünü hiç bırakamazdı. İki gerçekten farklı olay: biri saldırganın emeği, öteki sahibinin kararı.
+- Kilit: `kusatma.test.js`'e dört test (genç köy tek dalgada silinmiyor · ısrarlı kuşatma yine de silebiliyor · tarla hedefi çalışıyor · `binasiKalmadi` ile `koyBosMu` ayrışıyor). Eski "TARLALAR köyü ayakta tutmaz" testi tersine çevrildi.
+
+### Hammadde ikinci köyden ilkine gitmiyordu (17 Eylül 2026)
+- İlkan: *"ilk köyümden ikinciye hammadde yollayabiliyorum ama tam tersini yapamıyorum."*
+- **İKİ HATA ÜST ÜSTE BİNMİŞTİ, ikisi de SESSİZ.**
+- **(1) Panel sunucuyu beklemeden kapanıyordu.** `gonder()` isteği yollayıp hemen `onGonderildi` çağırıyordu; sunucu ne derse desin panel kapanıyor, yazılan sayılar siliniyordu. Ret ekranda hiçbir iz bırakmıyordu. Artık sunucu her sonucu `hammadde_sonuc` ile söylüyor, panel cevabı bekliyor ve sebebi düğmenin hemen üstünde yazıyor.
+- **(2) "Hedef zaten bulunduğum köy mü" denetimi hiç çalışmıyordu.** İstemci `pazar.slotKey` ile karşılaştırıyordu ama pazar özeti böyle bir alan GÖNDERMİYORDU: karşılaştırma hep `undefined` ile yapılıyor, hep `false` dönüyordu. Oyuncu köy değiştirmeden ilk köyüne "gönder" diyebiliyor, sunucu haklı olarak reddediyor, panel sessizce kapanıyordu. `slotKey` pakete eklendi (`opts.activeSlot` ile aynı kaynaktan — ikinci bir tanım değil).
+- **Asıl üçüncü sebep artık GÖRÜNÜR**: gönderi GÖNDEREN köyün pazarından çıkıyor. İkinci köyde pazar yoksa gönderi olmuyor — eskiden ekranda "1 tüccar gerekiyor, 0 boşta" yazıyordu (doğru ama yanıltıcı: eksik olan tüccar değil binaydı). Artık açıkça *"Bu köyde pazar yok"* diyor. Testte de tam bu çıktı: `dev_max_buildings` yalnız aktif köye işlediği için ikinci köy pazarsız kaldı ve sunucu sebebi söyledi.
+- Kilit: `hammadde-iki-koy.test.js` — uçtan uca üç test (her iki yön de çalışıyor · bulunduğun köye ret sebebiyle birlikte geliyor · paket `pazar.slotKey`'i taşıyor ve köy değişince güncelleniyor).
 
 ### Boş kuşam slotlarının simgeleri (16 Eylül 2026)
 - İlkan: *"bunları kahramanın slotlarındaki simgeler olarak kullan. item yoksa bunlar gözüksün."* Sekiz siluet üretti: at, bileklik, zırh, miğfer, ayakkabı, pantolon, kalkan, kılıç. **Kolye eksik** — o slot eski çizgi ikonunda kaldı.
@@ -273,6 +389,34 @@ kabul/iptal`). Bu maddede kalan:
 - **Pay gözle değil ÖLÇÜLEREK seçildi.** Her kenardan içeri doğru satır/sütun ortalama parlaklığı tarandı: `zincirEtek`'te beyaz kenarlık 22 pikselde sahne zeminine iniyor (26 kırpıldı), `kuzeyRuzgari`'nda ahşap çerçevenin iç gölgesi 38'de net düşüyor (42 kırpıldı). Tahminle kırpmak ya çerçeveyi bırakır ya sanattan yer yerdi.
 - Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
 - **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
+
+### Harita renkleri: kim değil NE (17 Eylül 2026)
+- İlkan: *"her oyuncuya ayrı renk atama, çerçeve renkleri standart olsun. Kendi köylerimi mavi çerçevelesin, dostları yeşil, tarafsızları gri, düşmanları kırmızı boyayalım. İstediğim adamı da işaretleyebileyim istediğim renkte. İki köy arasındaki birleşimler hâlâ sıkıntı."*
+
+**ESKİ MODEL** her oyuncuya paletten ayrı bir ton veriyordu (açgözlü boyama, iki palet, 9 hex komşuluk taraması). Harita rengârenkti ama renk hiçbir şey **anlatmıyordu**: mor bir köyün mavi bir köyden farkı yoktu, ikisi de yabancıydı. "Kime saldırabilirim" sorusu renge bakarak cevaplanamıyordu. Ton dağıtan kod tamamen silindi — iki renk sistemini birlikte bırakmak "hangisi çalışıyor" sorusu doğururdu.
+
+**YENİ MODEL — dört sabit renk + elle işaret.** Kural tek dosyada (`haritaRenk.js`); canvas da SVG de oradan okuyor. İki katmanın ayrışması bu projede defalarca patlayan hata sınıfı ve nitekim ilk denemede yakalandı: canvas yeni kurala geçmişti ama SVG kendi köyleri hâlâ yeşil çiziyordu, yani aynı köy uzakta mavi yakında yeşil görünüyordu.
+
+| Durum | Renk | Nereden |
+|---|---|---|
+| Kendi köyüm | mavi `#5aa9ff` | `kind === 'self'` |
+| Dost | yeşil `#7fe04d` | aynı birlik · konfederasyon · saldırmazlık |
+| Tarafsız | gri `#9aa7b4` | geri kalan herkes |
+| Düşman | kırmızı `#ff6f78` | birliğimin savaşta olduğu birlik |
+| Elle işaret | seçilen renk | oyuncunun kendi kararı — **hepsini ezer** |
+
+- **Sıra önemli**: elle işaret otomatik çıkarımı ezer ("tarafsız görünüyor ama bana saldırdı"), ama **kendi köyüm her zaman mavi** — kendi toprağını düşman renginde görmek haritayı okunamaz yapardı.
+- **Yeşil artık DOST rengi**, kendi toprağım değil: ikisi aynı renkte kalsaydı "bu benim mi, müttefikimin mi" sorusu renkle cevaplanamazdı.
+- **Diplomaside yalnız YÜRÜRLÜKTEKİ ilişkiler** renk değiştiriyor; bekleyen teklif değiştirmiyor — teklif gönderdin diye adamı yeşil göstermek, onay gelmeden dost saymak olurdu.
+
+**İŞARETLER SUNUCUDA** (`player_marks`), tarayıcıda değil: `localStorage` daha kolaydı ama işaret telefonda ve bilgisayarda ayrı tutulurdu; İlkan ikisini de kullanıyor. Hedef **oyuncu adıyla** saklanıyor, kullanıcı numarasıyla değil — harita anlık görüntüsü numara taşımıyor (bilerek: oyuncuları numaralarıyla eşleştirmeye yarardı) ve ad zaten benzersiz. İşaret **oyuncu bazında**, köy bazında değil: altı köylü bir oyuncuyu altı kez işaretlemek saçma olurdu.
+
+**BİRLEŞİM SORUNU ÇÖZÜLDÜ.** Komşu iki köyün **ortak kenarı aynı geometriyle iki kez** çiziliyordu, her biri kendi renginde; hangisinin görüneceğini çizim sırası belirliyordu (mavi ile kırmızı yan yana gelince biri ötekini tamamen örtüyordu). Artık her toprağın çevresi 3 piksel içeri çekilerek çiziliyor — hatlar birbirine değmiyor, iki renk de okunuyor. Kalınlık 3,2 → 2,8.
+
+**Paket**: `birlikIliskilerim` (birlikId → yürürlükteki tür) ve `isaretlerim` (ad → renk) pakette gidiyor, istek üzerine değil — harita ilk çizimde doğru renkte açılsın, sonra zıplamasın. İkisi de bağlantıda bir kez okunup oturumda tutuluyor (`emitVillage` senkron, oraya sorgu koymak tik yoluna gecikme sokardı) ve ilgili olayda tazeleniyor.
+
+- **Yakalanan tuzak**: `opts` alanları `payload.js`'e açıkça yazılmadıkça istemciye gitmiyor — bu dosyanın bilinen kuralı, yine unutuldu ve iki alan da pakette çıkmadı. Ölçülerek görüldü (istemcide `birlikIliskilerim` hiç gelmiyordu), eklenince düzeldi.
+- **TARAYICIDA DOĞRULANDI**: SVG çerçeve renkleri sayıldı — mavi 2 (kendi), gri 8 (tarafsız), kırmızı 2 (savaş ilan edilen birlik), mor 2 (elle işaretlenen oyuncu). Kalıntı hue tonu yok. İşaretin diske yazıldığı da doğrulandı; test işareti ve test savaşı sonra geri alındı.
 
 ### Haritadaki beyaz dikişler (17 Eylül 2026)
 - İlkan ekran görüntüsüyle bildirdi: *"görseller arası beyazlıklar vs var. haritayı çok güzel görünen akıcı çalışan bir hale getir."*

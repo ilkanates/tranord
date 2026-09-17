@@ -1166,7 +1166,12 @@ function Game({ token, onLogout }) {
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
         badges={{ raporlar: unseenCount(village.reports || []),
-            mesajlar: village.mesajOkunmamis || 0,
+            /*
+              ROZET İKİ SAYININ TOPLAMI: doğrudan mesajlar + grup
+              mesajları. Ayrı ikinci bir rozet, oyuncuya "bir yerde
+              okunmamış var mı" sorusunu iki yere bölerdi.
+            */
+            mesajlar: (village.mesajOkunmamis || 0) + (village.grupOkunmamis || 0),
             /*
               GÖREV ÖDÜLÜ SEKMEDE. Telefonda yüzen rehber rozeti kaldırıldı;
               "ödülün hazır" haberi Görevler sekmesinin sayacıyla veriliyor,
@@ -1267,6 +1272,10 @@ function Game({ token, onLogout }) {
               kahraman={village.kahraman}
               activeSlot={village.activeSlot}
               kendiKoyler={village.villages || []}
+              /* Harita renkleri ilişkiye göre: birlik kimliğim, yürürlükteki
+                 diplomasi ve elle koyduğum işaretler */
+              birlikIliskileri={village.birlikIliskilerim || {}}
+              isaretler={village.isaretlerim || {}}
               birlikId={village.birlik?.id || null}
               pazar={village.pazar || null}
               hourSeconds={village.marchInfo?.hourSeconds || 3600}

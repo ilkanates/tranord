@@ -255,6 +255,8 @@ function buildPayload(village, tickMs, opts = {}) {
     egitimBitti: !!opts.egitimBitti,
     // Üst bardaki mesaj rozeti (bkz. index.js · emitVillage)
     mesajOkunmamis: opts.mesajOkunmamis || 0,
+    /* Grup mesajları ayrı sayılıyor; rozet ikisini istemcide topluyor */
+    grupOkunmamis: opts.grupOkunmamis || 0,
     /*
       KAHRAMAN özeti. `opts`'a koymak YETMEZ — payload nesnesine bu satırla
       kopyalanmazsa istemciye hiç gitmez; adVerilmedi tam bu yüzden aylarca
@@ -436,6 +438,13 @@ function buildPayload(village, tickMs, opts = {}) {
       kopyalıyor, buraya satır eklenmezse veri sessizce kaybolur.
     */
     birlik: opts.birlik || null,
+    /*
+      HARİTA RENGİ İÇİN: yürürlükteki diplomasi ve elle konan
+      işaretler. Bu dosyanın kuralı — opts alanları KENDİLİĞİNDEN
+      kopyalanmıyor, her biri burada açıkça yazılmalı.
+    */
+    birlikIliskilerim: opts.birlikIliskilerim || {},
+    isaretlerim: opts.isaretlerim || {},
     birlikDavetlerim: opts.birlikDavetlerim || [],
     birlikTanim: opts.birlikTanim || null,
     isCapital: village.isCapital !== false,
@@ -454,6 +463,13 @@ function buildPayload(village, tickMs, opts = {}) {
       istemci kendi hesaplamıyor; sunucu ne derse o (bkz. game/pazar.js).
     */
     pazar: {
+      /*
+        PAZARIN KÖYÜ. İstemci "hedef, bulunduğum köyün kendisi mi"
+        denetimini bununla yapıyor; alan yokken denetim sessizce
+        çalışmıyor ve oyuncu reddedilecek bir düğmeye basıyordu.
+        `activeSlot` ile AYNI kaynaktan geliyor — ikinci bir tanım değil.
+      */
+      slotKey: opts.activeSlot || null,
       ...PAZAR.pazarOzeti(village, depotCapacities, granaryCapacity),
       // Kendi açtığım teklifler ve yoldaki gönderilerim
       teklifler: (village.teklifler || []).map((t) => ({

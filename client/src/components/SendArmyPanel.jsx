@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { C, FONT, btn, label as lbl, num, short, fmtTime } from '../theme';
 import VILLAGE_DEFS from '../data/villageDefs';
+import BUILDING_DEFS from '../data/buildingDefs';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
 
@@ -33,14 +34,25 @@ const MODES = [
 ];
 
 /**
- * MANCINIK HEDEF LİSTESİ — oyuncunun seçebileceği bina tipleri.
+ * MANCINIK HEDEF LİSTESİ — binalar VE tarlalar.
  *
  * Sur YOK: onu koç başı yıkıyor, mancınığa verilse iki
- * makine aynı işi yapardı. Liste villageDefs'ten türetiliyor, elle
+ * makine aynı işi yapardı. Liste tanım dosyalarından türetiliyor, elle
  * yazılsaydı yeni bina eklendiğinde unutulurdu.
+ *
+ * TARLALAR SONRADAN EKLENDİ. Köyün yok olması artık tarlaların da
+ * düşmesini istiyor (bkz. server/game/kusatma.js · koyBosMu): vurulamayan
+ * bir şeyi sayınca köy ölümsüz olurdu. Tarla vurmak ayrıca kendi başına
+ * bir hamle — düşmanın ÜRETİMİNİ kesiyor.
+ *
+ * İki grup AYRI başlık altında: oyuncu "Orman"ı bina sanmasın.
  */
-const YIKILABILIR = Object.entries(VILLAGE_DEFS)
+const YIKILABILIR_BINA = Object.entries(VILLAGE_DEFS)
   .filter(([k]) => k !== 'sur' && k !== 'hendek' && k !== 'kule')
+  .map(([k, d]) => [k, d.name || k])
+  .sort((a, b) => a[1].localeCompare(b[1], 'tr'));
+
+const YIKILABILIR_TARLA = Object.entries(BUILDING_DEFS)
   .map(([k, d]) => [k, d.name || k])
   .sort((a, b) => a[1].localeCompare(b[1], 'tr'));
 
@@ -678,10 +690,17 @@ export default function SendArmyPanel({
                     background: 'rgba(4,9,15,0.75)', border: `1px solid ${C.lineSoft}`,
                     color: C.frost, fontFamily: FONT.ui, fontSize: 10.5, outline: 'none',
                   }}>
-                  <option value="">Rastgele bina</option>
-                  {YIKILABILIR.map(([k, ad]) => (
-                    <option key={k} value={k}>{ad}</option>
-                  ))}
+                  <option value="">Rastgele hedef</option>
+                  <optgroup label="Köy binaları">
+                    {YIKILABILIR_BINA.map(([k, ad]) => (
+                      <option key={k} value={k}>{ad}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Tarlalar">
+                    {YIKILABILIR_TARLA.map(([k, ad]) => (
+                      <option key={k} value={k}>{ad}</option>
+                    ))}
+                  </optgroup>
                 </select>
                 {/*
                   İKİNCİ HEDEF — güç bölünüyor, artmıyor. Yüzdeleri yazmak
@@ -704,9 +723,16 @@ export default function SendArmyPanel({
                         opacity: hedefBina ? 1 : 0.55,
                       }}>
                       <option value="">İkinci hedef yok — tek hedefe tam güç</option>
-                      {YIKILABILIR.map(([k, ad]) => (
-                        <option key={k} value={k}>{ad}</option>
-                      ))}
+                      <optgroup label="Köy binaları">
+                        {YIKILABILIR_BINA.map(([k, ad]) => (
+                          <option key={k} value={k}>{ad}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Tarlalar">
+                        {YIKILABILIR_TARLA.map(([k, ad]) => (
+                          <option key={k} value={k}>{ad}</option>
+                        ))}
+                      </optgroup>
                     </select>
                     <div style={{
                       fontFamily: FONT.ui, fontSize: 9, color: C.textMute,

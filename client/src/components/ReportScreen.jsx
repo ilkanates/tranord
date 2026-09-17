@@ -825,7 +825,7 @@ function Detail({ r, unitDefs }) {
                   )}
                   {(r.kusatma.binalar || []).map((b, i) => (
                     <div key={i}>
-                      {VILLAGE_DEFS[b.tip]?.name || b.tip}
+                      {b.ad || VILLAGE_DEFS[b.tip]?.name || b.tip}
                       {' '}<b style={{ color: C.danger }}>{b.onceki} → {b.sonraki}</b>
                       {b.sonraki === 0 ? ' (yıkıldı)' : ''}
                     </div>

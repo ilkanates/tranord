@@ -36,6 +36,8 @@ const BOS_DB = () => ({
   // Birlik — alliances / alliance_members / alliance_invites
   alliances: [], allianceMembers: [], allianceInvites: [],
   nextAllianceId: 1, nextInviteId: 1,
+  // Haritada elle verilen oyuncu işaretleri
+  playerMarks: [],
   // Birlik profili, günlüğü ve diplomasisi
   allianceLog: [], allianceDiplomacy: [],
   nextAllianceLogId: 1, nextDiplomacyId: 1,
@@ -604,6 +606,23 @@ async function loadAlliances() {
 //  BİRLİK: PROFİL, GÜNLÜK, DİPLOMASİ — db.js ile AYNI sözleşme
 // ═══════════════════════════════════════════════════════════════
 
+async function isaretleriOku(userId) {
+  const uid = Number(userId);
+  return Object.fromEntries(db.playerMarks
+    .filter(m => m.user_id === uid)
+    .map(m => [m.hedef_ad, m.renk]));
+}
+
+async function isaretYaz(userId, hedefAd, renk) {
+  const uid = Number(userId);
+  db.playerMarks = db.playerMarks.filter(
+    m => !(m.user_id === uid && m.hedef_ad === hedefAd));
+  /* Renk boşsa işaret kalkıyor — ayrı bir "kaldır" olayı olmasın */
+  if (renk) db.playerMarks.push({ user_id: uid, hedef_ad: hedefAd, renk });
+  persist();
+  return true;
+}
+
 async function birlikAciklama(allianceId, aciklama) {
   const a = db.alliances.find(x => x.id === Number(allianceId));
   if (a) { a.aciklama = aciklama; persist(); }
@@ -765,7 +784,7 @@ async function davetleriTemizle(userId) {
 module.exports = {
   grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
   grupOkundu, grupAyril, grupSil,
-  birlikAciklama, gunlukYaz, gunlukOku,
+  birlikAciklama, gunlukYaz, gunlukOku, isaretleriOku, isaretYaz,
   diplomasiYaz, diplomasiDurum, diplomasiListesi, diplomasiSil,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
   uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,

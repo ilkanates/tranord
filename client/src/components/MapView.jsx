@@ -28,6 +28,7 @@ import { computePopoverPos } from './popoverStyle';
 import { C, FONT, btn, label as lbl, num, short, fmtTime } from '../theme';
 import { RES_LABEL, gameMinutesToRealSeconds } from '../flows';
 import Icon from './Icons';
+import { iliskiOf, ILISKI_RENK } from './haritaRenk';
 import SendArmyPanel from './SendArmyPanel';
 import HammaddeGonder from './HammaddeGonder';
 import {
@@ -64,75 +65,6 @@ const BIRLIK_YESIL      = '#3ddc84';
 const BIRLIK_YESIL_KOYU = '#146b3a';
 const FOE_COLOR  = '#ff6f78';
 
-/**
- * KÖY BAŞINA AYRI RENK.
- *
- * Kademe rengi paylaşıldığı için komşu köylerin toprağı ayırt edilemiyordu.
- * Rastgele hue de yetmiyor: 20 halka içinde iki komşu aynı tona düşüyordu
- * (ölçüm: Frostgard 263° / Havnfjell II 263°). Bu yüzden AÇGÖZLÜ BOYAMA —
- * her köy, 9 hex çevresindeki köylerin kullanmadığı ilk paletten alır.
- * Sıralama key'e göre deterministik, yani renkler her açılışta aynı.
- *
- * Palet 65–160° arasını atlar: yeşil yalnızca OYUNCUNUN toprağı.
- */
-const PALETTE_H = [205, 30, 300, 45, 265, 340, 185, 15, 320, 230, 285, 355, 245, 170];
-const hueColor = (h) => ({
-  line: `hsl(${h} 80% 68%)`,
-  soft: `hsla(${h}, 72%, 52%, 0.32)`,
-});
-const PLAYER_COL = { line: FOE_COLOR, soft: 'rgba(255,111,120,0.32)' };
-
-/**
- * OYUNCU PALETİ — renk KÖY başına değil OYUNCU başına.
- *
- * İlk ton 356°, yani `FOE_COLOR`'ın tonu: tek komşusu olan oyuncu
- * için harita hiç değişmiyor, ikinci oyuncu geldiğinde ayrışıyor.
- * Yeşil aralığı (65–160°) yok — yeşil kendi sınırımın rengi.
- */
-const PLAYER_PALETTE_H = [356, 25, 285, 200, 330, 45, 260, 180, 310, 15, 240, 210, 300, 35];
-
-/**
- * Oyuncu → ton. Açgözlü: bir oyuncu, 9 hex yakınındaki BAŞKA
- * oyuncuların kullanmadığı ilk tonu alır. Sıralama deterministik
- * (anahtar sırası), yani renkler her açılışta aynı.
- *
- * Aynı oyuncunun bütün köyleri tek renk: "bu toprak kimin" sorusunun
- * cevabı renk olmalı. Köy başına renk verseydik altı köylü bir
- * oyuncu haritada altı ayrı tehdit gibi görünürdü.
- */
-function assignPlayerHues(villages) {
-  const oyuncuKoyleri = villages
-    .filter(v => v.kind === 'player')
-    .sort((a, b) => a.key.localeCompare(b.key));
-
-  const out = new Map();                 // sahip → ton
-  const yerlesik = [];                   // { q, r, sahip, h }
-  for (const v of oyuncuKoyleri) {
-    const sahip = v.owner || v.key;      // adı gelmeyen köy kendi başına sayılır
-    if (!out.has(sahip)) {
-      const kullanilan = new Set();
-      for (const p of yerlesik) {
-        if (p.sahip === sahip) continue;
-        const dq = v.q - p.q, dr = v.r - p.r;
-        if ((Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2 <= 9) kullanilan.add(p.h);
-      }
-      out.set(sahip, PLAYER_PALETTE_H.find(x => !kullanilan.has(x)) ?? PLAYER_PALETTE_H[0]);
-    }
-    yerlesik.push({ q: v.q, r: v.r, sahip, h: out.get(sahip) });
-  }
-  return out;
-}
-
-/**
- * NPC KÖYLERİ GRİ.
- *
- * Köy başına ayrı hue rengarenk bir harita üretiyordu ve göz asıl önemli
- * şeyi (kendi toprağım / gerçek oyuncular) seçemiyordu. NPC'ler artık tek
- * nötr gri; renk yalnızca anlam taşıyanlara ayrıldı:
- *   sarı = benim · kırmızı = rakip oyuncu · koyu yeşil = birliğim (planlı)
- * `assignVillageHues` ve PALETTE_H hâlâ duruyor — birlik dışı ayrım gerekirse
- * geri dönmek için.
- */
 const NPC_COL = { line: '#93a1ad', soft: 'rgba(147,161,173,0.26)' };
 
 /**
@@ -169,23 +101,13 @@ function alpha(color, a) {
   return c;
 }
 
-function assignVillageHues(villages) {
-  const sorted = villages.filter(v => v.kind !== 'self')
-    .sort((a, b) => a.key.localeCompare(b.key));
-  const out = new Map();
-  const placed = [];
-  for (const v of sorted) {
-    const used = new Set();
-    for (const p of placed) {
-      const dq = v.q - p.q, dr = v.r - p.r;
-      if ((Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2 <= 9) used.add(p.h);
-    }
-    const h = PALETTE_H.find(x => !used.has(x)) ?? PALETTE_H[0];
-    out.set(v.key, h);
-    placed.push({ q: v.q, r: v.r, h });
-  }
-  return out;
-}
+/*
+  KÖY BAŞINA TON DAĞITAN ESKİ SİSTEM SİLİNDİ (İlkan'ın kararı).
+
+  Renk artık İLİŞKİYİ söylüyor (bkz. haritaRenk.js): mavi ben, yeşil
+  dost, gri tarafsız, kırmızı düşman. İki renk sistemini birlikte
+  bırakmak "hangisi çalışıyor" sorusu doğururdu.
+*/
 
 const TEXTURE = { tahil: tahilImg, odun: ormanImg, demir: demirImg, kil: kilImg, tas: tasImg };
 
@@ -194,7 +116,15 @@ const WILD_FILL = ['#2e3d21', '#354527', '#293620', '#3c4029', '#2b3a2a', '#4344
 
 const kk = (q, r) => `${q},${r}`;
 
-const CLAIM_GREEN = '#7fe04d';
+/*
+  KENDİ TOPRAĞIMIN RENGİ — artık MAVİ, yeşil değil.
+
+  Yeşil DOST rengi oldu (birlik arkadaşı, konfederasyon, saldırmazlık);
+  kendi toprağımı da yeşil bıraksaydık "bu benim mi, müttefikimin mi"
+  sorusu renge bakarak cevaplanamazdı. Ad geriye dönük uyumluluk için
+  duruyor, değeri haritaRenk.js'ten geliyor — tek kaynak.
+*/
+const CLAIM_GREEN = ILISKI_RENK.ben;
 
 /**
  * ARAZİ CANVAS'TA ÇİZİLİR.
@@ -509,13 +439,14 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worke
   const kimlik = (o) => (o ? (o.v?.owner || o.v?.key || '') : null);
 
   const byStroke = new Map();
-  const addSeg = (style, sw, x, y, i) => {
+  const addSeg = (style, sw, x, y, i, pay = 1) => {
     const k = `${style}|${sw}`;
     let e = byStroke.get(k);
     if (!e) { e = { style, sw, path: new Path2D() }; byStroke.set(k, e); }
+    const rr = S - pay;
     const a0 = (Math.PI / 3) * i, a1 = (Math.PI / 3) * (i + 1);
-    e.path.moveTo(x + (S - 1) * Math.cos(a0), y + (S - 1) * Math.sin(a0));
-    e.path.lineTo(x + (S - 1) * Math.cos(a1), y + (S - 1) * Math.sin(a1));
+    e.path.moveTo(x + rr * Math.cos(a0), y + rr * Math.sin(a0));
+    e.path.lineTo(x + rr * Math.cos(a1), y + rr * Math.sin(a1));
   };
   const addStroke = (style, sw, x, y) => {
     const k = `${style}|${sw}`;
@@ -532,7 +463,15 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worke
       for (let i = 0; i < 6; i++) {
         const [dq, dr] = EDGE_N[i];
         if (kimlik(sahipHarita.get(`${q + dq},${r + dr}`)) === ben) continue;
-        addSeg(owner.col.line, 3.2, x, y, i);
+        /*
+          HAT İÇERİ ÇEKİLİYOR (İlkan: "iki köy arasındaki birleşimler
+          sıkıntı"). İki komşu köyün ortak kenarı aynı geometriyle iki
+          kez çiziliyordu ve hangisinin görüneceğini çizim sırası
+          belirliyordu — mavi ile kırmızı yan yana gelince biri ötekini
+          tamamen örtüyordu. İçeri çekilince hatlar birbirine değmiyor,
+          iki renk de okunuyor.
+        */
+        addSeg(owner.col.line, 2.8, x, y, i, IC_PAY);
       }
       continue;
     }
@@ -588,6 +527,13 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worke
 
 // Kenar i (köşe i → i+1) hangi komşuya bakıyor — dış normal 30°+60i
 const EDGE_N = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
+
+/*
+  SINIR HATTININ İÇ PAYI. Komşu iki toprağın hatları birbirine
+  değmesin diye çevre bu kadar içeri çekiliyor; aradaki ince boşluk
+  iki rengin de ayrı ayrı okunmasını sağlıyor.
+*/
+const IC_PAY = 3;
 const CLAIM_LOCAL = ['0,0', ...CLAIM_OFFSETS.map(([q, r]) => kk(q, r))];
 const CLAIM_SET = new Set(CLAIM_LOCAL);
 
@@ -1199,6 +1145,12 @@ export default function MapView({
      hangi köyde olduğunu adıyla söyleyebilsin diye. Aşağıdaki
      `villages` DÜNYA karoları; ikisi ayrı şeyler. */
   kendiKoyler = [],
+  /*
+    HARİTA RENGİ İÇİN: yürürlükteki diplomasi (birlikId → tür) ve elle
+    konan işaretler (oyuncu adı → renk). İkisi de pakette geliyor,
+    istek üzerine değil — harita ilk çizimde doğru renkte açılsın.
+  */
+  birlikIliskileri = {}, isaretler = {},
   freeWorkers = 0, resources = {}, flows = {}, railInset = 0, myArmy = 0,
   army = {}, unitDefs = {}, unitStatsNow = {}, intel = {}, marchInfo = {},
   /*
@@ -1564,18 +1516,24 @@ export default function MapView({
    *  • tileOwners  — GERÇEKTEN alınmış hex'ler: köy merkezi + kurulu tarlalar.
    *    Renk, çerçeve ve tam parlaklık yalnızca bunlara uygulanır.
    */
-  const villageHues = useMemo(() => assignVillageHues(villages), [villages]);
+
   /*
-    OYUNCU RENGİ SAHİBİNE BAĞLI (İlkan'ın isteği). Eskiden her oyuncu
-    aynı pembeydi ve yan yana iki oyuncunun toprağı ayırt edilemiyordu.
+    RENK ARTIK İLİŞKİYİ SÖYLÜYOR (İlkan'ın kararı): mavi ben, yeşil
+    dost, gri tarafsız, kırmızı düşman; elle işaret hepsinin üstünde.
+
+    Oyuncu başına ton dağıtan eski model kaldırıldı — harita rengârenkti
+    ama renk bir CEVAP değildi.
   */
-  const playerHues = useMemo(() => assignPlayerHues(villages), [villages]);
-  const colOf = useCallback((v) => (
-    v.kind === 'player'
-      ? hueColor(playerHues.get(v.owner || v.key) ?? PLAYER_PALETTE_H[0])
-      : v.kind === 'npc' ? NPC_COL
-        : hueColor(villageHues.get(v.key) ?? PALETTE_H[0])
-  ), [villageHues, playerHues]);
+  const iliskiBilgi = useCallback((v) => iliskiOf(v, {
+    benimBirlikId: birlikId, iliskiler: birlikIliskileri, isaretler,
+  }), [birlikId, birlikIliskileri, isaretler]);
+
+  const colOf = useCallback((v) => {
+    if (v.kind === 'npc') return NPC_COL;
+    const renk = iliskiBilgi(v).renk;
+    /* soft yalnız eski çağrılar bozulmasın diye; dolgu artık çizilmiyor */
+    return { line: renk, soft: renk + '2e' };
+  }, [iliskiBilgi]);
 
   /*
     YAYILMA YALNIZ YABANCI TOPRAKTA DURUR.
@@ -2445,7 +2403,10 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
       )}
 
       {selVillage && popoverPos && (
-        <ForeignVillagePanel v={selVillage} myArmy={myArmy} popoverPos={popoverPos}
+        <ForeignVillagePanel v={{ ...selVillage, iliskiRenk: iliskiBilgi(selVillage).renk }}
+          myArmy={myArmy} popoverPos={popoverPos}
+          isaret={selVillage.owner ? (isaretler[selVillage.owner] || null) : null}
+          onIsaret={(ad, renk) => socket?.emit('oyuncu_isaretle', { ad, renk })}
           intel={intel[selVillage.key] || null}
           /*
             PvP AÇIK — ve kendi köyüm de diğerleriyle AYNI (İlkan'ın

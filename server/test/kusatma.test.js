@@ -8,8 +8,11 @@
  * 2) Seviye maliyeti ARTAR: Lvl 20'yi indirmek Lvl 2'yi indirmekten
  *    pahalı. Sabit maliyet olsaydı yüksek sur yatırımı anlamsızlaşırdı.
  * 3) ANA BİNA 0'a inebilir — köy yıkımı AÇIK, ama köyün yok olması için
- *    BÜTÜN binaların bitmesi gerekiyor (koyBosMu). Tek dalgada köy silmek
- *    fazla sert, hiç silememek kuşatmayı anlamsız kılıyordu.
+ *    BİNALARIN VE TARLALARIN hepsinin bitmesi gerekiyor (koyBosMu).
+ *    Tarlalar SONRADAN dahil edildi: yalnız binalar sayılırken YENİ
+ *    kurulmuş köyü (tek binası var: ana bina) TEK mancınık siliyordu.
+ *    Bu dosyanın 5. maddesi o hatayı tutuyor.
+ * 5) YENİ KÖY TEK DALGADA SİLİNEMEZ — İlkan bildirdi, ölçüldü.
  * 4) Yıkılan binanın işçileri havuza döner. Dönmezse işçiler artık var
  *    olmayan bir binada "çalışıyor" görünür ve nüfus muhasebesi bozulur.
  */
@@ -140,11 +143,83 @@ test('koyBosMu: İNŞA hâlindeki bina köyü ayakta tutar', () => {
   assert.equal(K.koyBosMu(v), false);
 });
 
-test('koyBosMu: TARLALAR köyü ayakta tutmaz', () => {
-  // Tarla köyün arazisi, binası değil; yoksa tarlalı köy hiç yok olamazdı
+test('koyBosMu: TARLALAR köyü AYAKTA TUTAR', () => {
+  /*
+    Eskiden tersiydi ve YENİ KURULAN KÖYÜ TEK MANCINIK SİLİYORDU.
+
+    Yeni köyün tek binası var (villageState.js · '0,0' anaBina Lvl 1).
+    "Bütün binalar bitsin" şartı o köyde "ana bina bitsin"e eşitti:
+    bir mancınık, bir sefer, köy yok. İlkan bildirdi.
+
+    Tarla sayılınca genç köyün dokuz tarlası kalkan oluyor.
+  */
   const v = koy({});
   v.productionTiles = { 't1': { level: 5, workers: 2 } };
-  assert.equal(K.koyBosMu(v), true);
+  assert.equal(K.koyBosMu(v), false, 'ayakta tarlası olan köy yok olamaz');
+
+  v.productionTiles.t1.level = 0;
+  assert.equal(K.koyBosMu(v), true, 'tarlalar da düşünce köy boşalır');
+});
+
+test('YENİ KÖY tek mancınık dalgasında silinmiyor', () => {
+  /*
+    İlkan: *"birinin ana binasını yıkarken köy direk kayboluyor galiba."*
+
+    Ölçüm: yeni köyün kurulum hâli — tek bina, tarlalar Lvl 1.
+    Eski kural bu köyü TEK atışta siliyordu.
+  */
+  const yeni = () => {
+    const v = koy({ '0,0': bina('anaBina', 1) });
+    v.productionTiles = {
+      '1,0': { type: 'odun', level: 1 }, '1,-1': { type: 'odun', level: 1 },
+      '0,-1': { type: 'kil', level: 1 }, '-1,0': { type: 'demir', level: 1 },
+      '-1,1': { type: 'tahil', level: 1 }, '0,1': { type: 'tahil', level: 1 },
+    };
+    return v;
+  };
+
+  const v = yeni();
+  K.uygula(v, { 'alevMancınıgı': 20 }, 'anaBina');
+  assert.equal(v.villageBuildings['0,0'].level, 0, 'ana bina düşmeli');
+  assert.equal(K.koyBosMu(v), false,
+    'ana bina düşse de tarlalar dururken köy yok olmamalı');
+
+  /*
+    AMA SONSUZA KADAR DA YAŞAMAMALI: kuşatmanın sonu olmalı. Israrla
+    gelen saldırgan köyü silebiliyor — yalnız tek seferde değil.
+  */
+  let dalga = 0;
+  while (!K.koyBosMu(v) && dalga < 100) { K.uygula(v, { 'alevMancınıgı': 20 }); dalga++; }
+  assert.ok(K.koyBosMu(v), 'ısrarlı kuşatma köyü yine de silebilmeli');
+  assert.ok(dalga >= 5, `en az birkaç dalga gerekmeli, ölçülen: ${dalga}`);
+});
+
+test('mancınık TARLA da vurabiliyor — yoksa tarlalı köy hiç ölmezdi', () => {
+  /*
+    Tarlaları "köy yaşıyor" sayımına katmak, onları HEDEF yapmayı
+    zorunlu kıldı: vurulamayan bir şeyi sayınca köy ölümsüz olurdu.
+    İkisi aynı kararın iki yüzü.
+  */
+  const v = koy({ '0,0': bina('anaBina', 5) });
+  v.productionTiles = { '1,0': { type: 'odun', level: 4 } };
+  const s = K.uygula(v, { 'alevMancınıgı': 20 }, 'odun');
+  assert.ok(s, 'tarla hedefi kabul edilmeli');
+  assert.equal(s.binalar[0].alan, 'tarla');
+  assert.equal(v.productionTiles['1,0'].level, 0, 'tarla düşmeli');
+  assert.equal(v.villageBuildings['0,0'].level, 5, 'hedeflenmeyen bina el değmemiş kalmalı');
+  assert.equal(s.binalar[0].ad, 'Orman', 'rapor tarlanın ADINI taşımalı, ham anahtarı değil');
+});
+
+test('binasiKalmadi: sahibinin kendi yıkımı AYRI cümle', () => {
+  /*
+    Yıkım düğmesi yalnız köy binalarında var; tarla yıkılamıyor. Terk
+    etmeyi `koyBosMu`ya bağlasaydık — tarlalar hep ayakta olacağı için —
+    oyuncu köyünü hiç bırakamazdı.
+  */
+  const v = koy({});
+  v.productionTiles = { '1,0': { type: 'odun', level: 4 } };
+  assert.equal(K.binasiKalmadi(v), true, 'bütün binalarını yıkan sahip köyü bırakabilmeli');
+  assert.equal(K.koyBosMu(v), false, 'ama DÜŞMAN için köy hâlâ ayakta');
 });
 
 test('mancınık son binayı da düşürünce köy BOŞALIR', () => {

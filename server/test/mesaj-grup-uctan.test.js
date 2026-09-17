@@ -134,6 +134,48 @@ test('gruba yazilan mesaj oteki uyeye ulasiyor', async (t) => {
   assert.equal(bListe2[0].okunmamis, 0, 'açtıktan sonra okunmamış sıfırlanmalı');
 });
 
+test('gruba yazilan mesaj UST BARDAKI sayaci artiriyor', async (t) => {
+  /*
+    İlkan bildirdi: *"grup mesajlarından gelen mesajlarda mesaj kısmında
+    uyarı çıkmıyor."* Rozet yalnız DOĞRUDAN mesajları sayıyordu; gruba
+    yazılan bir savunma çağrısı ekranda hiçbir iz bırakmıyordu.
+
+    Sayaç PAKETTE ölçülüyor, veritabanında değil: oyuncunun gördüğü şey
+    paket. Veritabanına baksaydık "sayı doğru ama ekrana gitmiyor"
+    hatası bu testten kaçardı — zaten olan tam olarak buydu.
+  */
+  const sunucu = await sunucuBaslat();
+  t.after(() => sunucu.kapat());
+  const [a, b] = await oyuncular(sunucu, t, 2);
+
+  const bastaki = b.oturum.koy.grupOkunmamis || 0;
+  assert.equal(bastaki, 0, 'başta okunmamış grup mesajı olmamalı');
+
+  a.oturum.soket.emit('grup_kur', { konu: 'Defans', adlar: [b.username] });
+  const kuruldu = await olayBekle(a.oturum, 'grup_sonuc');
+  assert.equal(kuruldu?.ok, true);
+
+  a.oturum.soket.emit('grup_gonder', { id: kuruldu.id, govde: 'Saldırı geliyor!' });
+  await bekle(1500);
+
+  assert.ok((b.oturum.koy.grupOkunmamis || 0) >= 1,
+    `alıcının sayacı artmalı, ölçülen: ${b.oturum.koy.grupOkunmamis}`);
+  /*
+    YAZANIN SAYACI ARTMIYOR: kendi yazdığın mesaj sana okunmamış
+    görünürse rozet hiç sönmez.
+  */
+  assert.equal(a.oturum.koy.grupOkunmamis || 0, 0,
+    'yazanın sayacı artmamalı');
+
+  // Okuyunca sıfırlanıyor
+  b.oturum.soket.emit('grup_ac', { id: kuruldu.id });
+  const akis = await olayBekle(b.oturum, 'grup_akis');
+  b.oturum.soket.emit('grup_okundu', { id: kuruldu.id, sonId: akis.mesajlar[0].id });
+  await bekle(1500);
+  assert.equal(b.oturum.koy.grupOkunmamis || 0, 0,
+    'okuduktan sonra sayaç sıfırlanmalı');
+});
+
 test('birlikte olmayan oyuncu birlik grubu kuramiyor', async (t) => {
   const sunucu = await sunucuBaslat();
   t.after(() => sunucu.kapat());

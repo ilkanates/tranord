@@ -62,6 +62,19 @@ export default function HammaddeGonder({
   const [arama, setArama] = useState('');
   const [secili, setSecili] = useState(null);
   const [yuk, setYuk] = useState({});
+  /*
+    SUNUCUNUN CEVABI BEKLENİYOR.
+
+    Panel eskiden isteği yollar yollamaz kapanıyordu. Sunucu reddederse
+    (pazar yok, tüccar yok, hedef zaten bulunduğun köy) oyuncu hiçbir
+    şey görmüyordu: düğmeye basıyor, panel kapanıyor, kaynak duruyor.
+    İlkan tam olarak bunu bildirdi — *"tam tersini yapamıyorum"*.
+
+    Sebep BURADA yazılıyor, ekranın tepesindeki genel şeritte değil:
+    oyuncunun gözü düğmede, şeritte değil.
+  */
+  const [hata, setHata] = useState(null);
+  const [bekliyor, setBekliyor] = useState(false);
 
   /*
     HEDEF TÜRETİLİYOR, kopyalanmıyor. Sabit hedefi duruma yazmak için bir
@@ -83,14 +96,45 @@ export default function HammaddeGonder({
   const gerekenTuccar = Math.ceil(toplam / kap);
   const bosTuccar = pazar?.tuccarBos ?? 0;
   /*
+    PAZAR YOKSA SEBEP AÇIKÇA YAZILSIN. Pazarı olmayan köyde tüccar da
+    sıfır olduğu için ekranda "1 tüccar gerekiyor, 0 boşta" yazıyordu:
+    doğru ama yanıltıcı — oyuncu tüccar beklerken eksik olan binaydı.
+  */
+  const pazarVar = (pazar?.seviye || 0) >= 1;
+  /*
     HEDEF KENDİ KÖYÜM OLAMAZ. Sunucu da reddediyor; burada da engellemek
     oyuncuyu boşuna reddedilen bir düğmeye bastırmamak için.
   */
-  const kendim = hedef?.kind === 'self' && hedef?.key === pazar?.slotKey;
+  /*
+    HEDEF, İÇİNDE DURDUĞUM KÖY OLAMAZ.
+
+    Eskiden `hedef.kind === 'self' && hedef.key === pazar.slotKey`
+    yazıyordu ama pazar özeti `slotKey` GÖNDERMİYORDU: karşılaştırma
+    her zaman `undefined` ile yapılıyor, denetim hiç çalışmıyordu.
+    Oyuncu bulunduğu köye "gönder" diyebiliyor, sunucu reddediyor,
+    ekranda hiçbir şey olmuyordu. `kind` şartı da kalktı — kendi
+    köylerimin hepsi zaten 'self', ayırt eden şey slot.
+  */
+  const kendim = !!pazar?.slotKey && hedef?.key === pazar.slotKey;
   const yeterliKaynak = Object.entries(yuk)
     .every(([k, n]) => (resources[k] || 0) >= (Number(n) || 0));
-  const gecerli = !!hedef && !kendim && toplam > 0
-    && gerekenTuccar <= bosTuccar && yeterliKaynak;
+  const gecerli = pazarVar && !!hedef && !kendim && toplam > 0
+    && gerekenTuccar <= bosTuccar && yeterliKaynak && !bekliyor;
+
+  /*
+    SUNUCUNUN CEVABI. Başarıda panel kapanıyor, rette sebep yazılıyor.
+    `hedef` bağımlılıkta: kapanış geri çağrısına DOĞRU hedef gitsin.
+  */
+  useEffect(() => {
+    if (!socket) return;
+    const gelen = (d) => {
+      setBekliyor(false);
+      if (d?.ok) { setYuk({}); setHata(null); onGonderildi?.(hedef); }
+      else setHata(d?.sebep || 'Gönderilemedi.');
+    };
+    socket.on('hammadde_sonuc', gelen);
+    return () => socket.off('hammadde_sonuc', gelen);
+  }, [socket, hedef, onGonderildi]);
 
   const ayarla = (k, n) => setYuk(y => {
     const v = Math.max(0, Math.floor(Number(n) || 0));
@@ -99,11 +143,19 @@ export default function HammaddeGonder({
     return out;
   });
 
+  /*
+    YÜKÜ BOŞALTMAK ve PANELİ KAPATMAK SUNUCUNUN CEVABINDA.
+
+    Burada yapsaydık — eskiden öyleydi — reddedilen gönderide oyuncunun
+    yazdığı sayılar da silinir, panel de kapanırdı: "bastım, hiçbir şey
+    olmadı". Ret hâlâ görünmez olurdu, üstelik yazdıklarını yeniden
+    yazmak zorunda kalırdı.
+  */
   const gonder = () => {
     if (!gecerli) return;
+    setHata(null);
+    setBekliyor(true);
     socket?.emit('pazar_hammadde_gonder', { targetKey: hedef.key, kaynaklar: yuk });
-    setYuk({});
-    onGonderildi?.(hedef);
   };
 
   return (
@@ -265,14 +317,30 @@ export default function HammaddeGonder({
         NEDEN BASILAMIYOR — sessiz kapalı düğme, oyuncuyu tahmine
         zorluyordu. Tek bir sebep yazılıyor: en yakındaki engel.
       */}
-      {!gecerli && (
+      {!gecerli && !bekliyor && (
         <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textFaint, lineHeight: 1.5 }}>
-          {!hedef ? 'Önce hedef köyü seç.'
-            : kendim ? 'Kaynağı bulunduğun köye gönderemezsin.'
-              : toplam <= 0 ? 'Ne kadar göndereceğini yaz.'
-                : !yeterliKaynak ? 'Elindekinden fazlasını yazdın.'
-                  : `${gerekenTuccar} tüccar gerekiyor, ${bosTuccar} boşta.`}
+          {!pazarVar ? 'Bu köyde pazar yok — gönderi pazardan çıkar.'
+            : !hedef ? 'Önce hedef köyü seç.'
+              : kendim ? 'Zaten bu köydesin. Gönderecek köye geç.'
+                : toplam <= 0 ? 'Ne kadar göndereceğini yaz.'
+                  : !yeterliKaynak ? 'Elindekinden fazlasını yazdın.'
+                    : `${gerekenTuccar} tüccar gerekiyor, ${bosTuccar} boşta.`}
         </div>
+      )}
+
+      {/*
+        SUNUCUNUN REDDİ. Yukarıdaki satır düğmeye BASILMADAN önceki
+        engeli anlatıyor; bu satır basıldıktan sonra sunucunun ne
+        dediğini. İkisi ayrı: biri tahmin, öteki cevap.
+      */}
+      {hata && (
+        <div style={{
+          fontFamily: FONT.ui, fontSize: 9.5, lineHeight: 1.5,
+          color: C.danger,
+          background: 'rgba(255,111,120,0.08)',
+          border: `1px solid ${C.dangerDim}`,
+          borderRadius: 5, padding: '6px 8px',
+        }}>{hata}</div>
       )}
 
       <button type="button" onClick={gonder} disabled={!gecerli}
@@ -280,7 +348,7 @@ export default function HammaddeGonder({
           padding: '8px 12px', fontSize: 10, letterSpacing: 1.2,
           opacity: gecerli ? 1 : 0.55,
         })}>
-        GÖNDER
+        {bekliyor ? 'GÖNDERİLİYOR…' : 'GÖNDER'}
       </button>
 
       <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint, lineHeight: 1.55 }}>

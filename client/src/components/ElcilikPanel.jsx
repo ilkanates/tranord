@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import BirlikDiplomasi from './BirlikDiplomasi';
 import BirlikGunluk from './BirlikGunluk';
 import BirlikProfil from './BirlikProfil';
+import GroupMessages from './GroupMessages';
 import { C, FONT, btn, label as lbl, num } from '../theme';
 import Icon from './Icons';
 
@@ -304,7 +305,7 @@ export default function ElcilikPanel({
 
       {/* ── Sekmeler ── */}
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {[['uyeler', 'ÜYELER'], ['diplomasi', 'DİPLOMASİ'],
+        {[['uyeler', 'ÜYELER'], ['yazisma', 'YAZIŞMA'], ['diplomasi', 'DİPLOMASİ'],
           ['gunluk', 'GÜNLÜK'], ['profil', 'PROFİL']].map(([k, ad]) => (
           <button key={k} type="button" onClick={() => setSekme(k)}
             style={btn(sekme === k ? 'primary' : 'ghost',
@@ -313,6 +314,18 @@ export default function ElcilikPanel({
           </button>
         ))}
       </div>
+
+      {/*
+        BİRLİK YAZIŞMASI BURADA DA AÇILIYOR (İlkan'ın isteği). Aynı
+        bileşen, aynı veriler — ikinci bir yazışma ekranı yazmak her
+        özelliği iki yerde bakım gerektirirdi.
+
+        `birlik` geçiliyor ki "Tüm birlik" seçeneği burada da açık
+        olsun; oyuncu zaten birliğin ekranında.
+      */}
+      {sekme === 'yazisma' && (
+        <GroupMessages socket={socket} birlik={birlik} />
+      )}
 
       {sekme === 'diplomasi' && (
         <BirlikDiplomasi socket={socket} yetkim={!!y.diplomasi} />

@@ -175,6 +175,21 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS thread_messages_idx ON thread_messages (thread_id, id);
     CREATE INDEX IF NOT EXISTS thread_members_user_idx ON thread_members (user_id);
 
+    /*
+      OYUNCU İŞARETLERİ — haritada elle verilen renk.
+
+      Hedef ADLA tutuluyor: harita anlık görüntüsü kullanıcı numarası
+      taşımıyor ve ad benzersiz. PRIMARY KEY çift üzerinde, yani aynı
+      oyuncuya ikinci bir işaret eskisinin yerine geçiyor.
+    */
+    CREATE TABLE IF NOT EXISTS player_marks (
+      user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      hedef_ad  TEXT NOT NULL,
+      renk      TEXT NOT NULL,
+      at        TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (user_id, hedef_ad)
+    );
+
     CREATE TABLE IF NOT EXISTS message_blocks (
       user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
       blocked_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -691,6 +706,27 @@ async function grupSil(threadId) {
   return true;
 }
 
+async function isaretleriOku(userId) {
+  const { rows } = await pool.query(
+    'SELECT hedef_ad, renk FROM player_marks WHERE user_id = $1', [userId]);
+  return Object.fromEntries(rows.map(r => [r.hedef_ad, r.renk]));
+}
+
+/** Renk boşsa işaret kalkıyor — "işareti kaldır" ayrı bir olay olmasın */
+async function isaretYaz(userId, hedefAd, renk) {
+  if (!renk) {
+    await pool.query(
+      'DELETE FROM player_marks WHERE user_id = $1 AND hedef_ad = $2',
+      [userId, hedefAd]);
+    return true;
+  }
+  await pool.query(
+    `INSERT INTO player_marks (user_id, hedef_ad, renk) VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, hedef_ad) DO UPDATE SET renk = $3, at = NOW()`,
+    [userId, hedefAd, renk]);
+  return true;
+}
+
 /** Oyuncu adıyla kullanıcı bul — mesaj alıcısı adla seçiliyor */
 async function findUserByDisplayName(name) {
   const res = await pool.query(
@@ -990,7 +1026,7 @@ async function davetleriTemizle(userId) {
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
-  birlikAciklama, gunlukYaz, gunlukOku,
+  birlikAciklama, gunlukYaz, gunlukOku, isaretleriOku, isaretYaz,
   diplomasiYaz, diplomasiDurum, diplomasiListesi, diplomasiSil,
   uyeEkle, uyeCikar, uyeRutbe, davetYaz, davetSil, davetleriTemizle,
   grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,

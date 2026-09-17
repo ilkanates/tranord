@@ -16,18 +16,25 @@
  *
  * 4) KÖY YIKILABİLİR — ama TEK SALDIRIDA DEĞİL.
  *
- *    Ana bina artık 0'a inebiliyor (`ANA_BINA_TABAN = 0`). Köyün yok
- *    olması için BÜTÜN binaların bitmesi gerekiyor; mancınıkla ya da
- *    oyuncunun kendi yıkımıyla. Tek bir mancınık dalgasının köyü silmesi
- *    satılan bir oyun için fazla sertti, ama hiç yıkılamaması da kuşatmayı
- *    anlamsız kılıyordu: aradaki yer "her binayı tek tek düşür".
+ *    Ana bina 0'a inebiliyor (`ANA_BINA_TABAN = 0`). Köyün yok olması
+ *    için BİNALARIN VE TARLALARIN hepsinin bitmesi gerekiyor.
+ *
+ *    TARLALAR SONRADAN DAHİL EDİLDİ. Yalnız binalar sayılırken yeni
+ *    kurulmuş bir köyü TEK mancınık siliyordu: yeni köyün tek binası
+ *    var (ana bina), yani "bütün binalar" bir tanecik bina demekti.
+ *    İlkan bildirdi, ölçüldü, doğrulandı. Tarlalar da sayılınca yeni
+ *    köyün dokuz tarlası kalkan oluyor.
+ *
+ *    Tarlaları SAYMAK, mancınığın tarlayı VURABİLMESİNİ zorunlu kıldı:
+ *    yoksa tarlası olan köy hiç yok olamaz, kuşatmanın sonu olmazdı.
+ *    İkisi aynı kararın iki yüzü.
  *
  *    Yıkımın kendisi burada DEĞİL: bu dosya yalnız seviye düşürüyor.
  *    "Köy boşaldı mı" kararını çağıran taraf veriyor (bkz. index.js ·
  *    koyBosMu / koyuYokEt) — kuşatma ile oyuncunun kendi yıkımı aynı
  *    yerden geçsin diye.
  */
-const { UNIT_DEFS } = require('../data');
+const { UNIT_DEFS, VILLAGE_DEFS, PRODUCTION_DEFS } = require('../data');
 
 /** Bir seviyeyi indirmenin puan maliyeti = bu sabit × mevcut seviye */
 const SEVIYE_MALIYETI = 30;
@@ -97,10 +104,54 @@ function seviyeDusur(basSeviye, puan, taban = 0) {
 
 /** Köydeki bir yapıyı tipine göre bul (sur/hendek isimli slotlarda) */
 function yapiBul(village, tip) {
-  for (const [slotKey, b] of Object.entries(village.villageBuildings || {})) {
-    if (b.type === tip && (b.level || 0) > 0) return { slotKey, b };
+  /*
+    SUR ve HENDEK BURADA DA ARANIYOR. vurulabilirler() onları dışarıda
+    bırakıyor ama o liste RASTGELE seçimin havuzu; koç başı suru ADIYLA
+    arıyor. İkisini aynı listeye bağlayınca koç başı suru bulamaz oldu
+    (test yakaladı: sur Lvl 3 el değmeden kaldı).
+  */
+  for (const [slotKey, b] of Object.entries(village?.villageBuildings || {})) {
+    if (b.type === tip && (b.level || 0) > 0) return { alan: 'bina', slotKey, b };
+  }
+  for (const [slotKey, b] of Object.entries(village?.productionTiles || {})) {
+    if (b.type === tip && (b.level || 0) > 0) return { alan: 'tarla', slotKey, b };
   }
   return null;
+}
+
+/**
+ * MANCINIĞIN VURABİLECEĞİ HER ŞEY — köy binaları VE tarlalar.
+ *
+ * Tek liste, çünkü "bu köyde yıkılabilecek ne var" sorusunun tek bir
+ * cevabı olmalı: hem rastgele hedef seçimi, hem tip arama, hem de
+ * "köy boşaldı mı" sayımı buradan okuyor. Üç yerde ayrı yazsaydık
+ * biri düzeltilince ötekiler eskirdi — bu projede defalarca oldu.
+ *
+ * SUR ve HENDEK dışarıda: onlar koç başının işi, mancınığın değil.
+ * (Yıkım sayımında yine sayılıyorlar — ayakta duran bir sur köyün
+ * hâlâ var olduğu anlamına gelir.)
+ */
+function vurulabilirler(village) {
+  const out = [];
+  for (const [slotKey, b] of Object.entries(village?.villageBuildings || {})) {
+    if (b.type === 'sur' || b.type === 'hendek') continue;
+    out.push({ alan: 'bina', slotKey, b });
+  }
+  for (const [slotKey, b] of Object.entries(village?.productionTiles || {})) {
+    out.push({ alan: 'tarla', slotKey, b });
+  }
+  return out;
+}
+
+/** Yıkılan yapının yarım kalmış işini de kapat — alanına göre alan adları ayrı */
+function yarimIsiKapat(alan, b) {
+  if (alan === 'tarla') { b.upgrading = false; b.upgradeEndTime = null; b.upgradeWorkersAssigned = 0; }
+  else { b.building = false; b.buildEndTime = null; }
+}
+
+/** Ekrana yazılacak ad — tarla ile bina ayrı tanım dosyalarında */
+function yapiAdi(alan, tip) {
+  return (alan === 'tarla' ? PRODUCTION_DEFS[tip]?.name : VILLAGE_DEFS[tip]?.name) || tip;
 }
 
 /**
@@ -112,25 +163,21 @@ function yapiBul(village, tip) {
 function mancinikVur(target, hedefTip, puan, sonuc, vurulan) {
   let hedef = hedefTip ? yapiBul(target, hedefTip) : null;
   if (!hedef) {
-    const adaylar = Object.entries(target.villageBuildings || {})
-      .filter(([slotKey, b]) => (b.level || 0) > 0
-        && b.type !== 'sur' && b.type !== 'hendek'
-        && !vurulan.has(slotKey));
-    if (adaylar.length) {
-      const [slotKey, b] = adaylar[Math.floor(Math.random() * adaylar.length)];
-      hedef = { slotKey, b };
-    }
+    const adaylar = vurulabilirler(target)
+      .filter(({ alan, slotKey, b }) => (b.level || 0) > 0
+        && !vurulan.has(`${alan}|${slotKey}`));
+    if (adaylar.length) hedef = adaylar[Math.floor(Math.random() * adaylar.length)];
   }
   if (!hedef) return false;
 
   const taban = hedef.b.type === 'anaBina' ? ANA_BINA_TABAN : 0;
   const { dusen } = seviyeDusur(hedef.b.level, puan, taban);
-  vurulan.add(hedef.slotKey);
+  vurulan.add(`${hedef.alan}|${hedef.slotKey}`);
   if (dusen <= 0) return false;
 
   const onceki = hedef.b.level;
   hedef.b.level = Math.max(taban, hedef.b.level - dusen);
-  if (hedef.b.level === 0) { hedef.b.building = false; hedef.b.buildEndTime = null; }
+  if (hedef.b.level === 0) yarimIsiKapat(hedef.alan, hedef.b);
   /*
     Yıkılan binada çalışan işçiler havuza döner — yoksa işçiler artık var
     olmayan bir binada "çalışıyor" görünür ve nüfus muhasebesi sessizce
@@ -144,10 +191,14 @@ function mancinikVur(target, hedefTip, puan, sonuc, vurulan) {
     Aynı bina iki kez vurulduysa (oyuncu aynı tipi iki kez seçti) tek
     satırda birleştir: rapor "Depo 12 → 10" demeli, iki ayrı satır değil.
   */
-  const eski = sonuc.binalar.find(x => x.slotKey === hedef.slotKey);
+  const eski = sonuc.binalar.find(
+    x => x.slotKey === hedef.slotKey && (x.alan || 'bina') === hedef.alan);
   if (eski) eski.sonraki = hedef.b.level;
   else sonuc.binalar.push({
-    tip: hedef.b.type, slotKey: hedef.slotKey,
+    tip: hedef.b.type, alan: hedef.alan, slotKey: hedef.slotKey,
+    /* Ad SUNUCUDA yazılıyor: tarla adları VILLAGE_DEFS'te yok, istemci
+       ham anahtarı ("odun") gösterirdi. */
+    ad: yapiAdi(hedef.alan, hedef.b.type),
     onceki, sonraki: hedef.b.level,
   });
   return true;
@@ -229,30 +280,52 @@ function uygula(target, survivors, hedefTip = null) {
 }
 
 /**
- * KÖY BOŞ MU — hiç binası kalmadı mı?
+ * KÖY BOŞ MU — geriye hiçbir şey kalmadı mı?
  *
- * Köyün yok olma koşulu bu: ana binanın 0'a inmesi TEK BAŞINA yetmiyor,
- * BÜTÜN binaların bitmesi gerekiyor. Tek bir mancınık dalgasının köyü
- * silmesi satılan bir oyun için fazla sertti; hiç yıkılamaması da
- * kuşatmayı anlamsız kılıyordu. Aradaki yer: "her binayı tek tek düşür".
+ * BİNALAR VE TARLALAR birlikte sayılıyor. Eskiden yalnız binalar
+ * sayılıyordu ve yeni kurulmuş bir köyü TEK mancınık siliyordu: yeni
+ * köyün tek binası var (ana bina), yani "bütün binalar bitsin" şartı
+ * genç köyde "ana bina bitsin"e eşitti (İlkan bildirdi; ölçüldü).
  *
- * TARLALAR sayılmıyor — onlar köyün çevresindeki arazi, binası değil.
- * Yoksa tarlası olan bir köy hiç yok olamazdı.
+ * Dokuz tarla artık genç köyün kalkanı: köyü silmek için hepsini de
+ * tek tek düşürmek gerekiyor. Mancınık tarlayı da vurabiliyor (bkz.
+ * vurulabilirler), yoksa tarlası olan köy hiç yok olamazdı.
  *
- * İNŞA HÂLİNDEKİ bina da "var" sayılıyor (`b.building`): seviyesi 0 ama
+ * İNŞA/YÜKSELTME HÂLİNDEKİ yapı da "var" sayılıyor: seviyesi 0 ama
  * oyuncu kaynak yatırmış durumda; köyü altından çekmek o kaynağı da
  * silerdi.
  *
  * Kural BURADA, index.js'te değil: hem kuşatma hem oyuncunun kendi yıkımı
  * aynı cümleyi kullansın ve test edilebilsin diye.
  */
+function ayakta(b) {
+  return (b.level || 0) > 0 || b.building || b.upgrading;
+}
+
 function koyBosMu(village) {
-  return !Object.values(village?.villageBuildings || {})
-    .some(b => (b.level || 0) > 0 || b.building);
+  const binalar = Object.values(village?.villageBuildings || {});
+  const tarlalar = Object.values(village?.productionTiles || {});
+  return !binalar.some(ayakta) && !tarlalar.some(ayakta);
+}
+
+/**
+ * SAHİBİNİN BÜTÜN BİNALARI GİTTİ Mİ — köyü kendi eliyle terk etmesi.
+ *
+ * `koyBosMu`dan AYRI, çünkü farklı bir olay: yıkım düğmesi yalnız köy
+ * binalarında var, tarla yıkılamıyor. Terk etmeyi de "her şey bitsin"e
+ * bağlasaydık oyuncu köyünü bırakamaz hâle gelirdi — tarlalar sonsuza
+ * kadar ayakta kalırdı.
+ *
+ * Saldırganın yolu zor, sahibinin yolu kolay: köyü silmek isteyen
+ * DÜŞMAN her tarlayı da düşürmek zorunda, ama SAHİBİ zaten razı.
+ */
+function binasiKalmadi(village) {
+  return !Object.values(village?.villageBuildings || {}).some(ayakta);
 }
 
 module.exports = {
-  uygula, kusatmaGucu, kusatmaSinifi, seviyeDusur, koyBosMu,
+  uygula, kusatmaGucu, kusatmaSinifi, seviyeDusur,
+  koyBosMu, binasiKalmadi, vurulabilirler,
   SEVIYE_MALIYETI, ANA_BINA_TABAN,
   IKI_HEDEF_MIN_ATOLYE, IKI_HEDEF_PAY,
 };

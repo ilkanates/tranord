@@ -10,6 +10,7 @@ import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed, short } fr
 import { RES_LABEL, gameMinutesToRealSeconds, gameHoursToRealSeconds, maxBuilders } from '../flows';
 import { worldTileBonus, localEfficiency, fieldMultiplier, hexDistance } from '../data/worldConfig';
 import Icon from './Icons';
+import { ILISKI_RENK, ISARET_RENKLERI } from './haritaRenk';
 import WorkerAssign from './WorkerAssign';
 
 export const BUILDABLE_TYPES = ['odun', 'kil', 'tas', 'demir', 'tahil'];
@@ -588,6 +589,11 @@ function KisayolDugme({ ad, ikon, renk, onClick }) {
 export function ForeignVillagePanel({
   v, myArmy, popoverPos, onClose, onAttack, canAttack = false, canReinforce = false, intel = null,
   /*
+    ELLE İŞARET — oyuncu bazında, köy bazında değil. Bir oyuncuyu
+    düşman sayıyorsan bütün köyleri kırmızı olmalı.
+  */
+  isaret = null, onIsaret = null,
+  /*
     KISAYOLLAR (İlkan'ın isteği). Panel tek bir "ORDU GÖNDER" düğmesi
     taşıyordu; oyuncu keşfetmek ya da destek yollamak için önce o ekranı
     açıp oradaki kipi değiştirmek zorundaydı. Kip kararı köyün başında
@@ -595,8 +601,12 @@ export function ForeignVillagePanel({
   */
   onKisayol = null, onHammadde = null,
 }) {
-  const color = v.kind === 'self' ? '#7fe04d'
-    : v.kind === 'player' ? '#ff6f78' : C.ice;
+  /*
+    BAŞLIK RENGİ HARİTAYLA AYNI DİLİ KONUŞUYOR: panel kırmızı yazarken
+    harita gri gösterirse oyuncu hangisine inanacağını bilemez.
+  */
+  const color = v.kind === 'self' ? ILISKI_RENK.ben
+    : v.kind === 'player' ? (v.iliskiRenk || ILISKI_RENK.tarafsiz) : C.ice;
   const ratio = myArmy && v.army ? v.army / Math.max(1, myArmy) : null;
 
   return (
@@ -633,6 +643,43 @@ export function ForeignVillagePanel({
             <Row k="Ordu" v="bilinmiyor" c={C.textMute} />
             <Row k="Sur / hendek" v="bilinmiyor" c={C.textMute} />
           </>
+        )}
+
+        {/*
+          İŞARET ŞERİDİ — yalnız oyuncu köylerinde. NPC'yi ya da kendi
+          köyümü işaretlemek anlamsız: birinin rengi zaten sabit,
+          ötekinin ilişkisi yok.
+        */}
+        {v.kind === 'player' && v.owner && onIsaret && (
+          <div style={{
+            marginTop: 6, paddingTop: 7, borderTop: `1px solid ${C.lineSoft}`,
+          }}>
+            <div style={{
+              fontFamily: FONT.ui, fontSize: 8.5, color: C.textFaint,
+              letterSpacing: 0.8, marginBottom: 5,
+            }}>HARİTADA İŞARETLE</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {ISARET_RENKLERI.map(r => (
+                <button key={r.key} type="button" title={r.ad}
+                  onClick={() => onIsaret(v.owner, isaret === r.key ? null : r.key)}
+                  style={{
+                    width: 20, height: 20, borderRadius: 4, cursor: 'pointer',
+                    background: r.renk,
+                    border: isaret === r.key
+                      ? '2px solid #fff' : '1px solid rgba(0,0,0,0.45)',
+                  }} />
+              ))}
+              {isaret && (
+                <button type="button" onClick={() => onIsaret(v.owner, null)}
+                  title="İşareti kaldır"
+                  style={{
+                    height: 20, padding: '0 8px', borderRadius: 4, cursor: 'pointer',
+                    background: 'transparent', border: `1px solid ${C.lineSoft}`,
+                    color: C.textMute, fontFamily: FONT.ui, fontSize: 8.5,
+                  }}>KALDIR</button>
+              )}
+            </div>
+          </div>
         )}
 
         {ratio != null && (
