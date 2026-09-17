@@ -20,8 +20,13 @@ const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0', kusatma: '#d9c069' };
 
 function Stat({ icon, value, color, title }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2.5 }} title={title}>
-      <Icon name={icon} size={9} color={color} />
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }} title={title}>
+      {/*
+        `Amblem`: kılıç ve kalkanın arması var, hız ("hiz") için yok —
+        o kendiliğinden eski çizgi ikona düşüyor. Çağıran tarafın
+        hangisinin hangisi olduğunu bilmesi gerekmiyor.
+      */}
+      <Amblem type={icon} size={12} color={color} />
       <span style={num({ fontSize: 8.5, color: C.text, textShadow: '0 1px 2px rgba(0,0,0,0.9)' })}>
         {value}
       </span>
@@ -183,7 +188,7 @@ function UnitCard({
             return (
               <span key={e} title={`${EQ_LABEL[e] || equipmentDefs[e]?.name || e}: ${have}`}
                 style={{ ...pill, borderColor: ok ? 'rgba(108,221,163,0.45)' : C.dangerDim }}>
-                <Icon name={e} size={9} color={ok ? C.good : '#ff9aa2'} />
+                <Amblem type={e} size={13} color={ok ? C.good : '#ff9aa2'} />
                 <span style={num({ fontSize: 8, color: ok ? '#c8f0d8' : '#ff9aa2' })}>{have}</span>
               </span>
             );
@@ -201,11 +206,24 @@ function UnitCard({
         background: 'linear-gradient(180deg, transparent, rgba(4,9,15,0.62) 32%, rgba(4,9,15,0.95) 68%)',
         display: 'flex', flexDirection: 'column', gap: 4,
       }}>
+        {/*
+          BİRİM ARMASI ADIN YANINDA. Arma eskiden yalnız görseli olmayan
+          birimde çiziliyordu — her birimin görseli olduğu için hiç
+          görünmüyordu (İlkan bildirdi). Arma bir yedek değil kimlik
+          işareti: raporda, kuyrukta ve ordu listesinde aynı işaret
+          duruyor, oyuncu birimi adını okumadan tanısın.
+        */}
         <div style={{
-          fontFamily: FONT.head, fontSize: 12, fontWeight: 600, letterSpacing: 0.4,
-          color: C.frost, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          textShadow: '0 1px 3px rgba(0,0,0,0.9)',
-        }}>{def.name || u}</div>
+          display: 'flex', alignItems: 'center', gap: 5, minWidth: 0,
+        }}>
+          <Amblem type={u} size={18} color={color}
+            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.9))' }} />
+          <div style={{
+            fontFamily: FONT.head, fontSize: 12, fontWeight: 600, letterSpacing: 0.4,
+            color: C.frost, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+          }}>{def.name || u}</div>
+        </div>
 
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           <Stat icon="kilic" value={Math.round(st?.saldiri ?? 0) || '—'} color={C.danger}

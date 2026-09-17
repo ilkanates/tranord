@@ -571,7 +571,7 @@ function StatusRail({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon name="at" size={13} color={atFull ? C.warn : C.textDim} />
+                  <Amblem type="at" size={18} color={atFull ? C.warn : C.textDim} />
                   <span style={{ flex: 1, fontFamily: FONT.ui, fontSize: 9.5, color: C.textDim }}>At</span>
                   <span style={num({ fontSize: 11.5, color: atFull ? C.warn : C.frost, fontWeight: 500 })}>
                     {atVal}

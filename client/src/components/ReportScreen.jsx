@@ -1214,7 +1214,7 @@ function Detail({ r, unitDefs }) {
             border: '1px solid rgba(78,207,168,0.30)',
           })}>
             <div style={{ display: 'flex', gap: 8 }}>
-              <Icon name="kalkan" size={14} color={C.good} style={{ flexShrink: 0, marginTop: 1 }} />
+              <Amblem type="kalkan" size={18} color={C.good} style={{ flexShrink: 0, marginTop: 1 }} />
               <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
                 {inc ? (
                   <>

@@ -31,6 +31,17 @@ export const YAMA_NOTLARI = [
     baslik: 'Raporlar artık kaybolmuyor',
     notlar: [
       {
+        id: '20260917-birim-armasi-gorunur',
+        tur: 'duzeltme',
+        metin: 'BİRİM ARMALARINI HİÇBİR YERDE GÖREMİYORDUN — çizilmiş 23 '
+          + 'armanın hepsi oradaydı ama kartta yalnız GÖRSELİ OLMAYAN '
+          + 'birim için çiziliyordu, yani pratikte hiç. Arma bir yedek '
+          + 'görsel değil kimlik işareti: artık kışla kartında adın '
+          + 'yanında duruyor, kuyrukta ve ordu listesinde de aynı '
+          + 'işaret. Kartın saldırı/savunma rozetleri ve ekipman '
+          + 'gereksinimleri de eski çizgi simgelerden armalara geçti.',
+      },
+      {
         id: '20260917-amblem-her-yerde',
         tur: 'duzeltme',
         metin: 'AYNI ASKER HER EKRANDA AYNI ARMAYLA ÇIKIYOR. Bazı '

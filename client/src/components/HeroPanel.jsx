@@ -24,6 +24,7 @@ import { useState } from 'react';
 import { C, FONT, btn, num, label as lbl } from '../theme';
 import { RES_LABEL } from '../flows';
 import Icon from './Icons';
+import Amblem from './Amblem';
 import AcikArtirma from './AcikArtirma';
 import { ITEM_IMAGE } from './itemArt';
 import { SLOT_MASK } from './slotArt';
@@ -337,7 +338,7 @@ export default function HeroPanel({
           padding: '10px 14px', marginTop: 10, borderRadius: 6,
           background: 'rgba(12,20,32,0.5)', border: `1px solid ${C.good}44`,
         }}>
-          <Icon name="kalkan" size={16} color={C.good} strokeWidth={1.5} />
+          <Amblem type="kalkan" size={20} color={C.good} />
           <div style={{ flex: '1 1 220px' }}>
             <div style={{ fontFamily: FONT.ui, fontSize: 11.5, color: C.frost }}>
               {misafirAdi} köyünü savunuyor

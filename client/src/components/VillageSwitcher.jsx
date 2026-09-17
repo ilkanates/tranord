@@ -12,6 +12,7 @@ import { C, FONT, label as lbl, num } from '../theme';
 import { useViewport } from '../responsive';
 import { unseenCount } from './ReportScreen';
 import Icon from './Icons';
+import Amblem from './Amblem';
 
 /**
  * BU KÖYE DİKKAT ETMELİ MİYİM?
@@ -91,7 +92,7 @@ export default function VillageSwitcher({ villages = [], activeSlot, onSwitch })
               padding: '1px 4px', borderRadius: 3,
               background: 'rgba(232,99,111,0.2)', border: `1px solid ${C.dangerDim}`,
             }}>
-            <Icon name="kilic" size={9} color={C.danger} />
+            <Amblem type="kilic" size={12} color={C.danger} />
             <span style={num({ fontSize: 8.5, color: C.danger })}>{arkadaGelen}</span>
           </span>
         )}

@@ -293,7 +293,7 @@ function TakviyeBolumu({ takviyeler = [], takviyelerim = [], unitDefs, onGeriCag
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Icon name="kalkan" size={14} color={C.good} />
+        <Amblem type="kalkan" size={18} color={C.good} />
         <span style={lbl({ fontSize: 9, letterSpacing: 1.6 })}>Takviye</span>
       </div>
 
