@@ -4,6 +4,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { C, FONT, panel, btn, label as lbl, num } from '../theme';
 import Icon from './Icons';
+import Amblem from './Amblem';
+import { KULE_BONUS, DEF_BONUS_CAP } from '../data/villageDefs';
+
+/**
+ * Kule kutusunun tavanı. Savunma bonusunun kendi tavanı
+ * `DEF_BONUS_CAP` (%150) ve bu kutu rapordan gelen TOPLAM bonusu da
+ * taşıyabiliyor — dolayısıyla tavan kulenin kendi payı (%35) değil,
+ * bonusun tamamı.
+ */
+const KULE_TAVAN = DEF_BONUS_CAP;
+/** Altı kule Lvl 20, tam kadro — ipucu metninde geçen ölçek */
+const KULE_TAM = KULE_BONUS[KULE_BONUS.length - 1] || 35;
 
 const CAT_LABEL = { piyade: 'Piyade', suvari: 'Süvari' };
 const CAT_COLOR = { piyade: '#7fd4ff', suvari: '#a99cf0' };
@@ -78,7 +90,7 @@ function SideColumn({ side, counts, grouped, onChange, losses, survivors, onFill
       {['piyade', 'suvari'].map(cat => (
         <div key={cat} style={{ marginBottom: 11 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-            <Icon name={CAT_ICON[cat]} size={11} color={CAT_COLOR[cat]} />
+            <Amblem type={CAT_ICON[cat]} size={15} color={CAT_COLOR[cat]} />
             <span style={lbl({ fontSize: 8, color: CAT_COLOR[cat] })}>{CAT_LABEL[cat]}</span>
           </div>
 
@@ -88,10 +100,18 @@ function SideColumn({ side, counts, grouped, onChange, losses, survivors, onFill
             const surv = survivors?.[key];
             return (
               <div key={key} style={{
-                display: 'grid', gridTemplateColumns: '1fr 68px',
+                display: 'grid', gridTemplateColumns: '22px 1fr 68px',
                 alignItems: 'center', gap: 8, padding: '5px 0',
                 borderBottom: `1px solid ${C.lineSoft}`,
               }}>
+                {/*
+                  BİRİM ARMASI BURADA DA. Simülatörde oyuncu bir listeye
+                  sayı yazıyor; arma olmadan hangi satırın hangi asker
+                  olduğunu adı okuyarak bulmak zorundaydı. Aynı arma
+                  kışlada, kuyrukta ve raporda duruyor.
+                */}
+                <Amblem type={key} size={20}
+                  color={count > 0 ? CAT_COLOR[def.category] || C.iceSoft : C.textFaint} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{
                     fontFamily: FONT.ui, fontSize: 10.5, color: count > 0 ? C.text : C.textFaint,
@@ -152,12 +172,24 @@ function LossBar({ label, rate, color }) {
   );
 }
 
-export default function BattleSimulator({ socket, unitDefs = {}, army = {} }) {
-  const [attacker, setAttacker] = useState({});
-  const [defender, setDefender] = useState({});
-  const [surLevel, setSurLevel] = useState(0);
-  const [hendekLevel, setHendekLevel] = useState(0);
-  const [mode, setMode] = useState('normal');
+export default function BattleSimulator({ socket, unitDefs = {}, army = {}, preset = null }) {
+  /*
+    BAŞLANGIÇ DEĞERLERİ KURULUMDAN. Bileşen `key={kurulum.id}` ile
+    çizildiği için yeni kurulum = yeni bileşen; senkronizasyon diye
+    bir sorun kalmıyor (bkz. App · raporuSimuleEt).
+  */
+  const [attacker, setAttacker] = useState(() => ({ ...(preset?.attacker || {}) }));
+  const [defender, setDefender] = useState(() => ({ ...(preset?.defender || {}) }));
+  const [surLevel, setSurLevel] = useState(() => preset?.surLevel || 0);
+  const [hendekLevel, setHendekLevel] = useState(() => preset?.hendekLevel || 0);
+  /*
+    KULE BİR YÜZDE. Sunucunun aldığı şey bu (`kulePct`) ve rapordan
+    gelen değer de bir yüzde — üstelik o savaşta gerçekten uygulanmış
+    sayı. Seviyeye çevirmeye çalışmıyoruz: savaş raporu sur ve hendek
+    seviyesini saklamıyor, yalnız üçünün toplamını.
+  */
+  const [kulePct, setKulePct] = useState(() => preset?.kulePct || 0);
+  const [mode, setMode] = useState(() => (preset?.mode === 'raid' ? 'raid' : 'normal'));
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
@@ -185,12 +217,12 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {} }) {
 
   const run = () => {
     setError(null);
-    socket.emit('simulate_battle', { attacker, defender, surLevel, hendekLevel, mode });
+    socket.emit('simulate_battle', { attacker, defender, surLevel, hendekLevel, kulePct, mode });
   };
 
   const clearAll = () => {
     setAttacker({}); setDefender({});
-    setSurLevel(0); setHendekLevel(0);
+    setSurLevel(0); setHendekLevel(0); setKulePct(0);
     setMode('normal'); setResult(null); setError(null);
   };
 
@@ -217,8 +249,14 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {} }) {
               SAVAŞ SİMÜLATÖRÜ
             </h2>
             <div style={lbl({ fontSize: 8.5, letterSpacing: 2 })}>
-              gerçek combat.js formülü · kuşatma birimleri hariç
+              gerçek combat.js formülü · kuşatma birimleri hariç · altı kule Lvl 20 tam kadro = %{KULE_TAM}
             </div>
+            {/* Sayılar rapordan geldiyse bunu SÖYLE: uydurulmuş sanılmasın */}
+            {preset?.not && (
+              <div style={{
+                marginTop: 5, fontFamily: FONT.ui, fontSize: 10, color: C.good,
+              }}>{preset.not}</div>
+            )}
           </div>
         </div>
 
@@ -229,6 +267,15 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {} }) {
         })}>
           <LevelPicker label="Sur" icon="sur" value={surLevel} onChange={setSurLevel} max={20} />
           <LevelPicker label="Hendek" icon="hendek" value={hendekLevel} onChange={setHendekLevel} max={20} />
+          {/*
+            KULE BİR YÜZDE, SEVİYE DEĞİL — sunucunun aldığı şey de bu.
+            Rapordan gelen değer sur + hendek + kule TOPLAMI olabiliyor
+            (rapor seviyeleri saklamıyor); seviyeye çevirmeye çalışmak
+            ekranda "Lvl 20 · %115" gibi kendisiyle çelişen bir çift
+            üretiyordu.
+          */}
+          <LevelPicker label="Kule %" icon="kule" value={kulePct}
+            onChange={setKulePct} max={KULE_TAVAN} />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={lbl({ fontSize: 8.5 })}>Mod</span>

@@ -178,37 +178,6 @@ kabul/iptal`). Bu maddede kalan:
 - ~~Tüccar kapasitesinin pazar seviyesiyle ilişkisi~~ — **GÖZDEN GEÇİRİLMEYECEK**
   (İlkan'ın kararı, 16 Eylül 2026). Mevcut hâli bırakılıyor.
 
-### Sığınak — yağmadan kaçırılan hammadde (17 Eylül 2026)
-İlkan: *"hammaddeleri saklamak için sığınak yapılacak bina."*
-
-Travian'daki **Cranny** (Gizli Ambar). Köyde bir bina; seviyesine göre
-belli miktarda hammaddeyi yağmacıdan GİZLİYOR — saldırgan depoyu boşaltsa
-bile gizlenen kısım köyde kalıyor.
-
-**Neden gerekli**: şu an çevrimdışı bir oyuncu üst üste yağmalanınca
-sıfırlanıyor ve oyuna dönecek kaynağı kalmıyor. Yeni oyuncunun oyunda
-kalmasını sağlayan tek mekanik bu; satılan bir oyunda "bir gün
-giremedim, her şeyim gitti" en hızlı bırakma sebebi.
-
-**Yapılacaklar**
-- `data/villageDefs.js`'e `siginak` binası: seviye başına gizleme
-  kapasitesi, maliyet, nüfus.
-- Yağma hesabında gizlenen miktar düşülüyor. Tek yer: `army.js` ganimet
-  hesabı (`ganimet`/`loot`) — iki yere yazılırsa kaçınılmaz olarak
-  ayrışır (bu projede defalarca oldu).
-- Saldırganın raporunda gizlenen kısım GÖRÜNMEZ: "deposu boştu" demeli,
-  "500 odunu sakladı" dememeli. Yoksa sığınak istihbarat sızdırır.
-- İzci raporu da gizlenen kısmı göstermemeli — aynı gerekçe.
-- Kuşatma sığınağı yıkabilmeli (mancınık hedefi), yoksa savunmanın
-  cevabı olmayan bir duvar olur.
-
-**Karar bekleyenler**
-- Kapasite seviyeyle nasıl büyüyor — doğrusal mı, katlanan mı?
-- Her kaynak için AYRI kapasite mi (Travian böyle), yoksa tek havuz mu?
-- Birden fazla sığınak kurulabilecek mi? *(Öneri: hayır — Travian'da
-  kurulabiliyor ve yağmayı tamamen öldürüyor.)*
-- İşlenmiş mallar (kereste, tuğla…) da gizlenecek mi, yalnız ham mı?
-
 ---
 
 ## 🔵 Arayüz / içerik
@@ -217,7 +186,7 @@ giremedim, her şeyim gitti" en hızlı bırakma sebebi.
 
 - Köy içi görsel: kalan hammadde görselleri (`koy-tahil.png` vb.) istenirse köye özel arazi dokusu olarak eklenebilir.
 - ~~`client/public/` içindeki 5 tasarım önizleme sayfası~~ — yapıldı: altı geliştirme sayfası (5 prototip + `dev-login.html`) `client/dev/` altına taşındı ve yalnız `vite dev` sırasında servis ediliyor; üretime çıkmıyorlar. `koy-sekil3.html` referans olarak duruyor, diğer dördü istendiğinde silinebilir.
-- Savaş simülatörüne kule girdisi eklenmedi (şu an `kulePct = 0` ile çalışıyor, yani kulesiz simülasyon).
+- ~~Savaş simülatörüne kule girdisi~~ — **YAPILDI** (bkz. Tamamlandı · savaş simülatörü).
 
 ---
 
@@ -305,6 +274,28 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### Savaş simülatörü: kule girdisi, birim armaları, rapordan açılma (17 Eylül 2026)
+- İlkan: *"birim amblemlerini savaş simülatöründe de göster ve simülatöre kale/kule/hendek de ekle. Bir de savaş ya da casus raporlarına direkt simülatöre git tuşu ekle — simülatör rapordaki asker sayılarıyla açılsın."*
+- **KULE SUNUCUDA VARDI, ARAYÜZDE YOKTU.** `simulate_battle` `kulePct` parametresini kabul ediyordu ama simülatör onu hiç göndermiyordu; altı kulesi olan bir köyü simüle eden oyuncu kulesiz bir sonuç görüyordu. Sur ve hendek zaten vardı.
+- **KULE KUTUSU BİR YÜZDE, SEVİYE DEĞİL.** Önce seviye seçici yaptım; rapordan gelen savaşta ekranda "KULE 20 · %115" çıktı — kendisiyle çelişen bir çift. Sebep: savaş raporu sur/hendek SEVİYESİNİ saklamıyor, yalnız toplam `wallBonusPct` var (combat.js'te sur + hendek + kule toplamı). Toplamı bir seviyeye çevirmek uydurma olurdu; kutu artık ne olduğunu dürüstçe söylüyor ve sunucunun aldığı sayının aynısını taşıyor.
+- **RAPORDAN AÇILMA — üç ayrı eşleme** (`ReportScreen · simKurulumu`): saldırımda iki ordu da yazılı (`sent` + `theirSent`), savaş birebir tekrar oynatılabiliyor; bana gelen saldırıda yalnız saldıran ordu yazılı (savunanın kendi listesi rapora girmiyor), savunmayı oyuncu "ORDUMU YÜKLE" ile dolduruyor; keşifte görülen ordu ve sur/hendek/kule doğrudan geliyor. Simüle edilecek sayı yoksa tuş HİÇ çizilmiyor — boş simülatör açan bir düğme yalan söylerdi.
+- **GEÇİŞ KİMLİKLE, ETKİYLE DEĞİL.** İlk yazımda kurulum bir `useEffect` ile durumlara kopyalanıyordu; lint haklı olarak "etki içinde setState" dedi. Simülatör artık `key={kurulum.id}` ile çiziliyor, yani yeni rapor = yeni bileşen ve durumlar doğrudan kurulumla başlıyor.
+- Birim armaları simülatör listesine ve kategori başlıklarına eklendi.
+
+### Sığınak — yağmadan kaçırılan hammadde (17 Eylül 2026)
+- İlkan: *"hammaddeleri saklamak için sığınak yapılacak bina."* Travian'daki Cranny.
+- **NEDEN GEREKLİYDİ:** çevrimdışı oyuncu üst üste yağmalanınca sıfırlanıyor ve oyuna dönecek kaynağı kalmıyordu. Satılan bir oyunda "bir gün giremedim, her şeyim gitti" en hızlı bırakma sebebi.
+- **KURAL TEK DOSYADA** (`server/game/siginak.js`). Üç okuyucusu var — yağma hesabı, keşif raporu ve arayüzdeki canlı sayı — ve üçü de aynı cümleyi okuyor. Arayüz kendi hesabını yapsaydı denge ayarında ekran bir şey yazar, yağma başka bir şey uygulardı (bu depodaki en sık tekrarlayan hata sınıfı).
+- **Kilitlenen kararlar:**
+  - *Her kaynak için AYRI, aynı miktar.* Tek havuz olsaydı yalnız tahılı yağmalanan oyuncu bütün korumasını orada harcar, döndüğünde bina yapacak kereste bulamazdı. Ayrı olunca HER kaynaktan bir taban ile dönüyor — "yeniden başlayabilir" garantisi ancak böyle veriliyor.
+  - *İşlenmiş mallar da gizleniyor.* Yalnız ham korunsaydı saldırgan değerli yarıyı (kereste, tuğla, külçe) tam olarak sıyırırdı.
+  - *Tek sığınak* (`unique`, `repeatableWhenMaxed` yok). Travian'da birden fazla kurulabiliyor ve yağmayı tamamen öldürüyor.
+  - *Kapasite doğrusal:* 200 + 150/seviye → Lvl 20'de kaynak başına 3.050. Depolarla aynı dil; katlanan bir eğri geç oyunda hazineyi dokunulmaz yapardı.
+  - *İstihbarat sızdırmıyor:* ne saldırgan raporu ne keşif gizleneni gösteriyor. Aksi hâlde saldırgan keşifle yağmayı karşılaştırıp seviyeyi çıkarır, savunmayı gizleyen bina savunmayı ele veren binaya dönerdi.
+  - *Sıra: önce gizleme, sonra baskın payı.* Tersi olsaydı sığınak baskında yarı yarıya korurdu — oyuncuya "her kaynaktan 200 gizli" dedik, %50'si değil.
+- Mancınık zaten yıkabiliyor: `kusatma.js · vurulabilirler` sur ve hendek dışındaki her yapıyı hedefliyor, yani ayrı bir kod gerekmedi. `tick.js` depo tavanını `def.stores` üzerinden hesapladığı için sığınağın `baseCapacity`'si yanlışlıkla depo kapasitesine eklenmiyor.
+- Testler: `siginak.test.js` (8) — yağma, baskın sırası, ham/işlenmiş eşitliği, stok gizlenenden azken eksiye düşmeme, yıkılınca korumanın bitmesi, keşif raporu.
 
 ### Amblem tutarlılığı, yuvarlak kalkan, kart şeridi çakışması (17 Eylül 2026)
 - İlkan: *"hâlâ yarısı farklı yarısı farklı amblem, bir de kalkan tam yuvarlak olmamış ve biraz küçük olmuş simgeler, biraz büyüt"* ve *"iç içe girmiş görseller var, telefonda da böyle."*

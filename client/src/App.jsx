@@ -857,6 +857,8 @@ function Game({ token, onLogout }) {
     simülatöre her dönüşünde baştan tıklamasın.
   */
   const [orduAlt, setOrduAlt] = useState('ordu');
+  /* Rapordan simülatöre taşınan kurulum (bkz. raporuSimuleEt) */
+  const [simKurulum, setSimKurulum] = useState(null);
   const openHelp = (topic) => { setHelpTopic(topic); setTab('yardim'); };
   const [connected, setConnected] = useState(socket.connected);
   /**
@@ -1144,6 +1146,17 @@ function Game({ token, onLogout }) {
   const tickMs = village.tickMs || 1000;
 
   /*
+    RAPORU SİMÜLATÖRE TAŞI. Kurulum burada duruyor: rapor ekranı onu
+    üretiyor, simülatör okuyor, ikisi birbirini tanımıyor.
+  */
+  const raporuSimuleEt = (kurulum) => {
+    if (!kurulum) return;
+    setSimKurulum(kurulum);
+    setOrduAlt('simulator');
+    setTab('ordu');
+  };
+
+  /*
     RAPOR ROZETİ BÜTÜN KÖYLERDEN. `village.reports` sayfalamadan sonra
     yalnız ilk sayfa; ondan saymak rozeti sayfa boyunda tavanlıyordu.
     Köy listesindeki `reportIds` (bkz. index.js · villageList) hesap
@@ -1358,6 +1371,7 @@ function Game({ token, onLogout }) {
               worldSpeed={village.worldSpeed || 1}
               culture={village.culture || null}
               expansion={village.expansion || null}
+              siginakGizleme={village.siginakGizleme || 0}
               festival={village.festival || null}
               festivalDefs={village.festivalDefs || {}}
               onStartFestival={startFestival}
@@ -1501,8 +1515,16 @@ function Game({ token, onLogout }) {
               />
               )}
               {orduAlt === 'simulator' && (
-                <BattleSimulator socket={socket}
-                  unitDefs={village.unitDefs || {}} army={village.army || {}} />
+                <BattleSimulator
+                  /*
+                    KİMLİK = KURULUM. Yeni bir rapor simülatöre
+                    gönderildiğinde bileşen baştan kuruluyor ve
+                    durumlar o raporun sayılarıyla başlıyor.
+                  */
+                  key={simKurulum?.id || 'bos'}
+                  socket={socket}
+                  unitDefs={village.unitDefs || {}} army={village.army || {}}
+                  preset={simKurulum} />
               )}
             </div>
           )}
@@ -1578,7 +1600,8 @@ function Game({ token, onLogout }) {
                 socket={socket}
                 toplam={village.raporToplam || 0}
                 sayfaBoyu={village.raporSayfaBoyu || 15}
-                sayilar={village.raporSayilari || null} />
+                sayilar={village.raporSayilari || null}
+                onSimulate={raporuSimuleEt} />
             </div>
           )}
 

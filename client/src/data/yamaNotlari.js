@@ -26,6 +26,71 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17n',
+    tarih: '17 Eylül 2026',
+    baslik: 'Sığınak: bir gün giremezsen sıfırlanmıyorsun',
+    notlar: [
+      {
+        id: '20260917-simulator-rapordan',
+        tur: 'yenilik',
+        metin: 'RAPORDAN SİMÜLATÖRE TEK TIK. Savaş ve keşif raporlarında '
+          + '"SİMÜLATÖRDE DENE" tuşu var: simülatör o raporun asker '
+          + 'sayılarıyla açılıyor. Saldırımda iki ordu da yükleniyor; '
+          + 'bana gelen saldırıda karşının ordusu yükleniyor, savunmayı '
+          + 'sen dolduruyorsun; keşifte gördüğün savunma ve surlar '
+          + 'yükleniyor. Böylece "bir dahakine ne götürmeliyim" sorusu '
+          + 'elle sayı girmeden cevaplanıyor.',
+      },
+      {
+        id: '20260917-simulator-kule',
+        tur: 'duzeltme',
+        metin: 'SİMÜLATÖRDE KULE GİRDİSİ YOKTU. Sunucu kule savunmasını '
+          + 'zaten hesaba katıyordu ama simülatör hep 0 gönderiyordu: '
+          + 'altı kulesi olan bir köyü simüle ettiğinde kulesiz bir '
+          + 'sonuç görüyordun. Artık sur ve hendeğin yanında kule de '
+          + 'var (yüzde olarak — altı kule Lvl 20 tam kadro %35). '
+          + 'Rapordan açıldığında o savaşta uygulanan gerçek bonus '
+          + 'kutuya geliyor.',
+      },
+      {
+        id: '20260917-simulator-arma',
+        tur: 'yenilik',
+        metin: 'SİMÜLATÖRDE BİRİM ARMALARI. Uzun listede hangi satırın '
+          + 'hangi asker olduğunu adını okuyarak bulmak gerekiyordu.',
+      },
+      {
+        id: '20260917-siginak',
+        tur: 'yenilik',
+        metin: 'YENİ BİNA — SIĞINAK. Yağmacıdan kaynak gizler: her '
+          + 'kaynağın son bir miktarı saldırganın gözüne görünmez, '
+          + 'deponun geri kalanı süpürülse bile o kısım köyde kalır. '
+          + 'Lvl 1\'de her kaynaktan 200, sonraki her seviye +150 — '
+          + 'Lvl 20\'de 3.050. Ham da işlenmiş de korunuyor. Ana Bina '
+          + 'Lvl 1 yetiyor, yani ilk günden kurulabilir.',
+      },
+      {
+        id: '20260917-siginak-neden',
+        tur: 'denge',
+        metin: 'NEDEN GEREKLİYDİ: çevrimdışıyken üst üste yağmalanan '
+          + 'oyuncu sıfırlanıyor, oyuna döndüğünde elinde bir tarla '
+          + 'yükseltecek kaynak bile kalmıyordu. Sığınak her kaynaktan '
+          + 'AYRI bir taban bıraktığı için geri döndüğünde her şeyden '
+          + 'biraz var — tek havuz olsaydı yalnız tahılın yağmalandığı '
+          + 'gün bütün koruma orada harcanır, kereste bulamazdın.',
+      },
+      {
+        id: '20260917-siginak-sirlar',
+        tur: 'yenilik',
+        metin: 'SIĞINAK İSTİHBARAT SIZDIRMIYOR. Ne saldırganın raporu '
+          + 'ne de keşif "şu kadarını sakladı" diyor; ikisi de yalnız '
+          + 'görünen kısmı gösteriyor. Aksi hâlde saldırgan sığınağının '
+          + 'seviyesini hesaplardı. Buna karşılık sığınak mancınıkla '
+          + 'yıkılabiliyor ve köyde yalnız BİR tane olabiliyor — yoksa '
+          + 'yağma diye bir şey kalmazdı.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17m',
     tarih: '17 Eylül 2026',
     baslik: 'Raporlar artık kaybolmuyor',

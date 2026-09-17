@@ -573,7 +573,50 @@ function Section({ title, children }) {
   );
 }
 
-function Detail({ r, unitDefs }) {
+/**
+ * Rapordan simülatör kurulumu — yoksa `null` (tuş çizilmiyor).
+ *
+ * Tek cümle: hem tuşun görünüp görünmeyeceğini hem ne göndereceğini
+ * buradan okuyoruz. İkiye bölünseydi "tuş var ama boş açılıyor"
+ * durumu kaçınılmazdı.
+ */
+function simKurulumu(r) {
+  if (!r) return null;
+  const dolu = (o) => o && Object.values(o).some(n => n > 0);
+
+  if (r.intel && dolu(r.intel.army)) {
+    return {
+      id: r.id, attacker: {}, defender: { ...r.intel.army },
+      surLevel: r.intel.surLevel || 0,
+      hendekLevel: r.intel.hendekLevel || 0,
+      kulePct: r.intel.kulePct || 0,
+      mode: 'normal',
+      not: 'Keşifte görülen savunma yüklendi — saldıran tarafı sen doldur.',
+    };
+  }
+
+  if (r.outcome !== 'savas') return null;
+
+  if (r.dir === 'out' && (dolu(r.sent) || dolu(r.theirSent))) {
+    return {
+      id: r.id, attacker: { ...(r.sent || {}) }, defender: { ...(r.theirSent || {}) },
+      surLevel: 0, hendekLevel: 0, kulePct: r.wallBonusPct || 0, mode: r.mode,
+      not: 'Bu savaşın iki ordusu da yüklendi.',
+    };
+  }
+
+  if (r.dir === 'in' && dolu(r.attackerUnits)) {
+    return {
+      id: r.id, attacker: { ...r.attackerUnits }, defender: {},
+      surLevel: 0, hendekLevel: 0, kulePct: r.wallBonusPct || 0, mode: r.mode,
+      not: 'Sana gelen ordu yüklendi — savunmayı "ORDUMU YÜKLE" ile doldur.',
+    };
+  }
+
+  return null;
+}
+
+function Detail({ r, unitDefs, onSimulate = null }) {
   if (!r) {
     return (
       <div style={{
@@ -629,6 +672,22 @@ function Detail({ r, unitDefs }) {
             {r.toKey ? ` · ${r.toKey}` : r.fromKey ? ` · ${r.fromKey}` : ''}
           </span>
         </div>
+
+        {/*
+          SİMÜLATÖRE GÖNDER. Yalnız simüle edilecek bir şey varsa
+          çiziliyor: ordusu yazılı olmayan bir raporda tuş, boş bir
+          simülatör açan yalancı bir düğme olurdu.
+        */}
+        {onSimulate && simKurulumu(r) && (
+          <button type="button" onClick={() => onSimulate(simKurulumu(r))}
+            style={btn('ghost', {
+              marginTop: 9, padding: '6px 12px', fontSize: 9.5, letterSpacing: 1.2,
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+            })}>
+            <Icon name="savas" size={12} color={C.ice} />
+            SİMÜLATÖRDE DENE
+          </button>
+        )}
       </div>
 
       {/*
@@ -1345,7 +1404,7 @@ function Detail({ r, unitDefs }) {
 
 // ── Ekran ────────────────────────────────────────────────────────────
 export default function ReportScreen({ reports = [], unitDefs = {},
-  socket = null, toplam = 0, sayfaBoyu = 15, sayilar = null }) {
+  socket = null, toplam = 0, sayfaBoyu = 15, sayilar = null, onSimulate = null }) {
   const vp = useViewport();
   const [filter, setFilter] = useState('all');
   const [selId, setSelId] = useState(null);
@@ -1547,7 +1606,7 @@ export default function ReportScreen({ reports = [], unitDefs = {},
               */}
               {vp.mobile && sel?.id === r.id && (
                 <div style={{ ...panel({ padding: 12 }), marginTop: 4 }}>
-                  <Detail r={r} unitDefs={unitDefs} />
+                  <Detail r={r} unitDefs={unitDefs} onSimulate={onSimulate} />
                 </div>
               )}
             </div>
@@ -1560,7 +1619,7 @@ export default function ReportScreen({ reports = [], unitDefs = {},
             ...panel({ padding: 15 }),
             maxHeight: 'calc(var(--tn-vh) - 190px)', overflowY: 'auto',
           }}>
-            <Detail r={sel} unitDefs={unitDefs} />
+            <Detail r={sel} unitDefs={unitDefs} onSimulate={onSimulate} />
           </div>
         )}
       </div>
