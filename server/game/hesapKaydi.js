@@ -20,7 +20,7 @@
  * Merkez köyde tutulan ama HESABA ait olan alanlar.
  * Yeni bir hesap-düzeyi kayıt eklenirse BURAYA da eklenmeli.
  */
-const HESAP_ALANLARI = ['quests', 'kahraman'];
+const HESAP_ALANLARI = ['quests', 'kahraman', 'kese'];
 
 /**
  * Kaydı eski merkezden yenisine taşı.

@@ -41,6 +41,8 @@ const BOS_DB = () => ({
   // Birlik profili, günlüğü ve diplomasisi
   allianceLog: [], allianceDiplomacy: [],
   nextAllianceLogId: 1, nextDiplomacyId: 1,
+  // Açık artırma — db.js'teki auctions tablosunun karşılığı
+  auctions: [], nextAuctionId: 1,
 });
 
 let db = BOS_DB();
@@ -781,7 +783,68 @@ async function davetleriTemizle(userId) {
   persist();
 }
 
+/* ── AÇIK ARTIRMA ─────────────────────────────────────────────── */
+
+/*
+  db.js'teki auctions tablosunun karşılığı. Alan ADLARI burada zaten
+  istemci biçiminde (camelCase) — PostgreSQL sürümü satırı `satirIlan`
+  ile çeviriyor. Önemli olan İKİSİNİN AYNI ŞEKLİ döndürmesi; bu projede
+  iki sürümün ayrışması defalarca patladı (bkz. db-ikizleri.test.js).
+*/
+const ilanKopya = (x) => ({ ...x });
+
+async function ilanAc(ilan) {
+  const kayit = {
+    id: db.nextAuctionId++,
+    saticiId: Number(ilan.saticiId),
+    key: ilan.key, nadirlik: ilan.nadirlik, seviye: ilan.seviye,
+    taban: ilan.taban, teklif: 0, teklifVerenId: null,
+    baslangic: ilan.baslangic, bitis: ilan.bitis, bitti: false,
+  };
+  db.auctions.push(kayit);
+  persist();
+  return ilanKopya(kayit);
+}
+
+async function ilanlar({ limit = 60 } = {}) {
+  return db.auctions
+    .filter(a => !a.bitti)
+    .sort((a, b) => a.bitis - b.bitis)
+    .slice(0, Math.min(200, Math.max(1, limit)))
+    .map(ilanKopya);
+}
+
+async function ilanBul(id) {
+  const a = db.auctions.find(x => x.id === Number(id));
+  return a ? ilanKopya(a) : null;
+}
+
+/* Koşullu yazma — PostgreSQL sürümündeki WHERE teklif = $5 ile aynı iş */
+async function teklifYaz(id, { teklif, teklifVerenId, bitis, oncekiTeklif }) {
+  const a = db.auctions.find(x => x.id === Number(id));
+  if (!a || a.bitti || a.teklif !== oncekiTeklif) return null;
+  a.teklif = teklif; a.teklifVerenId = Number(teklifVerenId); a.bitis = bitis;
+  persist();
+  return ilanKopya(a);
+}
+
+async function bitenIlanlar(simdi) {
+  return db.auctions
+    .filter(a => !a.bitti && a.bitis <= simdi)
+    .sort((a, b) => a.id - b.id)
+    .map(ilanKopya);
+}
+
+async function ilanKapat(id) {
+  const a = db.auctions.find(x => x.id === Number(id));
+  if (!a || a.bitti) return false;
+  a.bitti = true;
+  persist();
+  return true;
+}
+
 module.exports = {
+  ilanAc, ilanlar, ilanBul, teklifYaz, bitenIlanlar, ilanKapat,
   grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
   grupOkundu, grupAyril, grupSil,
   birlikAciklama, gunlukYaz, gunlukOku, isaretleriOku, isaretYaz,

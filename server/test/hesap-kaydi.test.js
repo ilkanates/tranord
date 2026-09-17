@@ -55,5 +55,11 @@ test('hesap alanları listesi kayıt yerlerini kapsıyor', () => {
     hâlde merkez değişiminde sessizce kaybolur. Test listeyi görünür
     kılıyor — büyüdüğünde bilinçli büyüsün.
   */
-  assert.deepEqual([...HESAP_ALANLARI].sort(), ['kahraman', 'quests']);
+  /*
+    KESE SONRADAN EKLENDİ (17 Eylül 2026). Gümüş/altın cüzdanı da hesaba
+    ait: köy başına cüzdan olsaydı oyuncu parasını köyler arasında
+    taşımak zorunda kalırdı. Listeye girmeseydi merkez köy değişince
+    ya da yıkılınca oyuncunun bütün parası sessizce yok olurdu.
+  */
+  assert.deepEqual([...HESAP_ALANLARI].sort(), ['kahraman', 'kese', 'quests']);
 });

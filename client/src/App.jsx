@@ -5,6 +5,7 @@ import VillageCenter   from './components/VillageCenter';
 import HelpScreen      from './components/HelpScreen';
 import MusicButton     from './components/MusicButton';
 import AyarlarMenu     from './components/AyarlarMenu';
+import KesePanel, { KeseRozet } from './components/KesePanel';
 import VillageSwitcher from './components/VillageSwitcher';
 import { ProfileButton, NameGate } from './components/ProfilePanel';
 import Tutorial from './components/Tutorial';
@@ -243,7 +244,8 @@ const IKON_TABANI = 0.55;     // ikon 15 px; yarıya insa da taniniyor
 
 export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
   villages = [], activeSlot = null, onSwitchVillage, playerName = '',
-  vp = { mobile: false, railW: 186 }, onOpenStatus, nufus = null }) {
+  vp = { mobile: false, railW: 186 }, onOpenStatus, nufus = null,
+  kese = null, onOpenKese = null }) {
   const dar = vp.mobile;
 
   /*
@@ -539,6 +541,20 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
           koymak bir iyileştirme olmazdı. Dişli ise bütün ayarların evi.
           İkisi de aynı depoyu yazıyor, ayrışamazlar.
         */}
+        {/*
+          KESE ROZETİ — sekme DEĞİL, bakiye göstergesi.
+
+          İlkan: *"bunun için bir binaya gerek yok, kendi menüsü olsun
+          yukarıda."* Sekme yapsaydık on ikinci sekme olurdu (şerit on
+          birde zaten taşıyordu, bkz. ETIKET_TABANI) ve bakiyeyi görmek
+          için ekran değiştirmek gerekirdi. Bakiye sürekli görünmesi
+          gereken bir sayı; rozet hem yazıyor hem pencereyi açıyor.
+
+          Dar ekranda yalnız iki sikke görünüyor, sayılar gizleniyor —
+          rakamlar dört haneye çıkınca şerit yine taşardı.
+        */}
+        {kese && <KeseRozet kese={kese} onAc={onOpenKese} dar={dar} tap={TAP} />}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 2px' }}>
           <MusicButton />
           <AyarlarMenu dar={dar} />
@@ -861,6 +877,8 @@ function Game({ token, onLogout }) {
   const railInset = vp.mobile ? 8 : vp.railW + 8;
   /** Telefonda sag ray cekmece — ust bardaki nufus dugmesi aciyor */
   const [statusOpen, setStatusOpen] = useState(false);
+  /* Kese penceresi — üst bardaki bakiye rozetinden açılıyor */
+  const [keseAcik, setKeseAcik] = useState(false);
   // Sekme degisince cekmece kapansin, ustunde asili kalmasin
   useEffect(() => { setStatusOpen(false); }, [tab]);
 
@@ -1191,7 +1209,18 @@ function Game({ token, onLogout }) {
         activeSlot={village.activeSlot || null}
         onSwitchVillage={switchVillage}
         playerName={village.playerName || ''}
-        vp={vp} onOpenStatus={() => setStatusOpen(o => !o)} />
+        vp={vp} onOpenStatus={() => setStatusOpen(o => !o)}
+        kese={village.kese || null} onOpenKese={() => setKeseAcik(true)} />
+
+      {/*
+        KESE PENCERESİ — üst bardaki rozetten açılıyor, her sekmenin
+        üstünde duruyor. Bir sekmeye bağlasaydık alışveriş yaparken
+        bulunduğun ekranı terk etmen gerekirdi.
+      */}
+      {keseAcik && (
+        <KesePanel socket={socket} kese={village.kese || null}
+          onClose={() => setKeseAcik(false)} />
+      )}
 
       {/*
         YİYECEK UYARISI — üst barın hemen altında, HER sekmede.

@@ -581,6 +581,19 @@ const P = {
     İKSİR — boyunlu şişe. Miğferle karışmasın diye dar boyun + geniş
     gövde silueti; içindeki sıvı çizgisi 16 pikselde de okunuyor.
   */
+  /*
+    SİKKE — kese, gümüş ve altın için AYNI ikon, rengi ayırıyor.
+    İki ayrı çizim yapsaydık 16 pikselde ikisi de aynı daireye
+    dönerdi; ayırt eden zaten renk (gümüş buz mavisi, altın sarı).
+    Ortadaki rün çizgisi sikkeyi düz bir daireden ayırıyor.
+  */
+  sikke: (
+    <>
+      <circle cx="12" cy="12" r="8.2" />
+      <circle cx="12" cy="12" r="5.2" />
+      <path d="M12 8.6v6.8M10.2 10.4l3.6 3.2" />
+    </>
+  ),
   kupa: (
     <>
       <path d="M10 3h4" />

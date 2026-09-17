@@ -225,7 +225,13 @@ giremedim, her şeyim gitti" en hızlı bırakma sebebi.
 
 İlkan'ın sözleri: *"kahramanlar itemlerini satabilmeli gümüş karşılığında. gümüş ile de ileride birşeyler alabileceğiz. itemlerin min tutarları olsun, kimse almasa bile açık arttırma bitince o parayı kullanıcı alsın, item NPC'ye satılmış olsun. her satış 24 saat açık arttırmada dursun, fazla parayı veren alsın. gümüşün asıl kazanma olasılığı kahramanın maceraları olsun. başlangıçta herkese birkaç item alacak kadar gümüş verilsin. oyunda bir de altın olsun, yine bunu canlıya alınca bir miktar altın verelim kullanıcıya. kullanıcı altını gümüşe, gümüşü altına çevirebilsin. bunun için bir binaya gerek yok, kendi menüsü olsun yukarıda. altınla 1'e 1 hammadde ticareti yapabilsin. üretim bonusu, depo bonusu ve bina yapımını hızlı bitirme gibi şeylerde de kullanabilsin."*
 
-### 1. GÜMÜŞ — kahramanın parası
+> **DURUM (17 Eylül 2026):** 1. adım (KESE) **YAPILDI** — gümüş ve altın
+> cüzdanı, macera gümüş ödülü, altın↔gümüş çevirme ve altınla hammadde.
+> Sırada AÇIK ARTIRMA (2) ve EŞYA SEVİYESİ (3). Eşya taban fiyatları ve
+> yükseltme bedelleri de tanımlandı (`server/game/esyaDeger.js`) —
+> ikisinin de sayıları hazır, arayüzleri yok.
+
+### 1. ~~GÜMÜŞ — kahramanın parası~~ — **YAPILDI**
 - **Kaynağı asıl olarak MACERA** (İlkan'ın kararı). Yağmadan ya da üretimden gelmiyor: gümüş kahramana ait bir ekonomi, köy ekonomisinden ayrı durmalı.
 - **Başlangıç bakiyesi**: herkese birkaç eşya alacak kadar. *(Açık: "birkaç eşya" kaç gümüş? Eşya taban fiyatları belirlenince türetilebilir.)*
 - Harcama yeri: açık artırmadan eşya almak. İleride başka şeyler.
@@ -252,7 +258,12 @@ giremedim, her şeyim gitti" en hızlı bırakma sebebi.
   - Yükseltme başarısız olabilir mi (risk) yoksa her zaman kesin mi? *(Öneri: kesin olsun — bu oyunda başka hiçbir yerde "ödedin ama olmadı" yok, tek istisna tutarsız olurdu.)*
 - **Mimari notu**: eşya kaydı şu an `{ key, nadirlik }` (bkz. `kusam.js`); seviye üçüncü bir alan olarak girecek ve `kusamBonuslari` onu çarpan olarak okuyacak. Bonus hesabı TEK yerde duruyor, orada çarpmak yeterli — iki yere yazmak bu projede defalarca patladı.
 
-### 4. ALTIN — gerçek para karşılığı
+### 4. ~~ALTIN — gerçek para karşılığı~~ — CÜZDAN TARAFI **YAPILDI**
+Kalanı: gerçek parayla satın alma (ödeme sağlayıcısı) ve altının
+BONUS kullanımları (üretim bonusu, depo bonusu, binayı anında bitirme).
+Aşağıdaki eski notlar o kısım için duruyor.
+
+### 4b. ALTIN — kalan işler
 - **Canlıya geçince kullanıcıya bir miktar altın verilecek** (İlkan'ın kararı).
 - **Altın ↔ gümüş çevrilebilir.** *(Açık: kur ne? Tek yönlü mü çift yönlü mü? Çift yönlü ve sabit kurda, iki para birimi tek para birimine düşer — kur farkı ya da tek yön düşünülmeli.)*
 - **Altınla 1'e 1 hammadde ticareti** — oyuncu altını hammaddeye çevirebiliyor. *(Açık: "1'e 1" hangi ölçek? 1 altın = 1 hammadde mi, yoksa 1 altın = 1 birim paket mi?)*
@@ -291,6 +302,33 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### Kese: gümüş ve altın (17 Eylül 2026)
+- İlkan'ın tarifi: *"oyunda bir de altın olsun… kullanıcı altını gümüşe, gümüşü altına çevirebilsin… altınla 1'e 1 hammadde ticareti yapabilsin… bunun için bir binaya gerek yok, kendi menüsü olsun yukarıda."*
+- **KESE HESABA AİT, KÖYE DEĞİL** (`server/game/kese.js`). Merkez köyün state'inde, kahraman ve görev zinciriyle aynı yerde; merkez değişince birlikte taşınıyor (`hesapKaydi.js · HESAP_ALANLARI`). Köy başına cüzdan olsaydı oyuncu parasını köyler arasında taşımak zorunda kalırdı.
+- **SEKME DEĞİL ROZET.** Üst barda iki sikke duruyor ve bakiyeyi yazıyor; tıklayınca kese açılıyor. On ikinci sekme yapsaydık şerit yine taşardı (on birde zaten taşıyordu) ve bakiyeyi görmek için ekran değiştirmek gerekirdi.
+- **KURLAR**: 1 altın = 100 gümüş; geri dönüş 150 gümüş = 1 altın. **Makas zorunlu**: çift yönlü ve aynı kurda çevrilseydi iki para tek paraya düşer, turu döndürerek para basmak mümkün olurdu. Test bunu ölçüyor (`kese.test.js` · "para üreten döngü yok").
+- **ALTINLA HAMMADDE**: 1 altın = 1.000 birim, seçilen tek HAM kaynaktan. İşlenmiş mal yok — olsaydı işleme binaları zincirinin tamamı atlanabilirdi. Mal AKTİF köye iniyor; depo taşarsa alım hiç yapılmıyor (altın da harcanmıyor).
+- **GÜMÜŞÜN KAYNAĞI MACERA** (İlkan'ın kararı): ödül havuzuna `gumus` eklendi, uzun macera kısanın ~3 katı. Yağmadan ya da üretimden gelmiyor — büyük oyuncunun köy ekonomisi kahraman ekonomisini satın almasın.
+- **BAŞLANGIÇ**: 500 gümüş + 100 altın, eski hesaplar dahil (kese ilk okumada kendiliğinden doluyor, ayrı bir göç adımı yok).
+- **EŞYA DEĞERİ TANIMLANDI** (`esyaDeger.js`): taban fiyat = 40 × (nadirlik çarpanı)². **Kare**, çünkü nadirlik hem ETKİYİ hem SEYREKLİĞİ büyütüyor (efsanevi eşya sıradanın ~47 katı seyrek); doğrusal fiyat efsaneviyi gülünç ucuz yapardı. 40 · 90 · 176 · 314 · 518. Yükseltme bedeli tabanın %60'ı, seviye tavanı 5, seviye başına +%20 (toplamalı).
+- **İKİ PARA DÖNGÜSÜ DE TESTLE KAPALI**: çevirme turu zarar ettiriyor, yükseltip satmak her nadirlikte maliyetin altında kalıyor. Bir ekonomide en pahalı hata bir turu döndürünce fazlasıyla çıkabilmektir.
+- **TARAYICIDA DOĞRULANDI**: rozet 500/100 gösterdi, "ALTINI BOZDUR" sonrası 600/99 oldu ve panelde "1 altın verildi, 100 gümüş alındı" yazdı.
+
+### Rapor kutusu hesap çapında oldu (17 Eylül 2026)
+- İlkan: *"raporlar her köye ayrı geliyor. bir mesajı bir köyde okuyorum, diğerinde okunmamış gözüküyor."*
+- **İKİ KAYIT AYRIŞMIŞTI**: rapor KÖY başına saklanıyor ve pakete yalnız aktif köyünki gidiyordu; "okundu" işareti ise HESAP çapında (tarayıcıda rapor kimliğine göre). Sonuç: köy değiştirince rozet yeniden yanıyor, oyuncu ikinci köyünün savaşını kaçırabiliyordu.
+- Paket artık BÜTÜN köylerin raporlarını tek listede taşıyor (`tumRaporlar`), zamana göre sıralı, kesme birleştirdikten SONRA (25). Her satırda köy adı etiketi var — yoksa liste birleşmiş ama okunaksız olurdu.
+- **PARMAK İZİ DE GENİŞLEDİ**: yalnız aktif köyün en üstteki raporuna bakılıyordu, ikinci köye gelen rapor yayını tetiklemiyor ve ancak o köye geçince görünüyordu.
+- **KİMLİK ÇAKIŞMASI ÇIKTI ve düzeltildi**: rapor kimliği `${march.id}-${now}` ve `march.id` köy başına sayaç; ayrıca kendi köyüme takviyede giden/gelen raporu aynı kimliği taşıyor. Ayrı listelerde sorun değildi, birleşince React satırları karıştırdı ve "okundu" bir raporu okuyunca ötekini de işaretledi. Kimlik artık `köy#id` (`raporKimligi`, tek cümle; köy listesindeki `reportIds` de aynı yerden okuyor). Bir kezlik bedel: mevcut raporlar bir kez okunmamış görünüyor.
+- **SAKLAMA DEĞİŞMEDİ** — rapor hâlâ ilgilendirdiği köyün içinde. Tek bir hesap listesine taşımak "köy silinince raporlar ne olacak" gibi yeni sorular açardı.
+
+### Kahramanı köyden köye yollama (17 Eylül 2026)
+- İlkan: *"hâlâ kahramanı bir köyden başka köye yollayamıyorum; destek olarak yolla demem lazım ve o köyü kalıcı köyü yap işareti çıkması lazım desteğe yollarken."*
+- **ÖLÇÜM ÖNCE SUNUCUYU TEMİZE ÇIKARDI**: kahramanın TEK BAŞINA takviyeye çıkması zaten kabul ediliyordu (`kahramanAtlandi: null`). Engel İSTEMCİDEYDİ — gönder düğmesi `chosenTotal <= 0` ile kapalıydı, yani kahramanı taşımak isteyen oyuncu yanına asker katmak zorundaydı. Düğme neden kapalı olduğunu da yazmıyordu. "Sunucu izin veriyor, arayüz engelliyor" — bu projede tekrarlayan bir sınıf.
+- **YUVA ARTIK SEÇİM**: kendi köyüne giden kahraman ORAYI kendiliğinden üs yapıyordu, dolayısıyla kahramanı geçici savunmaya yollamak imkânsızdı. Takviye ekranında yeni kutu: *"Bu köyü kahramanın yuvası yap"*. İşaretli → taşınır; işaretsiz → misafir kalır ve geri çağrılabilir. Varsayılan işaretli (eski davranış ve en sık istenen).
+- **YOLDAKİ ESKİ SEFERLER BOZULMUYOR**: alan yoksa (`!== false`) yuva yapılıyor.
+- Kilit: `kahraman-koy-tasima.test.js` — dört uçtan uca test (tek başına çıkabiliyor · askersiz+kahramansız hâlâ reddediliyor · yuva işaretliyken üs taşınıyor · işaretsizken misafir kalıyor).
 
 ### Genç köy tek mancınıkla siliniyordu (17 Eylül 2026)
 - İlkan: *"birinin ana binasını yıkarken köy direk kayboluyor galiba, ilk onu çözmen lazım."*

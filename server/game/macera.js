@@ -218,7 +218,25 @@ function maceraUygunMu(k, tip, canTavan) {
   burada bir de `esya: 15` yazıyordu ama kuraya HİÇ girmiyordu — dengeyi
   okuyan herkese eşyanın havuzda %15 ağırlığı varmış gibi görünüyordu.
 */
-const ODUL_AGIRLIK = { hammadde: 55, asker: 30 };
+/**
+ * ÖDÜL HAVUZU — eşya zarı tutmazsa buradan çekiliyor.
+ *
+ * GÜMÜŞ SONRADAN EKLENDİ. İlkan: *"gümüşün asıl kazanma olasılığı
+ * kahramanın maceraları olsun."* Gümüş yağmadan ya da üretimden
+ * gelmiyor: kahramanın parası kahramanın emeğinden gelmeli, yoksa
+ * büyük oyuncunun köy ekonomisi kahraman ekonomisini de satın alırdı.
+ *
+ * Ağırlık hammaddeden düşük, askerden yüksek: gümüş macerayı asıl
+ * cazip kılan şey olmalı ama her maceradan çıkmamalı.
+ */
+const ODUL_AGIRLIK = { hammadde: 55, gumus: 40, asker: 30 };
+
+/**
+ * Bir maceranın verdiği gümüş — uzun macera kısanın ~3 katı, XP ile
+ * aynı oranda. Sıradan eşyanın taban fiyatı 40 (bkz. esyaDeger.js):
+ * kısa macera bir eşyanın yarısını, uzun macera iki-üç eşyayı ödüyor.
+ */
+const GUMUS_TABAN = { kisa: 45, uzun: 130 };
 
 /**
  * Düşen eşyanın diriltme iksiri olma olasılığı.
@@ -326,6 +344,9 @@ function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0) {
         tur: 'esya', key, nadirlik: nadirlikSec(rnd),
         kullanilir: KULLANILABILIR.has(key),
       });
+    } else if (tur === 'gumus') {
+      const taban = GUMUS_TABAN[tip] || GUMUS_TABAN.kisa;
+      oduller.push({ tur: 'gumus', adet: Math.round(taban * (0.6 + rnd() * 0.8)) });
     } else if (tur === 'asker') {
       const birim = MACERA_BIRIMLERI[Math.floor(rnd() * MACERA_BIRIMLERI.length)];
       // Uzun macera daha çok asker getiriyor; sayı XP ile aynı ölçekte
@@ -355,7 +376,7 @@ function esyaAdi(key, nadirlik) {
 }
 
 module.exports = {
-  MACERA_TIPLERI, MACERA_CAN_ESIGI, ODUL_AGIRLIK,
+  MACERA_TIPLERI, MACERA_CAN_ESIGI, ODUL_AGIRLIK, GUMUS_TABAN,
   HAMMADDELER, MACERA_BIRIMLERI,
   MACERA_TAVAN_TABAN, MACERA_TAVAN_PER_SEVIYE, MACERA_SAAT_TABAN, IKSIR_SANSI,
   maceraTavani, maceraSaati, maceraBiriktir,

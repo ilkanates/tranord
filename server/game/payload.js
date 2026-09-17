@@ -263,6 +263,12 @@ function buildPayload(village, tickMs, opts = {}) {
       ölü kalmıştı (bkz. yukarıdaki not).
     */
     kahraman: opts.kahraman || null,
+    /*
+      KESE — gumus/altin bakiyesi ve kurlar. `opts` degerleri pakete
+      KENDILIGINDEN kopyalanmiyor; her alan buraya tek tek yazilmali
+      (bu tuzaga bu projede defalarca dusuldu).
+    */
+    kese: opts.kese || null,
     // Yerleşim hakkı — köşk/saray panelinde gösteriliyor
     expansion: {
       earned: refreshExpansionCredits(village),
@@ -344,7 +350,14 @@ function buildPayload(village, tickMs, opts = {}) {
     */
     saglik: SAGLIK.ozet(village, ARMY.buildingLevel(village, 'saglikCadiri')),
     incoming: incomingMarchesFor(`${village.worldQ || 0},${village.worldR || 0}`),
-    reports: (village.reports || []).slice(0, 25),
+    /*
+      RAPORLAR HESAP ÇAPINDA. Eskiden yalnız bu köyün raporları
+      gidiyordu; okunma kaydı hesap çapında tutulduğu için oyuncu köy
+      değiştirince rozet yeniden yanıyor, ikinci köyünün savaşını
+      kaçırabiliyordu (İlkan bildirdi). Liste çağıranda birleştiriliyor
+      — köy nesnesi öteki köyleri bilmiyor.
+    */
+    reports: opts.tumRaporlar || (village.reports || []).slice(0, 25),
     /*
       TARLA TAVANI istemciye de gidiyor: yükseltme düğmesi sunucunun
       reddedeceği bir şeyi açık göstermemeli ve oyuncu "neden

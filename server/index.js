@@ -35,6 +35,8 @@ const W = require('./game/world');
 const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game/insaat');
 const { QUEST_BY_ID } = require('./data/questDefs');
 const PAZAR = require('./game/pazar');
+const KESE = require('./game/kese');
+const ESYA_DEGER = require('./game/esyaDeger');
 const IST = require('./game/istatistik');
 const PAZAR_YOL = require('./game/pazarYol');
 const KUYRUK = require('./game/kuyruk');
@@ -226,7 +228,8 @@ function villageList(session) {
        *               istemci okunmamışı köy köy kendisi buluyor.
        */
       incoming: gelen.get(slotKey) || 0,
-      reportIds: (v.reports || []).slice(0, 15).map(r => r.id),
+      /* Kimlik hesap çapında — rapor listesiyle aynı cümleden (raporKimligi) */
+      reportIds: (v.reports || []).slice(0, 15).map(r => raporKimligi(slotKey, r)),
     });
   }
   return out.sort((a, b) => (b.isCapital - a.isCapital) || a.slotKey.localeCompare(b.slotKey));
@@ -542,14 +545,13 @@ function emitVillage(session, { force = false, statics = false } = {}) {
   const beat = nowReal - (session.lastEmitAt || 0) >= FULL_SYNC_MS;
   if (!force && !beat && fp === session.fp) return;
 
-  const topReport = (v.reports || [])[0]?.id || 0;
-  const reportsChanged = topReport !== session.topReportId
-    || (v.reports || []).length !== session.reportCount;
+  /* Bütün köyleri kapsıyor — ikinci köye gelen rapor da yayını tetiklesin */
+  const raporImza = raporImzasi(session);
+  const reportsChanged = raporImza !== session.raporImza;
 
   session.fp = fp;
   session.lastEmitAt = nowReal;
-  session.topReportId = topReport;
-  session.reportCount = (v.reports || []).length;
+  session.raporImza = raporImza;
 
   // Raporlar kalp atışına BİNMİYOR: 6 KB tutuyorlar ve yalnız yeni rapor
   // geldiğinde değişiyorlar; istemci listeyi kendinde tutuyor.
@@ -575,6 +577,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     // Acemi kalkanı — oyuncu ne kadar korunduğunu görmeli (madde 12)
     acemiKalkani: acemiKalkani(v),
     reports: statics || reportsChanged,
+    /* Bütün köylerin raporları tek listede (bkz. tumRaporlar) */
+    tumRaporlar: tumRaporlar(session),
     culturePoints: cpTotal,
     culture,
     villages: villageList(session),
@@ -648,6 +652,12 @@ function emitVillage(session, { force = false, statics = false } = {}) {
       konağı göstersek ekran yalan söylerdi.
     */
     kahraman: HERO.ozet(kahramanDurumu(session), kahramanKonakSeviyesi(session)),
+    /*
+      KESE — hesaba ait, aktif köye değil. Üst bardaki bakiye rozetine
+      ve kese penceresine bu gidiyor; kurlar da pakette çünkü istemci
+      "kaç gümüş eder" hesabını kendi yapmamalı.
+    */
+    kese: KESE.ozet(keseDurumu(session)),
   }));
 }
 
@@ -1185,6 +1195,54 @@ function merkezTasimaBedeli(session) {
  * Aktif köyünki zaten `marches` alanında gidiyor; burada yalnız
  * ÖTEKİLER var, her biri çıktığı köyün adıyla.
  */
+/**
+ * BÜTÜN KÖYLERİN RAPORLARI — tek liste, zamana göre.
+ *
+ * Kesme (25) BİRLEŞTİRDİKTEN SONRA yapılıyor: köy başına kesseydik iki
+ * köylü oyuncunun paketi iki katına çıkar, beş köylünün beş katına.
+ * Oyuncunun gördüğü "son 25 rapor" hesabın son 25 raporu olmalı.
+ */
+/**
+ * RAPORUN HESAP ÇAPINDAKİ KİMLİĞİ.
+ *
+ * Köy içi kimlik (`march.id` sayacı) köyler arasında çakışıyor; ayrıca
+ * kendi köyüme takviyede giden ve gelen raporu AYNI kimliği taşıyor.
+ * Gerçek kimlik (köy, id) ikilisi — tek cümle, iki yer okuyor.
+ */
+function raporKimligi(slotKey, r) {
+  return `${slotKey}#${r.id}`;
+}
+
+function tumRaporlar(session) {
+  const hepsi = [];
+  for (const [slotKey, v] of session.villages) {
+    const koyAd = WORLD.playerBySlot.get(slotKey)?.name
+      || WORLD.slotByKey.get(slotKey)?.name || slotKey;
+    for (const r of v.reports || []) {
+      hepsi.push({ ...r, id: raporKimligi(slotKey, r), koyIciId: r.id, koySlot: slotKey, koyAd });
+    }
+  }
+  hepsi.sort((a, b) => (b.at || 0) - (a.at || 0));
+  return hepsi.slice(0, 25);
+}
+
+/**
+ * RAPOR PARMAK İZİ — bütün köyleri kapsıyor.
+ *
+ * Eskiden yalnız aktif köyün en üstteki raporuna bakılıyordu: ikinci
+ * köye saldırı gelince paket "rapor değişmedi" deyip listeyi
+ * yollamıyordu ve rapor ancak o köye geçince görünüyordu.
+ */
+function raporImzasi(session) {
+  let sayi = 0, enYeni = 0;
+  for (const v of session.villages.values()) {
+    const r = v.reports || [];
+    sayi += r.length;
+    if (r[0] && (r[0].at || 0) > enYeni) enYeni = r[0].at || 0;
+  }
+  return `${sayi}|${enYeni}`;
+}
+
 function digerKoySeferleri(session) {
   const out = [];
   for (const [slotKey, v] of session.villages) {
@@ -1335,6 +1393,14 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
       */
       usKoy.army[odul.birim] = (usKoy.army[odul.birim] || 0) + odul.adet;
       kazanilan.push({ tur: 'asker', birim: odul.birim, adet: odul.adet });
+    } else if (odul.tur === 'gumus') {
+      /*
+        GÜMÜŞ KESEYE, köye değil. Köyün kaynaklarına yazsaydık ikinci
+        köy kuran oyuncu parasını bölmek zorunda kalırdı ve "hangi
+        köyde alışveriş yapıyorum" diye bir soru doğardı.
+      */
+      keseYaz(session, KESE.ekle(keseDurumu(session), 'gumus', odul.adet));
+      kazanilan.push({ tur: 'gumus', adet: odul.adet });
     } else if (odul.tur === 'esya') {
       (kahraman.envanter ||= []).push({ key: odul.key, nadirlik: odul.nadirlik });
       kazanilan.push({
@@ -1452,6 +1518,34 @@ function kahramanDurumu(session, { yarat = false } = {}) {
     bayrağına). Eski kayıt olduğu gibi kullanılınca sunucu çöküyordu.
   */
   return merkez.kahraman ? HERO.duzelt(merkez.kahraman) : null;
+}
+
+/**
+ * KESE — oyuncunun gümüş/altın cüzdanı.
+ *
+ * Kahramanla AYNI yerde duruyor (merkez köyün state'i) ve aynı
+ * gerekçeyle: hesaba ait, köye değil. Merkez değişince birlikte
+ * taşınıyor (bkz. hesapKaydi.js · HESAP_ALANLARI).
+ *
+ * Her çağrıda `duzelt` geçiyor: kese alanı olmayan eski hesaplar da
+ * ilk okumada başlangıç bakiyesiyle açılıyor. Ayrı bir göç adımı
+ * yazsaydık çevrimdışı hesaplar açılana kadar kesesiz kalırdı.
+ */
+function keseDurumu(session) {
+  const merkez = session.villages.get(session.capitalSlot)
+    || session.villages.values().next().value;
+  if (!merkez) return null;
+  merkez.kese = KESE.duzelt(merkez.kese);
+  return merkez.kese;
+}
+
+/** Keseyi yaz ve ekranı tazele — üç olayda da aynı üç satır gerekiyordu */
+function keseYaz(session, yeniKese) {
+  const merkez = session.villages.get(session.capitalSlot)
+    || session.villages.values().next().value;
+  if (!merkez) return;
+  merkez.kese = yeniKese;
+  session.dirtySlots.add(session.capitalSlot);
 }
 
 /** Kahramanın üssü — Kahraman Konağı'nın bulunduğu köy. */
@@ -1978,8 +2072,18 @@ function processMarches(hours) {
               kahraman başkasının toprağında yaşıyor olurdu ve ev sahibi
               onu istemediğinde gidecek yeri kalmazdı.
             */
+            /*
+              KENDİ KÖYÜME GİTTİ AMA YUVA OLACAK MI — artık oyuncunun
+              seçimi (İlkan'ın isteği). İşaretsiz gönderilen kahraman
+              misafir kalıyor ve geri çağrılabiliyor; eskiden tek
+              davranış "taşın" olduğu için kahramanı geçici savunmaya
+              yollamak imkânsızdı.
+
+              `!== false`: yolda olan ESKİ seferlerde alan yok, onlar
+              eski davranışla (taşın) varsın.
+            */
             const kendiKoyum = !!ks && ks.villages.has(m.toKey);
-            if (kendiKoyum) {
+            if (kendiKoyum && m.kahramanYuva !== false) {
               kk.usSlot = m.toKey;
               kk.nerede = 'koy';
               kk.misafirSlot = null;
@@ -3980,6 +4084,61 @@ io.on('connection', async socket => {
    * kaybettirir, bkz. game/pazar.js). Oranları istemci değil sunucu
    * uyguluyor — istemcideki panel yalnızca önizleme gösteriyor.
    */
+  /* ══ KESE ══════════════════════════════════════════════════════
+     GÜMÜŞ ve ALTIN. Binaya bağlı değil (İlkan: *"bunun için bir
+     binaya gerek yok, kendi menüsü olsun yukarıda"*) — pazar köyler
+     arası hammadde ticareti, kese hesap düzeyinde bir cüzdan.
+
+     Her iki olay da TEK cevap kanalından dönüyor (`kese_sonuc`):
+     reddedilen bir işlem sessizce yok olursa oyuncu parasının nereye
+     gittiğini soramaz. Bu projede "sessiz ret" en çok patlayan hata
+     sınıfı oldu.
+  ══════════════════════════════════════════════════════════════════ */
+
+  /** ALTIN ↔ GÜMÜŞ. Kur sunucuda (bkz. game/kese.js), istemci yalnız gösteriyor. */
+  socket.on('kese_cevir', ({ yon, adet } = {}) => {
+    const sonuc = KESE.cevir(keseDurumu(session), yon, sayi(adet, { enAz: 1, enCok: 1000000 }));
+    if (!sonuc.ok) {
+      return socket.emit('kese_sonuc', { ok: false, sebep: sonuc.sebep, enAz: sonuc.enAz });
+    }
+    keseYaz(session, sonuc.kese);
+    emitVillage(session, { force: true });
+    socket.emit('kese_sonuc', {
+      ok: true, islem: 'cevir', verilen: sonuc.verilen, alinan: sonuc.alinan,
+    });
+    console.log(`[KESE] ${userEmail} çevirdi: ${JSON.stringify(sonuc.verilen)} -> ${JSON.stringify(sonuc.alinan)}`);
+  });
+
+  /**
+   * ALTINLA HAMMADDE — AKTİF köye iniyor.
+   *
+   * Merkez köye sabitlemek yanlış olurdu: oyuncu hangi köyde inşaat
+   * sıkışmışsa orada satın alıyor ve hammaddeyi oraya taşımak ikinci
+   * bir tüccar yolculuğu demek olurdu.
+   *
+   * DEPO TAVANI UYGULANIYOR ve taşıyorsa alım HİÇ yapılmıyor: yarısını
+   * verip altını tamamen almak oyuncunun parasını yakmak olurdu.
+   */
+  socket.on('kese_hammadde', ({ kaynak, adet } = {}) => {
+    const village = v();
+    const { caps } = getStorageCaps(village);
+    const tavan = caps?.[kaynak];
+    const bosYer = tavan != null ? Math.max(0, tavan - (village.resources[kaynak] || 0)) : null;
+
+    const sonuc = KESE.hammaddeAl(keseDurumu(session), kaynak,
+      sayi(adet, { enAz: 1, enCok: 10000 }), bosYer);
+    if (!sonuc.ok) {
+      return socket.emit('kese_sonuc', { ok: false, sebep: sonuc.sebep, sigan: sonuc.sigan });
+    }
+    keseYaz(session, sonuc.kese);
+    village.resources[sonuc.kaynak] = (village.resources[sonuc.kaynak] || 0) + sonuc.miktar;
+    dirty(); emit();
+    socket.emit('kese_sonuc', {
+      ok: true, islem: 'hammadde', kaynak: sonuc.kaynak, miktar: sonuc.miktar,
+    });
+    console.log(`[KESE] ${userEmail} altınla aldı: ${sonuc.miktar} ${sonuc.kaynak}`);
+  });
+
   socket.on('pazar_takas', ({ veren, alan, miktar } = {}) => {
     const village = v();
     const { caps, granaryCap } = getStorageCaps(village);
@@ -4802,7 +4961,13 @@ io.on('connection', async socket => {
 
   // ── SEFER: ordu gönder ────────────────────────────────────────────
   socket.on('send_army', ({ targetKey, mode, units, hedefBina = null, hedefBina2 = null,
-    kahraman: kahramaniGotur = false } = {}) => {
+    kahraman: kahramaniGotur = false,
+    /*
+      YUVA SEÇİMİ — yalnız takviyede ve yalnız kendi köyüne anlamlı.
+      Varsayılan true: eski davranış (kendi köyüne giden kahraman oraya
+      taşınır) ve oyuncunun en sık istediği şey.
+    */
+    kahramanYuva = true } = {}) => {
     const fail = (reason) => socket.emit('army_error', { reason });
     const village = v();
     // ÇOKLU KÖY: sefer AKTİF köyden çıkar, oyuncunun "ilk" köyünden değil
@@ -4913,7 +5078,11 @@ io.on('connection', async socket => {
     });
     if (!res.ok) return fail(res.reason);
     // Varışta misafir girdisine sahibini yazabilmek için sefere iliştir
-    if (mode === 'takviye') res.march.ownerUserId = userId;
+    if (mode === 'takviye') {
+      res.march.ownerUserId = userId;
+      /* Varışta "üs mü, misafir mi" kararı buna bakıyor */
+      res.march.kahramanYuva = kahramanYuva !== false;
+    }
 
     /*
       KAHRAMAN SEFERE KATILIYOR.

@@ -26,6 +26,82 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17i',
+    tarih: '17 Eylül 2026',
+    baslik: 'Kese açıldı, rapor kutusu birleşti',
+    notlar: [
+      {
+        id: '20260917-rapor-hesap-capinda',
+        tur: 'duzeltme',
+        metin: 'RAPORLAR ARTIK TEK KUTUDA. Rapor listesi yalnız '
+          + 'bulunduğun köyün raporlarını gösteriyordu; okundu işareti '
+          + 'ise hesap çapında tutuluyor. Köy değiştirince rozet '
+          + 'yeniden yanıyor, ikinci köyünün savaşını kaçırabiliyordun. '
+          + 'Artık bütün köylerinin raporları tek listede, zamana göre '
+          + 'sıralı ve her satırda hangi köyüne ait olduğu yazıyor. '
+          + 'İkinci köyüne gelen rapor da anında düşüyor — eskiden o '
+          + 'köye geçene kadar görünmüyordu.',
+      },
+      {
+        id: '20260917-kahraman-tek-basina-takviye',
+        tur: 'duzeltme',
+        metin: 'KAHRAMANI TEK BAŞINA GÖNDEREBİLİYORSUN. Sunucu buna '
+          + 'zaten izin veriyordu ama gönder düğmesi asker seçmeden '
+          + 'basılamıyordu: kahramanı başka köyüne taşımak isteyen '
+          + 'oyuncu yanına asker katmak zorunda kalıyordu. Artık '
+          + 'kahramanı işaretlemen yeterli.',
+      },
+      {
+        id: '20260917-kahraman-yuva-secimi',
+        tur: 'yenilik',
+        metin: 'KAHRAMANIN YUVASI ARTIK SENİN SEÇİMİN. Kendi köyüne '
+          + 'DESTEK gönderirken yeni bir kutu çıkıyor: "Bu köyü '
+          + 'kahramanın yuvası yap". İşaretliysen kahraman oraya '
+          + 'taşınır ve bundan sonra seferleri o köyden çıkar; '
+          + 'işaretlemezsen misafir kalır, savunmaya katılır ve '
+          + 'Kahraman ekranından geri çağırabilirsin. Eskiden kendi '
+          + 'köyüne giden kahraman her zaman taşınıyordu, yani onu '
+          + 'geçici savunmaya yollamak mümkün değildi.',
+      },
+      {
+        id: '20260917-kese-gumus-altin',
+        tur: 'yenilik',
+        metin: 'ARTIK İKİ PARAN VAR. Üst barda, ayarların solunda iki '
+          + 'sikke duruyor: GÜMÜŞ kahramanın parası, ALTIN hesabın '
+          + 'parası. Rozete tıklayınca kese açılıyor. Kese hesaba ait — '
+          + 'köy değiştirince değişmiyor.',
+      },
+      {
+        id: '20260917-gumus-macera',
+        tur: 'yenilik',
+        metin: 'GÜMÜŞÜN ASIL KAYNAĞI MACERA. Kahraman maceradan artık '
+          + 'hammadde ve asker yanında gümüş de getiriyor; uzun macera '
+          + 'kısanın yaklaşık üç katı. Gümüş yağmadan ya da üretimden '
+          + 'gelmiyor: kahramanın parası kahramanın emeğinden geliyor. '
+          + 'Yakında gümüşle açık artırmadan eşya alacaksın.',
+      },
+      {
+        id: '20260917-altin-cevirme',
+        tur: 'yenilik',
+        metin: 'ALTIN GÜMÜŞE VE HAMMADDEYE ÇEVRİLİYOR. 1 altın = 100 '
+          + 'gümüş; geri dönüş pahalı (1 altın 150 gümüşe mal oluyor) — '
+          + 'makas olmasaydı iki para tek paraya düşer, tur döndürerek '
+          + 'para basmak mümkün olurdu. Altınla hammadde de alınıyor: '
+          + '1 altın = 1.000 birim, hangi ham kaynağı seçersen seç aynı '
+          + 'miktar. İşlenmiş mal altınla alınmıyor — yoksa işleme '
+          + 'binaları zinciri tamamen atlanabilirdi.',
+      },
+      {
+        id: '20260917-baslangic-kese',
+        tur: 'denge',
+        metin: 'HERKESE 500 GÜMÜŞ VE 100 ALTIN. Eski hesaplar da dahil: '
+          + 'kese ilk açılışta kendiliğinden doluyor. 500 gümüş birkaç '
+          + 'eşya demek — ilk açık artırmaya seyirci değil alıcı olarak '
+          + 'gireceksin.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17h',
     tarih: '17 Eylül 2026',
     baslik: 'Genç köyler tek mancınıkla silinmiyor',

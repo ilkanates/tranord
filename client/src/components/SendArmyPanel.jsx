@@ -281,6 +281,12 @@ export default function SendArmyPanel({
   // Kahraman sefere katılsın mı — varsayılan HAYIR: kahramanı yanlışlıkla
   // riske atmak, yanlışlıkla evde bırakmaktan çok daha pahalı
   const [kahramaniGotur, setKahramaniGotur] = useState(false);
+  /*
+    YUVA YAP — kendi köyüne takviyede kahramanın evi oraya taşınsın mı.
+    Varsayılan AÇIK: eski davranış buydu ve kahramanı kendi köyüne
+    yollamanın en sık sebebi taşınmak.
+  */
+  const [yuvaYap, setYuvaYap] = useState(true);
   const [err, setErr] = useState(null);
   const [sent, setSent] = useState(null);
   const [pred, setPred] = useState(null);
@@ -423,6 +429,20 @@ export default function SendArmyPanel({
     aynısı: army.js · marchGameHours).
   */
   const kahramanYuruyor = kahramaniGotur && kahramanUygun;
+  /*
+    HEDEF BENİM KÖYÜM MÜ — yuva kutusu ve "tek başına gönder" mantığı
+    buna bakıyor. `villages` oyuncunun kendi köy listesi (slot→ad).
+  */
+  const kendiKoyumMu = !!target && villages.some(v => v.slotKey === target.key);
+  /*
+    GÖNDERİLEBİLİR — kahraman TEK BAŞINA da gidebilir.
+
+    Düğme `chosenTotal <= 0` ile kapanıyordu ve kahramanı taşımak
+    isteyen oyuncu yanına asker katmak zorunda kalıyordu (İlkan
+    bildirdi). Sunucu askersiz seferi kahraman varken zaten kabul
+    ediyor — ölçüldü; engel yalnız buradaydı.
+  */
+  const gonderilebilir = chosenTotal > 0 || kahramanYuruyor;
   const secs = marchSeconds(chosen, unitDefs, distance, hourSeconds, minMarchMin,
     kahramanYuruyor ? (kahraman?.hiz || 0) : 0);
   const cap  = carryCapacity(chosen, unitDefs, unitStatsNow);
@@ -524,6 +544,8 @@ export default function SendArmyPanel({
       hedefBina: hedefBina || null,
       hedefBina2: (ikiHedefAcik && hedefBina) ? (hedefBina2 || null) : null,
       kahraman: kahramaniGotur && kahramanUygun,
+      /* Yalnız takviyede ve kendi köyümde anlamlı — sunucu da öyle okuyor */
+      kahramanYuva: yuvaYap,
     });
     // Sunucu ne 'army_sent' ne 'army_error' döndürmezse olayı kimse dinlemiyor
     // demektir — sessiz başarısızlık yerine bunu söyle.
@@ -950,8 +972,38 @@ export default function SendArmyPanel({
               }}>{err}</div>
             )}
 
-            <button onClick={send} disabled={chosenTotal <= 0}
-              style={btn(chosenTotal > 0 ? (mode === 'takviye' ? 'good' : mode === 'scout' ? 'primary' : 'danger') : 'disabled', {
+            {/*
+              KAHRAMANIN YUVASI — yalnız KENDİ köyüne takviyede.
+
+              Başkasının köyünde misafir kalıyor (orayı üs saysaydık
+              kahraman başkasının toprağında yaşardı ve ev sahibi onu
+              istemediğinde gidecek yeri kalmazdı), o yüzden kutu orada
+              hiç çıkmıyor.
+            */}
+            {mode === 'takviye' && kahramanYuruyor && kendiKoyumMu && (
+              <label style={{
+                ...box, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 9,
+                cursor: 'pointer',
+              }}>
+                <input type="checkbox" checked={yuvaYap}
+                  onChange={(e) => setYuvaYap(e.target.checked)}
+                  style={{ accentColor: C.frost, width: 14, height: 14, flexShrink: 0 }} />
+                <Icon name="koy" size={14} color={yuvaYap ? C.good : C.textMute} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.frost }}>
+                    Bu köyü kahramanın yuvası yap
+                  </div>
+                  <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint, lineHeight: 1.45 }}>
+                    {yuvaYap
+                      ? 'Kahraman oraya taşınır; bundan sonra seferleri o köyden çıkar.'
+                      : 'Misafir kalır, savunmaya katılır; Kahraman ekranından geri çağırabilirsin.'}
+                  </div>
+                </div>
+              </label>
+            )}
+
+            <button onClick={send} disabled={!gonderilebilir}
+              style={btn(gonderilebilir ? (mode === 'takviye' ? 'good' : mode === 'scout' ? 'primary' : 'danger') : 'disabled', {
                 width: '100%', padding: 10, letterSpacing: 1.6, fontSize: 11,
               })}>
               {mode === 'scout' ? 'İZCİ GÖNDER'

@@ -284,6 +284,36 @@ async function initDB() {
       UNIQUE (a_id, b_id)
     );
     CREATE INDEX IF NOT EXISTS alliance_diplomacy_b_idx ON alliance_diplomacy (b_id);
+
+    /*
+      AÇIK ARTIRMA — kahraman eşyalarının ortak pazarı.
+
+      Eşya burada SAKLANIYOR, satıcının envanterinde değil: ilan
+      verildiği an eşya çantadan çıkıyor. Envanterde bıraksaydık aynı
+      eşya hem satışta hem kuşanılmış olabilirdi.
+
+      Bitiş alanı GERÇEK zaman damgası (oyun saati değil): açık artırma bir
+      pazar, insanların görebildiği bir saatte durmalı (bkz.
+      game/acikArtirma.js).
+
+      Satıcı hesabı silinirse ilan da gitsin — ödeyecek kimse kalmaz.
+      Teklif verenin hesabı silinirse yalnız teklif düşer (SET NULL) ve
+      ilan tekliffiz devam eder; ilanı silmek satıcıyı cezalandırırdı.
+    */
+    CREATE TABLE IF NOT EXISTS auctions (
+      id           SERIAL PRIMARY KEY,
+      satici_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      esya_key     TEXT NOT NULL,
+      nadirlik     TEXT NOT NULL,
+      seviye       INTEGER NOT NULL DEFAULT 1,
+      taban        INTEGER NOT NULL,
+      teklif       INTEGER NOT NULL DEFAULT 0,
+      teklif_veren INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      baslangic    BIGINT NOT NULL,
+      bitis        BIGINT NOT NULL,
+      bitti        BOOLEAN NOT NULL DEFAULT FALSE
+    );
+    CREATE INDEX IF NOT EXISTS auctions_acik_idx ON auctions (bitti, bitis);
   `);
 
   console.log('[DB] Tablolar hazır (çoklu köy şeması)');
@@ -1023,8 +1053,77 @@ async function davetleriTemizle(userId) {
   await pool.query('DELETE FROM alliance_invites WHERE user_id = $1', [userId]);
 }
 
+/* ── AÇIK ARTIRMA ─────────────────────────────────────────────── */
+
+const satirIlan = (r) => ({
+  id: r.id, saticiId: r.satici_id,
+  key: r.esya_key, nadirlik: r.nadirlik, seviye: r.seviye,
+  taban: r.taban, teklif: r.teklif, teklifVerenId: r.teklif_veren,
+  baslangic: Number(r.baslangic), bitis: Number(r.bitis), bitti: r.bitti,
+});
+
+async function ilanAc(ilan) {
+  const { rows } = await pool.query(
+    `INSERT INTO auctions (satici_id, esya_key, nadirlik, seviye, taban, baslangic, bitis)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [ilan.saticiId, ilan.key, ilan.nadirlik, ilan.seviye, ilan.taban,
+      ilan.baslangic, ilan.bitis]);
+  return satirIlan(rows[0]);
+}
+
+/** Açık ilanlar — bitişe en yakın önce; oyuncu acele edeceğini görsün */
+async function ilanlar({ limit = 60 } = {}) {
+  const { rows } = await pool.query(
+    `SELECT * FROM auctions WHERE bitti = FALSE ORDER BY bitis ASC LIMIT $1`,
+    [Math.min(200, Math.max(1, limit))]);
+  return rows.map(satirIlan);
+}
+
+async function ilanBul(id) {
+  const { rows } = await pool.query('SELECT * FROM auctions WHERE id = $1', [id]);
+  return rows[0] ? satirIlan(rows[0]) : null;
+}
+
+/**
+ * TEKLİFİ YAZ — KOŞULLU.
+ *
+ * `WHERE teklif = $4` yarış penceresini kapatıyor: iki oyuncu aynı anda
+ * teklif verirse ikincisinin UPDATE'i hiç satır etkilemiyor ve çağıran
+ * "geçildin" diyebiliyor. Önce okuyup sonra yazsaydık ikisi de kazanmış
+ * sayılır, birinin gümüşü karşılıksız bloke kalırdı.
+ */
+async function teklifYaz(id, { teklif, teklifVerenId, bitis, oncekiTeklif }) {
+  const { rows } = await pool.query(
+    `UPDATE auctions SET teklif = $2, teklif_veren = $3, bitis = $4
+     WHERE id = $1 AND teklif = $5 AND bitti = FALSE RETURNING *`,
+    [id, teklif, teklifVerenId, bitis, oncekiTeklif]);
+  return rows[0] ? satirIlan(rows[0]) : null;
+}
+
+/** Süresi dolmuş ama henüz kapatılmamış ilanlar */
+async function bitenIlanlar(simdi) {
+  const { rows } = await pool.query(
+    'SELECT * FROM auctions WHERE bitti = FALSE AND bitis <= $1 ORDER BY id ASC',
+    [simdi]);
+  return rows.map(satirIlan);
+}
+
+/**
+ * İLANI KAPAT — KOŞULLU, aynı gerekçeyle.
+ *
+ * İki sunucu tik'i aynı ilanı birlikte kapatırsa satıcı parayı iki kez
+ * alırdı. `WHERE bitti = FALSE` yalnız birinin satır döndürmesini
+ * sağlıyor; parayı yalnız o taşıyor.
+ */
+async function ilanKapat(id) {
+  const { rowCount } = await pool.query(
+    'UPDATE auctions SET bitti = TRUE WHERE id = $1 AND bitti = FALSE', [id]);
+  return rowCount > 0;
+}
+
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
+  ilanAc, ilanlar, ilanBul, teklifYaz, bitenIlanlar, ilanKapat,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
   birlikAciklama, gunlukYaz, gunlukOku, isaretleriOku, isaretYaz,
   diplomasiYaz, diplomasiDurum, diplomasiListesi, diplomasiSil,

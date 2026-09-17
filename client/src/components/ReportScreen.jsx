@@ -332,6 +332,18 @@ function Row({ r, active, unread, onClick }) {
             background: unread ? `${yon.renk}1f` : 'transparent',
             border: `1px solid ${unread ? `${yon.renk}55` : C.lineSoft}`,
           }}>{yon.etiket}</span>
+          {/*
+            HANGİ KÖYÜM — liste artık BÜTÜN köylerin raporlarını taşıyor
+            (İlkan: *"raporlar her köye ayrı geliyor"*). Köy adını
+            yazmasaydık liste birleşmiş ama okunaksız olurdu: "hangi
+            köyüme saldırdılar" sorusunun cevabı kaybolurdu.
+          */}
+          {r.koyAd && (
+            <span style={{
+              padding: '0px 4px', borderRadius: 3, fontSize: 7.5, letterSpacing: 0.5,
+              color: C.textMute, border: `1px solid ${C.lineSoft}`,
+            }}>{r.koyAd}</span>
+          )}
           <span style={{ color: unread ? v.col : C.textMute }}>{v.txt}</span>
 
 

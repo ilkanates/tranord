@@ -119,6 +119,10 @@ test('ödül türleri geçerli ve tanımlı şeyler veriyor', () => {
       } else if (o.tur === 'hammadde') {
         assert.ok(M.HAMMADDELER.includes(o.res));
         assert.ok(o.adet > 0);
+      } else if (o.tur === 'gumus') {
+        /* Gümüş keseye yazılıyor, köye değil (bkz. index.js · keseYaz) */
+        assert.ok(Number.isInteger(o.adet) && o.adet > 0,
+          `gümüş ödülü tam sayı ve pozitif olmalı: ${o.adet}`);
       } else {
         assert.fail(`bilinmeyen ödül türü: ${o.tur}`);
       }
@@ -209,8 +213,54 @@ test('ödül havuzunda ÖLÜ eşya ağırlığı yok', () => {
     Ağırlık geri eklenecekse kuraya da girmeli; bu test ikisinin
     ayrışmasını engelliyor.
   */
-  assert.deepEqual(Object.keys(M.ODUL_AGIRLIK).sort(), ['asker', 'hammadde'],
-    'ODUL_AGIRLIK yalnız kuraya GİREN türleri taşımalı');
+  /*
+    LİSTE YERİNE DAVRANIŞ ÖLÇÜLÜYOR. Eskiden burada elle yazılmış bir
+    liste vardı (['asker','hammadde']); havuza gümüş eklenince test
+    kırmızıya döndü ama tuttuğu hata oluşmamıştı — gümüş kurada
+    GERÇEKTEN var. Liste, kuranın ikizi olmuş ve her yeni ödül türünde
+    elle güncellenmesi gereken ikinci bir tanım hâline gelmişti: bu
+    projedeki en sık hata sınıfı.
+
+    Artık kura ÇEKİLİYOR: ağırlığı olan her tür gerçekten çıkmalı ve
+    çıkan her tür ağırlık listesinde olmalı. Ölü ağırlık da, listede
+    olmayan sürpriz bir tür de buradan geçemez.
+  */
+  const gorulen = new Set();
+  for (let n = 0; n < 4000; n++) {
+    for (const o of M.maceraSonucu('uzun').oduller) gorulen.add(o.tur);
+  }
+  gorulen.delete('esya');          // eşyanın kapısı ayrı zar (esyaSansi)
+
+  for (const tur of Object.keys(M.ODUL_AGIRLIK)) {
+    assert.ok(gorulen.has(tur),
+      `${tur} ağırlığı var ama kurada HİÇ çıkmıyor — ölü ağırlık`);
+  }
+  for (const tur of gorulen) {
+    assert.ok(M.ODUL_AGIRLIK[tur],
+      `${tur} kurada çıkıyor ama ağırlık listesinde yok`);
+  }
+});
+
+test('GÜMÜŞ maceradan çıkıyor — kahramanın parası kahramanın emeğinden', () => {
+  /*
+    İlkan: *"gümüşün asıl kazanma olasılığı kahramanın maceraları
+    olsun."* Gümüş yağmadan ya da üretimden gelmiyor; büyük oyuncunun
+    köy ekonomisi kahraman ekonomisini satın alamamalı.
+  */
+  const topla = (tip) => {
+    let adet = 0, kez = 0;
+    for (let n = 0; n < 3000; n++) {
+      for (const o of M.maceraSonucu(tip).oduller) {
+        if (o.tur === 'gumus') { adet += o.adet; kez++; }
+      }
+    }
+    return kez ? adet / kez : 0;
+  };
+  const kisa = topla('kisa');
+  const uzun = topla('uzun');
+  assert.ok(kisa > 0 && uzun > 0, 'iki macera tipi de gümüş verebilmeli');
+  assert.ok(uzun > kisa * 2,
+    `uzun macera belirgin daha çok gümüş vermeli (kısa ${kisa.toFixed(0)}, uzun ${uzun.toFixed(0)})`);
 });
 
 test('SALDIRI GÜCÜ macerada alınan hasarı azaltıyor', () => {
