@@ -357,7 +357,12 @@ function buildPayload(village, tickMs, opts = {}) {
       kaçırabiliyordu (İlkan bildirdi). Liste çağıranda birleştiriliyor
       — köy nesnesi öteki köyleri bilmiyor.
     */
-    reports: opts.tumRaporlar || (village.reports || []).slice(0, 25),
+    reports: opts.tumRaporlar || (village.reports || []).slice(0, opts.raporSayfaBoyu || 25),
+    /* Sayfalama için: kaç rapor var ve bir sayfa kaç satır (bkz. index.js) */
+    raporToplam: opts.raporToplam ?? null,
+    raporSayfaBoyu: opts.raporSayfaBoyu ?? null,
+    /* Filtre rozetlerinin sayıları — TÜM raporlardan (bkz. raporTur.js) */
+    raporSayilari: opts.raporSayilari || null,
     /*
       TARLA TAVANI istemciye de gidiyor: yükseltme düğmesi sunucunun
       reddedeceği bir şeyi açık göstermemeli ve oyuncu "neden

@@ -86,7 +86,19 @@ const SCOUT_UNITS = new Set(
   Object.entries(UNIT_DEFS).filter(([, d]) => d.kesif === true).map(([k]) => k)
 );
 
-const MAX_REPORTS = 40;
+/**
+ * KÖY BAŞINA SAKLANAN RAPOR — 40 → 250.
+ *
+ * 40 iken 41. rapor geri dönülemez biçimde siliniyordu (İlkan: *"bütün
+ * raporlar saklanmalı"*). Sınırsız da yapılmadı: raporlar köyün
+ * state'inde tek bir JSONB satırında duruyor ve o satır her kayıtta
+ * bütün olarak yazılıyor; sınırsız birikim aylarca oynanan bir köyde
+ * her kaydı megabaytlara çıkarır ve tik yoluna yazma gecikmesi sokardı.
+ *
+ * 250 rapor ~150 KB: oyuncunun "hepsi" diye algılayacağı kadar derin,
+ * veritabanını boğmayacak kadar sığ.
+ */
+const MAX_REPORTS = 250;
 
 /**
  * KALICI SAVAŞ SAYAÇLARI — istatistik sekmesindeki sıralamalar bunlardan

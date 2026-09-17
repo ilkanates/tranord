@@ -1143,6 +1143,16 @@ function Game({ token, onLogout }) {
 
   const tickMs = village.tickMs || 1000;
 
+  /*
+    RAPOR ROZETİ BÜTÜN KÖYLERDEN. `village.reports` sayfalamadan sonra
+    yalnız ilk sayfa; ondan saymak rozeti sayfa boyunda tavanlıyordu.
+    Köy listesindeki `reportIds` (bkz. index.js · villageList) hesap
+    çapında benzersiz kimlikler taşıyor — köy değiştiricideki rozetler
+    de aynı kaynaktan besleniyor.
+  */
+  const raporRozeti = unseenCount((village.villages || [])
+    .flatMap(v => (v.reportIds || []).map(id => ({ id }))));
+
   return (
     <>
       {!connected && (
@@ -1183,7 +1193,7 @@ function Game({ token, onLogout }) {
 
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
-        badges={{ raporlar: unseenCount(village.reports || []),
+        badges={{ raporlar: raporRozeti,
             /*
               ROZET İKİ SAYININ TOPLAMI: doğrudan mesajlar + grup
               mesajları. Ayrı ikinci bir rozet, oyuncuya "bir yerde
@@ -1564,7 +1574,11 @@ function Game({ token, onLogout }) {
             }}>
               <ReportScreen
                 reports={village.reports || []}
-                unitDefs={village.unitDefs || {}} />
+                unitDefs={village.unitDefs || {}}
+                socket={socket}
+                toplam={village.raporToplam || 0}
+                sayfaBoyu={village.raporSayfaBoyu || 15}
+                sayilar={village.raporSayilari || null} />
             </div>
           )}
 
@@ -1732,7 +1746,7 @@ function Game({ token, onLogout }) {
       {/* Telefonda sekmeler altta */}
       {vp.mobile && (
         <BottomTabs tab={tab} setTab={setTab}
-          badges={{ raporlar: unseenCount(village.reports || []),
+          badges={{ raporlar: raporRozeti,
             /*
               GÖREV ÖDÜLÜ SEKMEDE. Telefonda yüzen rehber rozeti kaldırıldı;
               "ödülün hazır" haberi Görevler sekmesinin sayacıyla veriliyor,

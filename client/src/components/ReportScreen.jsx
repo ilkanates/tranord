@@ -159,10 +159,13 @@ function fmtWhen(at) {
  *
  * İzcisi olmayan oyuncu keşfedildiğini HİÇ görmez — rapor yazılmıyor.
  */
-const KESIF_SONUCLARI = new Set([
-  'kesif', 'kesif_basarisiz', 'kesfedildim', 'kesif_engellendi',
-]);
-const kesifMi = (r) => KESIF_SONUCLARI.has(r?.outcome);
+/*
+  Hangi sonuçların keşif sayıldığı artık BURADA DEĞİL: sunucu her rapora
+  `kesif` bayrağını iliştiriyor (bkz. server/game/raporTur.js). Listeyi
+  burada da tutsaydık sayfalamanın sayıları sunucudan, sekmelerin süzmesi
+  buradan gelirdi ve ikisi ilk yeni sonuç türünde birbirinden ayrılırdı.
+*/
+const kesifMi = (r) => !!r?.kesif;
 
 /**
  * KEŞİFTE ÇARPIŞMA OLDU MU?
@@ -330,15 +333,21 @@ function MaceraOdul({ o, unitDefs }) {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 9,
-      padding: esya ? '8px 10px' : '7px 10px', borderRadius: 5,
+      display: 'flex', alignItems: 'center', gap: 11,
+      padding: resim ? '9px 11px' : '7px 10px', borderRadius: 5,
       background: 'rgba(8,17,28,0.55)',
       border: `1px solid ${esya ? `${nadirlikRenk}66` : C.lineSoft}`,
     }}>
+      {/*
+        GÖRSEL BÜYÜK (İlkan: *"raporlarda düşen itemin görselini daha da
+        büyüt"*). Maceradan eşya düşmesi seyrek ve oyuncunun o an en çok
+        baktığı şey; 42 px'lik bir pul onu satırdaki başka bir simge
+        gibi gösteriyordu. 76 px'te eşya raporun konusu hâline geliyor.
+      */}
       {resim ? (
         <img src={resim} alt="" style={{
-          width: 42, height: 42, objectFit: 'cover', flexShrink: 0,
-          borderRadius: gumus ? '50%' : 4,
+          width: 76, height: 76, objectFit: 'cover', flexShrink: 0,
+          borderRadius: gumus ? '50%' : 6,
           border: `1px solid ${gumus ? `${C.iceSoft}66` : `${nadirlikRenk}88`}`,
         }} />
       ) : (
@@ -346,7 +355,10 @@ function MaceraOdul({ o, unitDefs }) {
           size={esya ? 18 : 15} color={renk} strokeWidth={1.6} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: FONT.ui, fontSize: 11, color: esya ? nadirlikRenk : C.frost }}>
+        <div style={{
+          fontFamily: FONT.ui, fontSize: resim ? 12.5 : 11,
+          color: esya ? nadirlikRenk : C.frost,
+        }}>
           {ad}
           {/* Seviye rozeti — dünyanın yaşı belirliyor (bkz. dunyaYasi.js) */}
           {esya && o.seviye > 1 && (
@@ -366,7 +378,7 @@ function MaceraOdul({ o, unitDefs }) {
   );
 }
 
-function Row({ r, active, unread, onClick }) {
+function Row({ r, active, unread, onClick, ok = false }) {
   const v = verdictOf(r);
   const mc = modeColor(r);
   const yon = yonBilgisi(r);
@@ -460,6 +472,20 @@ function Row({ r, active, unread, onClick }) {
           color: unread ? C.textDim : C.textMute,
         }}>{fmtWhen(r.at)}</div>
       </div>
+      {/*
+        GENİŞLET OKU — yalnız mobilde, çünkü akordeon yalnız orada var.
+        Açıkken yukarı dönüyor: hangi raporun açık olduğu listeye
+        bakınca anlaşılsın.
+      */}
+      {ok && (
+        <span aria-hidden="true" style={{
+          flexShrink: 0, marginLeft: 2,
+          fontFamily: FONT.ui, fontSize: 11, lineHeight: 1,
+          color: active ? C.frost : C.textMute,
+          transform: active ? 'rotate(180deg)' : 'none',
+          transition: 'transform .15s',
+        }}>▾</span>
+      )}
     </div>
   );
 }
@@ -1318,11 +1344,45 @@ function Detail({ r, unitDefs }) {
 }
 
 // ── Ekran ────────────────────────────────────────────────────────────
-export default function ReportScreen({ reports = [], unitDefs = {} }) {
+export default function ReportScreen({ reports = [], unitDefs = {},
+  socket = null, toplam = 0, sayfaBoyu = 15, sayilar = null }) {
   const vp = useViewport();
   const [filter, setFilter] = useState('all');
   const [selId, setSelId] = useState(null);
   const [read, setRead] = useState(() => new Set(readIds()));
+  /*
+    SAYFA DURUMU. Sıfırıncı sayfa PAKETTE geliyor (ekran açılır açılmaz
+    dolu olsun); sonrakiler sunucudan isteniyor.
+  */
+  const [sayfa, setSayfa] = useState(0);
+  const [sayfaVerisi, setSayfaVerisi] = useState(null);
+
+  useEffect(() => {
+    if (!socket) return;
+    const gelen = (d) => { if (d && typeof d.sayfa === 'number') setSayfaVerisi(d); };
+    socket.on('rapor_sayfasi', gelen);
+    return () => socket.off('rapor_sayfasi', gelen);
+  }, [socket]);
+
+  /*
+    SUNUCUDAN NE ZAMAN İSTİYORUZ? Yalnız "ilk sayfa + HEPSİ" pakette
+    hazır geliyor; başka her durumda (ileri sayfa ya da bir sekme)
+    süzme SUNUCUDA yapılmalı, çünkü burada raporların yalnız bir
+    sayfası var — 3. sayfadaki saldırılar elimizde yok.
+  */
+  const sunucudan = sayfa > 0 || filter !== 'all';
+
+  /*
+    RAPOR İMZASI — "elimdeki dilim bayatladı mı?" sorusunun cevabı.
+    Paket saniyede bir ve her seferinde yeni nesnelerle geliyor; nesne
+    kimliğine bakan bir etki saniyede bir istek yollardı.
+  */
+  const raporImza = `${toplam}|${reports[0]?.id || ''}`;
+
+  useEffect(() => {
+    if (sunucudan) socket?.emit('rapor_sayfa', { sayfa, filtre: filter });
+    /* raporImza: yeni rapor gelince açık sekme de tazelensin */
+  }, [sunucudan, sayfa, filter, socket, raporImza]);
 
   // Açık raporu okunmuş işaretle. Ekrana girmek TÜM raporları okunmuş
   // saymıyor; yalnız açtığın rapor okunur.
@@ -1338,26 +1398,61 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
     sekmesine düşüyor, savunan tarafın keşif raporu da BANA GELENLER'e
     karışıyordu.
   */
-  const list = useMemo(() => reports.filter(r => {
-    if (filter === 'out') return r.dir === 'out' && !kesifMi(r);
-    if (filter === 'in') return r.dir === 'in' && !kesifMi(r);
-    if (filter === 'scout') return kesifMi(r);
-    return true;
-  }), [reports, filter]);
+  /*
+    GÖSTERİLEN LİSTE üç durumdan biri:
 
-  const sel = list.find(r => r.id === selId) || list[0] || null;
+      · paket          — ilk sayfa, HEPSİ sekmesi (istek bile gitmiyor)
+      · gelen sayfa    — sunucu bu filtreyi süzüp dilimlemiş
+      · ELİMİZDEKİNİN SÜZÜLMÜŞÜ — cevap yoldayken geçici görüntü
+
+    Üçüncüsü olmasa sekmeye her basışta ekran bir an boşalır, oyuncu
+    "raporlarım gitti" sanırdı. Geçici liste eksik ama YANLIŞ değil:
+    elimizdeki sayfanın doğru süzülmüş hâli, bir an sonra tamamı
+    geliyor.
+  */
+  const list = useMemo(() => {
+    if (!sunucudan) return reports;
+    if (sayfaVerisi?.filtre === filter) return sayfaVerisi.raporlar || [];
+    return reports.filter(r => {
+      if (filter === 'out') return r.dir === 'out' && !kesifMi(r);
+      if (filter === 'in') return r.dir === 'in' && !kesifMi(r);
+      if (filter === 'scout') return kesifMi(r);
+      return true;
+    });
+  }, [sunucudan, reports, sayfaVerisi, filter]);
+
+  /*
+    MASAÜSTÜNDE İLK RAPOR KENDİLİĞİNDEN AÇIK: sağdaki ayrıntı kutusu boş
+    durmasın. MOBİLDE DEĞİL — akordeonda "kendiliğinden açık" demek,
+    ekran her açıldığında ilk raporun kocaman bir blok hâlinde yolu
+    kapaması demek.
+  */
+  const sel = list.find(r => r.id === selId) || (vp.mobile ? null : (list[0] || null));
 
   // Otomatik seçilen (ilk) rapor da ekranda AÇIK duruyor — onu da okunmuş say
   useEffect(() => {
     if (sel?.id && !read.has(sel.id)) setRead(new Set(markRead(sel.id)));
   }, [sel?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const counts = useMemo(() => ({
+  /*
+    ROZET SAYILARI SUNUCUDAN. Buradan saymak sayfalamadan sonra YALAN
+    söylüyordu: elimizde 15 rapor var diye 200 raporluk hesapta rozet
+    "HEPSİ 15" yazıyordu (İlkan bildirdi). Sunucu yoksa — ilk çizim,
+    eski sunucu — elimizdekini sayıyoruz; eksik ama tutarsız değil.
+  */
+  const counts = useMemo(() => sayilar || ({
     all: reports.length,
     out: reports.filter(r => r.dir === 'out' && !kesifMi(r)).length,
     in: reports.filter(r => r.dir === 'in' && !kesifMi(r)).length,
     scout: reports.filter(r => kesifMi(r)).length,
-  }), [reports]);
+  }), [sayilar, reports]);
+
+  /*
+    SAYFA SAYISI AÇIK SEKMEYE GÖRE. Toplam rapor sayısından hesaplasaydık
+    KEŞİFLER sekmesinde 14 sayfa görünür, 13'ü boş çıkardı.
+  */
+  const suzulmusToplam = counts[filter] ?? toplam;
+  const sonSayfa = Math.max(0, Math.ceil((suzulmusToplam || list.length) / (sayfaBoyu || 15)) - 1);
 
   if (!reports.length) {
     return (
@@ -1399,7 +1494,15 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
         {FILTERS.map(f => {
           const on = filter === f.key;
           return (
-            <button key={f.key} onClick={() => { setFilter(f.key); setSelId(null); }}
+            <button key={f.key}
+              onClick={() => {
+                /*
+                  FİLTRE DEĞİŞİNCE BAŞA DÖN. 7. sayfadayken filtre
+                  değiştirmek boş bir ekran verirdi. Sıfırlama burada,
+                  olayın içinde: etkiye taşımak basamaklı çizim olurdu.
+                */
+                setFilter(f.key); setSelId(null); setSayfa(0);
+              }}
               style={btn(on ? 'primary' : 'ghost', {
                 padding: '5px 11px', fontSize: 9, letterSpacing: 1.1,
                 whiteSpace: 'nowrap',
@@ -1428,21 +1531,68 @@ export default function ReportScreen({ reports = [], unitDefs = {} }) {
               Bu filtrede rapor yok.
             </div>
           ) : list.map(r => (
-            <Row key={r.id} r={r}
-              active={sel?.id === r.id}
-              unread={!read.has(r.id)}
-              onClick={() => openReport(r.id)} />
+            <div key={r.id}>
+              <Row r={r}
+                active={sel?.id === r.id}
+                unread={!read.has(r.id)}
+                ok={vp.mobile}
+                onClick={() => ((sel?.id === r.id && vp.mobile)
+                  ? setSelId(null)
+                  : openReport(r.id))} />
+              {/*
+                MOBİLDE AYRINTI SATIRIN ALTINDA (İlkan'ın isteği).
+                Ayrı kutu telefonda listenin ALTINA düşüyordu: her
+                tıklamada aşağı, sonraki rapor için yukarı kaydırmak
+                gerekiyordu.
+              */}
+              {vp.mobile && sel?.id === r.id && (
+                <div style={{ ...panel({ padding: 12 }), marginTop: 4 }}>
+                  <Detail r={r} unitDefs={unitDefs} />
+                </div>
+              )}
+            </div>
           ))}
         </div>
 
-        {/* Ayrıntı */}
-        <div className="tn-scroll" style={{
-          ...panel({ padding: 15 }),
-          maxHeight: 'calc(var(--tn-vh) - 190px)', overflowY: 'auto',
-        }}>
-          <Detail r={sel} unitDefs={unitDefs} />
-        </div>
+        {/* Ayrıntı — yalnız masaüstünde ayrı sütun */}
+        {!vp.mobile && (
+          <div className="tn-scroll" style={{
+            ...panel({ padding: 15 }),
+            maxHeight: 'calc(var(--tn-vh) - 190px)', overflowY: 'auto',
+          }}>
+            <Detail r={sel} unitDefs={unitDefs} />
+          </div>
+        )}
       </div>
+
+      {/*
+        SAYFALAR LİSTENİN ALTINDA (İlkan: "kalanını sayfa sayfa
+        ilerleyecek şekilde aşağıya koy"). Tek sayfa varsa hiç
+        çizilmiyor — boş bir sayfalayıcı yalnız yer kaplar.
+      */}
+      {sonSayfa > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 8, marginTop: 10,
+        }}>
+          <button type="button" disabled={sayfa <= 0}
+            onClick={() => { setSayfa(s => Math.max(0, s - 1)); setSelId(null); }}
+            style={{
+              ...btn(sayfa > 0 ? 'ghost' : 'disabled'),
+              padding: '6px 12px', fontSize: 10, opacity: sayfa > 0 ? 1 : 0.4,
+            }}>← ÖNCEKİ</button>
+          <span style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textFaint }}>
+            {sayfa + 1} / {sonSayfa + 1}
+            <span style={{ color: C.textMute }}> · {suzulmusToplam} rapor</span>
+          </span>
+          <button type="button" disabled={sayfa >= sonSayfa}
+            onClick={() => { setSayfa(s => Math.min(sonSayfa, s + 1)); setSelId(null); }}
+            style={{
+              ...btn(sayfa < sonSayfa ? 'ghost' : 'disabled'),
+              padding: '6px 12px', fontSize: 10, opacity: sayfa < sonSayfa ? 1 : 0.4,
+            }}>SONRAKİ →</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -63,6 +63,8 @@ const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
         MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY,
         KALKAN_OYUN_SAATI, KALKAN_NUFUS } = require('./sabitler');
 const { buildPayload } = require('./game/payload');
+/* Rapor türü/filtresi tek cümle — hem sayfalama hem rozet sayıları oradan */
+const { kesifMi, filtrele, sayilar: raporSayilari } = require('./game/raporTur');
 const { questState, questSync, questTamam, questPayload, questFingerprint,
         egitimGoruldu, egitimBitir } = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -232,7 +234,7 @@ function villageList(session) {
        */
       incoming: gelen.get(slotKey) || 0,
       /* Kimlik hesap çapında — rapor listesiyle aynı cümleden (raporKimligi) */
-      reportIds: (v.reports || []).slice(0, 15).map(r => raporKimligi(slotKey, r)),
+      reportIds: (v.reports || []).slice(0, 60).map(r => raporKimligi(slotKey, r)),
     });
   }
   return out.sort((a, b) => (b.isCapital - a.isCapital) || a.slotKey.localeCompare(b.slotKey));
@@ -580,8 +582,32 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     // Acemi kalkanı — oyuncu ne kadar korunduğunu görmeli (madde 12)
     acemiKalkani: acemiKalkani(v),
     reports: statics || reportsChanged,
-    /* Bütün köylerin raporları tek listede (bkz. tumRaporlar) */
-    tumRaporlar: tumRaporlar(session),
+    /*
+      İLK SAYFA + TOPLAM. Bütün raporlar (250/köy) her pakete
+      girseydi yüz kilobayt durmadan gidip gelirdi; sonraki sayfalar
+      `rapor_sayfa` ile isteniyor.
+    */
+    ...(() => {
+      /*
+        ÖNBELLEK: sayfa 0 yalnız yeni rapor gelince değişiyor ve
+        `raporImza` bunu zaten ölçüyor (rapor sayısı + en yenisinin
+        zamanı). Her tikte yeniden kurmak 1250 nesneyi kopyalayıp
+        sıralamak demekti. Önbellek kendi imzasını taşıyor: bu
+        satırların sırası değişse bile bayat veri yollanamaz.
+      */
+      if (!session.raporSayfa0 || session.raporSayfa0Imza !== raporImza) {
+        session.raporSayfa0 = raporSayfasi(session, 0, 'all');
+        session.raporSayfa0Imza = raporImza;
+      }
+      const ilk = session.raporSayfa0;
+      /* Tek hesap: sayfa, toplam ve rozet sayıları aynı listeden çıkıyor */
+      return {
+        tumRaporlar: ilk.raporlar,
+        raporToplam: ilk.toplam,
+        raporSayfaBoyu: ilk.sayfaBoyu,
+        raporSayilari: ilk.sayilar,
+      };
+    })(),
     culturePoints: cpTotal,
     culture,
     villages: villageList(session),
@@ -1222,11 +1248,52 @@ function tumRaporlar(session) {
     const koyAd = WORLD.playerBySlot.get(slotKey)?.name
       || WORLD.slotByKey.get(slotKey)?.name || slotKey;
     for (const r of v.reports || []) {
-      hepsi.push({ ...r, id: raporKimligi(slotKey, r), koyIciId: r.id, koySlot: slotKey, koyAd });
+      /*
+        `kesif` bayrağı burada TÜRETİLİYOR, kaydedilmiyor: kural
+        raporTur.js'de tek yerde duruyor ve eski raporlar için de
+        çalışıyor. İstemci bu bayrağı okuyor, kendi listesini tutmuyor.
+      */
+      hepsi.push({
+        ...r, id: raporKimligi(slotKey, r), koyIciId: r.id,
+        koySlot: slotKey, koyAd, kesif: kesifMi(r),
+      });
     }
   }
   hepsi.sort((a, b) => (b.at || 0) - (a.at || 0));
-  return hepsi.slice(0, 25);
+  return hepsi;
+}
+
+/**
+ * Bir sayfada kaç rapor. Tek yer: istemci bu sayıyı pakette
+ * `raporSayfaBoyu` olarak alıyor, kendi kopyasını tutmuyor.
+ */
+const RAPOR_SAYFA = 15;
+
+/**
+ * PAKETE GİREN SAYFA — ilki, artı TOPLAM sayı.
+ *
+ * Bütün raporları her pakete koymak yüz kilobaytı durmadan yollamak
+ * olurdu. İlk sayfa pakette çünkü ekran açılır açılmaz dolu olmalı;
+ * gerisi oyuncu ilerledikçe ayrı istekle geliyor (rapor_sayfa).
+ */
+function raporSayfasi(session, sayfa = 0, filtre = 'all') {
+  const hepsi = tumRaporlar(session);
+  /*
+    ÖNCE FİLTRE, SONRA DİLİM. Tersi olsaydı "SALDIRI" sekmesi 15
+    raporluk bir pencerenin içindeki saldırıları gösterirdi: sayfa 3'te
+    hiç saldırı yoksa ekran boş kalır, oyuncu raporum kayboldu sanırdı.
+  */
+  const suzulmus = filtrele(hepsi, filtre);
+  const s = Math.max(0, Math.floor(sayfa) || 0);
+  return {
+    sayfa: s,
+    filtre,
+    toplam: suzulmus.length,
+    sayfaBoyu: RAPOR_SAYFA,
+    /* Rozetlerdeki dört sayı TÜM raporlardan — sayfadan değil */
+    sayilar: raporSayilari(hepsi),
+    raporlar: suzulmus.slice(s * RAPOR_SAYFA, (s + 1) * RAPOR_SAYFA),
+  };
 }
 
 /**
@@ -4066,6 +4133,18 @@ io.on('connection', async socket => {
      (`artirma_sonuc`): sessiz ret bu projede en çok patlayan hata.
   ══════════════════════════════════════════════════════════════════ */
   const artirmaRed = (sebep) => socket.emit('artirma_sonuc', { ok: false, sebep });
+
+  /**
+   * RAPOR SAYFASI — ilk sayfa pakette, gerisi burada.
+   *
+   * Sayfa numarası SUNUCUDA kırpılıyor: istemci 9999. sayfayı istese
+   * bile boş dizi dönüyor, hata değil. Sayfalama bir gezinme aracı;
+   * sınır aşımı bir hata ekranı doğurmamalı.
+   */
+  socket.on('rapor_sayfa', ({ sayfa = 0, filtre = 'all' } = {}) => {
+    socket.emit('rapor_sayfasi', raporSayfasi(
+      session, sayi(sayfa, { enCok: 10000 }), String(filtre || 'all')));
+  });
 
   socket.on('artirma_liste', () => { ilanListesiYolla(socket, userId); });
 
