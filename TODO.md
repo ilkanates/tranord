@@ -182,30 +182,7 @@ kabul/iptal`). Bu maddede kalan:
 
 ## 🔵 Arayüz / içerik
 
-### Köy görünümü: hex haritaya alternatif "kart/kategori" görünümü
-Oyuncu iki görünüm arasında seçebilsin; tercih saklansın (`localStorage`).
-
-- **Şimdiki**: altıgen köy sahnesi, binaya tıklanarak panel açılır.
-- **Yeni**: üstte **kategori sekmeleri**, seçilen kategorinin binaları altta
-  kart olarak açılır; bütün işlemler o kartlardan yapılır. Oyuncu binayı köy
-  görselinden değil karttan seçer ve **ne seçtiğini net görür**.
-
-Kategoriler zaten tanımlı (`villageDefs.category`, renkleri `CAT_EDGE`'de):
-`isleme` · `askeri` · `depo` · `ekonomik` · `savunma` · `yonetim` · `nufus`
-· `merkez`. Buna ek olarak **"Boş alan"** diye bir sekme gerekiyor — inşa
-edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor).
-
-- Her bina kartında görsel **tam genişlik** olsun (panel poster'ı gibi).
-- Kart açılınca mevcut bina paneli aynen çalışsın — yeni bir panel yazmaya
-  gerek yok, yalnızca binaya ulaşma yolu değişiyor.
-- Bu görünüm telefonda muhtemelen daha kullanışlı: köy sahnesi dikeyde
-  yerin yarısını boş bırakıyor (bkz. mobil denetim notları).
-
-**Karar gerekiyor:**
-- Seçim nerede duracak — üst barda mı, köy ekranının içinde bir düğme mi?
-- Kategori sekmeleri telefonda yatay kaydırmalı şerit mi, açılır liste mi?
-- Boş alan sekmesinde slotlar nasıl sıralanacak (halka/uzaklık? bonus?)
-- Hex görünümü varsayılan mı kalacak, yoksa telefonda kart görünümü mü?
+### ~~Köy görünümü: hex haritaya alternatif "kart/kategori" görünümü~~ — **YAPILDI** (bkz. Tamamlandı)
 
 - Köy içi görsel: kalan hammadde görselleri (`koy-tahil.png` vb.) istenirse köye özel arazi dokusu olarak eklenebilir.
 - ~~`client/public/` içindeki 5 tasarım önizleme sayfası~~ — yapıldı: altı geliştirme sayfası (5 prototip + `dev-login.html`) `client/dev/` altına taşındı ve yalnız `vite dev` sırasında servis ediliyor; üretime çıkmıyorlar. `koy-sekil3.html` referans olarak duruyor, diğer dördü istendiğinde silinebilir.
@@ -296,6 +273,28 @@ edilebilir boş slotlar orada listelensin (şu an boş hex'e tıklamak gerekiyor
 - **Pay gözle değil ÖLÇÜLEREK seçildi.** Her kenardan içeri doğru satır/sütun ortalama parlaklığı tarandı: `zincirEtek`'te beyaz kenarlık 22 pikselde sahne zeminine iniyor (26 kırpıldı), `kuzeyRuzgari`'nda ahşap çerçevenin iç gölgesi 38'de net düşüyor (42 kırpıldı). Tahminle kırpmak ya çerçeveyi bırakır ya sanattan yer yerdi.
 - Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
 - **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
+
+### Köy kart görünümü (17 Eylül 2026)
+- TODO'daki madde: *"Oyuncu iki görünüm arasında seçebilsin; tercih saklansın. Üstte kategori sekmeleri, seçilen kategorinin binaları altta kart olarak açılır; oyuncu binayı köy görselinden değil karttan seçer ve NE SEÇTİĞİNİ NET GÖRÜR."*
+
+**YENİ PANEL YAZILMADI — yalnız binaya ULAŞMA YOLU değişti.** Karta basmak hex'e basmakla aynı şeyi yapıyor (`setSelected(slotKey)`); açılan panel, kuyruklar, işçi atama, yükseltme hepsi aynı kod. İkinci bir panel yazsaydık her yeni bina özelliği iki yerde bakım isterdi — bu projede "aynı şey iki yerde" hatası defalarca patladı. Panel zaten ekranın ORTASINDA açılıyor (`center: true`), yani kartın nerede olduğunun bir önemi yok.
+
+**TODO'daki dört açık soru, gerekçeleriyle kapatıldı:**
+1. **Seçim köy ekranının İÇİNDE**, üst barda değil. Üst bar bütün sekmelerin ortak alanı; yalnız köy ekranını ilgilendiren bir tercih orada başka ekranlarda da görünen ölü bir düğme olurdu.
+2. **Kategori sekmeleri yatay kaydırmalı şerit**, açılır liste değil: kategori sayısı az (en çok sekiz) ve şerit tek dokunuşla geziliyor; açılır liste her kategori değişimine fazladan bir tık eklerdi.
+3. **Boş alanlar HALKAYA göre sıralı** — üretim çarpanı halkaya bağlı, merkeze yakın slot daha değerli. Anahtar sırası oyuncuya hiçbir şey söylemeyen bir koordinat yığını olurdu.
+4. **Varsayılan ekrana göre**: telefonda (< 760 px) kart, masaüstünde hex. Oyuncu bir kez seçim yaparsa `localStorage`'a yazılıyor ve varsayılanı eziyor — tercihi cihaz adına yeniden yorumlamak, seçimini her açılışta geri almak olurdu.
+
+**Kararlar.**
+- **Kart görünümünde hex sahne HİÇ ÇİZİLMİYOR**, gizlenmiyor: sahne yüzlerce SVG düğümü, pinch/pan dinleyicileri ve her karede dönen bir dönüşüm demek — telefonda asıl kazanç onu hiç çizmemek.
+- Kap (container) korunuyor çünkü **bina paneli onun İÇİNDE**; kabı koşullu çizmek paneli de götürürdü. Koşullu olan yalnız sahne (svg + yakınlaştırma + hover kartı + kategori anahtarı).
+- Kart modunda **pinch/pan ve flex ortalama kapalı**: kabın dokunma dinleyicileri listenin kaydırmasını yutardı, flex ortalama listeyi dikeyde ortalayıp üstünü kırpardı.
+- Yalnız **dolu kategoriler** sekme oluyor — boş sekme tıklanacak bir yalan.
+- Kartta görsel tam genişlik (panelin posteri gibi), ad ve seviye görselin ÜSTÜNDE: altına yazsaydık göz her kartta aşağı inip geri çıkardı. Açık görsellerde okunurluk için alttan yukarı koyulaşan bir şerit var (eşya kartlarındaki çözümün aynısı).
+- `railInset` listeye iç kenar boşluğu olarak veriliyor: köy ekranının solunda kaynak, sağında nüfus şeridi sahnenin üstünde duruyor ve tam genişlik kullanan liste altlarına giriyordu (tarayıcıda görüldü). Sabit sayı yazsaydık şerit genişliği değiştiğinde ikisi ayrışırdı.
+
+- **TARAYICIDA DOĞRULANDI**: masaüstünde sekmeler "HEPSİ 21 · MERKEZ 1 · İŞLEME 6 · SAVUNMA 5 · DEPO 4 · BOŞ ALAN 21" olarak çıktı; Değirmen kartına basınca bina paneli birebir aynı açıldı (poster, kadro çubuğu, açıklama). Boş alan sekmesi halkaya göre sıralı. **375 px'te kayıtlı tercih yokken varsayılan kart görünümü geldi** ve kartlar tam genişlik, parmak boyunda çıktı. Konsolda hata yok.
+- Telefonda ölçülüp düzeltilen bir ayrıntı: sekme sayıları bir sonraki etikete yapışık okunuyordu ("HEPSİ 21MERKEZ"); sayı ayrı bir soluk rozete alındı ve sekme aralığı büyütüldü.
 
 ### Kahraman sefere neden katılmıyor — üç hata (17 Eylül 2026)
 - İlkan: *"başka bir köye saldırırken kahramanımı da gönderdiğimde saldırı bonusu orduya yansıyor mu, kesin kontrol yap. bir de kahramanı şu an saldırıya ekleyemiyorum, başka köyde diyor."*

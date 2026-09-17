@@ -22,6 +22,7 @@ import { NameField } from './ProfilePanel';
 import { RES_LABEL, NO_WORKER_TYPES, workerTerm, maxWorkersOf, yikimOnayi } from '../flows';
 import Icon, { buildingIcon } from './Icons';
 import usePinchPan from './usePinchPan';
+import KoyKartGorunumu from './KoyKartGorunumu';
 import { useHoverable, TAP } from '../responsive';
 // Sur taş dokusu — tam tepeden, 2x2 aynalanmış karo (dikişsiz)
 import surTexture from '../assets/buildings/sur-doku.jpg';
@@ -924,6 +925,27 @@ export default function VillageCenter({
   const [selected, setSelected] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
   /*
+    GÖRÜNÜM: hex sahne mi, kart listesi mi.
+
+    Varsayılan EKRANA GÖRE (telefonda kart), ama oyuncu bir kez seçim
+    yaparsa o seçim saklanıyor ve varsayılanı eziyor. `useState`
+    başlangıcı fonksiyon: localStorage okuması her render'da değil bir
+    kez yapılıyor ve depo kapalıysa (gizli sekme) sessizce varsayılana
+    düşüyor.
+  */
+  const [gorunum, setGorunum] = useState(() => {
+    try {
+      const kayit = localStorage.getItem('tn.koyGorunum');
+      if (kayit === 'hex' || kayit === 'kart') return kayit;
+    } catch { /* depo kapalı — varsayılana düş */ }
+    return (typeof window !== 'undefined' && window.innerWidth < 760) ? 'kart' : 'hex';
+  });
+  const gorunumSec = (g) => {
+    setGorunum(g);
+    setSelected(null); setShowMenu(false);
+    try { localStorage.setItem('tn.koyGorunum', g); } catch { /* yoksay */ }
+  };
+  /*
     Bina paneli açıldı/kapandı — App bunu rehber kartına iletiyor. Kart
     panelin sağ-alt denetimlerinin (kadro, YÜKSELT) üstüne oturuyordu.
   */
@@ -1164,16 +1186,55 @@ export default function VillageCenter({
   const hoveredKind  = hovered  ? slotKindOf(hovered, towerSet)  : 'hex';
   const selectedKind = selected ? slotKindOf(selected, towerSet) : 'hex';
 
+  const kartGorunumu = gorunum === 'kart';
+
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-      <div ref={containerRef} {...pinch.handlers} style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        overflow: 'hidden', zIndex: 2,
-        perspective: '1400px', perspectiveOrigin: '50% 50%',
-        cursor: pinch.dragging ? 'grabbing' : 'pointer',
-        ...pinch.handlers.style,
+      {/*
+        GÖRÜNÜM ANAHTARI — köy ekranının içinde, üst barda değil.
+        Üst bar bütün sekmelerin ortak alanı; yalnız köy ekranını
+        ilgilendiren bir tercih orada ölü bir düğme olurdu.
+      */}
+      <div style={{
+        position: 'absolute', top: 8, left: railInset + 10, zIndex: 40,
+        display: 'flex', gap: 3, padding: 3, borderRadius: 7,
+        background: 'rgba(6,11,18,0.82)', border: `1px solid ${C.lineSoft}`,
       }}>
+        {[['hex', 'koy', 'Köy sahnesi'], ['kart', 'kitap', 'Kart listesi']]
+          .map(([g, ikon, baslik]) => (
+            <button key={g} type="button" onClick={() => gorunumSec(g)} title={baslik}
+              style={{
+                display: 'grid', placeItems: 'center', cursor: 'pointer',
+                width: 30, height: 26, borderRadius: 5, border: 'none',
+                background: gorunum === g ? 'rgba(143,220,255,0.16)' : 'transparent',
+              }}>
+              <Icon name={ikon} size={14}
+                color={gorunum === g ? C.frost : C.textMute} />
+            </button>
+          ))}
+      </div>
+
+      <div ref={containerRef} {...(kartGorunumu ? {} : pinch.handlers)} style={{
+        position: 'absolute', inset: 0,
+        overflow: 'hidden', zIndex: 2,
+        ...(kartGorunumu ? { display: 'block' } : {
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          perspective: '1400px', perspectiveOrigin: '50% 50%',
+          cursor: pinch.dragging ? 'grabbing' : 'pointer',
+          ...pinch.handlers.style,
+        }),
+      }}>
+        {kartGorunumu && (
+          <KoyKartGorunumu
+            villageBuildings={villageBuildings}
+            allSlots={ALL_SLOTS}
+            towerSlots={towerSlots}
+            secili={selected}
+            railInset={railInset}
+            onSec={(key) => { setSelected(key); setShowMenu(true); }} />
+        )}
+
+        {!kartGorunumu && (<>
         <svg width={W} height={H} style={{
           cursor: 'pointer', flexShrink: 0,
           transform: `translate3d(${pinch.pan.x}px, ${pinch.pan.y}px, 0)`
@@ -1492,7 +1553,9 @@ export default function VillageCenter({
             railInset={railInset} />
         )}
 
-        {/* İnşa / yönetim paneli */}
+        </>)}
+
+        {/* İnşa / yönetim paneli — İKİ GÖRÜNÜMDE DE aynı kod */}
         {showMenu && selected && popoverPos && (() => {
           /**
            * Bina görseli panelin ARKA PLANI olur, yazılar yarı saydam bir cam
@@ -2170,7 +2233,12 @@ export default function VillageCenter({
           );
         })()}
 
-        {/* Sol alt — kategori anahtarı */}
+        {/*
+          KATEGORİ ANAHTARI yalnız sahnede: orada renk hex'in kenarında
+          duruyor ve başka açıklaması yok. Kart görünümünde kategorinin
+          adı zaten sekmede yazıyor.
+        */}
+        {!kartGorunumu && (
         <div style={{
           position: 'absolute', bottom: 10, left: railInset + 10, zIndex: 30,
           display: 'flex', alignItems: 'center', gap: 10,
@@ -2187,6 +2255,7 @@ export default function VillageCenter({
             </span>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

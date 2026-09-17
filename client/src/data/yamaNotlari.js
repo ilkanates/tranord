@@ -26,6 +26,41 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17c',
+    tarih: '17 Eylül 2026',
+    baslik: 'Köye kart görünümü geldi',
+    notlar: [
+      {
+        id: '20260917-kart-gorunumu',
+        tur: 'yenilik',
+        metin: 'KÖY EKRANINA İKİNCİ BİR GÖRÜNÜM EKLENDİ. Sol üstteki iki '
+          + 'düğmeyle hex sahne ile KART LİSTESİ arasında geçiş '
+          + 'yapabiliyorsun. Kart görünümünde üstte kategori sekmeleri '
+          + '(İşleme, Askeri, Depo…), altta binalar tam genişlik '
+          + 'görselli kartlar hâlinde. Karta basmak hex\'e basmakla '
+          + 'aynı paneli açıyor — hiçbir şey değişmiyor, yalnız binaya '
+          + 'ulaşma yolu.',
+      },
+      {
+        id: '20260917-kart-bos-alan',
+        tur: 'yenilik',
+        metin: 'BOŞ ALAN AYRI BİR SEKME. Nereye inşa edebileceğini '
+          + 'görmek için köyü gözle taramak gerekmiyor; boş araziler '
+          + 'tek listede ve MERKEZE YAKINLIĞA göre sıralı, çünkü '
+          + 'üretim çarpanı halkaya bağlı — merkeze yakın slot daha '
+          + 'verimli.',
+      },
+      {
+        id: '20260917-kart-telefon',
+        tur: 'yenilik',
+        metin: 'TELEFONDA VARSAYILAN KART GÖRÜNÜMÜ. Hex sahne dikeyde '
+          + 'yerin yarısını boş bırakıyor ve küçük ekranda doğru '
+          + 'altıgene basmak zordu. Tercihini bir kez seçersen '
+          + 'saklanıyor ve varsayılanı eziyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17b',
     tarih: '17 Eylül 2026',
     baslik: 'Kahraman sefere neden katılmıyor',
