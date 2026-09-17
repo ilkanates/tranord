@@ -1051,27 +1051,27 @@ function Detail({ r, unitDefs, onSimulate = null }) {
             kalanı oyuncu kafadan çıkarmak zorundaydı — sekiz birim
             çeşidinde kimse yapmıyor. Türetiliyor (bkz. kalanBirlikler).
           */}
-          {sum(inc ? r.attackerUnits : r.theirSent) > 0 && (
-            <Section title={inc ? 'SALDIRANDAN KALAN' : 'KARŞI TARAFTAN KALAN'}>
-              <UnitGrid
-                units={kalanBirlikler(inc ? r.attackerUnits : r.theirSent, r.theirLosses)}
+          {/*
+            SALDIRANDAN KALAN — YALNIZ SAVUNMA RAPORUNDA.
+
+            Bana gelen ordunun ne kadarının hâlâ ayakta olduğu bir
+            sonraki dalgayı karşılayıp karşılayamayacağımı söylüyor.
+            Saldırı raporunda aynı satır bir çıkarımdan ibaret ve İlkan
+            istemedi ("karşıda kalana gerek yok").
+          */}
+          {inc && sum(r.attackerUnits) > 0 && (
+            <Section title="SALDIRANDAN KALAN">
+              <UnitGrid units={kalanBirlikler(r.attackerUnits, r.theirLosses)}
                 unitDefs={unitDefs} color={C.textDim} />
             </Section>
           )}
 
-          {/* Savunurken kendi kalanım — saldırırken bunu "DÖNEN ASKERLER" yazıyor */}
-          {inc && sum(r.defenderUnits) > 0 && (
-            <Section title="SAVUNMADAN KALAN">
-              <UnitGrid units={kalanBirlikler(r.defenderUnits, r.myLosses)}
-                unitDefs={unitDefs} color={C.iceSoft} />
-            </Section>
-          )}
-
-          {!inc && r.survivors && (
-            <Section title="DÖNEN ASKERLER">
-              <UnitGrid units={r.survivors} unitDefs={unitDefs} color={C.iceSoft} />
-            </Section>
-          )}
+          {/*
+            "DÖNEN ASKERLER" KALDIRILDI (İlkan). Gönderdiğim eksi
+            kaybım demekti: raporda zaten yan yana duran iki sayının
+            çıkarımı. Saldırı raporunun cevapladığı dört soru şunlar —
+            ne gönderdim, ne kaybettim, karşıda ne vardı, ne öldürdüm.
+          */}
 
           {/*
             TOPLAM önce, kalem dökümü sonra. Oyuncunun ilk sorduğu şey
