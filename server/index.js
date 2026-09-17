@@ -26,7 +26,8 @@ const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVi
         mesajYaz, mesajKutusu, mesajOkunmamisSayisi, mesajOkundu, mesajSil,
         grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
         grupOkundu, grupAyril, grupSil,
-        engelEkle, engelKaldir, engelListesi, engelliMi } = require('./db');
+        engelEkle, engelKaldir, engelListesi, engelliMi,
+        ilanAc, ilanlar, ilanBul, teklifYaz, bitenIlanlar, ilanKapat } = require('./db');
 const BIRLIK = require('./game/birlik');
 const BIRLIKS = require('./game/birlikServis');
 const MESAJ = require('./game/mesaj');
@@ -36,6 +37,7 @@ const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game
 const { QUEST_BY_ID } = require('./data/questDefs');
 const PAZAR = require('./game/pazar');
 const KESE = require('./game/kese');
+const ARTIRMA = require('./game/acikArtirma');
 const ESYA_DEGER = require('./game/esyaDeger');
 const IST = require('./game/istatistik');
 const PAZAR_YOL = require('./game/pazarYol');
@@ -1364,7 +1366,13 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
     tarafın hesabına giriyor.
   */
   const sonuc = MACERA.maceraSonucu(m.tip, undefined,
-    HERO.bonuslar(kahraman).saldiriGucu || 0);
+    HERO.bonuslar(kahraman).saldiriGucu || 0,
+    /*
+      BULUNAN ASKER DÜNYANIN ORTALAMASINA GÖRE (İlkan: *"5k askerim
+      var, maceradan 1 asker bulup getiriyor"*). Sabit sayı olgun bir
+      dünyada gürültüydü.
+    */
+    dunyaOrtalamaOrdu());
   kahraman.macera = null;
   kahraman.nerede = 'koy';
   // Görev zinciri "ilk maceranı tamamla" adımını bundan ölçüyor
@@ -1521,6 +1529,38 @@ function kahramanDurumu(session, { yarat = false } = {}) {
 }
 
 /**
+ * DÜNYADAKİ ORTALAMA ORDU — macera asker ödülünün ölçüsü.
+ *
+ * Oyuncunun KENDİ ordusu değil (bkz. macera.js · maceraAskerAdedi):
+ * kendi ordusuna bağlamak bileşik bir döngü kurardı.
+ *
+ * ÖNBELLEKLİ. Her macera bitişinde bütün oturumları taramak gereksiz;
+ * ordu ortalaması dakikalar içinde anlamlı biçimde değişmiyor. Bellekte
+ * herkesin oturumu var (açılışta yükleniyor), o yüzden çevrimdışı
+ * oyuncular da sayıya giriyor — "dünyanın ortalaması" ancak herkesi
+ * sayarsa doğru olur.
+ */
+let _ordOrtalama = { deger: 0, at: 0 };
+const ORD_ORTALAMA_TAZELIK_MS = 60000;
+
+function dunyaOrtalamaOrdu() {
+  const simdi = Date.now();
+  if (simdi - _ordOrtalama.at < ORD_ORTALAMA_TAZELIK_MS) return _ordOrtalama.deger;
+
+  let toplam = 0, oyuncu = 0;
+  for (const s of userSessions.values()) {
+    let benim = 0;
+    for (const koy of s.villages.values()) {
+      for (const n of Object.values(koy.army || {})) benim += n || 0;
+    }
+    toplam += benim;
+    oyuncu += 1;
+  }
+  _ordOrtalama = { deger: oyuncu > 0 ? toplam / oyuncu : 0, at: simdi };
+  return _ordOrtalama.deger;
+}
+
+/**
  * KESE — oyuncunun gümüş/altın cüzdanı.
  *
  * Kahramanla AYNI yerde duruyor (merkez köyün state'i) ve aynı
@@ -1546,6 +1586,118 @@ function keseYaz(session, yeniKese) {
   if (!merkez) return;
   merkez.kese = yeniKese;
   session.dirtySlots.add(session.capitalSlot);
+}
+
+/* ══ AÇIK ARTIRMA ═══════════════════════════════════════════════
+   Eşya pazarı bütün oyuncuların ortak alanı; kuralları
+   game/acikArtirma.js'te, saklaması veritabanında. Burada yalnız
+   ikisini birleştiriyoruz ve PARAYI taşıyoruz.
+
+   PARA HER ZAMAN TEK YERDEN GEÇİYOR (`keseDurumu`/`keseYaz`): blokaj,
+   iade ve ödeme ayrı ayrı yazılsaydı biri düzeltilince ötekiler
+   eskirdi — bu projedeki en sık hata sınıfı.
+══════════════════════════════════════════════════════════════════ */
+
+/**
+ * ÇEVRİMDIŞI OYUNCUYA DA PARA/EŞYA VERİLEBİLİR.
+ *
+ * Bütün oyuncuların oturumu açılışta belleğe yükleniyor (bkz. [BOOT]),
+ * yani satıcı çevrimdışıyken de kesesine yazabiliyoruz. Bu olmasaydı
+ * açık artırma yalnız iki taraf da bağlıyken sonuçlanabilirdi ve
+ * "24 saat sonra biter" sözü tutulamazdı.
+ */
+function keseyeYaz(userId, tur, miktar) {
+  const s = userSessions.get(Number(userId));
+  if (!s) return false;
+  keseYaz(s, KESE.ekle(keseDurumu(s), tur, miktar));
+  emitVillage(s, { force: true });
+  return true;
+}
+
+/** Oyuncunun kesesinden düş — yetmezse false, hiç dokunmadan */
+function keseden(userId, tur, miktar) {
+  const s = userSessions.get(Number(userId));
+  if (!s) return false;
+  const r = KESE.harca(keseDurumu(s), tur, miktar);
+  if (!r.ok) return false;
+  keseYaz(s, r.kese);
+  emitVillage(s, { force: true });
+  return true;
+}
+
+/** Eşyayı oyuncunun kahraman envanterine koy */
+function envantereKoy(userId, giris) {
+  const s = userSessions.get(Number(userId));
+  const k = s ? kahramanDurumu(s) : null;
+  if (!k) return false;
+  (k.envanter ||= []).push(giris);
+  markUserDirty(Number(userId), s.capitalSlot);
+  emitVillage(s, { force: true });
+  return true;
+}
+
+/** İstemciye giden ilan satırı — satıcı adı ve "ben mi öndeyim" eklenir */
+function ilanSatiri(ilan, benId, simdi) {
+  return {
+    ...ARTIRMA.ozet(ilan, simdi),
+    /*
+      AD ve RENK SUNUCUDA yazılıyor: istemcinin elinde eşya tanımı var
+      ama nadirlik öneki ("Efsanevi Fjord Kılıcı") iki yerde
+      üretilirse ayrışır. Macera ödülünde de aynı kural (MACERA.esyaAdi).
+    */
+    ad: MACERA.esyaAdi(ilan.key, ilan.nadirlik),
+    renk: KUSAM.NADIRLIK[ilan.nadirlik]?.renk || null,
+    satici: ownerName(ilan.saticiId, null),
+    benimIlanim: ilan.saticiId === benId,
+    ondeyim: ilan.teklifVerenId === benId,
+  };
+}
+
+async function ilanListesiYolla(socket, userId) {
+  try {
+    const simdi = Date.now();
+    const liste = await ilanlar({ limit: 60 });
+    socket.emit('artirma_listesi', {
+      ilanlar: liste.map(i => ilanSatiri(i, userId, simdi)),
+      sureSaat: ARTIRMA.SURE_SAAT,
+    });
+  } catch (err) {
+    console.error('[ARTIRMA] liste yollanamadı:', err.message);
+  }
+}
+
+/**
+ * SÜRESİ DOLAN İLANLARI KAPAT.
+ *
+ * Ayrı bir zamanlayıcı YOK: mevcut tik yoluna binmesi gerekiyordu,
+ * ikinci bir zaman kaynağı açmak bu projede kaçınılan bir şey (zaman
+ * tek yerden akıyor). Kapatma KOŞULLU yazılıyor (bkz. db · ilanKapat):
+ * iki tik aynı ilanı birlikte kapatırsa satıcı parayı iki kez alırdı.
+ */
+async function artirmalariKapat() {
+  const simdi = Date.now();
+  let liste;
+  try { liste = await bitenIlanlar(simdi); }
+  catch (err) { return console.error('[ARTIRMA] biten ilanlar okunamadı:', err.message); }
+
+  for (const ilan of liste) {
+    let kilit;
+    try { kilit = await ilanKapat(ilan.id); }
+    catch (err) { console.error('[ARTIRMA] kapatılamadı:', err.message); continue; }
+    if (!kilit) continue;                    // başka bir tik kapatmış
+
+    const s = ARTIRMA.sonuclandir(ilan);
+    /*
+      ALICININ GÜMÜŞÜ TEKLİF ANINDA DÜŞÜLMÜŞTÜ — burada yeniden
+      düşülmüyor. İki kez düşseydi kazanan iki katını öderdi.
+    */
+    if (s.aliciId) {
+      envantereKoy(s.aliciId, { key: ilan.key, nadirlik: ilan.nadirlik, seviye: ilan.seviye });
+    }
+    keseyeYaz(ilan.saticiId, 'gumus', s.saticiKazanc);
+    console.log('[ARTIRMA] #' + ilan.id + ' ' + ilan.key + '/' + ilan.nadirlik
+      + ' ' + s.tur + ' — satici ' + ilan.saticiId + ' +' + s.saticiKazanc + ' gumus');
+  }
 }
 
 /** Kahramanın üssü — Kahraman Konağı'nın bulunduğu köy. */
@@ -2103,18 +2255,42 @@ function processMarches(hours) {
           hesaplandı (army.js · kahramanSonuc); uygulaması burada çünkü
           kahraman saldıranın OTURUMUNDA duruyor.
 
-          Kahraman seferle birlikte DÖNMÜYOR: bayılma ihtimali varken
-          "orduyla beraber yürüyor" saymak, geri dönüş yolunda bayılmış
-          bir kahramanı köyde göstermek demekti. Savaş biter bitmez
-          üssünde sayılıyor; yol yalnız orduya ait.
+          KAHRAMAN ORDUSUYLA BİRLİKTE DÖNÜYOR (İlkan bildirdi: *"daha
+          gelmeden maceraya yolladım, yollayamamam lazım"*).
+
+          Eskiden savaş biter bitmez "üssünde" sayılıyordu ve kahraman
+          fiilen yoldayken maceraya çıkabiliyordu: seferin dönüş ayağı
+          kahraman için hiç yoktu, uzaklık kahramanın maliyetine
+          girmiyordu. Artık `nerede` 'sefer' kalıyor; serbest bırakma
+          sefer eve varınca (aşağıda, resolveReturn yanında).
+
+          XP VE HASAR YİNE BURADA: sonuç savaşta belli oluyor, dönüş
+          yolu onu değiştirmiyor. Değişen tek şey kahramanın ne zaman
+          yeniden emir alabildiği.
         */
         if (m.kahramanSonuc && m.kahramanUserId) {
           const ks = userSessions.get(m.kahramanUserId);
           const kk = ks ? kahramanDurumu(ks) : null;
           if (kk) {
-            kk.nerede = 'koy';
             HERO.xpEkle(kk, m.kahramanSonuc.xp || 0);
-            HERO.hasarVer(kk, m.kahramanSonuc.hasar || 0);
+            const vurus = HERO.hasarVer(kk, m.kahramanSonuc.hasar || 0);
+            /*
+              ZIRHIN ETKİSİ RAPORA YAZILIYOR. Rapor savaş anında
+              kuruldu (army.js) ama hasar BURADA uygulanıyor; ham sayı
+              orada kaldığı için oyuncu zırhının işe yarayıp
+              yaramadığını hiçbir yerde göremiyordu. Macera raporunda
+              bu ayrım vardı, savaşta yoktu.
+
+              Ham değer de duruyor: fark ancak ikisi yan yanayken
+              okunuyor.
+            */
+            const kaynakKoy = ks?.villages?.get(m.fromKey);
+            const rapor = (kaynakKoy?.reports || []).find(x => x.id === m.reportId);
+            if (rapor?.kahraman) {
+              rapor.kahraman.hasar = vurus.uygulanan;
+              rapor.kahraman.hasarHam = vurus.hamHasar;
+              rapor.kahraman.oldu = vurus.oldu;
+            }
             if (ks) markUserDirty(m.kahramanUserId, ks.capitalSlot);
           }
         }
@@ -2157,6 +2333,22 @@ function processMarches(hours) {
       } else {
         const { caps, foodRoom } = lootRoom(v);
         ARMY.resolveReturn(m, v, caps, foodRoom);
+        /*
+          KAHRAMAN EVE VARDI — artık yeni emir alabilir.
+
+          Savaş bittiğinde değil BURADA serbest kalıyor: dönüş yolu
+          kahraman için de geçerli (bkz. yukarıdaki not). Sefer bir
+          savaşa hiç girmemiş olabilir (hedef bulunamadı, yağma boş
+          döndü) — o yüzden şart `kahramanSonuc` değil `kahramanUserId`.
+        */
+        if (m.kahramanUserId) {
+          const ks = userSessions.get(m.kahramanUserId);
+          const kk = ks ? kahramanDurumu(ks) : null;
+          if (kk && kk.nerede === 'sefer') {
+            kk.nerede = 'koy';
+            markUserDirty(m.kahramanUserId, ks.capitalSlot);
+          }
+        }
         list.splice(i, 1);
         entry.dirty();
       }
@@ -2668,6 +2860,14 @@ async function flushSession(userId, session) {
 setInterval(async () => {
   for (const [userId, session] of userSessions) await flushSession(userId, session);
 }, 30000);
+
+/*
+  SÜRESİ DOLAN AÇIK ARTIRMALAR. Ayrı bir zamanlayıcı kurmak yerine
+  mevcut aralığa binmek yeterli: açık artırma 24 saat sürüyor, yarım
+  dakikalık gecikme oyuncunun fark edeceği bir şey değil. İkinci bir
+  zaman kaynağı açmak bu projede kaçınılan bir şey.
+*/
+setInterval(() => { artirmalariKapat(); }, 30000);
 
 // Socket.io auth middleware
 io.use((socket, next) => {
@@ -3746,12 +3946,158 @@ io.on('connection', async socket => {
     dirty(); emit();
   };
 
+  /* ══ AÇIK ARTIRMA ═════════════════════════════════════════════
+     Kurallar game/acikArtirma.js'te; burada yalnız para taşınıyor ve
+     sonuç söyleniyor. Her yol TEK cevap kanalından dönüyor
+     (`artirma_sonuc`): sessiz ret bu projede en çok patlayan hata.
+  ══════════════════════════════════════════════════════════════════ */
+  const artirmaRed = (sebep) => socket.emit('artirma_sonuc', { ok: false, sebep });
+
+  socket.on('artirma_liste', () => { ilanListesiYolla(socket, userId); });
+
+  /**
+   * EŞYAYI SATIŞA KOY.
+   *
+   * EŞYA ENVANTERDEN ÇIKIYOR. Bırakırsak aynı eşya hem satışta hem
+   * kuşanılmış olabilirdi; satış bittiğinde de hangisinin gideceği
+   * belirsiz kalırdı.
+   *
+   * KUŞANILMIŞ eşya satılamıyor — önce çıkarman gerekiyor. "Sat"
+   * deyince üstünden alsaydık oyuncu savaşa zırhsız girebilirdi.
+   */
+  socket.on('artirma_sat', async ({ indeks } = {}) => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return artirmaRed('kahraman_yok');
+    const env = Array.isArray(kah.envanter) ? kah.envanter : [];
+    const i = Number(indeks);
+    const giris = env[i];
+    if (!giris) return artirmaRed('esya_yok');
+
+    const kur = ARTIRMA.ilanKur(giris, userId, Date.now());
+    if (!kur.ok) return artirmaRed(kur.sebep);
+
+    /*
+      ÖNCE VERİTABANI, SONRA ENVANTER. Ters sırada yazsaydık kayıt
+      başarısız olduğunda eşya yok olurdu — oyuncunun eşyasını
+      kaybetmek, ilanı kaybetmekten kat kat kötü.
+    */
+    let ilan;
+    try { ilan = await ilanAc(kur.ilan); }
+    catch (err) {
+      console.error('[ARTIRMA] ilan açılamadı:', err.message);
+      return artirmaRed('kayit_hatasi');
+    }
+    env.splice(i, 1);
+    kah.envanter = env;
+    dirty(); emit();
+
+    socket.emit('artirma_sonuc', { ok: true, islem: 'sat', taban: ilan.taban });
+    ilanListesiYolla(socket, userId);
+    console.log('[ARTIRMA] ' + userEmail + ' sattı: ' + ilan.key + '/' + ilan.nadirlik
+      + ' taban ' + ilan.taban);
+  });
+
+  /**
+   * TEKLİF VER — gümüş ANINDA bloke ediliyor.
+   *
+   * Blokaj olmasaydı aynı 500 gümüşle on açık artırmaya girilir, hepsi
+   * kazanılınca dokuzu karşılıksız kalırdı. Geçilen oyuncunun parası da
+   * ANINDA dönüyor: "kaybettim ama param bir gün kilitli" cezası
+   * kimsenin teklif vermek istememesine yol açardı.
+   *
+   * SIRA ÖNEMLİ: önce koşullu veritabanı yazması (yarışı o kapatıyor),
+   * sonra para. Ters sırada iki oyuncu aynı anda teklif verdiğinde
+   * ikisinin de gümüşü düşer ama yalnız biri kazanırdı.
+   */
+  socket.on('artirma_teklif', async ({ id, miktar } = {}) => {
+    const kese = keseDurumu(session);
+    const tutar = sayi(miktar, { enAz: 1, enCok: 100000000 });
+
+    let ilan;
+    try { ilan = await ilanBul(Number(id)); }
+    catch (err) {
+      console.error('[ARTIRMA] ilan okunamadı:', err.message);
+      return artirmaRed('kayit_hatasi');
+    }
+    const engel = ARTIRMA.teklifEngeli(ilan, userId, tutar, kese.gumus, Date.now());
+    if (engel) return artirmaRed(engel);
+
+    const u = ARTIRMA.teklifUygula(ilan, userId, tutar, Date.now());
+    let yazilan;
+    try {
+      yazilan = await teklifYaz(ilan.id, {
+        teklif: tutar, teklifVerenId: userId,
+        bitis: u.ilan.bitis, oncekiTeklif: ilan.teklif,
+      });
+    } catch (err) {
+      console.error('[ARTIRMA] teklif yazılamadı:', err.message);
+      return artirmaRed('kayit_hatasi');
+    }
+    /* Satır etkilenmediyse başkası aynı anda teklif vermiş */
+    if (!yazilan) { ilanListesiYolla(socket, userId); return artirmaRed('gecildin'); }
+
+    if (!keseden(userId, 'gumus', tutar)) {
+      /*
+        BURAYA DÜŞÜLMEMELİ: bakiye yukarıda ölçüldü. Yine de sessiz
+        geçmiyoruz — para tutmayan bir durum oluştuysa görmek isteriz.
+      */
+      console.error('[ARTIRMA] teklif yazıldı ama gümüş düşülemedi, userId=' + userId);
+    }
+    if (u.iade) keseyeYaz(u.iade.userId, 'gumus', u.iade.miktar);
+
+    socket.emit('artirma_sonuc', { ok: true, islem: 'teklif', miktar: tutar, uzadi: u.uzadi });
+    /*
+      LİSTE HERKESE: açık artırma ortak bir ekran, başkasının teklifini
+      görmeden kendi teklifini ayarlayamazsın.
+    */
+    io.emit('artirma_degisti');
+    console.log('[ARTIRMA] ' + userEmail + ' teklif: #' + ilan.id + ' ' + tutar + ' gumus');
+  });
+
   socket.on('kusam_kusan', ({ indeks } = {}) =>
     kusamIslemi(kah => KUSAM.kusan(kah, Number(indeks))));
   socket.on('kusam_cikar', ({ slot } = {}) =>
     kusamIslemi(kah => KUSAM.cikar(kah, String(slot || ''))));
   socket.on('kusam_at', ({ indeks } = {}) =>
     kusamIslemi(kah => KUSAM.at(kah, Number(indeks))));
+
+  /**
+   * EŞYA YÜKSELT — gümüşle, 5 seviyeye kadar (İlkan'ın isteği).
+   *
+   * BEDEL EŞYANIN KENDİ DEĞERİNDEN türüyor (bkz. esyaDeger): efsanevi
+   * bir eşyayı yükseltmek sıradan birini yükseltmekten pahalı, yoksa
+   * herkes en güçlü eşyasını beş seviye birden çıkarırdı.
+   *
+   * BAŞARISIZLIK YOK. Bu oyunda başka hiçbir yerde "ödedin ama olmadı"
+   * yok; tek istisna tutarsız olurdu.
+   *
+   * ENVANTERDEKİ eşya yükseltiliyor, kuşanılan değil: kuşanılanı
+   * yükseltmek "önce çıkar" adımını gerektiriyor ama karşılığında
+   * yükseltmenin nesneyi değiştirdiği tek bir yer kalıyor.
+   */
+  socket.on('kusam_yukselt', ({ indeks } = {}) => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
+    const env = Array.isArray(kah.envanter) ? kah.envanter : [];
+    const giris = env[Number(indeks)];
+    if (!giris) return socket.emit('kahraman_error', { reason: 'esya_yok' });
+
+    const engel = ESYA_DEGER.yukseltilebilirMi(giris);
+    if (engel) return socket.emit('kahraman_error', { reason: engel });
+
+    const bedel = ESYA_DEGER.yukseltmeBedeli(giris);
+    const r = KESE.harca(keseDurumu(session), 'gumus', bedel);
+    if (!r.ok) return socket.emit('kahraman_error', { reason: 'gumus_yetersiz' });
+
+    keseYaz(session, r.kese);
+    giris.seviye = ESYA_DEGER.seviye(giris) + 1;
+    dirty(); emitVillage(session, { force: true });
+    socket.emit('kahraman_sonuc', {
+      ok: true, islem: 'yukselt', seviye: giris.seviye, bedel,
+    });
+    console.log('[ESYA] ' + userEmail + ' yukseltti: ' + giris.key
+      + ' Lvl ' + giris.seviye + ' (-' + bedel + ' gumus)');
+  });
 
   /**
    * KAHRAMANI DİRİLT — iki yol: HAMMADDE ya da DİRİLTME İKSİRİ.
@@ -4109,35 +4455,13 @@ io.on('connection', async socket => {
     console.log(`[KESE] ${userEmail} çevirdi: ${JSON.stringify(sonuc.verilen)} -> ${JSON.stringify(sonuc.alinan)}`);
   });
 
-  /**
-   * ALTINLA HAMMADDE — AKTİF köye iniyor.
-   *
-   * Merkez köye sabitlemek yanlış olurdu: oyuncu hangi köyde inşaat
-   * sıkışmışsa orada satın alıyor ve hammaddeyi oraya taşımak ikinci
-   * bir tüccar yolculuğu demek olurdu.
-   *
-   * DEPO TAVANI UYGULANIYOR ve taşıyorsa alım HİÇ yapılmıyor: yarısını
-   * verip altını tamamen almak oyuncunun parasını yakmak olurdu.
-   */
-  socket.on('kese_hammadde', ({ kaynak, adet } = {}) => {
-    const village = v();
-    const { caps } = getStorageCaps(village);
-    const tavan = caps?.[kaynak];
-    const bosYer = tavan != null ? Math.max(0, tavan - (village.resources[kaynak] || 0)) : null;
-
-    const sonuc = KESE.hammaddeAl(keseDurumu(session), kaynak,
-      sayi(adet, { enAz: 1, enCok: 10000 }), bosYer);
-    if (!sonuc.ok) {
-      return socket.emit('kese_sonuc', { ok: false, sebep: sonuc.sebep, sigan: sonuc.sigan });
-    }
-    keseYaz(session, sonuc.kese);
-    village.resources[sonuc.kaynak] = (village.resources[sonuc.kaynak] || 0) + sonuc.miktar;
-    dirty(); emit();
-    socket.emit('kese_sonuc', {
-      ok: true, islem: 'hammadde', kaynak: sonuc.kaynak, miktar: sonuc.miktar,
-    });
-    console.log(`[KESE] ${userEmail} altınla aldı: ${sonuc.miktar} ${sonuc.kaynak}`);
-  });
+  /*
+    ALTINLA HAMMADDE ALIMI KALDIRILDI (İlkan: *"parayla hammadde
+    alınamamalı"*). Altınla kaynak alınabilseydi oyun "para öde, kaynak
+    al" hâline gelir, ödeyenin üretim yapmaya ihtiyacı kalmazdı.
+    Kaynak dönüştürmenin tek yeri pazarın NPC takası ve bedeli oranın
+    kendisi (bkz. game/pazar.js).
+  */
 
   socket.on('pazar_takas', ({ veren, alan, miktar } = {}) => {
     const village = v();
@@ -5101,6 +5425,13 @@ io.on('connection', async socket => {
         const b = HERO.bonuslar(kah);
         res.march.kahraman = {
           gucu: b.saldiriGucu, saldiriYuzde: b.saldiriYuzde,
+          /*
+            CAN TAVANI DA DONDURULUYOR: savaşın taban hasarı bunun
+            yüzdesi (bkz. kahraman.js · savasSonucu). Varışta ölçseydik
+            yolda can eşyası çıkarıp hasarı küçültmek mümkün olurdu.
+          */
+          canTavani: HERO.canTavani(HERO.xpSeviyesi(kah.xp),
+            KUSAM.kusamBonuslari(kah).kahraman.can || 0),
           /*
             SINIF DA DONDURULUYOR: yola çıktıktan sonra at çıkarıp
             savunanın atlı/yaya dengesini sonradan değiştirmek mümkün

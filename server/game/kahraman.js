@@ -495,17 +495,84 @@ function ilerlet(k, oyunSaati, konakSeviyesi = 0) {
  * değil. Yalnız zaferi ödüllendirseydik kahraman ancak kazanılacağı belli
  * savaşlara sokulur, riskli savaş hiç denenmezdi.
  *
- * HASAR ordunun kayıp oranına bağlı: ordu sıyrık almadan kazandıysa
- * kahraman da az yıpranır, ordu kırıldıysa kahraman bayılır. Sabit hasar
- * olsaydı kahramanı ezici üstünlükle küçük hedeflere sürmek bedava olurdu.
+ * HASAR İKİ PARÇALI: savaşa giren kahraman her hâlükârda bir TABAN
+ * hasar alıyor, ordunun kayıp oranı bunun üstüne biniyor.
+ *
+ * TABAN SONRADAN EKLENDİ (İlkan: *"normal köye saldırdığımda kahramanın
+ * da canı düşmeli"*). Yalnız kayıp oranına bağlıyken ezici bir orduyla
+ * küçük bir köye vurmak kahramana HİÇ dokunmuyordu; kahramanı her sefere
+ * katmak bedavaydı ve bedava olan bir seçim seçim değildir.
+ *
+ * TABAN CAN TAVANININ YÜZDESİ, sabit sayı değil: sabit 30 hasar 100
+ * canlı yeni kahramanı üç seferde bayıltır, 1.100 canlı kahramana hiçbir
+ * şey yapmazdı. Yüzde iki uçta da aynı anlamı taşıyor.
+ *
+ * KAYIP ORANI = İKİ ORDUNUN GÜÇ ORANI. `attackerLossRate` saldıran
+ * kazanırsa (savunma/saldırı)^K, kaybederse 1 (bkz. combat.js). Yani
+ * "karşılaştığı ordu ile kendi ordusunun gücü" ölçüsü doğrudan bu
+ * sayıda; ayrı bir güç hesabı yazmak aynı şeyi ikinci kez tanımlamak
+ * olurdu.
+ *
+ * ZIRH BURADA DEĞİL `hasarVer`de işliyor: hasarın girdiği tek kapı
+ * orası (savaş, macera, ileride başka kaynaklar). Her çağırana ayrı
+ * azaltma yazmak er geç birinde unutulacak bir tekrar olurdu.
+ *
+ * SAVAŞ OLMADIYSA HASAR DA YOK: savunmasız bir köye girmek savaş değil.
  */
 const XP_OLDURULEN_BASINA = 2;
-const SAVAS_HASAR_TAVANI = 70;
+/**
+ * ORDU TAMAMEN KIRILDIĞINDA hasar — can tavanının KATI olarak.
+ *
+ * 1,8 seçildi ve bu sayı tek başına "ordum öldüyse kahraman kolay kolay
+ * kurtulmaz" kuralını taşıyor: zırhsız kahraman ölür, zırhı TAM olan
+ * (%50 tavan) %90 hasar alıp canının onda biriyle çıkar. Yani tam zırh
+ * yatırımı tam olarak bu anda karşılığını veriyor.
+ *
+ * Eskiden SABİT 70 hasardı: 1.090 canlı kahraman için ordusunun tamamen
+ * kırıldığı bir savaş canının %11'i ediyordu ve kahraman sapasağlam
+ * dönüyordu (İlkan bildirdi).
+ */
+const SAVAS_TAM_KAYIP_KATI = 1.8;
+/**
+ * EĞRİNİN ÜSSÜ. Doğrusal olsaydı ordusunun %2'sini kaybeden rutin bir
+ * yağma da kahramanın canından ciddi pay alırdı. Üs eğriyi düşük
+ * kayıplarda yatırıyor, yüksek kayıplarda dikleştiriyor: normal sefer
+ * ucuz, felaket ölümcül.
+ */
+const SAVAS_HASAR_USSU = 1.5;
+/**
+ * SAVAŞA GİRMENİN TABAN BEDELİ — can tavanının yüzdesi.
+ *
+ * %5 seçildi: dolu candan yirmi savaş sonra kahraman bayılıyor. Daha
+ * düşük bir sayı (%3 denendi) ekranda fark edilmiyordu ve İlkan'ın
+ * şikâyetini karşılamıyordu; daha yükseği kahramanı iki seferde
+ * yatağa düşürüp sefere katmayı imkânsız kılardı.
+ *
+ * Zırhlanma bunun üstüne iniyor (bkz. hasarVer): zırh yatırımı burada
+ * da karşılığını veriyor.
+ */
+const SAVAS_TABAN_YUZDE = 5;
 
-function savasSonucu(oldurulenBirim = 0, kayipOrani = 0) {
+/**
+ * @param oldurulenBirim savunandan öldürülen asker (XP buradan)
+ * @param kayipOrani     saldıran ordunun kayıp oranı [0,1]
+ * @param canTavani      kahramanın can tavanı — taban hasar bunun yüzdesi
+ * @param savasOldu      gerçekten çarpışma oldu mu (savunan var mıydı)
+ */
+function savasSonucu(oldurulenBirim = 0, kayipOrani = 0, canTavani = 0, savasOldu = true) {
+  const oran = Math.min(1, Math.max(0, kayipOrani));
+  const tavan = Math.max(0, canTavani);
+  const tabanOran = SAVAS_TABAN_YUZDE / 100;
+  /*
+    Hasar CAN TAVANININ YÜZDESİ. Sabit sayı olsaydı aynı savaş yeni
+    kahramanı öldürür, yüksek seviyeliyi çizmezdi.
+  */
+  const hasarOrani = savasOldu
+    ? tabanOran + (SAVAS_TAM_KAYIP_KATI - tabanOran) * Math.pow(oran, SAVAS_HASAR_USSU)
+    : 0;
   return {
     xp: Math.round(Math.max(0, oldurulenBirim) * XP_OLDURULEN_BASINA),
-    hasar: Math.round(Math.min(1, Math.max(0, kayipOrani)) * SAVAS_HASAR_TAVANI),
+    hasar: Math.round(tavan * hasarOrani),
   };
 }
 
@@ -788,7 +855,8 @@ module.exports = {
   ZIRHLANMA_TAVANI, zirhlanmaYuzdesi,
   KAHRAMAN_TABAN_HIZ, KAHRAMAN_HIZ_TAVANI, AT_HIZ_EKI, hizi, suvariMi,
   bulunduguSlot, seferEngeli,
-  XP_OLDURULEN_BASINA, SAVAS_HASAR_TAVANI, savasSonucu,
+  XP_OLDURULEN_BASINA, SAVAS_TABAN_YUZDE, savasSonucu,
+  SAVAS_TAM_KAYIP_KATI, SAVAS_HASAR_USSU,
   seviyeIcinToplamXp, xpSeviyesi, seviyeIlerlemesi,
   canTavani, iyilesmeHizi,
   yeniKahraman, xpEkle, puanDagit, sifirlamaBedeli, skilleriSifirla,

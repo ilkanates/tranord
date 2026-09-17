@@ -24,6 +24,18 @@
  *    durabilmeli ve oyuncu hangisini kuşanacağına karar verebilmeli.
  */
 const { HERO_SLOTS, HERO_ITEMS, NADIRLIK, KULLANILABILIR } = require('../data/heroItemDefs');
+const DEGER = require('./esyaDeger');
+
+/**
+ * EŞYANIN TOPLAM ÇARPANI — nadirlik × seviye.
+ *
+ * Tek cümle, üç yer okuyor (bonus toplama, envanter özeti, kuşanılan
+ * özeti). Üçüne ayrı ayrı yazsaydık biri seviyeyi unutur ve ekrandaki
+ * sayı savaştakiyle tutmazdı.
+ */
+function esyaCarpani(esya) {
+  return NADIRLIK[esya.nadirlik].carpan * DEGER.seviyeCarpani(esya);
+}
 
 /** Envanter girdisi geçerli mi (bilinmeyen anahtar kayıttan gelmiş olabilir) */
 function gecerli(giris) {
@@ -141,7 +153,7 @@ function kusamBonuslari(k) {
   for (const [slot, esya] of Object.entries(k.kusanilan || {})) {
     if (!HERO_SLOTS[slot] || !gecerli(esya)) continue;
     const def = HERO_ITEMS[esya.key];
-    const carpan = NADIRLIK[esya.nadirlik].carpan;
+    const carpan = esyaCarpani(esya);
 
     for (const [alan, taban] of Object.entries(def.kahramanBonus || {})) {
       if (alan in out.kahraman) out.kahraman[alan] += taban * carpan;
@@ -176,13 +188,23 @@ function envanterOzeti(k) {
     const n = NADIRLIK[giris.nadirlik];
     return {
       indeks: i, key: giris.key, nadirlik: giris.nadirlik,
+      /*
+        SEVİYE ve BEDEL PAKETTE: yükseltme düğmesi "kaç gümüş" ve
+        "daha yükselebilir mi" sorularını sunucuya sormadan
+        cevaplayabilmeli, yoksa her eşya için ayrı tur atılırdı.
+      */
+      seviye: DEGER.seviye(giris),
+      maksSeviye: DEGER.MAKS_SEVIYE,
+      yukseltmeBedeli: DEGER.yukseltmeBedeli(giris),
+      yukseltmeEngeli: DEGER.yukseltilebilirMi(giris),
+      tabanFiyat: DEGER.tabanFiyat(giris),
       ad: giris.nadirlik === 'siradan' ? def.ad : `${n.ad} ${def.ad}`,
       slot: def.slot, slotAd: def.slot ? (HERO_SLOTS[def.slot]?.ad || def.slot) : null,
       kullanilir: KULLANILABILIR.has(giris.key),
       ikon: def.ikon, renk: n.renk, carpan: n.carpan,
       aciklama: def.aciklama,
-      kahramanBonus: olcekle(def.kahramanBonus, n.carpan),
-      birimBonus: olcekleIc(def.birimBonus, n.carpan),
+      kahramanBonus: olcekle(def.kahramanBonus, esyaCarpani(giris)),
+      birimBonus: olcekleIc(def.birimBonus, esyaCarpani(giris)),
     };
   }).filter(Boolean);
 }
@@ -209,17 +231,18 @@ function kusanilanOzeti(k) {
     const n = NADIRLIK[esya.nadirlik];
     out[slot] = {
       key: esya.key, nadirlik: esya.nadirlik,
+      seviye: DEGER.seviye(esya),
       ad: esya.nadirlik === 'siradan' ? def.ad : `${n.ad} ${def.ad}`,
       ikon: def.ikon, renk: n.renk, aciklama: def.aciklama,
-      kahramanBonus: olcekle(def.kahramanBonus, n.carpan),
-      birimBonus: olcekleIc(def.birimBonus, n.carpan),
+      kahramanBonus: olcekle(def.kahramanBonus, esyaCarpani(esya)),
+      birimBonus: olcekleIc(def.birimBonus, esyaCarpani(esya)),
     };
   }
   return out;
 }
 
 module.exports = {
-  kusan, cikar, at, kullan, elindeVarMi, suvariMi,
+  kusan, cikar, at, kullan, elindeVarMi, suvariMi, esyaCarpani,
   kusamBonuslari, envanterOzeti, kusanilanOzeti,
   HERO_SLOTS, HERO_ITEMS, NADIRLIK,
 };

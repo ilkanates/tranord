@@ -883,7 +883,19 @@ function resolveArrival(march, origin, target, opts = {}) {
     Sefere iliştirilen sonucu index.js (processMarches) işliyor.
   */
   if (march.kahraman) {
-    march.kahramanSonuc = HERO.savasSonucu(defenderDead, res.attackerLossRate || 0);
+    /*
+      CAN TAVANI SEFERE İLİŞTİRİLMİŞ anlık görüntüden okunuyor (güç ve
+      sınıfla aynı gerekçe): yola çıktıktan sonra eşya değiştirip taban
+      hasarı küçültmek mümkün olmasın.
+
+      SAVAŞ OLDU MU — savunanın hiç askeri yoksa çarpışma da yok.
+      Savunmasız köye giren kahramanı yaralamak, oyuncuyu hiç olmamış
+      bir çarpışmanın bedelini ödemeye zorlardı.
+    */
+    const savasOldu = totalUnits(defenderUnits) > 0;
+    march.kahramanSonuc = HERO.savasSonucu(
+      defenderDead, res.attackerLossRate || 0,
+      march.kahraman.canTavani || 0, savasOldu);
   }
 
   march.reportId = `${march.id}-${now}`;
@@ -894,6 +906,19 @@ function resolveArrival(march, origin, target, opts = {}) {
     sent: { ...(res.attackerLosses || {}) },   // aşağıda düzeltilir
     myLosses: res.attackerLosses || {},
     theirLosses: res.defenderLosses || {},
+    /*
+      SAVUNANIN ORDUSU — İlkan: *"raporda karşı tarafın kaç askeri
+      vardı onu göremiyorum."*
+
+      Yalnız KAYIPLARI yazıyorduk; savunan kazandıysa kaybı küçük olur
+      ve oyuncu neye çarptığını hiç öğrenemezdi. İstihbarat sızıntısı
+      değil: onunla çarpıştın, ne olduğunu gördün. Travian da savaş
+      raporunda savunanın birliklerini gösteriyor.
+
+      MİSAFİRLER DAHİL: köyü savunan her şey tek orduydu, rapor da öyle
+      göstermeli — yoksa sayı savaşta hissedilenle tutmazdı.
+    */
+    theirSent: { ...defenderUnits },
     survivors: { ...survivors },
     loot,
     attackTotal: res.attackTotal, defenseTotal: res.defenseTotal,

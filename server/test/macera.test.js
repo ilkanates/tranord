@@ -358,3 +358,63 @@ test('diriltme iksiri havuzda ama SEYREK', () => {
   assert.ok(oran > 0.08 && oran < 0.35,
     `düşen eşyaların %${(oran * 100).toFixed(1)}'i iksir — %8-35 aralığında olmalı`);
 });
+
+test('BULUNAN ASKER dünyanın ortalama ordusuyla ölçekleniyor', () => {
+  /*
+    İlkan: *"kahramanın macerada bulduğu asker sayıları serverdaki
+    ortalama asker sayısına göre olmalı. 5k askerim var, maceradan
+    1 asker bulup getiriyor."*
+
+    Sabit sayı (kısa 1-3, uzun 1-6) oyunun ilk gününde hediye, olgun
+    bir dünyada gürültüydü — macera ödülünün üç kanalından biri ölü
+    doğuyordu.
+  */
+  const ort = (tip, ordu) => {
+    let t = 0;
+    for (let i = 0; i < 3000; i++) t += M.maceraAskerAdedi(tip, ordu);
+    return t / 3000;
+  };
+
+  const kucukDunya = ort('uzun', 500);
+  const buyukDunya = ort('uzun', 5000);
+  assert.ok(buyukDunya > kucukDunya * 5,
+    `dünya büyüdükçe ödül de büyümeli (${kucukDunya.toFixed(1)} → ${buyukDunya.toFixed(1)})`);
+
+  /* Uzun macera kısadan cömert — canın dört katını götürüyor */
+  assert.ok(ort('uzun', 5000) > ort('kisa', 5000) * 2);
+});
+
+test('TAZE DÜNYADA bile asker ödülü var — taban tutuyor', () => {
+  /*
+    Ortalama sıfırken oran sıfır verir ve ilk oyuncular için asker
+    ödülü hiç yokmuş gibi olurdu.
+  */
+  assert.ok(M.maceraAskerAdedi('kisa', 0) >= 1);
+  assert.ok(M.maceraAskerAdedi('uzun', 0) >= 2);
+});
+
+test('ÖDÜL KENDİ ORDUNA BAĞLI DEĞİL — bileşik döngü yok', () => {
+  /*
+    Kendi ordusuna bağlasaydık çok askeri olan daha çok asker bulur,
+    aradaki fark her maceradan sonra açılırdı. Ölçü DIŞARIDAN: dünyanın
+    ortalaması.
+
+    İmza bunu tutuyor: fonksiyon oyuncuyu hiç görmüyor, yalnız ortalamayı.
+  */
+  const pay = (ordu) => {
+    let t = 0;
+    for (let i = 0; i < 4000; i++) t += M.maceraAskerAdedi('uzun', ordu);
+    return (t / 4000) / ordu;
+  };
+  /*
+    ÖDÜL ORTALAMANIN SABİT BİR YÜZDESİ: 2.000 ve 20.000 ortalamada aynı
+    pay çıkıyor. Kendi orduya bağlı bir kural burada bozulurdu — büyük
+    oyuncu için pay büyürdü.
+  */
+  const kucuk = pay(2000);
+  const buyuk = pay(20000);
+  assert.ok(Math.abs(kucuk - buyuk) < kucuk * 0.15,
+    `pay ölçekten bağımsız olmalı (${kucuk.toFixed(4)} / ${buyuk.toFixed(4)})`);
+  assert.equal(M.ASKER_ORANI.uzun > M.ASKER_ORANI.kisa, true,
+    'uzun macera daha cömert olmalı — canın dört katını götürüyor');
+});

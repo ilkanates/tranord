@@ -24,6 +24,7 @@ import { useState } from 'react';
 import { C, FONT, btn, num, label as lbl } from '../theme';
 import { RES_LABEL } from '../flows';
 import Icon from './Icons';
+import AcikArtirma from './AcikArtirma';
 import { ITEM_IMAGE } from './itemArt';
 import { SLOT_MASK } from './slotArt';
 
@@ -35,6 +36,13 @@ const SEGMENTLER = [
   { key: 'kusam', ad: 'Kuşam ve Çanta', ikon: 'migfer' },
   { key: 'skil', ad: 'Skiller', ikon: 'kilicKalkan' },
   { key: 'macera', ad: 'Maceralar', ikon: 'tekerlek' },
+  /*
+    AÇIK ARTIRMA BURADA, üst barda ayrı bir sekme değil: satılan şey
+    kahramanın eşyası ve satarken çantana bakman gerekiyor. Ayrı ekran
+    olsaydı "hangi eşyamı satayım" sorusu için sürekli gidip gelmek
+    gerekirdi.
+  */
+  { key: 'artirma', ad: 'Açık Artırma', ikon: 'sikke' },
 ];
 
 const SKIL_SIRA = ['saldiriPuani', 'saldiriBonus', 'savunmaBonus', 'uretim'];
@@ -102,6 +110,8 @@ const SINIF_ADI = { piyade: 'Piyade', suvari: 'Süvari' };
 export default function HeroPanel({
   kahraman, villages = [], hourSeconds = 3600, worldSpeed = 1,
   onPuan, onSifirla, onMacera, onKusan, onCikar, onAt, onDirilt, onGeriCagir, onGoTab,
+  /* Açık artırma ve eşya yükseltme için — ikisi de gümüşle çalışıyor */
+  socket = null, kese = null, onYukselt,
 }) {
   const [segment, setSegment] = useState('kusam');
   const [acikSkil, setAcikSkil] = useState(null);
@@ -465,6 +475,7 @@ export default function HeroPanel({
               onKusan={onKusan} onAt={onAt}
               onIksir={() => onDirilt?.('iksir')}
               olu={olu} suzuk={!!filtre}
+              onYukselt={onYukselt} gumus={kese?.gumus || 0}
             />
           </div>
         </div>
@@ -482,6 +493,11 @@ export default function HeroPanel({
         <Maceralar
           kahraman={kahraman} engel={maceraEngeli} sure={sure} onMacera={onMacera}
         />
+      )}
+
+      {segment === 'artirma' && (
+        <AcikArtirma socket={socket} kese={kese}
+          envanter={kahraman?.envanter || []} />
       )}
     </div>
   );
@@ -999,7 +1015,17 @@ function EsyaKarti({ esya, yer = 'sag' }) {
     }}>
       <div style={{
         fontFamily: FONT.ui, fontSize: 11, fontWeight: 600, color: esya.renk,
-      }}>{esya.ad}</div>
+      }}>
+        {esya.ad}
+        {/*
+          SEVİYE KARTTA DA YAZIYOR. Kuşanılmış eşyanın seviyesi yalnız
+          çantada görünseydi oyuncu "şu an üstümdeki hangi seviyede"
+          sorusunu ancak eşyayı çıkararak cevaplayabilirdi.
+        */}
+        {esya.seviye > 1 && (
+          <span style={{ color: C.gold, marginLeft: 5 }}>Lvl {esya.seviye}</span>
+        )}
+      </div>
       {/*
         SLOT SATIRI KALDIRILDI (İlkan: *"'Kullanılır' yazıyor, onu ne
         demek bilmiyorum ama sil"*). Burada eşyanın slotu yazıyordu ama
@@ -1253,7 +1279,8 @@ function Olcu({ ad, deger, renk, alt }) {
  * ekranda sürükleme güvenilir değil ve telefonda oynayan oyuncu kuşam
  * yapamaz hâle gelirdi.
  */
-function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, olu, suzuk }) {
+function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, olu, suzuk,
+  onYukselt, gumus = 0 }) {
   const [ustunde, setUstunde] = useState(null);
   if (!envanter.length) {
     return (
@@ -1301,7 +1328,19 @@ function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, o
             }}>
             <EsyaGorsel esya={e} size={34} renk={e.renk} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: FONT.ui, fontSize: 11.5, color: e.renk }}>{e.ad}</div>
+              <div style={{ fontFamily: FONT.ui, fontSize: 11.5, color: e.renk }}>
+                {e.ad}
+                {/*
+                  SEVİYE ROZETİ — yükseltilmiş eşya ilk bakışta ayırt
+                  edilmeli, yoksa aynı adı taşıyan iki eşyadan hangisinin
+                  güçlü olduğu ancak karta bakınca anlaşılırdı.
+                */}
+                {e.seviye > 1 && (
+                  <span style={{ color: C.gold, fontSize: 9.5, marginLeft: 5 }}>
+                    Lvl {e.seviye}
+                  </span>
+                )}
+              </div>
               <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint }}>
                 {kullanilir ? e.aciklama : `${e.slotAd} · ${bonusMetni(e)}`}
               </div>
@@ -1320,6 +1359,34 @@ function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, o
                   ...btn(olu ? 'primary' : 'ghost'), padding: '2px 10px', fontSize: 9,
                   opacity: olu ? 1 : 0.35, cursor: olu ? 'pointer' : 'default',
                 }}>KULLAN</button>
+            )}
+            {/*
+              YÜKSELT — gümüşle, 5 seviyeye kadar (İlkan'ın isteği).
+
+              Bedel DÜĞMENİN ÜSTÜNDE yazıyor: "yükselt" deyip sonra
+              "gümüşün yetmiyor" demek, oyuncuyu bakiyesini başka bir
+              ekranda aramaya zorlardı. En üst seviyedeki eşyada düğme
+              hiç çıkmıyor — kapalı bir düğme yer kaplamaktan başka bir
+              şey yapmazdı.
+            */}
+            {!kullanilir && onYukselt && !e.yukseltmeEngeli && (
+              <button
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  if (window.confirm(
+                    `${e.ad} Lvl ${e.seviye} → ${e.seviye + 1}\n\n`
+                    + `Bedel: ${e.yukseltmeBedeli} gümüş\n`
+                    + `Bakiyen: ${gumus} gümüş`)) onYukselt(e.indeks);
+                }}
+                disabled={gumus < e.yukseltmeBedeli}
+                title={gumus < e.yukseltmeBedeli
+                  ? `${e.yukseltmeBedeli} gümüş gerekiyor`
+                  : `Lvl ${e.seviye + 1} — ${e.yukseltmeBedeli} gümüş`}
+                style={{
+                  ...btn(gumus >= e.yukseltmeBedeli ? 'primary' : 'ghost'),
+                  padding: '2px 9px', fontSize: 9, whiteSpace: 'nowrap',
+                  opacity: gumus >= e.yukseltmeBedeli ? 1 : 0.4,
+                }}>Lvl+ {e.yukseltmeBedeli}</button>
             )}
             <button
               onClick={(ev) => {

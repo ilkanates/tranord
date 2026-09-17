@@ -120,26 +120,131 @@ test('savaş kazancı: XP savaşın BÜYÜKLÜĞÜNE, hasar KAYIP ORANINA bağl�
   assert.ok(buyuk.xp > kucuk.xp, 'büyük savaş daha çok XP vermeli');
   assert.equal(buyuk.hasar, kucuk.hasar, 'hasar öldürülen sayısına bağlı olmamalı');
 
-  const temiz = HERO.savasSonucu(100, 0);
-  const kirim = HERO.savasSonucu(100, 1);
-  assert.equal(temiz.hasar, 0, 'kayıpsız zaferde kahraman yıpranmamalı');
-  assert.equal(kirim.hasar, HERO.SAVAS_HASAR_TAVANI);
+  const temiz = HERO.savasSonucu(100, 0, 1000, true);
+  const kirim = HERO.savasSonucu(100, 1, 1000, true);
+  assert.ok(kirim.hasar > temiz.hasar, 'kırılan orduda kahraman daha çok yıpranmalı');
   assert.equal(temiz.xp, kirim.xp,
     'XP sonuca değil büyüklüğe bağlı — yoksa riskli savaş hiç denenmezdi');
+});
+
+test('SAVAŞA GİREN KAHRAMAN her hâlükârda yıpranıyor', () => {
+  /*
+    İlkan: *"normal köye saldırdığımda kahramanın da canı düşmeli."*
+
+    Hasar YALNIZ kayıp oranına bağlıyken ezici bir orduyla küçük bir
+    köye vurmak kahramana HİÇ dokunmuyordu; kahramanı her sefere katmak
+    bedavaydı ve bedava olan bir seçim seçim değildir.
+  */
+  const temiz = HERO.savasSonucu(100, 0, 1000, true);
+  assert.ok(temiz.hasar > 0,
+    `kayıpsız zaferde bile hasar olmalı, ölçülen: ${temiz.hasar}`);
+  assert.equal(temiz.hasar, Math.round(1000 * HERO.SAVAS_TABAN_YUZDE / 100),
+    'taban hasar can tavanının yüzdesi olmalı');
+});
+
+test('TABAN HASAR CAN TAVANIYLA ölçekleniyor — sabit sayı değil', () => {
+  /*
+    Sabit 30 hasar, 100 canlı yeni kahramanı üç seferde bayıltır,
+    1.100 canlı kahramana hiçbir şey yapmazdı. Yüzde iki uçta da aynı
+    anlamı taşıyor.
+  */
+  const kucuk = HERO.savasSonucu(10, 0, 100, true).hasar;
+  const buyuk = HERO.savasSonucu(10, 0, 2000, true).hasar;
+  assert.ok(buyuk > kucuk * 10,
+    `taban tavanla büyümeli (küçük ${kucuk}, büyük ${buyuk})`);
+  assert.equal(buyuk / 2000, kucuk / 100, 'oran iki uçta da aynı olmalı');
+});
+
+test('SAVAŞ OLMADIYSA hasar da YOK — boş köye girmek savaş değil', () => {
+  /*
+    Savunmasız bir köye yürüyen kahramanı yaralamak, oyuncuyu hiç
+    olmamış bir çarpışmanın bedelini ödemeye zorlardı.
+  */
+  const r = HERO.savasSonucu(0, 0, 1000, false);
+  assert.equal(r.hasar, 0);
 });
 
 test('kaybedilen savaş bile XP veriyor', () => {
   // Yalnız zaferi ödüllendirseydik kahraman ancak kazanılacağı belli
   // savaşlara sokulurdu
-  const r = HERO.savasSonucu(30, 1);
+  const r = HERO.savasSonucu(30, 1, 1000, true);
   assert.ok(r.xp > 0);
-  assert.equal(r.hasar, HERO.SAVAS_HASAR_TAVANI);
+  assert.ok(r.hasar > 1000, 'ordusu kırılan kahraman ağır yaralanmalı');
+});
+
+test('ORDU TAMAMEN KIRILINCA kahraman ZIRHSIZ kurtulamıyor', () => {
+  /*
+    İlkan: *"gönderdiğim ordu tamamen öldüyse kahraman kolay kolay
+    canlı çıkamaz."*
+
+    Eski eğride hasar tavanı SABİT 70'ti: 1.090 canlı bir kahraman için
+    ordusunun tamamen kırıldığı savaş canının %11'i ediyordu ve kahraman
+    sapasağlam dönüyordu.
+  */
+  const tavan = 1090;
+  const tamKayip = HERO.savasSonucu(10, 1, tavan, true).hasar;
+  assert.ok(tamKayip > tavan,
+    `ordu yok olunca hasar can tavanını geçmeli (${tamKayip} / ${tavan})`);
+
+  const k = HERO.yeniKahraman('0,0');
+  k.can = tavan;
+  assert.equal(HERO.hasarVer(k, tamKayip).oldu, true, 'zırhsız kahraman ölmeli');
+});
+
+test('TAM ZIRH ordusu yok olan kahramanı KIL PAYI kurtarıyor', () => {
+  /*
+    "Kolay kolay canlı çıkamaz" — imkânsız değil. Zırh tavanı %50 ve
+    tam zırhlı kahraman canının onda biriyle çıkıyor. Zırh yatırımı tam
+    olarak bu anda karşılığını veriyor; her zaman ölseydi zırhın en
+    kritik anda hiçbir anlamı kalmazdı.
+  */
+  const tavan = 1090;
+  const ham = HERO.savasSonucu(10, 1, tavan, true).hasar;
+  const uygulanan = ham * (1 - HERO.ZIRHLANMA_TAVANI / 100);
+  assert.ok(uygulanan < tavan,
+    `tam zırhlı kahraman kurtulabilmeli (${Math.round(uygulanan)} / ${tavan})`);
+  assert.ok(uygulanan > tavan * 0.8,
+    'ama kıl payı olmalı — kolayca kurtulursa zırh savaşı risksiz yapar');
+});
+
+test('RUTİN YAĞMA ucuz — eğri düşük kayıplarda yatık', () => {
+  /*
+    Doğrusal bir eğride ordusunun %2'sini kaybeden rutin bir yağma da
+    kahramanın canından ciddi pay alırdı ve kahramanı sefere katmak
+    günlük oyunda cezalandırılırdı. Üs (bkz. SAVAS_HASAR_USSU) eğriyi
+    düşük kayıplarda yatırıp yüksek kayıplarda dikleştiriyor.
+  */
+  const tavan = 1090;
+  const rutin = HERO.savasSonucu(10, 0.02, tavan, true).hasar;
+  const felaket = HERO.savasSonucu(10, 1, tavan, true).hasar;
+  assert.ok(rutin < tavan * 0.1,
+    `rutin yağma canın %10'undan az götürmeli, ölçülen: ${rutin}`);
+  assert.ok(felaket > rutin * 25,
+    'felaket ile rutin arasındaki fark büyük olmalı');
+});
+
+test('HASAR İKİ ORDUNUN GÜÇ ORANINA bağlı — kayıp oranı o oranın kendisi', () => {
+  /*
+    İlkan: *"karşılaştığı ordu ile kendi yanındaki ordunun gücüne
+    bağlı."* `attackerLossRate` zaten bu oran (bkz. combat.js):
+    kazanınca (savunma/saldırı)^K, kaybedince 1. Ayrı bir güç hesabı
+    yazmak aynı şeyi ikinci kez tanımlamak olurdu.
+
+    Burada ölçülen: oran büyüdükçe hasar MONOTON artıyor.
+  */
+  const tavan = 500;
+  let onceki = -1;
+  for (const oran of [0, 0.1, 0.25, 0.5, 0.75, 1]) {
+    const h = HERO.savasSonucu(10, oran, tavan, true).hasar;
+    assert.ok(h > onceki, `hasar oranla artmalı (oran ${oran} → ${h})`);
+    onceki = h;
+  }
 });
 
 test('tam hasar alan kahraman ÖLÜR — ama kaydı silinmez', () => {
   const k = HERO.yeniKahraman('0,0');
   k.can = 10;
-  const r = HERO.savasSonucu(50, 1);
+  const r = HERO.savasSonucu(50, 1, 1000, true);
   const h = HERO.hasarVer(k, r.hasar);
   assert.equal(h.oldu, true);
   assert.equal(k.olu, true);

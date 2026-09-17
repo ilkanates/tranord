@@ -1575,6 +1575,9 @@ function Game({ token, onLogout }) {
               paddingBottom: vp.mobile ? 64 : 0,
             }}>
               <HeroPanel
+                socket={socket}
+                kese={village.kese || null}
+                onYukselt={(indeks) => socket.emit('kusam_yukselt', { indeks })}
                 kahraman={village.kahraman}
                 villages={village.villages || []}
                 hourSeconds={village.marchInfo?.hourSeconds || 3600}

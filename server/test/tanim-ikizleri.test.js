@@ -18,6 +18,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const path = require('node:path');
 const url = require('node:url');
+const fs = require('node:fs');
 
 const ISTEMCI = path.join(__dirname, '..', '..', 'client', 'src', 'data');
 
@@ -137,4 +138,36 @@ test('personel alan askeri bina listesi iki tarafta aynı', async () => {
   assert.deepEqual(istemci, sunucu,
     'liste ayrışmış — sunucuda ' + sunucu.join(',')
     + ' / istemcide ' + istemci.join(','));
+});
+
+test('NPC TAKAS ORANLARI istemcide ve sunucuda aynı', () => {
+  /*
+    GERÇEK BİR HATANIN KİLİDİ. `PazarPanel.jsx` takas oranının KENDİ
+    kopyasını taşıyor (düğmeyi kapatabilmek için). İşlenmiş → ham yönü
+    sunucuda açıldığında istemcideki kopya kapalı kaldı: ekran "bu yön
+    yok" diyor, sunucu kabul ediyor. Oyuncu için sonuç sessiz bir
+    eksiklik — var olan bir özelliği hiç göremezdi.
+
+    İstemci kopyası METİNDEN okunuyor: PazarPanel bir React bileşeni,
+    Node'da çalıştırılamaz. Ölçülen şey davranış değil SAYILAR; ayrışma
+    zaten sayılarda oluyor.
+  */
+  const PAZAR = require('../game/pazar');
+  const kaynak = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'client', 'src', 'components', 'PazarPanel.jsx'), 'utf8');
+
+  const govde = kaynak.match(/function oran\(veren, alan\)[\s\S]*?\n}/);
+  assert.ok(govde, 'PazarPanel · oran() bulunamadı — test güncellenmeli');
+
+  /* İstemcideki dalları sırayla oku: [hamHam, hamIsl, islIsl, kalan] */
+  const sayilar = [...govde[0].matchAll(/return\s+(\d+|null)\s*;/g)].map(m2 => m2[1]);
+  assert.equal(sayilar.length, 5,
+    'oran() dallarının sayısı değişmiş: ' + sayilar.join(','));
+
+  const bekle = (v, s) => assert.equal(String(v), String(s === null ? 'null' : s));
+  bekle(sayilar[0], 'null');                             // aynı kaynak
+  bekle(sayilar[1], PAZAR.takasOrani('odun', 'kil'));    // ham  -> ham
+  bekle(sayilar[2], PAZAR.takasOrani('odun', 'kereste')); // ham  -> işlenmiş
+  bekle(sayilar[3], PAZAR.takasOrani('kereste', 'tugla')); // işl. -> işlenmiş
+  bekle(sayilar[4], PAZAR.takasOrani('kereste', 'odun')); // işl. -> ham
 });

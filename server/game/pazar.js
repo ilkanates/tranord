@@ -11,16 +11,24 @@
  * "1'e 2" bu dosyada "2 VER, 1 AL" demek. Ters yön oyunu bitirirdi:
  * 1 verip 2 alınsaydı odun → kil → odun döngüsü her turda ikiye katlardı.
  *
- * İŞLENMİŞ → HAM KASTEN YOK. Keresteci 8 odun → 6 kereste veriyor. NPC
- * `1 kereste → 2 odun` yapsaydı:
- *     8 odun --keresteci--> 6 kereste --NPC--> 12 odun   (+%50, sonsuz)
- * İşleme binaları kaynak ÜRETEN tek yer olduğu için o yönü açmak her
- * oranda bir döngü riski taşıyor; kapalı tutmak tek güvenli seçim.
+ * ── HER YÖN AÇIK (17 Eylül 2026) ────────────────────────────────────
  *
- * Ham → işlenmiş 4:1 ise işleme binalarının değerini korur: NPC kereste
- * başına 4 odun isterken keresteci 1,33 odun istiyor. Yani NPC her zaman
- * daha pahalı, bina anlamsızlaşmıyor. Un/ekmek için de aynı: değirmen+fırın
- * zinciri ekmek başına 1,67 tahıl, NPC 4 tahıl.
+ * İlkan: *"pazarda NPC ticareti tuşu olmalı, ona bastığım an istediğimi
+ * istediğime çevirebiliyor olmalıyım."*
+ *
+ * İŞLENMİŞ → HAM eskiden KAPALIYDI ve gerekçesi bir DÖNGÜ korkusuydu:
+ * keresteci 8 odun → 6 kereste veriyor, NPC `1 kereste → 2 odun` yapsaydı
+ * 8 odun bir turda 12 odun olurdu (+%50, sonsuz).
+ *
+ * KORKU ORANIN KENDİSİNDEYDİ, YÖNÜN DEĞİL. 2:1 ile ölçelim:
+ *     8 odun --keresteci--> 6 kereste --NPC 2:1--> 3 odun   (−%62)
+ * Yani her tur kaybettiriyor. Döngüyü açan şey "1 kereste > 1,33 odun"
+ * vermek olurdu; 2:1 bunun çok altında. Ekmek için de aynı: zincir ekmek
+ * başına 1,67 tahıl harcıyor, NPC ekmek başına 0,5 tahıl veriyor.
+ *
+ * Ham → işlenmiş 4:1 kalıyor ve işleme binalarının değerini koruyor: NPC
+ * kereste başına 4 odun isterken keresteci 1,33 odun istiyor. Yani NPC
+ * her zaman daha pahalı, bina anlamsızlaşmıyor.
  */
 
 const HAM = new Set(['odun', 'kil', 'tas', 'demir', 'tahil']);
@@ -45,7 +53,12 @@ function takasOrani(veren, alan) {
   if (vHam && aHam) return 2;     // ham  -> ham       : 2 ver, 1 al
   if (vHam && aIsl) return 4;     // ham  -> işlenmiş  : 4 ver, 1 al
   if (vIsl && aIsl) return 2;     // işl. -> işlenmiş  : 2 ver, 1 al
-  return null;                    // işl. -> ham       : KAPALI
+  /*
+    İŞLENMİŞ → HAM: 2 ver, 1 al. Açık ama PAHALI — işleme zinciri
+    1 kereste için 1,33 odun harcıyor, geri dönüşte 1 kereste 0,5 odun
+    ediyor. Döngü her turda kaybettiriyor (bkz. dosya başı).
+  */
+  return 2;
 }
 
 /**

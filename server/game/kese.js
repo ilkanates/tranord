@@ -12,7 +12,12 @@
  * GÜMÜŞ oyunun içinden kazanılıyor (asıl kaynağı macera) ve yalnız
  * kahraman ekonomisinde harcanıyor: açık artırmadan eşya almak, eşya
  * yükseltmek. ALTIN oyunun dışından geliyor (hediye, ileride satın
- * alma) ve köy ekonomisine dokunuyor.
+ * alma).
+ *
+ * ALTINLA HAMMADDE ALINAMIYOR (İlkan'ın kararı: *"parayla hammadde
+ * alınamamalı"*). Alınabilseydi oyun "para öde, kaynak al" hâline
+ * gelir, ödeyenin üretim yapmaya ihtiyacı kalmazdı. Kaynak dönüştürmenin
+ * yeri pazar ve bedeli oranın kendisi (bkz. pazar.js · npcTakas).
  *
  * İkisini tek para yapsaydık, dışarıdan alınan her birim doğrudan
  * kahramanın gücüne çevrilebilirdi; ayrı tutunca aradaki geçiş TEK bir
@@ -69,24 +74,6 @@ const BASLANGIC = {
  */
 const ALTIN_GUMUS = 100;   // 1 altın satınca alınan gümüş
 const GUMUS_ALTIN = 150;   // 1 altın almak için verilen gümüş
-
-/**
- * ALTINLA HAMMADDE — 1 altın = 1.000 birim, seçilen tek kaynaktan.
- *
- * İlkan "1'e 1 hammadde ticareti" dedi; 1 altın = 1 odun olamayacağına
- * göre kastedilen ORANIN değil PAKETİN birebirliği: hangi kaynağı
- * seçersen seç aynı miktar geliyor, kaynaklar arasında kur farkı yok.
- * Pazarın NPC takası kaynaklar arasında oran uyguluyor (2:1, 4:1);
- * altın o oranları atlıyor, bedeli de zaten altının kendisi.
- *
- * BİN BİRİM: Lvl 20 deponun aldığı miktarın küçük bir dilimi, yani
- * altın inşaatı hızlandırır ama hammadde üretimini anlamsızlaştırmaz.
- *
- * NOT: işlenmiş mal (kereste, tuğla…) YOK. Altınla işlenmiş mal
- * alınabilseydi işleme binaları zincirinin tamamı atlanabilirdi.
- */
-const ALTIN_HAMMADDE = 1000;
-const HAMMADDELER = ['odun', 'kil', 'tas', 'demir', 'tahil'];
 
 /** Kaydı çalışır hâle getir — eski hesapta kese alanı hiç yok. */
 function duzelt(kese) {
@@ -178,28 +165,6 @@ function cevir(kese, yon, adet) {
   return { ok: false, sebep: 'gecersiz_yon', kese: k };
 }
 
-/**
- * ALTINLA HAMMADDE AL — kaç altın, hangi kaynak.
- *
- * DEPO TAVANI ÇAĞIRANDA uygulanıyor (köyün kapasitesini bu dosya
- * bilmiyor). Taşan kısım hiç verilmiyor, altın da harcanmıyor — pazarın
- * NPC takasıyla aynı kural (bkz. pazar.js · npcTakas · depo_dolu).
- */
-function hammaddeAl(kese, kaynak, altinAdedi, bosYer = null) {
-  const k = duzelt(kese);
-  const n = Math.floor(Number(altinAdedi) || 0);
-  if (!HAMMADDELER.includes(kaynak)) return { ok: false, sebep: 'gecersiz_kaynak', kese: k };
-  if (n <= 0) return { ok: false, sebep: 'miktar_sifir', kese: k };
-  if (k.altin < n) return { ok: false, sebep: 'yetersiz', kese: k };
-
-  const miktar = n * ALTIN_HAMMADDE;
-  if (bosYer != null && miktar > bosYer) {
-    return { ok: false, sebep: 'depo_dolu', sigan: bosYer, kese: k };
-  }
-  k.altin -= n;
-  return { ok: true, kese: k, kaynak, miktar };
-}
-
 /** İstemciye giden özet — kurlar da gidiyor, istemci kendi hesaplamasın */
 function ozet(kese) {
   const k = duzelt(kese);
@@ -207,12 +172,10 @@ function ozet(kese) {
     gumus: k.gumus, altin: k.altin,
     altinGumus: ALTIN_GUMUS,
     gumusAltin: GUMUS_ALTIN,
-    altinHammadde: ALTIN_HAMMADDE,
-    hammaddeler: HAMMADDELER,
   };
 }
 
 module.exports = {
-  BASLANGIC, ALTIN_GUMUS, GUMUS_ALTIN, ALTIN_HAMMADDE, HAMMADDELER,
-  duzelt, yeniKese, ekle, harca, yeter, cevir, hammaddeAl, ozet,
+  BASLANGIC, ALTIN_GUMUS, GUMUS_ALTIN,
+  duzelt, yeniKese, ekle, harca, yeter, cevir, ozet,
 };

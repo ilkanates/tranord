@@ -225,18 +225,21 @@ giremedim, her şeyim gitti" en hızlı bırakma sebebi.
 
 İlkan'ın sözleri: *"kahramanlar itemlerini satabilmeli gümüş karşılığında. gümüş ile de ileride birşeyler alabileceğiz. itemlerin min tutarları olsun, kimse almasa bile açık arttırma bitince o parayı kullanıcı alsın, item NPC'ye satılmış olsun. her satış 24 saat açık arttırmada dursun, fazla parayı veren alsın. gümüşün asıl kazanma olasılığı kahramanın maceraları olsun. başlangıçta herkese birkaç item alacak kadar gümüş verilsin. oyunda bir de altın olsun, yine bunu canlıya alınca bir miktar altın verelim kullanıcıya. kullanıcı altını gümüşe, gümüşü altına çevirebilsin. bunun için bir binaya gerek yok, kendi menüsü olsun yukarıda. altınla 1'e 1 hammadde ticareti yapabilsin. üretim bonusu, depo bonusu ve bina yapımını hızlı bitirme gibi şeylerde de kullanabilsin."*
 
-> **DURUM (17 Eylül 2026):** 1. adım (KESE) **YAPILDI** — gümüş ve altın
-> cüzdanı, macera gümüş ödülü, altın↔gümüş çevirme ve altınla hammadde.
-> Sırada AÇIK ARTIRMA (2) ve EŞYA SEVİYESİ (3). Eşya taban fiyatları ve
-> yükseltme bedelleri de tanımlandı (`server/game/esyaDeger.js`) —
-> ikisinin de sayıları hazır, arayüzleri yok.
+> **DURUM (17 Eylül 2026):** 1–3 **YAPILDI** — kese, açık artırma ve eşya
+> seviyeleri çalışıyor (bkz. Tamamlandı). ALTIN cüzdanı da var ama kalan
+> iki iş duruyor: **gerçek parayla altın satın alma** (ödeme sağlayıcısı)
+> ve **altının bonus kullanımları** (üretim bonusu, depo bonusu, binayı
+> anında bitirme). Bunların sayıları hâlâ İlkan'ın kararını bekliyor.
+>
+> **ALTINLA HAMMADDE ALIMI İPTAL** (İlkan, 17 Eylül 2026:
+> *"parayla hammadde alınamamalı"*). Kısa süre açıktı, kaldırıldı.
 
 ### 1. ~~GÜMÜŞ — kahramanın parası~~ — **YAPILDI**
 - **Kaynağı asıl olarak MACERA** (İlkan'ın kararı). Yağmadan ya da üretimden gelmiyor: gümüş kahramana ait bir ekonomi, köy ekonomisinden ayrı durmalı.
 - **Başlangıç bakiyesi**: herkese birkaç eşya alacak kadar. *(Açık: "birkaç eşya" kaç gümüş? Eşya taban fiyatları belirlenince türetilebilir.)*
 - Harcama yeri: açık artırmadan eşya almak. İleride başka şeyler.
 
-### 2. AÇIK ARTIRMA — eşya pazarı
+### 2. ~~AÇIK ARTIRMA — eşya pazarı~~ — **YAPILDI**
 - Kahraman eşyasını satışa koyuyor, **24 saat** açık kalıyor, **en yüksek teklifi veren** alıyor.
 - **TABAN FİYAT (min tutar) VAR ve kimse teklif vermezse bile satış OLUYOR**: süre bitince eşya "NPC'ye satılmış" sayılıyor, satıcı taban fiyatı alıyor. Bu, İlkan'ın açık isteği ve önemli bir denge kararı — eşya hiç satılmazsa oyuncu emeğinin karşılığını alamazdı.
 - **Açık sorular (denge kararı gerekiyor):**
@@ -247,7 +250,7 @@ giremedim, her şeyim gitti" en hızlı bırakma sebebi.
   - Satıştan NPC'ye giden eşyalar dünyadan siliniyor mu, yoksa havuzda mı kalıyor?
 - **Mimari notu**: süre bitimi zamanlayıcı ister — mevcut sefer/kuyruk tikine bağlanabilir, ayrı bir zamanlayıcı kurmak ikinci bir zaman kaynağı olurdu (bu projede zaman TEK yerden akıyor: `gameTime.js`).
 
-### 3. EŞYA SEVİYESİ — eşyalar yükseltilebilsin
+### 3. ~~EŞYA SEVİYESİ — eşyalar yükseltilebilsin~~ — **YAPILDI**
 - İlkan: *"itemlerin de lvl'leri 5 lvl arttırılabilecek, onu da ekle."*
 - Her eşya **5 seviye** yükseltilebilecek; bonusları seviyeyle büyüyecek.
 - **Açık sorular (denge kararı gerekiyor):**
@@ -302,6 +305,40 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### Savaş ve macera düzeltmeleri (17 Eylül 2026)
+Dört ayrı bildirim, hepsi ölçülerek doğrulandı ve uçtan uca testle kilitlendi.
+
+- **KAHRAMANIN SAVAŞ HASARI BAŞTAN YAZILDI.** İki bildirim art arda geldi: *"normal köye saldırdığımda kahramanın da canı düşmeli"* ve *"canının ne kadar düşeceği üzerindeki zırha ve karşılaştığı ordu ile kendi yanındaki ordunun gücüne bağlı; gönderdiğim ordu tamamen öldüyse kahraman kolay kolay canlı çıkamaz."*
+  - **ESKİ EĞRİ İKİ UÇTA DA YANLIŞTI.** Hasar = kayıp oranı × SABİT 70. Ezici zaferde oran sıfıra yuvarlanıyor, kahraman hiç yıpranmıyordu (sefere katmak bedavaydı); ordunun tamamı kırıldığında ise 1.090 canlı kahraman için 70 hasar, yani canının %6'sı — ordusu yok olan kahraman sapasağlam dönüyordu.
+  - **YENİ EĞRİ**: `hasar = canTavani × (0,05 + 1,75 × kayipOrani^1,5)`. Hasar CAN TAVANININ YÜZDESİ (sabit sayı aynı savaşta yeni kahramanı öldürür, yüksek seviyeliyi çizmezdi). **Kayıp oranı zaten iki ordunun güç oranı** (`attackerLossRate`: kazanınca (savunma/saldırı)^K, kaybedince 1) — ayrı bir güç hesabı yazmak aynı şeyi ikinci kez tanımlamak olurdu. **Üs 1,5** çünkü doğrusal eğride rutin yağma da kahramanın canından ciddi pay alıyordu; üs eğriyi düşük kayıplarda yatırıp yüksek kayıplarda dikleştiriyor.
+  - **ORDU YOK OLUNCA HASAR CAN TAVANININ 1,8 KATI**: zırhsız kahraman ölür, **tam zırhlı (%50 tavan) canının onda biriyle çıkar**. "Kolay kolay canlı çıkamaz" tarifi tam bu — imkânsız değil, ama ancak tam zırhla. Zırh yatırımı tam olarak bu anda karşılığını veriyor.
+  - **ZIRHIN ETKİSİ RAPORDA GÖRÜNÜYOR.** Rapor HAM hasarı yazıyordu; oyuncu zırhının işe yarayıp yaramadığını hiçbir yerde göremiyordu (macera raporunda bu ayrım vardı, savaşta yoktu). Rapor savaş anında kuruluyor ama hasar sonra uygulanıyor, o yüzden uygulamadan sonra düzeltiliyor ve ham değer de bırakılıyor — fark ancak ikisi yan yanayken okunuyor.
+  - **Savunmasız köye girmek savaş sayılmıyor** — orada hasar da yok. Ölçüm (1.090 canlı, zırhsız): kayıp %2 → 60 hasar · %10 → 115 · %30 → 368 · %50 → 729 · %100 → 1962 (ölüm).
+- **KAHRAMAN ORDUSUNDAN ÖNCE EVE DÖNÜYORDU.** İlkan: *"kahraman başka köye saldırdı, geri geliyor; daha gelmeden maceraya yolladım. Yollayamamam lazım."* Savaş biter bitmez "üssünde" sayılıyordu, yani seferin dönüş ayağı kahraman için hiç yoktu ve uzaklık kahramanın maliyetine girmiyordu. Artık sefer eve varınca serbest kalıyor — **ikinci bir sayaç yok**, seferin kendi zamanı kullanılıyor. XP ve hasar yine savaş anında işleniyor: sonuç savaşta belli oluyor, dönüş yolu onu değiştirmiyor.
+- **RAPOR KARŞI TARAFIN ORDUSUNU GÖSTERMİYORDU.** İlkan: *"raporda karşı tarafın kaç askeri vardı onu göremiyorum."* Yalnız KAYIPLARI yazıyorduk; savunan kazandıysa kaybı küçük olur ve oyuncu neye çarptığını hiç öğrenemezdi. "40 öldürdüm" tek başına anlamsız — 40/45 ile 40/900 tamamen farklı iki savaş. Rapora `theirSent` eklendi (misafirler dahil, köyü savunan her şey tek orduydu) ve özet satırı artık "kaçta kaç" yazıyor. İstihbarat sızıntısı değil: onunla çarpıştın, ne olduğunu gördün.
+- **MACERADAN GELEN ASKER DÜNYAYLA BÜYÜMÜYORDU.** İlkan: *"5k askerim var, maceradan 1 asker bulup getiriyor."* Ödül sabitti (kısa 1-3, uzun 1-6): ilk günde hediye, olgun dünyada gürültü — üç ödül kanalından biri ölü doğmuştu. Artık **dünyanın ORTALAMA ordusuna** göre ölçekleniyor (kısa %0,4 · uzun %1,2, ±%40 dalgalanma, taban 1/2). **Kendi ordusuna bağlanmadı**: bileşik bir döngü kurar, çok askeri olan daha çok bulur ve fark her maceradan sonra açılırdı. Ortalama 60 sn önbellekli — her macera bitişinde bütün oturumları taramak gereksiz. Ölçüm: ortalama 5.000 iken uzun macera ~60 asker getiriyor (eskiden 1-6).
+- Kilit: `kahraman-savas.test.js` (+3 kural testi), `kahraman-savas-hasar-uctan.test.js` (3 uçtan uca: can düşüyor · rapor orduyu yazıyor · yoldaki kahraman maceraya çıkamıyor), `macera.test.js` (+3).
+
+### Açık artırma ve eşya seviyeleri (17 Eylül 2026)
+- İlkan: *"kahramanlar itemlerini satabilmeli gümüş karşılığında… itemlerin min tutarları olsun, kimse almasa bile açık artırma bitince o parayı kullanıcı alsın, item NPC'ye satılmış olsun. her satış 24 saat açık artırmada dursun, fazla parayı veren alsın."* ve *"itemlerin de lvl'leri 5 lvl arttırılabilecek."*
+- **TABAN FİYATI SİSTEM KOYUYOR, satıcı değil.** Satıcı tabanı kendi yazsaydı ve teklif gelmeyince NPC o tabanı ödeseydi herkes tabana milyon yazıp bedava para basardı. Taban eşyadan türüyor (nadirlik² × seviye).
+- **SÜRE 24 GERÇEK SAAT**, oyun saati değil. Dünya 10× hızda: 24 oyun saati 2,4 gerçek saat eder ve günde bir giren oyuncu hiçbir ilanı göremezdi. Açık artırma bir pazar; insanların görebildiği bir saatte durmalı. Travian da hız sunucularında 24 gerçek saat kullanıyor.
+- **TEKLİFTE GÜMÜŞ BLOKE**, geçilince ANINDA iade. Blokaj olmasaydı aynı gümüşle on açık artırma kazanılır, dokuzu karşılıksız kalırdı; iade gecikseydi kimse teklif vermek istemezdi.
+- **KENDİ İLANINA TEKLİF YASAK** — fiyat şişirme (shill bidding) açık artırmanın en bilinen dolandırıcılığı ve blokaj yüzünden risksiz olurdu.
+- **SON 10 DAKİKA UZATIYOR**: uzatma olmasaydı kazanan, eşyayı en çok isteyen değil son saniyede en hızlı tıklayan olurdu.
+- **YARIŞ İKİ YERDE KOŞULLU YAZMAYLA KAPATILDI**: teklif `WHERE teklif = $5`, kapatma `WHERE bitti = FALSE`. Önce okuyup sonra yazsaydık iki oyuncu aynı anda kazanmış sayılır, ya da satıcı parayı iki kez alırdı.
+- **ÇEVRİMDIŞI OYUNCU DA ÖDENİYOR**: bütün oturumlar açılışta belleğe yükleniyor, o yüzden satıcı bağlı olmasa da kesesine yazılabiliyor. Olmasaydı "24 saat sonra biter" sözü tutulamazdı.
+- **EŞYA SEVİYESİ**: 5 seviye, her biri bonusu %20 büyütüyor (toplamalı). Katlanan artış sıradan eşyanın Lvl 5'ini efsanevinin Lvl 1'ine yaklaştırırdı; toplamalı artış nadirliğin üstünlüğünü koruyor. Yükseltme her zaman başarılı — bu oyunda başka hiçbir yerde "ödedin ama olmadı" yok.
+- **İKİ PARA DÖNGÜSÜ DE TESTLE KAPALI**: çevirme turu zarar ettiriyor, yükseltip satmak her nadirlikte maliyetin altında kalıyor.
+- Kilit: `acik-artirma.test.js` (13 kural testi) + `acik-artirma-uctan.test.js` (6 uçtan uca: blokaj, iade, envanter, yükseltme).
+- **TARAYICIDA DOĞRULANDI**: efsanevi kolye 518 taban fiyatla listelendi ve "1g 0sa" kalan süreyle göründü; eşya yükseltme Lvl 1→2 yaptı, bonus +60'tan +72'ye çıktı, gümüş 600'den 546'ya düştü (tam 54).
+
+### NPC takası her yöne açıldı, altınla hammadde kalktı (17 Eylül 2026)
+- İlkan: *"parayla hammadde alınamamalı. pazarda NPC ticareti tuşu olmalı, ona bastığım an istediğimi istediğime çevirebiliyor olmalıyım."*
+- **İŞLENMİŞ → HAM YÖNÜ AÇILDI** (2 ver, 1 al). Kapalıydı ve gerekçesi bir DÖNGÜ korkusuydu: keresteci 8 odun → 6 kereste veriyor, NPC "1 kereste → 2 odun" yapsaydı 8 odun bir turda 12 odun olurdu. **Korku oranın kendisindeymiş, yönde değil**: 2:1 ile aynı tur 8 odun → 6 kereste → 3 odun veriyor, yani %62 kaybettiriyor. Ekmek için de aynı (zincir 1,67 tahıl harcıyor, NPC 0,5 tahıl veriyor).
+- **İSTEMCİDEKİ İKİZ KOPYA YAKALANDI**: `PazarPanel.jsx` oranın kendi kopyasını taşıyor (düğmeyi kapatabilmek için) ve sunucu açılınca o kapalı kalmıştı — ekran "bu yön yok" derken sunucu kabul ediyordu. Artık `tanim-ikizleri.test.js` ikisini karşılaştırıyor; testin ayrışmayı gerçekten yakaladığı ölçülerek doğrulandı.
+- **ALTINLA HAMMADDE ALIMI KALDIRILDI**. Altınla kaynak alınabilseydi oyun "para öde, kaynak al" hâline gelir, ödeyenin üretim yapmaya ihtiyacı kalmazdı. Kese penceresi artık oyuncuyu pazara yönlendiriyor. Testi de "kapı hiç yok" diye yeniden yazıldı: işlev geri eklenirse — başka bir adla bile — yakalanıyor.
 
 ### Kese: gümüş ve altın (17 Eylül 2026)
 - İlkan'ın tarifi: *"oyunda bir de altın olsun… kullanıcı altını gümüşe, gümüşü altına çevirebilsin… altınla 1'e 1 hammadde ticareti yapabilsin… bunun için bir binaya gerek yok, kendi menüsü olsun yukarıda."*

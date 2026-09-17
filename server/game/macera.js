@@ -285,6 +285,32 @@ const HAMMADDELER = ['odun', 'kil', 'tas', 'demir'];
 /** Macerada bulunabilen birimler — pahalı/özel olanlar havuzda YOK */
 const MACERA_BIRIMLERI = ['fjordvakt', 'spydvakt', 'demirAtli'];
 
+/**
+ * BULUNAN ASKER DÜNYANIN ORTALAMA ORDUSUNA GÖRE.
+ *
+ * İlkan: *"5k askerim var, maceradan 1 asker bulup getiriyor."* Sabit
+ * sayı (kısa 1-3, uzun 1-6) oyunun ilk gününde hediye, olgun bir
+ * dünyada gürültüydü.
+ *
+ * ORAN DÜNYANIN ORTALAMASINDAN, oyuncunun KENDİ ordusundan değil:
+ * kendi ordusuna bağlasaydık çok askeri olan daha çok asker bulur ve
+ * aradaki fark her maceradan sonra açılırdı. Dışarıdan bir ölçü hem
+ * dünyayla büyüyor hem de biriktirmeyi ödüllendirmiyor.
+ *
+ * TABAN VAR: ortalama sıfırken (taze dünya) macera yine bir şey
+ * getirmeli, yoksa ilk oyuncular için asker ödülü hiç yokmuş gibi olur.
+ */
+const ASKER_ORANI = { kisa: 0.004, uzun: 0.012 };
+const ASKER_TABAN = { kisa: 1, uzun: 2 };
+
+function maceraAskerAdedi(tip, ortalamaOrdu = 0, rnd = Math.random) {
+  const oran = ASKER_ORANI[tip] ?? ASKER_ORANI.kisa;
+  const taban = ASKER_TABAN[tip] ?? ASKER_TABAN.kisa;
+  /* Dalgalanma ±%40 — her macera aynı sayıyı verirse ödül hissi kaybolur */
+  const ham = Math.max(0, ortalamaOrdu) * oran * (0.6 + rnd() * 0.8);
+  return Math.max(taban, Math.round(ham));
+}
+
 /** [0,1) üreten varsayılan rastgelelik; testte deterministik biri verilir */
 const varsayilanRnd = () => Math.random();
 
@@ -319,7 +345,11 @@ function nadirlikSec(rnd) {
  * @param {number} saldiriGucu Kahramanın toplam saldırı gücü — can kaybını
  *   azaltıyor (bkz. gucAzaltmasi). Verilmezse tam hasar uygulanıyor.
  */
-function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0) {
+/**
+ * @param ortalamaOrdu Dünyadaki oyuncu başına ortalama asker — bulunan
+ *   asker sayısı buna göre ölçekleniyor (bkz. maceraAskerAdedi).
+ */
+function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0, ortalamaOrdu = 0) {
   const def = MACERA_TIPLERI[tip];
   if (!def) return null;
 
@@ -349,8 +379,7 @@ function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0) {
       oduller.push({ tur: 'gumus', adet: Math.round(taban * (0.6 + rnd() * 0.8)) });
     } else if (tur === 'asker') {
       const birim = MACERA_BIRIMLERI[Math.floor(rnd() * MACERA_BIRIMLERI.length)];
-      // Uzun macera daha çok asker getiriyor; sayı XP ile aynı ölçekte
-      const adet = 1 + Math.floor(rnd() * (tip === 'uzun' ? 6 : 3));
+      const adet = maceraAskerAdedi(tip, ortalamaOrdu, rnd);
       oduller.push({ tur: 'asker', birim, adet });
     } else {
       const res = HAMMADDELER[Math.floor(rnd() * HAMMADDELER.length)];
@@ -377,6 +406,7 @@ function esyaAdi(key, nadirlik) {
 
 module.exports = {
   MACERA_TIPLERI, MACERA_CAN_ESIGI, ODUL_AGIRLIK, GUMUS_TABAN,
+  ASKER_ORANI, ASKER_TABAN, maceraAskerAdedi,
   HAMMADDELER, MACERA_BIRIMLERI,
   MACERA_TAVAN_TABAN, MACERA_TAVAN_PER_SEVIYE, MACERA_SAAT_TABAN, IKSIR_SANSI,
   maceraTavani, maceraSaati, maceraBiriktir,

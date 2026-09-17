@@ -14,7 +14,6 @@
  */
 import { useEffect, useState } from 'react';
 import { C, FONT, btn, label as lbl, num, panel } from '../theme';
-import { RES_LABEL } from '../flows';
 import Icon from './Icons';
 
 const HATA = {
@@ -22,9 +21,7 @@ const HATA = {
   miktar_sifir: 'Miktar sıfır olamaz.',
   miktar_az: 'Bir altın almaya yetmiyor.',
   gecersiz_yon: 'Geçersiz çevirme yönü.',
-  gecersiz_kaynak: 'Bu kaynak altınla alınamıyor.',
   gecersiz_para: 'Geçersiz para birimi.',
-  depo_dolu: 'Deponda bu kadar yer yok.',
 };
 
 /** Üst bardaki bakiye rozeti — hem gösteriyor hem pencereyi açıyor */
@@ -77,11 +74,8 @@ function Bakiye({ ad, deger, renk, aciklama }) {
 }
 
 export default function KesePanel({ socket, kese, onClose }) {
-  const [sekme, setSekme] = useState('cevir');
   const [altinAdet, setAltinAdet] = useState(1);
   const [gumusAdet, setGumusAdet] = useState(150);
-  const [kaynak, setKaynak] = useState('odun');
-  const [hamAdet, setHamAdet] = useState(1);
   const [mesaj, setMesaj] = useState(null);
 
   /*
@@ -92,13 +86,8 @@ export default function KesePanel({ socket, kese, onClose }) {
   useEffect(() => {
     if (!socket) return;
     const gelen = (d) => {
-      if (d?.ok) {
-        setMesaj({ iyi: true, metin: d.islem === 'hammadde'
-          ? `${d.miktar.toLocaleString('tr')} ${RES_LABEL[d.kaynak] || d.kaynak} deponuza eklendi.`
-          : ozetMetni(d) });
-      } else {
-        setMesaj({ iyi: false, metin: HATA[d?.sebep] || 'İşlem yapılamadı.' });
-      }
+      if (d?.ok) setMesaj({ iyi: true, metin: ozetMetni(d) });
+      else setMesaj({ iyi: false, metin: HATA[d?.sebep] || 'İşlem yapılamadı.' });
     };
     socket.on('kese_sonuc', gelen);
     return () => socket.off('kese_sonuc', gelen);
@@ -116,8 +105,6 @@ export default function KesePanel({ socket, kese, onClose }) {
   const altin = kese.altin || 0;
   const kurAG = kese.altinGumus || 100;
   const kurGA = kese.gumusAltin || 150;
-  const paket = kese.altinHammadde || 1000;
-  const kaynaklar = kese.hammaddeler || ['odun', 'kil', 'tas', 'demir', 'tahil'];
 
   /* Gümüşten altına çevirirken artık gümüş kesede kalıyor — sunucu da böyle */
   const alinacakAltin = Math.floor(gumusAdet / kurGA);
@@ -162,20 +149,16 @@ export default function KesePanel({ socket, kese, onClose }) {
             <Bakiye ad="GÜMÜŞ" deger={gumus} renk={C.iceSoft}
               aciklama="Kahramanın parası. Asıl kaynağı macera." />
             <Bakiye ad="ALTIN" deger={altin} renk={C.gold}
-              aciklama="Hesabın parası. Hammaddeye ve gümüşe çevrilir." />
+              aciklama="Hesabın parası. Gümüşe çevrilir." />
           </div>
 
-          <div style={{ display: 'flex', gap: 4 }}>
-            {[['cevir', 'ÇEVİR'], ['hammadde', 'HAMMADDE AL']].map(([k, ad]) => (
-              <button key={k} type="button" onClick={() => { setSekme(k); setMesaj(null); }}
-                style={btn(sekme === k ? 'primary' : 'ghost', {
-                  flex: 1, padding: '6px 8px', fontSize: 9, letterSpacing: 1.1,
-                })}>{ad}</button>
-            ))}
-          </div>
-
-          {sekme === 'cevir' && (
-            <>
+          {/*
+            HAMMADDE SEKMESİ KALDIRILDI (İlkan: *"parayla hammadde
+            alınamamalı"*). Altınla kaynak alınabilseydi oyun "para öde,
+            kaynak al" hâline gelirdi. Kaynak dönüştürmenin yeri pazarın
+            NPC takası; oranın kendisi zaten bir bedel.
+          */}
+          <>
               {/* ── Altın → Gümüş ── */}
               <div style={panel({ padding: '10px 11px', display: 'flex', flexDirection: 'column', gap: 7 })}>
                 <div style={lbl({ fontSize: 8, letterSpacing: 1.3 })}>
@@ -225,42 +208,19 @@ export default function KesePanel({ socket, kese, onClose }) {
                     opacity: alinacakAltin >= 1 && gumus >= alinacakAltin * kurGA ? 1 : 0.55,
                   })}>GÜMÜŞÜ ALTINA ÇEVİR</button>
               </div>
-            </>
-          )}
+          </>
 
-          {sekme === 'hammadde' && (
-            <div style={panel({ padding: '10px 11px', display: 'flex', flexDirection: 'column', gap: 8 })}>
-              <div style={lbl({ fontSize: 8, letterSpacing: 1.3 })}>
-                1 ALTIN = {paket.toLocaleString('tr')} BİRİM
-              </div>
-              <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute, lineHeight: 1.45 }}>
-                Hangi kaynağı seçersen seç aynı miktar gelir — kaynaklar arasında kur farkı yok.
-                Mal <b style={{ color: C.textFaint }}>bulunduğun köye</b> iner; depon taşıyorsa alım yapılmaz.
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {kaynaklar.map(k => (
-                  <button key={k} type="button" onClick={() => { setKaynak(k); setMesaj(null); }}
-                    style={btn(kaynak === k ? 'primary' : 'ghost', {
-                      padding: '5px 9px', fontSize: 9, letterSpacing: 0.6,
-                    })}>{RES_LABEL[k] || k}</button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <input type="number" min="1" value={hamAdet}
-                  onChange={(e) => setHamAdet(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
-                  style={girdi} />
-                <span style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textFaint }}>
-                  altın → {(hamAdet * paket).toLocaleString('tr')} {RES_LABEL[kaynak] || kaynak}
-                </span>
-              </div>
-              <button type="button" disabled={altin < hamAdet}
-                onClick={() => yolla('kese_hammadde', { kaynak, adet: hamAdet })}
-                style={btn(altin >= hamAdet ? 'primary' : 'ghost', {
-                  padding: '7px 10px', fontSize: 9.5, letterSpacing: 1.1,
-                  opacity: altin >= hamAdet ? 1 : 0.55,
-                })}>SATIN AL</button>
-            </div>
-          )}
+          {/*
+            HAMMADDE PAZARDAN ALINIYOR — kese oraya yönlendiriyor.
+            Oyuncu altını olunca "kaynak da alabilirim" diye
+            düşünebilir; nereye bakacağını söylemek, sessiz bir
+            eksiklikten iyidir.
+          */}
+          <div style={{ fontFamily: FONT.ui, fontSize: 8.5, color: C.textMute, lineHeight: 1.5 }}>
+            Hammadde altınla alınmıyor. Kaynağını dönüştürmek istiyorsan
+            <b style={{ color: C.textFaint }}> Pazar › NPC TAKASI</b> — orada her
+            kaynağı her kaynağa çevirebilirsin.
+          </div>
 
           {mesaj && (
             <div style={{

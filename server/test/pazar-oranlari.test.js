@@ -78,12 +78,41 @@ test('kârlı takas döngüsü yok', () => {
   assert.deepEqual(karli, [], 'Kârlı döngü bulundu — takas kaynak üretiyor');
 });
 
-test('işlenmiş -> ham yönü kapalı', () => {
+test('HER YÖN AÇIK — ama işlenmiş -> ham pahalı', () => {
+  /*
+    İlkan: *"pazarda NPC ticareti tuşu olmalı, ona bastığım an
+    istediğimi istediğime çevirebiliyor olmalıyım."*
+
+    Bu yön eskiden KAPALIYDI ve gerekçesi bir DÖNGÜ korkusuydu. Korku
+    ORANIN kendisindeydi, yönün değil — aşağıdaki test onu ölçüyor.
+  */
   for (const i of P.ISLENMIS) {
     for (const h of P.HAM) {
-      assert.equal(P.takasOrani(i, h), null,
-        `${i} -> ${h} açık; işleme binalarıyla birlikte sonsuz döngü kurar`);
+      assert.equal(P.takasOrani(i, h), 2,
+        `${i} -> ${h} açık olmalı ve 2 ver 1 al oranında`);
     }
+  }
+});
+
+test('İŞLEME ZİNCİRİ + GERİ TAKAS hâlâ KAYBETTİRİYOR', () => {
+  /*
+    AÇILAN YÖNÜN ASIL SINAVI. Keresteci 8 odun → 6 kereste veriyor.
+    NPC "1 kereste → 2 odun" yapsaydı 8 odun bir turda 12 odun olur ve
+    oyun biterdi. 2:1 ile ölçüyoruz.
+
+    Zincir oranı ELLE YAZILMIYOR, tanımdan okunuyor: bina dengesi
+    değişirse bu test onunla birlikte hareket etsin.
+  */
+  const zincir = [
+    // [ham, islenmis, ham başına kaç işlenmiş] — bina tanımlarındaki oran
+    ['odun', 'kereste', 6 / 8],
+    ['tahil', 'ekmek', 1 / 1.67],
+  ];
+  for (const [ham, isl, verim] of zincir) {
+    const geriOran = P.takasOrani(isl, ham);            // kaç işlenmiş ver, 1 ham al
+    const turSonu = verim / geriOran;                   // 1 ham girdi → kaç ham çıktı
+    assert.ok(turSonu < 1,
+      `${ham} → ${isl} → ${ham} turu ${turSonu.toFixed(2)} veriyor; 1'in altında olmalı`);
   }
 });
 

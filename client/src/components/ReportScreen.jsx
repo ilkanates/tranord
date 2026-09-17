@@ -740,6 +740,56 @@ function Detail({ r, unitDefs }) {
             </Section>
           )}
 
+          {/*
+            KARŞI TARAFIN ORDUSU — İlkan: *"raporda karşı tarafın kaç
+            askeri vardı onu göremiyorum."*
+
+            KAYIPTAN ÖNCE geliyor: "neye çarptım" sorusu "ne kadarını
+            öldürdüm"den önce sorulur. Yalnız kaybı gösterirken savunan
+            kazandıysa oyuncu neye çarptığını hiç öğrenemiyordu — kayıp
+            küçük olur, ordu devasa kalırdı.
+
+            Eski raporlarda bu alan yok; o zaman bölüm hiç çizilmiyor.
+          */}
+          {sum(r.theirSent) > 0 && (
+            <Section title={inc ? 'SALDIRANIN ORDUSU' : 'KARŞI TARAFIN ORDUSU'}>
+              <UnitGrid units={r.theirSent} unitDefs={unitDefs} color={C.textDim} />
+            </Section>
+          )}
+
+          {/*
+            KAHRAMANIN ÖDEDİĞİ BEDEL — zırhın gerçekten ne yaptığı.
+
+            Ham hasar ile uygulananı YAN YANA yazmak şart: tek başına
+            "−981 can" oyuncuya zırhının işe yarayıp yaramadığını
+            söylemiyor. Fark görününce zırh yatırımı ölçülebilir hâle
+            geliyor. Eski raporlarda `hasarHam` yok; o zaman yalnız
+            uygulanan yazılıyor.
+          */}
+          {r.kahraman && (r.kahraman.hasar > 0 || r.kahraman.oldu) && (
+            <Section title="KAHRAMANIN BEDELİ">
+              <div style={{ fontFamily: FONT.ui, fontSize: 11, lineHeight: 1.7, color: C.text }}>
+                <div>
+                  Can <b style={{ color: C.danger }}>−{r.kahraman.hasar}</b>
+                  {r.kahraman.hasarHam > r.kahraman.hasar && (
+                    <span style={{ color: C.good }}>
+                      {' '}· zırh {r.kahraman.hasarHam - r.kahraman.hasar} hasarı engelledi
+                      {' '}({Math.round((1 - r.kahraman.hasar / r.kahraman.hasarHam) * 100)}%)
+                    </span>
+                  )}
+                </div>
+                {r.kahraman.xp > 0 && (
+                  <div style={{ color: C.iceSoft }}>Deneyim +{r.kahraman.xp}</div>
+                )}
+                {r.kahraman.oldu && (
+                  <div style={{ color: C.danger, fontWeight: 600 }}>
+                    KAHRAMAN BAYILDI — diriltmen gerekiyor.
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
           <Section title={inc ? 'SALDIRANIN KAYBI' : 'KARŞI TARAFIN KAYBI'}>
             <UnitGrid units={r.theirLosses} unitDefs={unitDefs} color={C.good} />
           </Section>
@@ -1139,7 +1189,19 @@ function Detail({ r, unitDefs }) {
             </div>
             <div style={panel({ padding: '9px 11px', background: 'rgba(11,23,37,0.7)' })}>
               <div style={lbl({ fontSize: 7.5, letterSpacing: 1 })}>SALDIRANIN KAYBI</div>
-              <div style={num({ fontSize: 18, color: C.good })}>{sum(r.theirLosses) || 0}</div>
+              <div style={num({ fontSize: 18, color: C.good })}>
+                {sum(r.theirLosses) || 0}
+                {/*
+                  KAÇTA KAÇ — "40 öldürdüm" tek başına anlamsız; 40/45 ile
+                  40/900 tamamen farklı iki savaş. Payda yoksa (eski
+                  rapor) yalnız sayı yazılıyor.
+                */}
+                {sum(r.theirSent) > 0 && (
+                  <span style={{ fontSize: 11, color: C.textMute }}>
+                    {' / '}{sum(r.theirSent)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

@@ -26,6 +26,104 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17j',
+    tarih: '17 Eylül 2026',
+    baslik: 'Açık artırma, eşya seviyeleri ve savaş düzeltmeleri',
+    notlar: [
+      {
+        id: '20260917-kahraman-savas-hasari',
+        tur: 'denge',
+        metin: 'KAHRAMANIN SAVAŞTA ALDIĞI HASAR BAŞTAN YAZILDI. Eskiden '
+          + 'sabit bir tavanı vardı (70): ordusunun tamamı kırılan bir '
+          + 'kahraman canının ancak %11\'ini kaybediyor, sapasağlam '
+          + 'dönüyordu. Artık hasar CAN TAVANININ YÜZDESİ ve İKİ '
+          + 'ORDUNUN GÜÇ ORANINA bağlı: rutin bir yağma neredeyse '
+          + 'bedava, ordunun kırıldığı bir savaş ölümcül.',
+      },
+      {
+        id: '20260917-ordu-olurse-kahraman',
+        tur: 'denge',
+        metin: 'ORDUN TAMAMEN ÖLÜRSE KAHRAMAN DA KOLAY KOLAY DÖNMEZ. '
+          + 'O savaşta hasar can tavanının 1,8 katı: zırhsız kahraman '
+          + 'bayılır. ZIRH TAM DOLUYSA (%50) canının onda biriyle '
+          + 'çıkıyor — zırh yatırımı tam olarak bu anda karşılığını '
+          + 'veriyor. Savaş raporunda artık zırhın kaç hasarı '
+          + 'engellediği de yazıyor.',
+      },
+      {
+        id: '20260917-kahraman-orduyla-donuyor',
+        tur: 'duzeltme',
+        metin: 'KAHRAMAN ORDUSUYLA BİRLİKTE DÖNÜYOR. Savaş biter bitmez '
+          + '"üssünde" sayılıyordu; kahraman fiilen yoldayken maceraya '
+          + 'yollayabiliyordun. Artık sefer eve varana kadar meşgul — '
+          + 'uzak hedefe kahraman yollamak gerçekten daha pahalı.',
+      },
+      {
+        id: '20260917-rapor-savunan-ordu',
+        tur: 'yenilik',
+        metin: 'SAVAŞ RAPORU KARŞI TARAFIN ORDUSUNU DA GÖSTERİYOR. '
+          + 'Sadece kaybı yazıyordu; savunan kazandıysa kaybı küçük olur '
+          + 've neye çarptığını hiç öğrenemezdin. Artık "40 / 900" gibi '
+          + 'kaçta kaç olduğu da yazıyor.',
+      },
+      {
+        id: '20260917-macera-asker-olcegi',
+        tur: 'denge',
+        metin: 'MACERADAN GELEN ASKER DÜNYAYLA BÜYÜYOR. Sabit 1-6 '
+          + 'askerdi: oyunun ilk gününde hediye, beş bin askerlik orduda '
+          + 'gürültü. Artık dünyadaki ORTALAMA ordu boyutuna göre '
+          + 'ölçekleniyor. Kendi ordunun büyüklüğüne bağlı değil — '
+          + 'olsaydı çok askeri olan daha çok bulur, aradaki fark her '
+          + 'maceradan sonra açılırdı.',
+      },
+      {
+        id: '20260917-acik-artirma',
+        tur: 'yenilik',
+        metin: 'AÇIK ARTIRMA AÇILDI — Kahraman ekranında yeni sekme. '
+          + 'Çantandaki eşyayı satışa koyuyorsun, ilan 24 saat açık '
+          + 'kalıyor, en yüksek teklifi veren alıyor. KİMSE TEKLİF '
+          + 'VERMEZSE eşya NPC\'ye satılıyor ve taban fiyatı yine sen '
+          + 'alıyorsun — hiçbir satış boşa gitmiyor.',
+      },
+      {
+        id: '20260917-artirma-kurallar',
+        tur: 'denge',
+        metin: 'TEKLİF VERİNCE GÜMÜŞÜN BLOKE OLUR, biri seni geçerse '
+          + 'anında geri döner. Kendi ilanına teklif veremezsin (fiyat '
+          + 'şişirme kapalı). Son 10 dakikada gelen teklif süreyi '
+          + 'uzatır: kazanan, eşyayı en çok isteyen olmalı — son '
+          + 'saniyede en hızlı tıklayan değil.',
+      },
+      {
+        id: '20260917-esya-seviyesi',
+        tur: 'yenilik',
+        metin: 'EŞYALAR 5 SEVİYEYE KADAR YÜKSELİYOR. Çantadaki her '
+          + 'eşyanın yanında "Lvl+" düğmesi var; bedeli gümüş ve eşyanın '
+          + 'değerinden hesaplanıyor. Her seviye bonusu %20 büyütüyor. '
+          + 'Nadirlik hâlâ kazanıyor: sıradan bir eşyanın Lvl 5\'i '
+          + 'efsanevi bir eşyanın Lvl 1\'ini geçmiyor.',
+      },
+      {
+        id: '20260917-npc-takas-her-yon',
+        tur: 'denge',
+        metin: 'NPC TAKASI ARTIK HER YÖNDE. Pazar > NPC TAKASI\'nda '
+          + 'işlenmiş malı da ham kaynağa çevirebiliyorsun (2 ver, 1 al). '
+          + 'Bu yön kapalıydı çünkü sonsuz döngü riski vardı; ölçtük — '
+          + 'risk oranın kendisindeymiş, yönde değil. 8 odun keresteciden '
+          + '6 kereste veriyor, geri takasta 3 odun ediyor: her tur '
+          + 'kaybettiriyor.',
+      },
+      {
+        id: '20260917-altin-hammadde-kalkti',
+        tur: 'denge',
+        metin: 'ALTINLA HAMMADDE ALINAMIYOR. Kısa süre açıktı, kapatıldı: '
+          + 'altınla kaynak alınabilseydi oyun "para öde, kaynak al" '
+          + 'hâline gelir, ödeyenin üretim yapmaya ihtiyacı kalmazdı. '
+          + 'Kaynak dönüştürmenin yeri pazar.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17i',
     tarih: '17 Eylül 2026',
     baslik: 'Kese açıldı, rapor kutusu birleşti',
@@ -83,13 +181,10 @@ export const YAMA_NOTLARI = [
       {
         id: '20260917-altin-cevirme',
         tur: 'yenilik',
-        metin: 'ALTIN GÜMÜŞE VE HAMMADDEYE ÇEVRİLİYOR. 1 altın = 100 '
-          + 'gümüş; geri dönüş pahalı (1 altın 150 gümüşe mal oluyor) — '
-          + 'makas olmasaydı iki para tek paraya düşer, tur döndürerek '
-          + 'para basmak mümkün olurdu. Altınla hammadde de alınıyor: '
-          + '1 altın = 1.000 birim, hangi ham kaynağı seçersen seç aynı '
-          + 'miktar. İşlenmiş mal altınla alınmıyor — yoksa işleme '
-          + 'binaları zinciri tamamen atlanabilirdi.',
+        metin: 'ALTIN GÜMÜŞE ÇEVRİLİYOR. 1 altın = 100 gümüş; geri dönüş '
+          + 'pahalı (1 altın 150 gümüşe mal oluyor) — makas olmasaydı iki '
+          + 'para tek paraya düşer, tur döndürerek para basmak mümkün '
+          + 'olurdu.',
       },
       {
         id: '20260917-baslangic-kese',

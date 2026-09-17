@@ -32,7 +32,12 @@ function oran(veren, alan) {
   if (vHam && aHam) return 2;
   if (vHam && aIsl) return 4;
   if (vIsl && aIsl) return 2;
-  return null;                       // işlenmiş → ham kapalı
+  /*
+    İŞLENMİŞ → HAM AÇILDI (İlkan: *"ona bastığım an istediğimi istediğime
+    çevirebiliyor olmalıyım"*). Sunucudaki takasOrani ile AYNI sayı —
+    ikisi ayrışırsa ekran açık gösterir sunucu reddeder, ya da tersi.
+  */
+  return 2;
 }
 
 function KaynakSecici({ deger, onSec, baslik, resources }) {

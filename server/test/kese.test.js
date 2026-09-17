@@ -88,28 +88,25 @@ test('bozuk/eksik kayıt başlangıç bakiyesiyle açılıyor', () => {
   assert.equal(KESE.duzelt({ gumus: -5, altin: 'abc' }).altin, KESE.BASLANGIC.altin);
 });
 
-test('altınla hammadde: depo taşarsa alım HİÇ yapılmıyor', () => {
+test('ALTINLA HAMMADDE ALINAMIYOR — kapı hiç yok', () => {
   /*
-    Yarısını verip altını tamamen almak oyuncunun parasını yakmak
-    olurdu — pazarın NPC takasıyla aynı kural (depo_dolu).
+    İlkan'ın kararı (17 Eylül 2026): *"parayla hammadde alınamamalı."*
+
+    Altınla kaynak alınabilseydi oyun "para öde, kaynak al" hâline
+    gelir, ödeyenin üretim yapmaya ihtiyacı kalmazdı. Kaynak
+    dönüştürmenin tek yeri pazarın NPC takası ve bedeli oranın kendisi.
+
+    İŞLEVİN VARLIĞI ÖLÇÜLÜYOR, davranışı değil: kapı geri açılırsa —
+    başka bir adla bile olsa — kesenin yüzeyi değişir ve bu test onu
+    yakalar.
   */
-  const r = KESE.hammaddeAl({ gumus: 0, altin: 5 }, 'odun', 2, 500);
-  assert.equal(r.ok, false);
-  assert.equal(r.sebep, 'depo_dolu');
-  assert.equal(r.kese.altin, 5, 'altın harcanmamalı');
-
-  const ok = KESE.hammaddeAl({ gumus: 0, altin: 5 }, 'odun', 2, 99999);
-  assert.equal(ok.ok, true);
-  assert.equal(ok.miktar, 2 * KESE.ALTIN_HAMMADDE);
-  assert.equal(ok.kese.altin, 3);
-});
-
-test('İŞLENMİŞ MAL altınla alınamıyor — işleme zinciri atlanamasın', () => {
-  for (const k of ['kereste', 'tugla', 'yontmaTas', 'demirKulce', 'un', 'ekmek']) {
-    const r = KESE.hammaddeAl({ gumus: 0, altin: 10 }, k, 1, 99999);
-    assert.equal(r.ok, false, `${k} altınla alınabiliyor`);
-    assert.equal(r.sebep, 'gecersiz_kaynak');
-  }
+  assert.equal(KESE.hammaddeAl, undefined,
+    'kesede hammadde alma işlevi olmamalı');
+  assert.equal(KESE.ALTIN_HAMMADDE, undefined);
+  const o = KESE.ozet({ gumus: 100, altin: 5 });
+  assert.equal(o.altinHammadde, undefined,
+    'pakette hammadde kuru kalmamalı — ekranda ölü bir sekme doğururdu');
+  assert.deepEqual(Object.keys(o).sort(), ['altin', 'altinGumus', 'gumus', 'gumusAltin']);
 });
 
 /* ══ EŞYA DEĞERİ ═══════════════════════════════════════════════════ */
