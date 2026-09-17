@@ -274,6 +274,29 @@ kabul/iptal`). Bu maddede kalan:
 - Kırpma da ASILDAN yapıldı; `kuzeyRuzgari` aynı geçişte yeniden aynalandı. Pay her kenarda eşit olduğu için kırp/aynala sırası sonucu değiştirmiyor.
 - **ÖLÇÜLDÜ**: kırpma sonrası dört kenarın ortalama parlaklığı `zincirEtek` 15–21, `kuzeyRuzgari` 10–21 — dokunulmamış görsellerle aynı aralıkta (`deriPantolon` 12–13, `bozkirAti` 24–26). Kalıntı kenarlık yok.
 
+### Haritadaki beyaz dikişler (17 Eylül 2026)
+- İlkan ekran görüntüsüyle bildirdi: *"görseller arası beyazlıklar vs var. haritayı çok güzel görünen akıcı çalışan bir hale getir."*
+
+**SEBEP ÖLÇÜLDÜ, TAHMİN EDİLMEDİ.** Doku dosyaları 1024×1024 kare ve altıgen sanatın çevresi BEYAZ:
+
+| doku | sanatın sınırı | kenar rengi |
+|---|---|---|
+| `tahil_tile` | x 74–950, y 130–910 | RGB 254,254,254 |
+| `orman_tile` | x 63–960, y 123–900 | RGB 244,236,217 |
+| `tas_ocagi` | x 10–1023, y 46–992 | — |
+| `kil`, `demir`, `bos` | tam kare | payı yok |
+
+Sprite pişirilirken bütün kare altıgen maskeyle kırpılıyordu; maske sanattan BÜYÜK olduğu için beyaz pay maskenin içinde kalıyor ve her karonun çevresinde beyaz bir halka oluşuyordu. Ekran görüntüsünde yalnız buğday ve ormanın halkalı olması da bunu doğruluyordu — payı olmayan dokularda halka yoktu.
+
+**Çözüm iki parçalı.**
+1. **Sanatın sınırı ölçülüp maskeye oturtuluyor.** Sınır elle yazılmıyor: yüklemede orta satır ve orta sütun taranarak bulunuyor, böylece doku değiştiğinde sayıları güncellemek gerekmiyor. Ölçüm saçma çıkarsa (sanat karenin %40'ından küçük görünürse) kare olduğu gibi kullanılıyor — bozuk bir dokunun haritayı büsbütün bozmaması için.
+2. **Maskenin %4 dışına taşırılıyor.** Kırpma kenarında yarı saydam pikseller kalıyor; sanat tam maske boyunda olsaydı bu piksellerin altından zemin sızar ve bu sefer KOYU dikişler görünürdü.
+- Ayrıca komşu karolar **yarım piksel bindiriliyor**: kırpma kenarındaki yarı saydam pikseller iki komşuda toplanınca %100 etmiyor ve aralarında saç teli inceliğinde koyu bir dikiş kalıyordu.
+
+**Yükleme maliyeti düşürüldü.** İlk hâlde sınır taraması doku başına 1024×1024'lük bir canvas açıyordu (altı doku = 24 MB anlık ayırma), oysa okunan yalnız orta satırla orta sütun. Artık kaynak dikdörtgeniyle doğrudan iki şerit çiziliyor (~8 KB). Telefonda açılış takılmasının sebebi tam da böyle şeyler.
+
+- **TARAYICIDA DOĞRULANDI**: beyaz halkalar kayboldu, karolar birbirine dikişsiz oturuyor; yakın zoomda da temiz. Konsolda yeni hata yok.
+
 ### Kahramanın üssü konaktan ayrıldı — Travian modeli (17 Eylül 2026)
 - İlkan: *"kahramanı köyünü nasıl değiştireceğim? Şu an 2. köyümde, ilk köyüme gitsin oradan saldırıya katılsın istiyorum. Normal destek olarak ilk köyüme gönderip, gönderirken 'gittiği yeri kahramanın ana köyü yap' demeliyim."* → seçenek soruldu, cevap: *"Travian gibi olsun."*
 

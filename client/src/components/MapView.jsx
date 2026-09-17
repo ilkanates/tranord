@@ -241,14 +241,75 @@ function buildSprites() {
     const out = {};
     const half = SPRITE / 2;
     const mask = hexPath2D(half, half, half);
+
+    /*
+      SANATIN GERÇEK SINIRI — ölçülerek bulunuyor, elle yazılmıyor.
+
+      Doku dosyaları kare ve bazılarının altıgen sanatı BEYAZ PAYLA
+      çevrili (tahil 74–950, orman 63–960). Payı maskenin içinde
+      bırakınca her karonun çevresinde beyaz bir halka oluşuyordu.
+      Sınırı elle yazsaydık doku değişince sayılar sessizce yanlış
+      kalırdı; orta satır ve orta sütun taranıyor (bir kez, ~2.000
+      piksel).
+    */
+    const sanatSiniri = (img) => {
+      const tam = { sx: 0, sy: 0, sw: img.naturalWidth, sh: img.naturalHeight };
+      try {
+        const w = tam.sw, h = tam.sh;
+        const cy = Math.floor(h / 2), cx = Math.floor(w / 2);
+        /*
+          YALNIZ İKİ ŞERİT OKUNUYOR. Bütün kareyi canvas'a çizmek doku
+          başına 4 MB ayırmak demekti (altı doku = 24 MB) ve okunan
+          yalnız orta satırla orta sütundu. Kaynak dikdörtgeniyle
+          doğrudan şeridi çizmek ~8 KB'a iniyor.
+        */
+        const serit = (sx, sy, sw, sh) => {
+          const cv = document.createElement('canvas');
+          cv.width = sw; cv.height = sh;
+          const gg = cv.getContext('2d', { willReadFrequently: true });
+          gg.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          return gg.getImageData(0, 0, sw, sh).data;
+        };
+        const satir = serit(0, cy, w, 1);
+        const sutun = serit(cx, 0, 1, h);
+        /* Beyaza yakın = pay. Eşik gevşek: krem tonlu pay da (244,236,217) elensin */
+        const bos = (d, i) => d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 190 && d[i + 3] > 0;
+        let sol = 0; while (sol < cx && bos(satir, sol * 4)) sol++;
+        let sag = w - 1; while (sag > cx && bos(satir, sag * 4)) sag--;
+        let ust = 0; while (ust < cy && bos(sutun, ust * 4)) ust++;
+        let alt = h - 1; while (alt > cy && bos(sutun, alt * 4)) alt--;
+        if (sag - sol < w * 0.4 || alt - ust < h * 0.4) return tam;   // ölçüm saçmaysa bırak
+        return { sx: sol, sy: ust, sw: sag - sol + 1, sh: alt - ust + 1 };
+      } catch {
+        return tam;        // farklı kaynaktan gelen doku okunamaz — kareyi kullan
+      }
+    };
+
+    /*
+      HEDEF DİKDÖRTGEN = maskenin sınır kutusu, biraz TAŞIRILMIŞ.
+
+      Altıgen düz tepeli: genişliği SPRITE, yüksekliği SPRITE·√3/2. Sanat
+      tam bu kutuya otursaydı kırpma kenarındaki yarı saydam piksellerin
+      altından zemin sızar ve bu sefer KOYU dikişler görünürdü; %4
+      taşırma kırpmanın dolu boyaya denk gelmesini garanti ediyor.
+    */
+    const TASIR = 1.04;
+    const hexH = SPRITE * Math.sqrt(3) / 2;
+    const dw = SPRITE * TASIR, dh = hexH * TASIR;
+    const dx = (SPRITE - dw) / 2, dy = (SPRITE - dh) / 2;
+
     const mk = (key, img, tint) => {
       const c = document.createElement('canvas');
       c.width = c.height = SPRITE;
       const g = c.getContext('2d');
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = 'high';
       g.save();
       g.clip(mask);
-      if (img) g.drawImage(img, 0, 0, SPRITE, SPRITE);
-      else { g.fillStyle = tint || '#2e3d21'; g.fillRect(0, 0, SPRITE, SPRITE); }
+      if (img) {
+        const s = sanatSiniri(img);
+        g.drawImage(img, s.sx, s.sy, s.sw, s.sh, dx, dy, dw, dh);
+      } else { g.fillStyle = tint || '#2e3d21'; g.fillRect(0, 0, SPRITE, SPRITE); }
       if (tint) { g.globalAlpha = 0.45; g.fillStyle = tint; g.fillRect(0, 0, SPRITE, SPRITE); }
       g.restore();
       out[key] = c;
@@ -397,7 +458,7 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worke
     const { x, y } = hexToPixel(q, r, S);
     const b = worldTileBonus(q, r);
     const sp = _sprites[b ? b.resource : soilKey(q, r)];
-    if (sp) ctx.drawImage(sp, x - S, y - S, S * 2, S * 2);
+    if (sp) ctx.drawImage(sp, x - S - 0.5, y - S - 0.5, S * 2 + 1, S * 2 + 1);
   }
   ctx.globalAlpha = 1;
 
@@ -407,7 +468,14 @@ function drawTerrain(cv, { w, h, scale, pan, list, showBadge, radius = 60, worke
     const b = worldTileBonus(q, r);
     const key = owner.tile ? owner.tile[0] : (b ? b.resource : soilKey(q, r));
     const sp = _sprites[key];
-    if (sp) ctx.drawImage(sp, x - S, y - S, S * 2, S * 2);
+    /*
+      KOMŞU KAROLAR YARIM PİKSEL BİNDİRİLİYOR. Kırpma kenarındaki yarı
+      saydam pikseller iki komşuda toplanınca %100 etmiyor ve aralarında
+      saç teli inceliğinde koyu bir dikiş kalıyordu. Bindirme onu
+      kapatıyor; altıgenler zaten aynı dokudan geldiği için görünür bir
+      taşma olmuyor.
+    */
+    if (sp) ctx.drawImage(sp, x - S - 0.5, y - S - 0.5, S * 2 + 1, S * 2 + 1);
     owned.push([x, y, owner]);
     // Seviye 0 = yabancı köyün tarlası (sunucu seviyeyi göndermiyor): rozet yok
     if (owner.tile && showBadge && owner.tile[1] > 0) labels.push([x, y, owner.tile[1]]);

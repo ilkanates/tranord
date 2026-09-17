@@ -26,6 +26,24 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17f',
+    tarih: '17 Eylül 2026',
+    baslik: 'Haritadaki beyaz dikişler gitti',
+    notlar: [
+      {
+        id: '20260917-harita-beyaz-dikis',
+        tur: 'duzeltme',
+        metin: 'ARAZİ KAROLARININ ÇEVRESİNDEKİ BEYAZ HALKA KALKTI. '
+          + 'Buğday ve orman dokuları kare bir görselin içinde beyaz '
+          + 'paylı çizilmişti; altıgen maske o payı kesmediği için her '
+          + 'karonun çevresinde beyaz bir çerçeve oluşuyordu. Artık '
+          + 'sanatın gerçek sınırı ölçülüp maskeye tam oturtuluyor, '
+          + 'komşu karolar da yarım piksel bindiriliyor — ne beyaz ne '
+          + 'koyu dikiş kalıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17e',
     tarih: '17 Eylül 2026',
     baslik: 'Kahraman köy değiştirebiliyor',
