@@ -578,6 +578,19 @@ async function saveVillage(userId, slotKey, state) {
 
 // Tüm köyleri yükle (sunucu başlangıcında offline catch-up için)
 /** Tüm oyuncu köyleri (açılışta offline telafi için) — köy başına bir satır */
+/**
+ * DÜNYANIN BAŞLANGICI — ilk hesabın açılış anı (ms).
+ *
+ * Dünyanın yaşı bundan ölçülüyor (bkz. index.js · dunyaOyunSaati).
+ * Hiç hesap yoksa null: taze dünya sıfır yaşında sayılır.
+ */
+async function ilkKayitZamani() {
+  const { rows } = await pool.query(
+    'SELECT MIN(created_at) AS ilk FROM users');
+  const t = rows[0]?.ilk;
+  return t ? new Date(t).getTime() : null;
+}
+
 async function loadAllVillages() {
   const res = await pool.query(
     'SELECT user_id, slot_key, village_name, is_capital, state, updated_at FROM villages'
@@ -1123,6 +1136,7 @@ async function ilanKapat(id) {
 
 module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
+  ilkKayitZamani,
   ilanAc, ilanlar, ilanBul, teklifYaz, bitenIlanlar, ilanKapat,
   loadAlliances, birlikKur, birlikSil, birlikAdDegistir,
   birlikAciklama, gunlukYaz, gunlukOku, isaretleriOku, isaretYaz,

@@ -62,7 +62,16 @@ function kusan(k, indeks) {
 
   const eski = (k.kusanilan || {})[slot] || null;
   env.splice(indeks, 1);
-  (k.kusanilan ||= {})[slot] = { key: giris.key, nadirlik: giris.nadirlik };
+  /*
+    NESNENİN KENDİSİ TAŞINIYOR, alanları tek tek değil.
+
+    Eskiden `{ key, nadirlik }` yazılıyordu ve eşyaya sonradan eklenen
+    SEVİYE alanı burada sessizce düşüyordu: oyuncu gümüş ödeyip
+    yükselttiği eşyayı bir kez kuşanınca Lvl 1'e dönüyordu (İlkan
+    bildirdi). Alanları saymak, eşyaya her yeni alan eklendiğinde
+    burayı güncellemeyi gerektiren gizli bir bakım borcuydu.
+  */
+  (k.kusanilan ||= {})[slot] = { ...giris };
   if (eski) env.push(eski);
   k.envanter = env;
   return { ok: true, slot, takilan: giris, cikan: eski };

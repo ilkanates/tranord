@@ -185,7 +185,8 @@ test('eşya kurası SLOTLARI eşit dağıtıyor — at havuzu diğerlerini bast�
   const sayac = {};
   for (let i = 0; i < N; i++) {
     for (const o of M.maceraSonucu('uzun').oduller) {
-      if (o.tur !== 'esya' || o.key === 'diriltmeIksiri') continue;
+      /* Sarf malzemesinin slotu yok — slot dağılımına girmemeli */
+      if (o.tur !== 'esya' || !HERO_ITEMS[o.key].slot) continue;
       const slot = HERO_ITEMS[o.key].slot;
       sayac[slot] = (sayac[slot] || 0) + 1;
     }
@@ -339,24 +340,39 @@ test('her KUŞANILABİLİR eşya geçerli bir slota ait, her slot dolu', () => {
   }
 });
 
-test('diriltme iksiri havuzda ama SEYREK', () => {
+test('SARF MALZEMELERİ havuzda ama SEYREK — kitap en seyrek', () => {
   /*
-    Kuşanılabilir eşyalarla aynı ağırlıkta olsaydı ölümün bedeli
-    neredeyse ortadan kalkardı; hiç düşmeseydi "maceradan bulduğu
+    Kuşanılabilir eşyalarla aynı ağırlıkta olsalardı ölümün bedeli
+    neredeyse ortadan kalkardı; hiç düşmeselerse "maceradan bulduğu
     diriltici iksir" yolu kapalı kalırdı.
+
+    BİLGELİK KİTABI EN SEYREK OLAN (17 Eylül 2026): skil sıfırlamanın
+    sınırı artık fiyat değil BULUNURLUK. Kitap bollaşırsa "her savaştan
+    önce skil değiştir" istismarı fiyatsız hâlde geri gelir.
   */
-  let esya = 0, iksir = 0;
-  for (let i = 0; i < 3000; i++) {
+  let esya = 0;
+  const sayac = { diriltmeIksiri: 0, canIksiri: 0, bilgeKitabi: 0 };
+  for (let i = 0; i < 6000; i++) {
     for (const o of M.maceraSonucu('uzun').oduller) {
       if (o.tur !== 'esya') continue;
       esya++;
-      if (o.key === 'diriltmeIksiri') iksir++;
+      if (o.key in sayac) sayac[o.key] += 1;
     }
   }
   assert.ok(esya > 0, 'hiç eşya düşmüyorsa ölçüm anlamsız');
-  const oran = iksir / esya;
+
+  const sarf = sayac.diriltmeIksiri + sayac.canIksiri + sayac.bilgeKitabi;
+  const oran = sarf / esya;
   assert.ok(oran > 0.08 && oran < 0.35,
-    `düşen eşyaların %${(oran * 100).toFixed(1)}'i iksir — %8-35 aralığında olmalı`);
+    `düşen eşyaların %${(oran * 100).toFixed(1)}'i sarf — %8-35 aralığında olmalı`);
+
+  for (const k of Object.keys(sayac)) {
+    assert.ok(sayac[k] > 0, `${k} havuzda ama hiç düşmüyor — ölü ağırlık`);
+  }
+  assert.ok(sayac.bilgeKitabi < sayac.canIksiri,
+    `kitap en seyrek olmalı (kitap ${sayac.bilgeKitabi}, can iksiri ${sayac.canIksiri})`);
+  assert.deepEqual(Object.keys(M.SARF_AGIRLIK).sort(), Object.keys(sayac).sort(),
+    'ağırlık listesi ile kurada çıkanlar ayrışmamalı');
 });
 
 test('BULUNAN ASKER dünyanın ortalama ordusuyla ölçekleniyor', () => {

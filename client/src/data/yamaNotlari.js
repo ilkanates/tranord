@@ -26,6 +26,79 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17k',
+    tarih: '17 Eylül 2026',
+    baslik: 'İki yeni eşya, sikkeler ve yaşlanan dünya',
+    notlar: [
+      {
+        id: '20260917-esya-seviyesi-kayip',
+        tur: 'duzeltme',
+        metin: 'YÜKSELTTİĞİN EŞYA KUŞANINCA SEVİYESİNİ KAYBEDİYORDU. '
+          + 'Gümüş ödeyip Lvl 4 yaptığın kılıcı bir kez takıp çıkarınca '
+          + 'Lvl 1'e dönüyordu — geri alınamaz bir kayıp. Kuşanma '
+          + 'eşyanın yalnız adını ve nadirliğini taşıyordu; seviye '
+          + 'sonradan eklendiği için sessizce düşüyordu. Artık eşyanın '
+          + 'tamamı taşınıyor.',
+      },
+      {
+        id: '20260917-can-iksiri',
+        tur: 'yenilik',
+        metin: 'CAN İKSİRİ EKLENDİ. Kahramanın canını tamamen doldurur; '
+          + 'yaralı dönen kahramanı iyileşmeyi beklemeden yeniden '
+          + 'yollayabilirsin. Maceradan düşer. Ölü kahramana işlemez — '
+          + 'o diriltme iksirinin işi.',
+      },
+      {
+        id: '20260917-bilgelik-kitabi',
+        tur: 'denge',
+        metin: 'SKİL SIFIRLAMA ARTIK SADECE BİLGELİK KİTABIYLA. '
+          + 'Hammadde ödeyerek sıfırlama kalktı: bedel her seferinde '
+          + 'ikiye katlanıyordu ama "her savaştan önce skil değiştirip '
+          + 'iki bonusu birden kullan" istismarına yalnız fiyatla '
+          + 'direniyordu — kaynağı bol oyuncu için sınır diye bir şey '
+          + 'yoktu. Kitap maceradan düşen seyrek bir eşya: sınır artık '
+          + 'fiyat değil bulunurluk.',
+      },
+      {
+        id: '20260917-sikke-gorselleri',
+        tur: 'yenilik',
+        metin: 'GÜMÜŞ VE ALTIN ARTIK KENDİ SİKKELERİYLE. Üst bardaki '
+          + 'kesede, kese penceresinde ve açık artırmada. Maceradan '
+          + 'gümüş bulunca raporda büyük resmiyle görünüyor. Eskiden '
+          + 'ikisi aynı çizgi daireydi ve yalnız renkle ayrılıyordu.',
+      },
+      {
+        id: '20260917-dunya-yasi-esya',
+        tur: 'yenilik',
+        metin: 'EŞYA SEVİYELERİ DÜNYANIN YAŞINA GÖRE DÜŞÜYOR. İlk ay '
+          + 'yalnız Lvl 1, ikinci ay Lvl 2\'ler de düşmeye başlıyor, '
+          + 'böyle gider. Ölçü OYUN ZAMANI: 1× bir sunucuda bir ay '
+          + 'gerçekten bir ay, bizim 10× dünyamızda üç gün. Üst seviye '
+          + 'eşya bulmak yine de seyrek — kura alt seviyelere ağırlıklı, '
+          + 'yoksa kademe açıldığı gün yükseltme diye bir iş kalmazdı.',
+      },
+      {
+        id: '20260917-dunya-yasi-hammadde',
+        tur: 'denge',
+        metin: 'MACERADAN GELEN HAMMADDE DE DÜNYAYLA BÜYÜYOR. Sabit '
+          + 'miktardı: ilk gün cömert, üçüncü ay gürültü. Maxlı bir köy '
+          + 'ham kaynak başına saatte ~4.600 üretiyor, uzun maceranın '
+          + 'sabit 600\'ü sekiz dakikalık üretim ediyordu. Artık ay '
+          + 'başına bir kat büyüyor.',
+      },
+      {
+        id: '20260917-macera-amblemleri',
+        tur: 'duzeltme',
+        metin: 'MACERA RAPORUNDA NE BULDUĞUN ARTIK BELLİ. Gümüş ödülü '
+          + 'adsız bir sayı olarak çıkıyordu; bütün hammaddeler aynı '
+          + 'sandık ikonundaydı. Artık her kaynak kendi amblemi ve kendi '
+          + 'rengiyle — pazarda, depoda, kaynak rayında ne görüyorsan '
+          + 'aynısı. Bulunan eşya da büyük resmiyle, nadirlik renginde '
+          + 'çerçevelenmiş olarak görünüyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17j',
     tarih: '17 Eylül 2026',
     baslik: 'Açık artırma, eşya seviyeleri ve savaş düzeltmeleri',

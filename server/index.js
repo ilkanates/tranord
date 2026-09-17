@@ -26,7 +26,7 @@ const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVi
         mesajYaz, mesajKutusu, mesajOkunmamisSayisi, mesajOkundu, mesajSil,
         grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
         grupOkundu, grupAyril, grupSil,
-        engelEkle, engelKaldir, engelListesi, engelliMi,
+        engelEkle, engelKaldir, engelListesi, engelliMi, ilkKayitZamani,
         ilanAc, ilanlar, ilanBul, teklifYaz, bitenIlanlar, ilanKapat } = require('./db');
 const BIRLIK = require('./game/birlik');
 const BIRLIKS = require('./game/birlikServis');
@@ -37,6 +37,7 @@ const { canBuildAt, buildRefusalReason, canBuildProductionAt } = require('./game
 const { QUEST_BY_ID } = require('./data/questDefs');
 const PAZAR = require('./game/pazar');
 const KESE = require('./game/kese');
+const DUNYA = require('./game/dunyaYasi');
 const ARTIRMA = require('./game/acikArtirma');
 const ESYA_DEGER = require('./game/esyaDeger');
 const IST = require('./game/istatistik');
@@ -1372,7 +1373,12 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
       var, maceradan 1 asker bulup getiriyor"*). Sabit sayı olgun bir
       dünyada gürültüydü.
     */
-    dunyaOrtalamaOrdu());
+    dunyaOrtalamaOrdu(),
+    /*
+      DÜNYANIN YAŞI — hammadde miktarı ve düşen eşyanın seviyesi buna
+      göre (İlkan: *"oyun başlayalı ne kadar olmuş gibi bir hesaptan"*).
+    */
+    dunyaOyunAyi());
   kahraman.macera = null;
   kahraman.nerede = 'koy';
   // Görev zinciri "ilk maceranı tamamla" adımını bundan ölçüyor
@@ -1410,10 +1416,17 @@ function maceraIlerlet(session, kahraman, gameHours, konak) {
       keseYaz(session, KESE.ekle(keseDurumu(session), 'gumus', odul.adet));
       kazanilan.push({ tur: 'gumus', adet: odul.adet });
     } else if (odul.tur === 'esya') {
-      (kahraman.envanter ||= []).push({ key: odul.key, nadirlik: odul.nadirlik });
+      /* Seviye de kaydediliyor — dünyanın yaşı belirledi (bkz. dunyaYasi.js) */
+      (kahraman.envanter ||= []).push({
+        key: odul.key, nadirlik: odul.nadirlik, seviye: odul.seviye || 1,
+      });
       kazanilan.push({
         tur: 'esya', key: odul.key, nadirlik: odul.nadirlik,
+        seviye: odul.seviye || 1,
         ad: MACERA.esyaAdi(odul.key, odul.nadirlik),
+        /* Nadirlik rengi SUNUCUDAN — açık artırma satırıyla aynı gerekçe:
+           palet iki yerde dursaydı biri değişince ekranlar ayrışırdı. */
+        renk: KUSAM.NADIRLIK[odul.nadirlik]?.renk || null,
         slot: HERO_ITEMS[odul.key]?.slot || null,
       });
     }
@@ -1526,6 +1539,61 @@ function kahramanDurumu(session, { yarat = false } = {}) {
     bayrağına). Eski kayıt olduğu gibi kullanılınca sunucu çöküyordu.
   */
   return merkez.kahraman ? HERO.duzelt(merkez.kahraman) : null;
+}
+
+/**
+ * DÜNYA KAÇ OYUN SAATİDİR AÇIK.
+ *
+ * İlkan: *"oyun zamanına göre — yani oyun 1× ise gerçekten 1 ay, ama
+ * 10× ise 3 gün."* Gerçek zamanı ölçseydik hızlı bir sunucuda oyuncular
+ * her şeyi on kat hızlı yaşarken eşya kademesi takvimi bekler, dünya
+ * olgunlaşmışken hâlâ Lvl 1 eşya düşerdi.
+ *
+ * ── ÖLÇÜ ZATEN ELİMİZDE: KÖYÜN SANAL SAATİ ──────────────────────────
+ *
+ * `village.clockMs` köy kurulurken `Date.now()` ile başlıyor ve SONRA
+ * yalnız OYUN zamanıyla ilerliyor (GT.CLOCK_PER_GAME_HOUR = 1000 birim /
+ * oyun saati). Yani bir köyün sanal saatinden kuruluş anını çıkarınca
+ * birikmiş oyun zamanı çıkıyor — HIZ DEĞİŞSE BİLE doğru, çünkü birikim
+ * saatin kendisinde.
+ *
+ * En eski köy EN KÜÇÜK sanal saate sahip: oyun zamanı gerçek zamandan
+ * hızlı aksa bile (10×) birikim gerçek zaman farkının yanında küçük
+ * kalıyor, o yüzden sonradan kurulan köy her zaman daha yüksek bir
+ * sayıdan başlıyor.
+ *
+ * Başlangıç anı İLK HESABIN açılış zamanı: dünya ilk oyuncu girdiğinde
+ * başladı saymak, ayrı bir "dünya kuruldu" kaydı açmaktan basit ve
+ * yaşayan dünyada bugün doğru sonucu veriyor.
+ *
+ * ÖNBELLEKLİ (60 sn): her macera bitişinde bütün köyleri taramak
+ * gereksiz, dünyanın yaşı dakikalar içinde anlamlı değişmiyor.
+ */
+let _dunyaYas = { saat: 0, at: 0 };
+const DUNYA_YAS_TAZELIK_MS = 60000;
+
+function dunyaOyunSaati() {
+  const simdi = Date.now();
+  if (simdi - _dunyaYas.at < DUNYA_YAS_TAZELIK_MS) return _dunyaYas.saat;
+
+  let enKucukClock = Infinity;
+  for (const s of userSessions.values()) {
+    for (const koy of s.villages.values()) {
+      const c = Number(koy.clockMs);
+      if (Number.isFinite(c) && c < enKucukClock) enKucukClock = c;
+    }
+  }
+  const baslangic = WORLD.baslangicMs || 0;
+  const saat = (baslangic > 0 && Number.isFinite(enKucukClock))
+    ? Math.max(0, (enKucukClock - baslangic) / GT.CLOCK_PER_GAME_HOUR)
+    : 0;
+  _dunyaYas = { saat, at: simdi };
+  return saat;
+}
+
+/** Dünya kaç OYUN ayıdır açık — eşya kademesi ve hammadde bunu okuyor */
+function dunyaOyunAyi() {
+  return DUNYA.oyunAyi(dunyaOyunSaati());
 }
 
 /**
@@ -3878,19 +3946,65 @@ io.on('connection', async socket => {
    * sırasında savunmaya taşır ve iki tavandan da aynı anda faydalanırdı.
    * Bedel AKTİF köyden alınıyor: oyuncunun kaynağı köyde durur, hesapta değil.
    */
+  /**
+   * SKİLLERİ SIFIRLA — YALNIZ BİLGELİK KİTABIYLA (İlkan'ın kararı).
+   *
+   * Hammadde ödeyerek sıfırlama kalktı. Bedel her seferinde katlanıyordu
+   * ama "her savaştan önce skil değiştir" istismarına yalnız fiyatla
+   * direniyordu: kaynağı bol oyuncu için sınır diye bir şey yoktu.
+   * Kitap seyrek bir eşya, yani sınır artık fiyat değil BULUNURLUK.
+   *
+   * KİTAP ÖNCE TÜKETİLİYOR, SONRA SIFIRLANIYOR mu? Hayır — ters sıra:
+   * sıfırlama hiçbir koşulda başarısız olamıyor (puanları geri vermek
+   * her zaman mümkün), ama kitabın çantadan çıkması başarısız olabilir
+   * (yok). Önce kitabı almak, "kitap gitti ama skil sıfırlanmadı"
+   * durumunu imkânsız kılıyor.
+   */
   socket.on('kahraman_sifirla', () => {
     const kah = kahramanDurumu(session);
     if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
-    const village = v();
-    const bedel = HERO.sifirlamaBedeli(kah);
-    const eksik = KUYRUK.eksikler(village.resources, bedel);
-    if (Object.keys(eksik).length) {
-      return socket.emit('kahraman_error', {
-        reason: 'yetersiz_kaynak', metin: KUYRUK.eksikMetni(eksik) });
+
+    const kullanim = KUSAM.kullan(kah, HERO.SKIL_KITABI_KEY);
+    if (!kullanim.ok) {
+      return socket.emit('kahraman_error', { reason: 'kitap_yok' });
     }
-    for (const [k2, n] of Object.entries(bedel)) village.resources[k2] -= n;
-    HERO.skilleriSifirla(kah);
+    const sonuc = HERO.skilleriSifirla(kah);
     dirty(); emit();
+    socket.emit('kahraman_sonuc', {
+      ok: true, islem: 'sifirla', geriVerilen: sonuc.geriVerilen,
+    });
+    console.log('[KAHRAMAN] ' + userEmail + ' skilleri sifirladi (kitap): +'
+      + sonuc.geriVerilen + ' puan');
+  });
+
+  /**
+   * CAN İKSİRİ — canı tamamen doldurur.
+   *
+   * ÖLÜ KAHRAMANA İŞLEMEZ: o diriltme iksirinin işi. İkisi aynı şeyi
+   * yapsaydı diriltme iksirinin nadirliği anlamsız kalırdı.
+   *
+   * TAM DOLU CANDA REDDEDİLİYOR — nadir bir eşyayı hiçbir karşılığı
+   * olmadan yakmak, oyuncunun yanlışlıkla basmasıyla olacak en sinir
+   * bozucu şey olurdu.
+   */
+  socket.on('kahraman_can_iksiri', () => {
+    const kah = kahramanDurumu(session);
+    if (!kah) return socket.emit('kahraman_error', { reason: 'kahraman_yok' });
+    if (kah.olu) return socket.emit('kahraman_error', { reason: 'olu' });
+
+    const tavan = HERO.canTavani(HERO.xpSeviyesi(kah.xp || 0),
+      KUSAM.kusamBonuslari(kah).kahraman.can || 0);
+    if ((kah.can || 0) >= tavan) {
+      return socket.emit('kahraman_error', { reason: 'can_dolu' });
+    }
+    const kullanim = KUSAM.kullan(kah, HERO.CAN_IKSIRI_KEY);
+    if (!kullanim.ok) return socket.emit('kahraman_error', { reason: 'esya_yok' });
+
+    const kazanc = Math.round(tavan - (kah.can || 0));
+    kah.can = tavan;
+    dirty(); emit();
+    socket.emit('kahraman_sonuc', { ok: true, islem: 'canIksiri', kazanc });
+    console.log('[KAHRAMAN] ' + userEmail + ' can iksiri: +' + kazanc + ' can');
   });
 
   /**
@@ -5749,8 +5863,20 @@ io.on('connection', async socket => {
       emit();
     });
 
-    socket.on('dev_grant', ({ army: a, resources: r } = {}) => {
+    socket.on('dev_grant', ({ army: a, resources: r, gumus, altin } = {}) => {
       const village = v();
+      /*
+        PARA DA VERİLEBİLİYOR. Açık artırmayı denemek için gümüş
+        gerekiyor ve başlangıç bakiyesi olgun bir dünyada tek bir
+        efsanevi eşyaya bile yetmiyor — testin ve elle denemenin
+        "maceraya çık, gümüş biriktir" turunu beklemesi anlamsız.
+      */
+      if (gumus > 0 || altin > 0) {
+        let kese = keseDurumu(session);
+        if (gumus > 0) kese = KESE.ekle(kese, 'gumus', gumus);
+        if (altin > 0) kese = KESE.ekle(kese, 'altin', altin);
+        keseYaz(session, kese);
+      }
       /**
        * ASKER BÜTÇESİ — kaç asker verilebileceği ÖNCEDEN hesaplanır.
        *
@@ -6299,6 +6425,16 @@ const PORT = process.env.PORT || 3001;
 // Sunucu başlarken tüm köyleri yükle + offline süreyi tele al
 async function bootServer() {
   await initDB();
+
+  /*
+    DÜNYANIN YAŞI İÇİN ÇIPA — ilk hesabın açılış anı. Eşya kademesi ve
+    macera hammaddesi buna bakıyor (bkz. dunyaOyunSaati).
+  */
+  try { WORLD.baslangicMs = await ilkKayitZamani(); }
+  catch (err) {
+    console.error('[DÜNYA] başlangıç anı okunamadı:', err.message);
+    WORLD.baslangicMs = null;
+  }
 
   const allVillages = await loadAllVillages();
   const now = Date.now();

@@ -10,12 +10,15 @@
  * try/catch içinde — gizli pencerede erişim hata atabiliyor.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { C, FONT, panel, btn, label as lbl, num, short, fmtTime } from '../theme';
+import { C, FONT, RES_COLOR, panel, btn, label as lbl, num, short, fmtTime } from '../theme';
 import { useViewport } from '../responsive';
 import { RES_LABEL } from '../flows';
 import VILLAGE_DEFS from '../data/villageDefs';
 import { unitImage } from '../data/unitImages';
 import Icon from './Icons';
+import { ITEM_IMAGE } from './itemArt';
+import { PARA_GORSEL } from './paraArt';
+import Amblem from './Amblem';
 
 const MODE_LABEL = { raid: 'Yağma', attack: 'Tam saldırı', scout: 'Keşif', yerlesim: 'Yerleşim', takviye: 'Takviye', macera: 'Macera' };
 const MODE_ICON  = { raid: 'depo', attack: 'kilic', scout: 'harita', yerlesim: 'koy', takviye: 'kalkan' };
@@ -280,6 +283,79 @@ function titleOf(r) {
  * (küçük bir nokta) bırakılmayacak kadar önemli — listeye bakınca hangisini
  * okuduğun bir bakışta görünmeli.
  */
+/**
+ * MACERA ÖDÜL SATIRI — amblem ve renk oyunun geri kalanıyla AYNI.
+ *
+ * Hammaddede `RES_COLOR` ve kaynağın kendi ikonu kullanılıyor (kaynak
+ * rayı, pazar ve depo da bunları kullanıyor): aynı şeyi iki farklı
+ * simgeyle göstermek oyuncuyu ekrandan ekrana yeniden öğrenmeye
+ * zorlardı.
+ *
+ * EŞYADA ÜRETİLMİŞ GÖRSEL var (itemArt) ve nadirlik rengiyle
+ * çerçeveleniyor — çantada nasıl görünüyorsa burada da öyle. Görseli
+ * olmayan eşya sessizce ikona düşüyor, yani listeyi tek tek doldurmak
+ * ekranı hiçbir aşamada bozmuyor.
+ */
+function MaceraOdul({ o, unitDefs }) {
+  const esya = o.tur === 'esya';
+  const gumus = o.tur === 'gumus';
+  const nadirlikRenk = o.renk || C.warn;   // nadirlik rengi sunucudan
+
+  const renk = esya ? nadirlikRenk
+    : gumus ? C.iceSoft
+      : o.tur === 'asker' ? C.ice
+        : (RES_COLOR[o.res] || C.ice);
+
+  const ad = esya ? o.ad
+    : gumus ? 'Gümüş'
+      : o.tur === 'asker' ? (unitDefs?.[o.birim]?.name || o.birim)
+        : (RES_LABEL[o.res] || o.res);
+
+  /*
+    GÜMÜŞ DE BÜYÜK RESİMLE (İlkan'ın isteği). Ödül satırında para ile
+    eşya aynı ağırlıkta iki kazanç; birini resimle, ötekini küçük bir
+    çizgiyle göstermek gümüşü ikinci sınıf gösterirdi.
+  */
+  const resim = esya ? ITEM_IMAGE[o.key] : gumus ? PARA_GORSEL.gumus : null;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 9,
+      padding: esya ? '8px 10px' : '7px 10px', borderRadius: 5,
+      background: 'rgba(8,17,28,0.55)',
+      border: `1px solid ${esya ? `${nadirlikRenk}66` : C.lineSoft}`,
+    }}>
+      {resim ? (
+        <img src={resim} alt="" style={{
+          width: 42, height: 42, objectFit: 'cover', flexShrink: 0,
+          borderRadius: gumus ? '50%' : 4,
+          border: `1px solid ${gumus ? `${C.iceSoft}66` : `${nadirlikRenk}88`}`,
+        }} />
+      ) : (
+        <Icon name={esya ? 'migfer' : gumus ? 'sikke' : o.tur === 'asker' ? 'kilic' : o.res}
+          size={esya ? 18 : 15} color={renk} strokeWidth={1.6} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: FONT.ui, fontSize: 11, color: esya ? nadirlikRenk : C.frost }}>
+          {ad}
+          {/* Seviye rozeti — dünyanın yaşı belirliyor (bkz. dunyaYasi.js) */}
+          {esya && o.seviye > 1 && (
+            <span style={{ color: C.gold, marginLeft: 5, fontSize: 9.5 }}>Lvl {o.seviye}</span>
+          )}
+        </div>
+        {esya && (
+          <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textMute }}>
+            çantana düştü
+          </div>
+        )}
+      </div>
+      {!esya && (
+        <span style={num({ fontSize: 12, color: C.good })}>+{o.adet}</span>
+      )}
+    </div>
+  );
+}
+
 function Row({ r, active, unread, onClick }) {
   const v = verdictOf(r);
   const mc = modeColor(r);
@@ -397,9 +473,15 @@ function UnitGrid({ units, unitDefs, color }) {
             {/* Resim 20×28'di — asker tanınmıyordu. 44×60 ile yüz ve
                 teçhizat seçiliyor, kart hâlâ tek satıra sığıyor. */}
             <div style={{ width: 44, height: 60, borderRadius: 4, overflow: 'hidden', background: '#0b1420' }}>
-              {img && <img src={img} alt="" draggable={false} style={{
-                width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 10%',
-              }} />}
+              {img ? (
+                <img src={img} alt="" draggable={false} style={{
+                  width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 10%',
+                }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+                  <Amblem type={u} size={30} color={color} opacity={0.8} />
+                </div>
+              )}
             </div>
             <div>
               <div style={num({ fontSize: 16, color, lineHeight: 1.1 })}>{n}</div>
@@ -571,32 +653,7 @@ function Detail({ r, unitDefs }) {
           <Section title="GETİRDİKLERİ">
             {r.macera.oduller?.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {r.macera.oduller.map((o, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: 9,
-                    padding: '7px 10px', borderRadius: 5,
-                    background: 'rgba(8,17,28,0.55)',
-                    border: `1px solid ${o.tur === 'esya' ? `${C.warn}55` : C.lineSoft}`,
-                  }}>
-                    <Icon name={o.tur === 'esya' ? 'migfer' : o.tur === 'asker' ? 'kilic' : 'depo'}
-                      size={14} color={o.tur === 'esya' ? C.warn : C.iceSoft} strokeWidth={1.5} />
-                    <span style={{ fontFamily: FONT.ui, fontSize: 11, color: C.frost }}>
-                      {o.tur === 'esya' ? o.ad
-                        : o.tur === 'asker' ? (unitDefs?.[o.birim]?.name || o.birim)
-                          : (RES_LABEL[o.res] || o.res)}
-                    </span>
-                    {o.tur !== 'esya' && (
-                      <span style={num({ fontSize: 12, color: C.good, marginLeft: 'auto' })}>
-                        +{o.adet}
-                      </span>
-                    )}
-                    {o.tur === 'esya' && (
-                      <span style={{
-                        marginLeft: 'auto', fontFamily: FONT.ui, fontSize: 9, color: C.textMute,
-                      }}>çantana düştü</span>
-                    )}
-                  </div>
-                ))}
+                {r.macera.oduller.map((o, i) => <MaceraOdul key={i} o={o} unitDefs={unitDefs} />)}
               </div>
             ) : (
               <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textMute }}>

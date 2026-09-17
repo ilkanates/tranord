@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { C, FONT, btn, label as lbl, num, panel } from '../theme';
 import Icon from './Icons';
+import { Sikke } from './KesePanel';
 
 const HATA = {
   kahraman_yok: 'Önce bir kahramanın olmalı.',
@@ -251,8 +252,9 @@ export default function AcikArtirma({ socket, kese, envanter = [] }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
         <span style={lbl({ fontSize: 8, letterSpacing: 1.3 })}>AÇIK İLANLAR</span>
         <span style={{ flex: 1, height: 1, background: C.lineSoft }} />
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Icon name="sikke" size={12} color={C.iceSoft} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {/* Sikke görseli tek kaynaktan (paraArt) — üst bardaki rozetle aynı */}
+          <Sikke tur="gumus" size={15} />
           <span style={num({ fontSize: 12, color: C.frost })}>{gumus.toLocaleString('tr')}</span>
         </span>
       </div>

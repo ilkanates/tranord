@@ -783,6 +783,22 @@ async function davetleriTemizle(userId) {
   persist();
 }
 
+/**
+ * DÜNYANIN BAŞLANGICI — ilk hesabın açılış anı (ms).
+ *
+ * PostgreSQL sürümüyle AYNI sözleşme (bkz. db.js · ilkKayitZamani):
+ * ikisinin ayrışması bu projede defalarca patladı, o yüzden
+ * db-ikizleri.test.js ikisini karşılaştırıyor.
+ */
+async function ilkKayitZamani() {
+  let ilk = null;
+  for (const u of db.users) {
+    const t = u.created_at ? new Date(u.created_at).getTime() : null;
+    if (t && (ilk === null || t < ilk)) ilk = t;
+  }
+  return ilk;
+}
+
 /* ── AÇIK ARTIRMA ─────────────────────────────────────────────── */
 
 /*
@@ -844,6 +860,7 @@ async function ilanKapat(id) {
 }
 
 module.exports = {
+  ilkKayitZamani,
   ilanAc, ilanlar, ilanBul, teklifYaz, bitenIlanlar, ilanKapat,
   grupKur, grupBul, gruplarim, grupUyeleri, grupMesajYaz, grupAkisi,
   grupOkundu, grupAyril, grupSil,

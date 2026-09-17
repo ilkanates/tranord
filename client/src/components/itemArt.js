@@ -9,6 +9,8 @@
  * anahtarlarıyla BİREBİR aynı — görseli olmayan eşya haritada yok,
  * arayüz o zaman eski ikona düşüyor.
  */
+import canIksiriImg from '../assets/items/canIksiri.jpg';
+import bilgeKitabiImg from '../assets/items/bilgeKitabi.jpg';
 import demirKalkanImg from '../assets/items/demirKalkan.jpg';
 import pulZirhImg from '../assets/items/pulZirh.jpg';
 import aynaZirhImg from '../assets/items/aynaZirh.jpg';
@@ -41,6 +43,9 @@ import amberKolyeImg from '../assets/items/amberKolye.jpg';
 import kurtDisiKolyeImg from '../assets/items/kurtDisiKolye.jpg';
 
 export const ITEM_IMAGE = {
+  /* Kullanılabilir eşyalar — çantada "KULLAN" düğmesiyle duruyorlar */
+  canIksiri: canIksiriImg,
+  bilgeKitabi: bilgeKitabiImg,
   fjordKilici: fjordKiliciImg,
   savasBaltasi: savasBaltasiImg,
   avMizragi: avMizragiImg,

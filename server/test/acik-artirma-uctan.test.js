@@ -25,6 +25,15 @@ async function ikiOyuncu(sunucu, t) {
     await bekle(2000);
     oturum.soket.emit('dev_kahraman', { esya: 4, macera: true });
     await bekle(2500);
+    /*
+      GÜMÜŞ VERİLİYOR. Başlangıç bakiyesi (500) olgun bir dünyada tek
+      bir efsanevi eşyanın taban fiyatına bile yetmiyor — dünya
+      yaşlandıkça düşen eşyaların seviyesi ve fiyatı büyüyor. Test
+      kendi kuralını doğru ölçtüğü hâlde "yetersiz" diye kırmızıya
+      dönüyordu.
+    */
+    oturum.soket.emit('dev_grant', { gumus: 50000 });
+    await bekle(1500);
     assert.equal(oturum.koy.kahraman?.var, true, 'kahraman doğmadı');
     out.push(oturum);
   }
@@ -122,6 +131,13 @@ test('TEKLİFİ GEÇİLEN oyuncunun gümüşü ANINDA dönüyor', async (t) => {
   const { token } = await hesapAc(sunucu);
   const c = await baglan(sunucu, token);
   t.after(() => c.kapat());
+  /*
+    ÜÇÜNCÜ OYUNCUYA DA GÜMÜŞ. Başlangıç bakiyesiyle bırakınca teklif
+    bazen "yetersiz" diye reddediliyor ve test eşyanın o turda ne
+    kadar pahalı düştüğüne göre bir yeşil bir kırmızı dönüyordu.
+  */
+  c.soket.emit('dev_grant', { gumus: 50000 });
+  await bekle(1500);
 
   const guncel = (await ilanBekle(c)).find(i => i.id === ilan.id);
   assert.ok(guncel, 'ilan üçüncü oyuncuya da görünmeli');

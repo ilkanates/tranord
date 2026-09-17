@@ -216,19 +216,26 @@ test('skil sıfırlama puanları geri verir, bedeli KATLANIR', () => {
   K.puanDagit(k, 'uretim', 5);
   assert.equal(k.harcanmamisPuan, 0);
 
-  const ilkBedel = K.sifirlamaBedeli(k);
   const r = K.skilleriSifirla(k);
   assert.equal(r.geriVerilen, 12);
   assert.equal(k.harcanmamisPuan, 12);
   assert.equal(k.skiller.saldiriBonus, 0);
   assert.equal(k.skiller.uretim, 0);
 
-  const ikinciBedel = K.sifirlamaBedeli(k);
-  for (const key of Object.keys(ilkBedel)) {
-    assert.equal(ikinciBedel[key], ilkBedel[key] * K.SIFIRLAMA_CARPANI,
-      'her sıfırlama bir öncekinin iki katı olmalı — savaş öncesi skil '
-      + 'değiştirip hem saldırı hem savunma bonusunu kullanmak istismardır');
-  }
+  /*
+    SIFIRLAMANIN BEDELİ ARTIK BU DOSYADA DEĞİL (İlkan, 17 Eylül 2026:
+    *"artık skill sıfırlama sadece bu kitapla"*).
+
+    Eskiden hammadde ödeniyordu ve bedel her seferinde katlanıyordu; yine
+    de "savaş öncesi skil değiştirip iki bonusu birden kullan" istismarına
+    yalnız FİYATLA direniyordu ve kaynağı bol oyuncu için sınır yoktu.
+    Artık sınır BULUNURLUK: bilgelik kitabı maceradan düşen seyrek bir
+    eşya. Kuralı bu dosya değil çağıran (index.js · kahraman_sifirla)
+    uyguluyor, çünkü çantayı o görüyor.
+  */
+  assert.equal(K.sifirlamaBedeli, undefined,
+    'hammadde bedeli kaldırıldı — geri gelirse istismar kapısı yeniden açılır');
+  assert.equal(K.SKIL_KITABI_KEY, 'bilgeKitabi');
 });
 
 test('dört skilin tamamı tanımlı ve seviye tavanıyla tutarlı', () => {
@@ -311,7 +318,7 @@ test('özet istemciye gereken her şeyi veriyor', () => {
   const o = K.ozet(k, 5);
   for (const alan of ['var', 'seviye', 'xp', 'xpSimdiki', 'xpGereken', 'can',
     'canTavan', 'skiller', 'harcanmamisPuan', 'bonuslar', 'nerede',
-    'kusanilan', 'envanter', 'sifirlamaBedeli', 'iyilesmeSaatlik',
+    'kusanilan', 'envanter', 'sifirlamaKitabi', 'canIksiriVar', 'iyilesmeSaatlik',
     'olu', 'dirilmeBedeli', 'maceraSayisi', 'maceraTavan', 'slotlar',
     'misafirSlot', 'donusKalanSaat', 'maceraHasari', 'maceraGucAzaltma']) {
     assert.ok(alan in o, `özette ${alan} eksik`);

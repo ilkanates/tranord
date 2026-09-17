@@ -61,6 +61,18 @@ const ITEMS = [
     kuşam ekranını bir kez görmek için yedi macera beklemek gerekiyordu
     (ölçüldü). Bu satır o beklemeyi kaldırıyor.
   */
+  /*
+    PARA KISAYOLU (İlkan'ın isteği). Açık artırmayı ve eşya
+    yükseltmeyi denemek için gümüş, altın çevirmeyi denemek için altın
+    gerekiyor; ikisinin de tek kaynağı macera ve hediye bakiye.
+    Beklemeden denemek için tek düğme.
+  */
+  {
+    key: 'para',
+    label: 'Altın ve gümüş ver',
+    note: '+500 altın, +50.000 gümüş — açık artırma ve yükseltme için',
+    emit: ['dev_grant', { altin: 500, gumus: 50000 }],
+  },
   {
     key: 'kahramanEsya',
     label: 'Kahramana eşya ver',

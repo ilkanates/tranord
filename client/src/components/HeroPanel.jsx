@@ -111,7 +111,7 @@ export default function HeroPanel({
   kahraman, villages = [], hourSeconds = 3600, worldSpeed = 1,
   onPuan, onSifirla, onMacera, onKusan, onCikar, onAt, onDirilt, onGeriCagir, onGoTab,
   /* Açık artırma ve eşya yükseltme için — ikisi de gümüşle çalışıyor */
-  socket = null, kese = null, onYukselt,
+  socket = null, kese = null, onYukselt, onCanIksiri,
 }) {
   const [segment, setSegment] = useState('kusam');
   const [acikSkil, setAcikSkil] = useState(null);
@@ -476,6 +476,8 @@ export default function HeroPanel({
               onIksir={() => onDirilt?.('iksir')}
               olu={olu} suzuk={!!filtre}
               onYukselt={onYukselt} gumus={kese?.gumus || 0}
+              onCanIksiri={onCanIksiri} onSifirlaKitap={onSifirla}
+              canDolu={(kahraman?.can || 0) >= (kahraman?.canTavan || 0)}
             />
           </div>
         </div>
@@ -670,6 +672,8 @@ function MiniCubuk({ ad, oran, renk, deger }) {
  * altta açılıyor. Bilgi kaybı yok, yer üçte bir.
  */
 function Skiller({ kahraman, toplu, setToplu, acikSkil, setAcikSkil, onPuan, onSifirla }) {
+  /* Sıfırlama artık kitapla — düğmenin açık olup olmadığı buna bakıyor */
+  const kitapVar = !!kahraman?.sifirlamaKitabi;
   const puanVer = (skil, adet) => onPuan?.(skil, Math.min(adet, kahraman.harcanmamisPuan));
   const kalan = kahraman.harcanmamisPuan || 0;
 
@@ -768,15 +772,28 @@ function Skiller({ kahraman, toplu, setToplu, acikSkil, setAcikSkil, onPuan, onS
           <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.iceSoft }}>
             Skilleri sıfırla
           </div>
+          {/*
+            SIFIRLAMANIN TEK YOLU KİTAP (İlkan'ın kararı). Bedel yazısı
+            kalkmalıydı: hammadde ödeme yolu kapandı ve ekranda duran
+            eski fiyat oyuncuyu yanlış yere bakmaya gönderirdi.
+
+            Düğme kapalıyken NEDEN kapalı olduğu YANINDA yazıyor —
+            sessiz kapalı bir düğme oyuncuyu tahmine zorlar.
+          */}
           <div style={{ fontFamily: FONT.ui, fontSize: 9, color: C.textFaint, marginTop: 2 }}>
-            Bedel her sıfırlamada ikiye katlanır — savaş öncesi skil değiştirip
-            iki bonusu birden kullanmak istismardır.
+            Yalnız <b style={{ color: C.iceSoft }}>Bilgelik Kitabı</b> ile — maceradan
+            düşer. Sınır fiyat değil bulunurluk: savaş öncesi skil değiştirip iki
+            bonusu birden kullanmak istismardır.
           </div>
         </div>
-        <span style={num({ fontSize: 10, color: C.textMute })}>
-          {bedelMetni(kahraman.sifirlamaBedeli)}
+        <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: kitapVar ? C.good : C.textMute }}>
+          {kitapVar ? 'kitabın var' : 'kitabın yok'}
         </span>
-        <button onClick={onSifirla} style={{ ...btn('ghost'), fontSize: 9.5 }}>SIFIRLA</button>
+        <button onClick={onSifirla} disabled={!kitapVar}
+          style={{
+            ...btn(kitapVar ? 'ghost' : 'disabled'), fontSize: 9.5,
+            opacity: kitapVar ? 1 : 0.45,
+          }}>SIFIRLA</button>
       </div>
     </>
   );
@@ -1280,7 +1297,7 @@ function Olcu({ ad, deger, renk, alt }) {
  * yapamaz hâle gelirdi.
  */
 function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, olu, suzuk,
-  onYukselt, gumus = 0 }) {
+  onYukselt, gumus = 0, onCanIksiri, onSifirlaKitap, canDolu = false }) {
   const [ustunde, setUstunde] = useState(null);
   if (!envanter.length) {
     return (
@@ -1350,7 +1367,15 @@ function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, o
               ama kapalı: iksirin ne işe yaradığını ancak kahraman ölünce
               öğrenmek, onu bir sürpriz yapardı.
             */}
-            {kullanilir && (
+            {/*
+              KULLANILABİLİR EŞYALARIN HER BİRİNİN KENDİ KOŞULU VAR.
+
+              Tek bir "KULLAN" düğmesi hepsini diriltme iksiri sanıyordu:
+              can iksiri ve bilgelik kitabı eklenince o düğme ölü
+              kahraman beklemeye devam eder, iki yeni eşya hiç
+              kullanılamazdı. Koşul ve ipucu eşyaya göre.
+            */}
+            {kullanilir && e.key === 'diriltmeIksiri' && (
               <button
                 onClick={(ev) => { ev.stopPropagation(); onIksir?.(); }}
                 disabled={!olu}
@@ -1358,7 +1383,26 @@ function Envanter({ envanter, onSurukle, onBirakBitti, onKusan, onAt, onIksir, o
                 style={{
                   ...btn(olu ? 'primary' : 'ghost'), padding: '2px 10px', fontSize: 9,
                   opacity: olu ? 1 : 0.35, cursor: olu ? 'pointer' : 'default',
-                }}>KULLAN</button>
+                }}>DİRİLT</button>
+            )}
+            {kullanilir && e.key === 'canIksiri' && (
+              <button
+                onClick={(ev) => { ev.stopPropagation(); onCanIksiri?.(); }}
+                disabled={olu || canDolu}
+                title={olu ? 'Ölü kahramana işlemez — diriltme iksiri gerekiyor'
+                  : canDolu ? 'Canın zaten dolu' : 'Canı tamamen doldurur'}
+                style={{
+                  ...btn(!olu && !canDolu ? 'primary' : 'ghost'), padding: '2px 10px', fontSize: 9,
+                  opacity: !olu && !canDolu ? 1 : 0.35,
+                }}>CANI DOLDUR</button>
+            )}
+            {kullanilir && e.key === 'bilgeKitabi' && (
+              <button
+                onClick={(ev) => { ev.stopPropagation(); onSifirlaKitap?.(); }}
+                title="Skil puanlarını geri verir"
+                style={{ ...btn('primary'), padding: '2px 10px', fontSize: 9 }}>
+                SKİLLERİ SIFIRLA
+              </button>
             )}
             {/*
               YÜKSELT — gümüşle, 5 seviyeye kadar (İlkan'ın isteği).

@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import { C, FONT, btn, label as lbl, num, panel } from '../theme';
 import Icon from './Icons';
+import { PARA_GORSEL } from './paraArt';
 
 const HATA = {
   yetersiz: 'Bakiyen yetmiyor.',
@@ -23,6 +24,24 @@ const HATA = {
   gecersiz_yon: 'Geçersiz çevirme yönü.',
   gecersiz_para: 'Geçersiz para birimi.',
 };
+
+/**
+ * SİKKE — üretilmiş görsel, yoksa çizgi ikon.
+ *
+ * Çizgi ikon iki parayı yalnız RENKLE ayırıyordu; renk oyunun her
+ * yerinde başka anlamlar taşıyor (nadirlik, ilişki, uyarı) ve renk körü
+ * bir oyuncu için ikisi aynı daireydi. Görsel ikisini ŞEKİLDEN ayırıyor.
+ */
+export function Sikke({ tur, size = 16 }) {
+  const src = PARA_GORSEL[tur];
+  if (!src) return <Icon name="sikke" size={size} color={tur === 'altin' ? C.gold : C.iceSoft} />;
+  return (
+    <img src={src} alt="" style={{
+      width: size, height: size, borderRadius: '50%', objectFit: 'cover',
+      flexShrink: 0, display: 'block',
+    }} />
+  );
+}
 
 /** Üst bardaki bakiye rozeti — hem gösteriyor hem pencereyi açıyor */
 export function KeseRozet({ kese, onAc, dar = false, tap = 36 }) {
@@ -33,16 +52,16 @@ export function KeseRozet({ kese, onAc, dar = false, tap = 36 }) {
         height: tap - 8, display: 'flex', alignItems: 'center', gap: 7,
         background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
       }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-        <Icon name="sikke" size={13} color={C.iceSoft} />
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Sikke tur="gumus" size={17} />
         {!dar && (
           <span style={{ fontFamily: FONT.num, fontSize: 11, color: C.frost }}>
             {(kese.gumus || 0).toLocaleString('tr')}
           </span>
         )}
       </span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-        <Icon name="sikke" size={13} color={C.gold} />
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Sikke tur="altin" size={17} />
         {!dar && (
           <span style={{ fontFamily: FONT.num, fontSize: 11, color: C.goldSoft }}>
             {(kese.altin || 0).toLocaleString('tr')}
@@ -54,15 +73,15 @@ export function KeseRozet({ kese, onAc, dar = false, tap = 36 }) {
 }
 
 /** Tek bakiye satırı — pencerenin tepesinde iki tane yan yana */
-function Bakiye({ ad, deger, renk, aciklama }) {
+function Bakiye({ ad, tur, deger, renk, aciklama }) {
   return (
     <div style={{
       flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3,
       padding: '9px 11px', borderRadius: 6,
       background: 'rgba(6,12,20,0.6)', border: `1px solid ${C.lineSoft}`,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <Icon name="sikke" size={13} color={renk} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Sikke tur={tur} size={20} />
         <span style={lbl({ fontSize: 8, letterSpacing: 1.3 })}>{ad}</span>
       </div>
       <div style={num({ fontSize: 19, color: renk })}>{deger.toLocaleString('tr')}</div>
@@ -146,9 +165,9 @@ export default function KesePanel({ socket, kese, onClose }) {
           display: 'flex', flexDirection: 'column', gap: 10,
         }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Bakiye ad="GÜMÜŞ" deger={gumus} renk={C.iceSoft}
+            <Bakiye ad="GÜMÜŞ" tur="gumus" deger={gumus} renk={C.iceSoft}
               aciklama="Kahramanın parası. Asıl kaynağı macera." />
-            <Bakiye ad="ALTIN" deger={altin} renk={C.gold}
+            <Bakiye ad="ALTIN" tur="altin" deger={altin} renk={C.gold}
               aciklama="Hesabın parası. Gümüşe çevrilir." />
           </div>
 

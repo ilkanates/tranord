@@ -1606,17 +1606,22 @@ function Game({ token, onLogout }) {
                 onPuan={(skil, adet) => socket.emit('kahraman_puan', { skil, adet })}
                 onSifirla={() => {
                   /*
-                    SIFIRLAMA GERİ ALINAMAZ ve BEDELLİ — onay şart.
-                    Yanlış tıklama oyuncunun kaynağını yakıp bütün
-                    puanlarını yeniden dağıtmasını gerektirirdi.
+                    SIFIRLAMA GERİ ALINAMAZ ve KİTABI TÜKETİR — onay şart.
+                    Kitap seyrek bir eşya; yanlış tıklama onu karşılıksız
+                    yakardı.
                   */
-                  const bedel = Object.entries(village.kahraman?.sifirlamaBedeli || {})
-                    .map(([k, n]) => `${n} ${k}`).join(', ');
                   if (window.confirm(
                     'Kahramanın bütün skil puanları geri verilsin mi?\n\n'
-                    + `• Bedel: ${bedel}\n`
-                    + '• Bir sonraki sıfırlama İKİ KATI tutar.')) {
+                    + '• Bir Bilgelik Kitabı tükenir.\n'
+                    + '• Puanları yeniden dağıtman gerekir.')) {
                     socket.emit('kahraman_sifirla');
+                  }
+                }}
+                onCanIksiri={() => {
+                  /* Can iksiri de tükenen bir eşya — onay aynı gerekçeyle */
+                  if (window.confirm('Can İksiri kullanılsın mı?\n\n'
+                    + 'Kahramanın canı tamamen dolar, iksir tükenir.')) {
+                    socket.emit('kahraman_can_iksiri');
                   }
                 }}
               />

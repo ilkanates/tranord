@@ -137,7 +137,7 @@ const KAHRAMAN_BONUSLARI = {
  * Slotu YOK: `slot: null` olan eşya ızgaraya sürüklenmiyor, çantada
  * "KULLAN" düğmesiyle duruyor.
  */
-const KULLANILABILIR = new Set(['diriltmeIksiri']);
+const KULLANILABILIR = new Set(['diriltmeIksiri', 'canIksiri', 'bilgeKitabi']);
 
 const HERO_ITEMS = {
   // ── Kullanılabilir ───────────────────────────────────────────────
@@ -150,6 +150,37 @@ const HERO_ITEMS = {
       renk olarak, çünkü tek bir eşyayı kura sisteminin dışına almak
       havuzu ikiye bölerdi.
     */
+  },
+
+  /*
+    CAN İKSİRİ — canı DOLDURUR, tavanı büyütmez.
+
+    Tavanı kalıcı büyütseydi sınırsız birikebilen bir istatistik olurdu
+    ve yeterince macera yapan kahraman ölümsüzleşirdi. Doldurmak zaten
+    oyuncunun istediği şey: yaralı dönen kahramanı iyileşmeyi beklemeden
+    yeniden yollamak.
+
+    ÖLÜ KAHRAMANA İŞLEMEZ — o diriltme iksirinin işi. İkisi aynı şeyi
+    yapsaydı diriltme iksirinin nadirliği anlamsız kalırdı.
+  */
+  canIksiri: {
+    ad: 'Can İksiri', slot: null, ikon: 'kupa', kullanilir: true,
+    aciklama: 'Kahramanın canını tamamen doldurur. Ölü kahramana işlemez; '
+      + 'kullanılınca biter.',
+  },
+
+  /*
+    BİLGELİK KİTABI — skil puanlarını geri verir.
+
+    Skil sıfırlamanın TEK yolu (İlkan'ın kararı). Hammadde ödeyerek
+    sıfırlama kalktı: bedel katlanıyordu ama "her savaştan önce skil
+    değiştir" istismarına yalnız fiyatla direniyordu. Kitap seyrek bir
+    eşya, yani sınır fiyat değil BULUNURLUK.
+  */
+  bilgeKitabi: {
+    ad: 'Bilgelik Kitabı', slot: null, ikon: 'kitap', kullanilir: true,
+    aciklama: 'Dağıttığın bütün skil puanlarını geri verir. Skilleri '
+      + 'sıfırlamanın tek yolu; kullanılınca biter.',
   },
 
   // ── Silah (sağ el) ───────────────────────────────────────────────

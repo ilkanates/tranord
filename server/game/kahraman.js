@@ -161,6 +161,15 @@ const SKIL_ANAHTARLARI = Object.keys(SKILLER);
 const CAN_TABAN = 100;
 const CAN_PER_SEVIYE = 10;
 
+/**
+ * KULLANILABİLİR EŞYA ANAHTARLARI — kural dosyası da bilsin.
+ *
+ * İndex.js bu iki anahtarı elle yazsaydı, tanım dosyasındaki adla
+ * ayrışabilirlerdi ve eşya "kullanılamaz" diye sessizce reddedilirdi.
+ */
+const CAN_IKSIRI_KEY = 'canIksiri';
+const SKIL_KITABI_KEY = 'bilgeKitabi';
+
 function canTavani(seviye, kusamCan = 0) {
   return CAN_TABAN + CAN_PER_SEVIYE * Math.max(0, seviye - 1) + Math.max(0, kusamCan);
 }
@@ -383,21 +392,18 @@ function puanDagit(k, skil, adet) {
 }
 
 /**
- * SIFIRLAMA BEDELİ her seferinde katlanıyor: ilk sıfırlama ucuz (yeni
- * oyuncunun hatası), onuncusu pahalı (her savaştan önce skil değiştirip
- * hem saldırı hem savunma bonusunu kullanmak istismar olurdu).
+ * SIFIRLAMANIN TEK YOLU BİLGELİK KİTABI (İlkan'ın kararı, 17 Eylül 2026).
+ *
+ * Eskiden hammadde ödeniyordu ve bedel her seferinde katlanıyordu. Yine
+ * de "her savaştan önce skil değiştirip hem saldırı hem savunma bonusunu
+ * kullanmak" istismarına yalnız FİYATLA direniyordu: kaynağı bol oyuncu
+ * için sınır diye bir şey yoktu.
+ *
+ * Kitap SEYREK bir eşya, yani sınır artık fiyat değil BULUNURLUK. Zengin
+ * olmak kitabı çoğaltmıyor; maceraya çıkmak çoğaltıyor.
  */
-const SIFIRLAMA_TABAN = { demirKulce: 200, tahil: 200 };
-const SIFIRLAMA_CARPANI = 2;
 
-function sifirlamaBedeli(k) {
-  const c = Math.pow(SIFIRLAMA_CARPANI, k.sifirlamaSayisi || 0);
-  const out = {};
-  for (const [key, val] of Object.entries(SIFIRLAMA_TABAN)) out[key] = Math.round(val * c);
-  return out;
-}
-
-/** Bütün puanları geri ver. Bedeli ÇAĞIRAN tahsil eder (kaynak burada yok). */
+/** Bütün puanları geri ver. Bedeli ÇAĞIRAN tahsil eder (kitap burada yok). */
 function skilleriSifirla(k) {
   const toplam = SKIL_ANAHTARLARI.reduce((s, key) => s + (k.skiller[key] || 0), 0);
   for (const key of SKIL_ANAHTARLARI) k.skiller[key] = 0;
@@ -779,7 +785,14 @@ function ozet(k, konakSeviyesi = 0) {
       iyilesmeHizi(konakSeviyesi, KUSAM.kusamBonuslari(k).kahraman.iyilesme) * 10) / 10,
     skiller: { ...k.skiller },
     harcanmamisPuan: k.harcanmamisPuan || 0,
-    sifirlamaBedeli: sifirlamaBedeli(k),
+    /*
+      SIFIRLAMA ARTIK KİTAPLA: bedel yerine ÇANTADA KİTAP VAR MI
+      gidiyor. Bedel alanı kalsaydı ekran hâlâ "şu kadar demir" yazar,
+      düğme ise kitap ararken oyuncu neden basamadığını anlayamazdı.
+    */
+    sifirlamaKitabi: KUSAM.elindeVarMi(k, SKIL_KITABI_KEY),
+    /* Can iksiri de aynı sebeple: düğmenin açık olup olmadığı buradan */
+    canIksiriVar: KUSAM.elindeVarMi(k, CAN_IKSIRI_KEY),
     bonuslar: bonuslar(k),
     nerede: k.nerede || 'koy',
     kusanilan: KUSAM.kusanilanOzeti(k),
@@ -851,14 +864,15 @@ module.exports = {
   EN_YUKSEK_SEVIYE, CAN_TABAN, CAN_PER_SEVIYE,
   DIRILTME_TABAN, DIRILTME_PER_SEVIYE, DIRILME_CAN_ORANI,
   dirilmeBedeli, dirilt,
-  SIFIRLAMA_TABAN, SIFIRLAMA_CARPANI, duzelt,
+  duzelt,
   ZIRHLANMA_TAVANI, zirhlanmaYuzdesi,
   KAHRAMAN_TABAN_HIZ, KAHRAMAN_HIZ_TAVANI, AT_HIZ_EKI, hizi, suvariMi,
   bulunduguSlot, seferEngeli,
   XP_OLDURULEN_BASINA, SAVAS_TABAN_YUZDE, savasSonucu,
+  CAN_IKSIRI_KEY, SKIL_KITABI_KEY,
   SAVAS_TAM_KAYIP_KATI, SAVAS_HASAR_USSU,
   seviyeIcinToplamXp, xpSeviyesi, seviyeIlerlemesi,
   canTavani, iyilesmeHizi,
-  yeniKahraman, xpEkle, puanDagit, sifirlamaBedeli, skilleriSifirla,
+  yeniKahraman, xpEkle, puanDagit, skilleriSifirla,
   bonuslar, ilerlet, hasarVer, ozet,
 };

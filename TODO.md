@@ -306,6 +306,38 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Yükseltilen eşya kuşanınca seviyesini kaybediyordu (17 Eylül 2026)
+- İlkan: *"bir itemi lvl atlatıp giyip çıkardığımda lvl'i kayboluyor."*
+- **ALAN LİSTESİ YERİNE NESNENİN KENDİSİ.** `kusan` slota yeni bir nesne yazıyordu: `{ key: giris.key, nadirlik: giris.nadirlik }`. Yani envanter girdisinin yalnız İKİ alanı taşınıyordu; seviye alanı sonradan eklendiği için burada sessizce düşüyordu. Oyuncu gümüş ödeyip yükselttiği eşyayı bir kez kuşanınca Lvl 1'e dönüyordu — geri alınamaz bir kayıp.
+- Alanları tek tek saymak, eşyaya her yeni alan eklendiğinde burayı güncellemeyi gerektiren gizli bir bakım borcuydu; nitekim ilk eklemede unutuldu. Artık `{ ...giris }`.
+- Kilit: iki test — seviye kuşanıp çıkarınca korunuyor VE kuşanılan eşyanın bonusu seviyesiyle büyüyor. İkisi ayrı şey: alanın korunması ve o alanın hesaba girmesi.
+
+### İki yeni eşya ve sikke görselleri (17 Eylül 2026)
+- İlkan dört görsel verdi: *"4 yeni item. Coinleri üst menüde ve macerada bulursa büyük resim olarak raporda göster. Diğeri biri canını arttıran potion, bunu da ekle oyuna. Diğeri de skilleri sıfırlamana yarayan kitap, onu da maceradan düşecek gibi ayarla. Artık skill sıfırlama sadece bu kitapla."*
+- **CAN İKSİRİ** canı DOLDURUYOR, tavanı büyütmüyor. Tavanı kalıcı büyütseydi sınırsız birikebilen bir istatistik olurdu ve yeterince macera yapan kahraman ölümsüzleşirdi. Ölü kahramana işlemiyor — o diriltme iksirinin işi; ikisi aynı şeyi yapsaydı diriltme iksirinin nadirliği anlamsız kalırdı. **Tam dolu canda reddediliyor**: nadir bir eşyayı karşılıksız yakmak, yanlışlıkla basmakla olacak en sinir bozucu şey olurdu.
+- **BİLGELİK KİTABI skil sıfırlamanın TEK yolu.** Hammadde ödeme yolu kaldırıldı. Bedel her seferinde katlanıyordu ama istismara yalnız FİYATLA direniyordu: kaynağı bol oyuncu için sınır yoktu. Artık sınır **bulunurluk** — kitap maceradan ~34 uzun macerada bir düşüyor (ölçüldü).
+- **KURA SABİT ANAHTAR YAZIYORDU** ve iki yeni eşya tanımlı olmalarına rağmen maceradan HİÇ düşmüyordu. Testle yakalandı; havuz ağırlıklı hâle getirildi (diriltme 35 · can iksiri 40 · kitap 25). Kitap en seyrek olan: bollaşırsa istismar fiyatsız hâlde geri gelir.
+- **ÇANTADA HER SARF MALZEMESİNİN KENDİ DÜĞMESİ VAR.** Tek bir "KULLAN" düğmesi hepsini diriltme iksiri sanıyordu; iki yeni eşya eklenince o düğme ölü kahraman beklemeye devam eder ve ikisi hiç kullanılamazdı. Artık DİRİLT · CANI DOLDUR · SKİLLERİ SIFIRLA, her biri kendi koşuluyla ve kapalıyken sebebiyle.
+- **SİKKE GÖRSELLERİ** (`paraArt.js`): üst bardaki kese rozeti, kese penceresi, açık artırma ve macera raporu aynı iki resmi kullanıyor. Çizgi ikon iki parayı yalnız RENKLE ayırıyordu; renk oyunun her yerinde başka anlamlar taşıyor (nadirlik, ilişki, uyarı) ve renk körü bir oyuncu için ikisi aynı daireydi.
+- **TEST menüsüne "Altın ve gümüş ver"** eklendi (İlkan'ın isteği): açık artırmayı ve yükseltmeyi denemek için macera turu beklemeye gerek kalmasın.
+- Kilit: `kullanilabilir-esya.test.js` — 7 test. En önemlisi "sıfırlamanın hammadde yolu kapalı" ve "maceradan düşüyorlar" (bu projede "sabit tanımlı ama hiç okunmuyor" hatası daha önce yaşandı).
+- **TARAYICIDA DOĞRULANDI**: TEST düğmesi bakiyeyi 625→50.625 gümüş / 99→599 altın yaptı; iki sikke görseli üst barda yüklendi; kitap yokken SIFIRLA kapalı ve sebebi yazıyordu; kitap düşünce satırında "SKİLLERİ SIFIRLA" çıktı, basınca 400 puan geri geldi ve kitap tükendi.
+
+### Ödüller dünyanın yaşına göre (17 Eylül 2026)
+- İlkan: *"bulunan hammaddelerde serverın zamanına göre olmalı, oyun başlayalı ne kadar olmuş gibi bir hesaptan yapılmalı. Item lvl'leri de yine server zamanına göre hesaplansın: ilk ay Lvl 1'ler, ikinci ay Lvl 2'ler düşmeye başlasın gibi."* ve *"oyun zamanına göre — oyun 1× ise gerçekten 1 ay, 10× ise 3 gün."*
+- **ÖLÇÜ OYUN ZAMANI, GERÇEK ZAMAN DEĞİL.** Bu ayrım kuralın tamamı: gerçek zamanı ölçseydik 10× bir sunucuda oyuncular her şeyi on kat hızlı yaşarken eşya kademesi takvimi bekler, dünya olgunlaşmışken hâlâ Lvl 1 eşya düşerdi. Oyun zamanı hız çarpanını zaten içinde taşıyor.
+- **ÇIPA İÇİN YENİ TABLO AÇILMADI.** Dünyanın yaşı = *en eski köyün sanal saati − ilk hesabın açılış anı*. `village.clockMs` kuruluşta `Date.now()` ile başlıyor ve sonra YALNIZ oyun zamanıyla ilerliyor, yani birikim saatin kendisinde duruyor — **hız değişse bile doğru**. Ayrı bir "dünya kuruldu" kaydı hem iki veritabanı sürümünde ikiz bakım hem de yaşayan dünyada "bugün kuruldu" diyen yanlış bir değer demekti.
+- **EŞYA KADEMESİ**: tavan = 1 + tam ay, eşyanın kendi sınırına (5) kadar. Kura **alt seviyelere ağırlıklı** (karesi alınmış zar): düz kura olsaydı tavanın açıldığı gün eşyaların beşte biri anında en üst seviyede düşer ve yükseltme diye bir iş kalmazdı.
+- **HAMMADDE**: ay başına +1 kat, tavan 12. Katlanan büyüme birkaç ay sonra macerayı ekonominin tamamı yapardı; doğrusal artış üretimin kendi büyümesiyle aynı mertebede kalıyor.
+- **İKSİRİN SEVİYESİ OLMAZ** — kuşanılmayan eşyanın büyüyecek bonusu yok.
+- Kilit: `dunya-yasi.test.js` — 6 test. En önemlisi "10× dünyada bir ay üç gerçek gün eder" ve "macera ödülü dünyanın yaşını GERÇEKTEN kullanıyor" (bu projede "sabit tanımlı ama hiç okunmuyor" hatası daha önce yaşandı).
+
+### Macera raporunda amblemler tekleşti (17 Eylül 2026)
+- İlkan (ekran görüntüsüyle): *"macerada ne aldığını amblemi pazardaki amblemler ve renkler olsun, her yerde aynı amblemler kullanılsın. İtemlerde büyük resmi gösterebilirsin."*
+- Ekran üç sorunu birden gösteriyordu: **gümüş ödülü adsız bir sayı** olarak çıkıyordu (gümüş eklenirken bu ekran güncellenmemişti), **bütün hammaddeler aynı "depo" ikonundaydı** (oysa kaynak rayı, pazar ve depo her kaynağın kendi amblemini ve rengini kullanıyor), **eşya yalnız bir miğfer çizgisiydi** (oysa üretilmiş görseli var ve kuşam ekranında zaten kullanılıyor).
+- Hepsi TEK KAYNAKTAN çözüldü: renk `theme · RES_COLOR`, amblem `Icon` (kaynak anahtarı ikon adıyla aynı), eşya resmi `ITEM_IMAGE`, nadirlik rengi sunucudan (açık artırma satırıyla aynı gerekçe). Bu ekrana özel bir palet yazmak dördüncü bir tanım olurdu.
+- **TARAYICIDA DOĞRULANDI**: "Gümüş +79" kendi sikkesiyle, "Demir +3049" kendi amblemi ve rengiyle, "Ustaişi Diriltme İksiri" büyük resmiyle ve nadirlik renginde çerçeveyle göründü.
+
 ### Savaş ve macera düzeltmeleri (17 Eylül 2026)
 Dört ayrı bildirim, hepsi ölçülerek doğrulandı ve uçtan uca testle kilitlendi.
 

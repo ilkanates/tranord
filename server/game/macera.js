@@ -27,6 +27,8 @@
  */
 const { HERO_ITEM_KEYS, HERO_ITEMS, NADIRLIK, NADIRLIK_SIRA,
   KULLANILABILIR } = require('../data/heroItemDefs');
+const DUNYA = require('./dunyaYasi');
+const DEGER = require('./esyaDeger');
 
 // ── Birikme ────────────────────────────────────────────────────────
 
@@ -245,8 +247,25 @@ const GUMUS_TABAN = { kisa: 45, uzun: 130 };
  * peşinde olduğu KUŞANILABİLİR eşya oranını görünmez şekilde beşte bir
  * azaltıyordu. Ölümün bedeli anlamını korusun diye sıfırlanmadı.
  */
-const IKSIR_SANSI = 0.12;
-/** Kura yalnız KUŞANILABİLİR eşyalardan çekiyor; iksir ayrı zar */
+const IKSIR_SANSI = 0.18;
+
+/**
+ * SARF HAVUZU — ağırlıklı, düz değil.
+ *
+ * Kura eskiden tek bir anahtarı sabit yazıyordu (`diriltmeIksiri`) ve
+ * sonradan eklenen iki eşya tanımlı olmalarına rağmen maceradan HİÇ
+ * düşmüyordu (testle yakalandı). Liste burada, ağırlıklarıyla:
+ *
+ *   diriltme iksiri  ölümün bedeli anlamını korusun
+ *   can iksiri       en sık kullanılan, en sık düşen
+ *   bilgelik kitabı  skil sıfırlamanın TEK yolu — EN SEYREK
+ *
+ * Kitap bollaşırsa "her savaştan önce skil değiştir" istismarı
+ * fiyatsız hâlde geri gelir; sınır bulunurluk (bkz. kahraman.js).
+ */
+const SARF_AGIRLIK = { diriltmeIksiri: 35, canIksiri: 40, bilgeKitabi: 25 };
+
+/** Kura yalnız KUŞANILABİLİR eşyalardan çekiyor; sarf malzemesi ayrı zar */
 const KUSANILABILIR = HERO_ITEM_KEYS.filter(k => HERO_ITEMS[k].slot);
 
 /**
@@ -348,8 +367,12 @@ function nadirlikSec(rnd) {
 /**
  * @param ortalamaOrdu Dünyadaki oyuncu başına ortalama asker — bulunan
  *   asker sayısı buna göre ölçekleniyor (bkz. maceraAskerAdedi).
+ * @param oyunAyi Dünya kaç OYUN ayıdır açık. Hammadde miktarı ve düşen
+ *   eşyanın seviyesi buna göre büyüyor (bkz. dunyaYasi.js). İlkan:
+ *   *"oyun başlayalı ne kadar olmuş gibi bir hesaptan yapılmalı."*
  */
-function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0, ortalamaOrdu = 0) {
+function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0, ortalamaOrdu = 0,
+  oyunAyi = 0) {
   const def = MACERA_TIPLERI[tip];
   if (!def) return null;
 
@@ -368,11 +391,18 @@ function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0, ortalamaOrdu = 
         kapalı kalırdı.
       */
       const key = rnd() < IKSIR_SANSI
-        ? 'diriltmeIksiri'
+        ? agirlikliSec(SARF_AGIRLIK, rnd)
         : kusanilabilirSec(rnd);
+      /*
+        SEVİYE DÜNYANIN YAŞINA GÖRE (İlkan'ın isteği): ilk ay yalnız
+        Lvl 1, ikinci ay Lvl 2'ler de düşmeye başlar. İksirin seviyesi
+        olmaz — kuşanılmayan eşyanın büyüyecek bonusu yok.
+      */
+      const kusanilir = !KULLANILABILIR.has(key);
       oduller.push({
         tur: 'esya', key, nadirlik: nadirlikSec(rnd),
-        kullanilir: KULLANILABILIR.has(key),
+        seviye: kusanilir ? DUNYA.dusenEsyaSeviyesi(oyunAyi, DEGER.MAKS_SEVIYE, rnd) : 1,
+        kullanilir: !kusanilir,
       });
     } else if (tur === 'gumus') {
       const taban = GUMUS_TABAN[tip] || GUMUS_TABAN.kisa;
@@ -383,8 +413,14 @@ function maceraSonucu(tip, rnd = varsayilanRnd, saldiriGucu = 0, ortalamaOrdu = 
       oduller.push({ tur: 'asker', birim, adet });
     } else {
       const res = HAMMADDELER[Math.floor(rnd() * HAMMADDELER.length)];
-      const adet = Math.round((tip === 'uzun' ? 600 : 200) * (0.6 + rnd() * 0.8));
-      oduller.push({ tur: 'hammadde', res, adet });
+      /*
+        HAMMADDE DÜNYANIN YAŞIYLA BÜYÜYOR (İlkan'ın isteği). Sabit
+        miktar ilk gün cömert, üçüncü ay gürültüydü: maxlı bir köy ham
+        kaynak başına saatte ~4.600 üretiyor, uzun maceranın sabit 600'ü
+        sekiz dakikalık üretim ediyordu.
+      */
+      const taban = (tip === 'uzun' ? 600 : 200) * DUNYA.hammaddeCarpani(oyunAyi);
+      oduller.push({ tur: 'hammadde', res, adet: Math.round(taban * (0.6 + rnd() * 0.8)) });
     }
   }
 
@@ -405,7 +441,7 @@ function esyaAdi(key, nadirlik) {
 }
 
 module.exports = {
-  MACERA_TIPLERI, MACERA_CAN_ESIGI, ODUL_AGIRLIK, GUMUS_TABAN,
+  MACERA_TIPLERI, MACERA_CAN_ESIGI, ODUL_AGIRLIK, GUMUS_TABAN, SARF_AGIRLIK,
   ASKER_ORANI, ASKER_TABAN, maceraAskerAdedi,
   HAMMADDELER, MACERA_BIRIMLERI,
   MACERA_TAVAN_TABAN, MACERA_TAVAN_PER_SEVIYE, MACERA_SAAT_TABAN, IKSIR_SANSI,
