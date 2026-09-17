@@ -276,6 +276,15 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Ordu dengesi: süvari kışlayı anlamsız kılıyordu (17 Eylül 2026)
+- İlkan: *"bu dediğin doğruysa oyunda dengesizlik var. Hem kışla hem ahır full olmalı; senin bahsettiğin senaryoda diğer birimlere hiç gerek yok."* Haklıydı, ölçüm doğruladı.
+- **ÖLÇÜLEN DENGESİZLİK** (ekipman Lvl 20): Jernridder en iyi piyadeyi HER BAŞLIKTA yeniyordu — saldırı 124.8'e 107.3, yaya savunma 124.0'a 92.0, hız 7'ye 3, taşıma 85'e 35 — ve **aynı silahçı + zırhçı yükünü** kullanıyordu. Tek farkı 2 ekmekti.
+- **KÖK SEBEP ATIN SÜRESİYDİ, GÜCÜ DEĞİL.** Köyde silahçı, zırhçı ve ahırın üçü de Lvl 20'de 60 işçi alıyor ve PARALEL çalışıyor. Piyade üç atölyeden ikisini, süvari üçünü kullanıyor; atölyeler paralel olduğu için at, boşta duran bir fabrikayı açmaktan ibaretti — 4 saatti, kılıçla aynı, yani zaman olarak bedava.
+- **DÜZELTME: at 4 → 8 saat.** Denge kendiliğinden kuruluyor: 8 saatte ahır 1 at, silahçı 2 kılıç, zırhçı 4 parça üretiyor = **1 Jernridder + 1 Ulv Savaşçısı**, üç atölye de tam dolu. Saf süvari 15.6 saldırı/atölye-saati, karışık ordu **29**. Yani karışmak artık bir tercih değil, açık ara doğru olan.
+- **Güce dokunulmadı.** Süvariyi zayıflatmak da bir çözümdü ama o zaman at takmanın anlamı kalmazdı; bedel üretim hızına konuldu. Mevcut ordular etkilenmiyor, ekmek dengesi de değişmiyor (İlkan'ın köyü zaten ekmek eksisinde).
+- **Elenen seçenekler:** (a) eğitilmiş atların da tahıl yemesi — mevcut orduyu aç bırakırdı; (b) süvarinin 2 boş işçi tüketmesi — asker basmayı yeniden zorlaştırırdı.
+- Test: `ordu-dengesi.test.js` — at kılıçtan uzun mu, karışık ordu saf ordulardan iyi mi, 1:1 karışımda üç atölye eşit yüklü mü, süvari hâlâ en güçlü asker mi.
+
 ### Kahramanın ganimet payı + rapor sadeleşmesi + simülatör "ters çevir" (17 Eylül 2026)
 - **KAHRAMAN GANİMET TAŞIMIYORDU.** Sefere katılıyor, savaşıyor, yara alıyordu ama `carryCapacity` yalnız birimleri sayıyordu — kahraman tek bir odun taşımıyordu. Kahraman katmanının kalan son eksiğiydi.
   - **Sayı uydurulmadı, birim tanımlarından türetildi.** Hızda İlkan'ın kuralı *"kahramana at verince normal birimler attan ne bonus alıyorsa alsın"*dı; taşıma aynı cümlenin devamı: yaya ≈46 (ortalama piyade), atlı ≈96 (ortalama süvari). Sabit yazsaydık birim kapasiteleri dengelenirken kahraman sessizce ayrışırdı.

@@ -89,10 +89,26 @@ const EQUIPMENT_DEFS = {
     producedAt: 'atolye',
     kural: 'Seçilen binayı yıkar. Yalnız saldıran kazanırsa etki eder.'
   },
+  /*
+    AT 8 SAAT — SÜVARİNİN GERÇEK BEDELİ BU.
+
+    Kılıçla aynı (4 saat) olduğu sürece at bedavaydı: silahçı ve zırhçı
+    zaten çalışırken ahır boşta duruyor, atı eklemek hiçbir zaman
+    kaybettirmiyordu. Sonuç, en iyi süvarinin en iyi piyadeyi her
+    başlıkta yenmesi ve kışlanın anlamsızlaşmasıydı (İlkan bildirdi,
+    ölçümle doğrulandı).
+
+    8 saatte üç atölye şu karışımda tam doluyor:
+      8s → ahır 1 at · silahçı 2 kılıç · zırhçı 4 parça
+         = 1 Jernridder + 1 Ulv Savaşçısı
+
+    Yani süvari hâlâ en güçlü asker ama artık YANINDA piyade basmak
+    zorundasın; ahır tek başına orduyu doyuramıyor.
+  */
   at: {
     name: 'At', icon: '🐎',
     saldiri: +10, yayaSav: +20, atliSav: +20, hiz: +4, kapasite: +50,
-    cost: { tahil: 40, kereste: 10 }, productionHours: 4,
+    cost: { tahil: 40, kereste: 10 }, productionHours: 8,
     producedAt: 'ahir'
   }
 };

@@ -26,6 +26,38 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17p',
+    tarih: '17 Eylül 2026',
+    baslik: 'Kışla yeniden anlamlı: at iki kat uzun sürüyor',
+    notlar: [
+      {
+        id: '20260917-at-suresi-denge',
+        tur: 'denge',
+        metin: 'AT ÜRETİMİ 4 SAATTEN 8 SAATE ÇIKTI. Sebebi şuydu: '
+          + 'silahçı, zırhçı ve ahır PARALEL çalışıyor ve üçü de aynı '
+          + 'kapasitede. Piyade üç atölyeden ikisini kullanıyordu, '
+          + 'süvari üçünü — yani at, boşta duran bir fabrikayı açmaktan '
+          + 'ibaretti ve zaman olarak BEDAVAYA geliyordu. Sonuçta en '
+          + 'iyi süvari (Jernridder) en iyi piyadeyi her başlıkta '
+          + 'yeniyordu: saldırı 125\'e 107, savunma 124\'e 92, hız '
+          + '7\'ye 3, taşıma 85\'e 35 — üstelik aynı silahçı ve zırhçı '
+          + 'yüküyle. Rún Lvl 10\'a ulaşan oyuncu için kışlanın hiçbir '
+          + 'anlamı kalmıyordu.',
+      },
+      {
+        id: '20260917-at-suresi-sonuc',
+        tur: 'denge',
+        metin: 'ARTIK KARIŞIK ORDU AÇIK ARA DOĞRU OLAN. 8 saatte ahır '
+          + '1 at, silahçı 2 kılıç, zırhçı 4 parça üretiyor — bu tam '
+          + 'olarak 1 Jernridder + 1 Ulv Savaşçısı demek ve üç atölye '
+          + 'de tam dolu çalışıyor. Saf süvari atölye saati başına 15.6 '
+          + 'saldırı veriyor, karışık ordu 29. Süvari hâlâ oyunun en '
+          + 'güçlü askeri; değişen tek şey bedelinin artık üretim '
+          + 'hızında olması. Mevcut ordunun gücüne dokunulmadı.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17o',
     tarih: '17 Eylül 2026',
     baslik: 'Raporlar sadeleşti, kahraman ganimet taşıyor',
