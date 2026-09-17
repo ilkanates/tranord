@@ -98,8 +98,9 @@ tasarımın kaydı olarak duruyor.
   *seviye 3*, *ilk macera*, *ilk kuşam*). Bkz. Tamamlandı.
 - ~~Kahramanın **hızı** ve at slotu~~ — yapıldı: at eki birim tanımlarından
   ölçülüyor, nadirlik hızı büyütüyor, macera süresi hıza bağlı.
-- KALAN: kahramanın ganimet payı; macera/eşya geldikten sonra uçtan uca
-  denge ölçümü (kahramansız ve kahramanlı aynı savaş, fark yüzdesi).
+- ~~Kahramanın ganimet payı~~ — **YAPILDI** (bkz. Tamamlandı · kahraman ganimet payı).
+- KALAN: macera/eşya geldikten sonra uçtan uca denge ölçümü (kahramansız
+  ve kahramanlı aynı savaş, fark yüzdesi).
 
 **Kararlar (verildi):**
 - Kahraman **oyuncuya** ait, üssü konağın olduğu köy.
@@ -274,6 +275,15 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### Kahramanın ganimet payı + rapor sadeleşmesi + simülatör "ters çevir" (17 Eylül 2026)
+- **KAHRAMAN GANİMET TAŞIMIYORDU.** Sefere katılıyor, savaşıyor, yara alıyordu ama `carryCapacity` yalnız birimleri sayıyordu — kahraman tek bir odun taşımıyordu. Kahraman katmanının kalan son eksiğiydi.
+  - **Sayı uydurulmadı, birim tanımlarından türetildi.** Hızda İlkan'ın kuralı *"kahramana at verince normal birimler attan ne bonus alıyorsa alsın"*dı; taşıma aynı cümlenin devamı: yaya ≈46 (ortalama piyade), atlı ≈96 (ortalama süvari). Sabit yazsaydık birim kapasiteleri dengelenirken kahraman sessizce ayrışırdı.
+  - **Seviyeyle büyümüyor** — hız da büyümüyor. Seviyeye bağlasaydık ganimet, savaş gücünün yanında ikinci bir seviye ödülü olurdu.
+  - **Bayılan kahraman taşımıyor.** Bunu yazarken bir SIRA hatası çıktı ve test yakaladı: `march.kahramanSonuc` ganimetten SONRA hesaplanıyordu, yani "bayıldı mı" sorusunun cevabı sorulduğunda henüz yoktu. Kahramanın hesabı ganimete hiçbir şey borçlu olmadığı için yukarı taşındı.
+- **RAPORDA PORTRE YERİNE ARMA** (İlkan: *"raporlara artık resim koyma, askerlerin simgelerini koy; ama üzerlerine gelince resim ve isim çıksın"*). 44×60'lık portreler sekiz birimlik bir savaşta raporu albüme çeviriyordu. Kart `createPortal` ile body'ye çiziliyor: ölçüldü, `position: fixed` transform'lu bir üst kutunun içinde viewport'a göre konumlanmıyor (hesaplanan `left` 650 iken ekrandaki yer 1197 çıktı). Fareli cihazda hover, dokunmatikte tıklama — ikisini birden bağlamak işe yaramıyor (mouseenter açıyor, click hemen kapatıyor).
+- **"NE VARDI, NE KALDI" İKİ TARAF İÇİN.** Kalan türetiliyor, kaydedilmiyor: üçüncü bir alan tutmak kayıp hesabı değiştiğinde ayrışırdı. Savunanın raporuna kendi ordusu da yazılıyor artık (`defenderUnits`) — "oyuncu zaten biliyor" diye yazılmıyordu ama o andaki ordu artık yok ve misafir takviyeler de oradaydı.
+- **SİMÜLATÖRDE TERS ÇEVİR.** Savaş simetrik değil (piyade/süvari savunması ayrı, sur bonusu yalnız savunanda), yani "bana saldıran bu orduya ben saldırsam" sorusu ancak rolleri değiştirerek cevaplanıyor. Savunma yapıları yerinde kalıyor: köye ait, orduya değil.
 
 ### Savaş simülatörü: kule girdisi, birim armaları, rapordan açılma (17 Eylül 2026)
 - İlkan: *"birim amblemlerini savaş simülatöründe de göster ve simülatöre kale/kule/hendek de ekle. Bir de savaş ya da casus raporlarına direkt simülatöre git tuşu ekle — simülatör rapordaki asker sayılarıyla açılsın."*

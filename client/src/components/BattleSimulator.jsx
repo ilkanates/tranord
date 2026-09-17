@@ -226,6 +226,18 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {}, pres
     setMode('normal'); setResult(null); setError(null);
   };
 
+  /*
+    TERS ÇEVİR: iki ordu yer değiştiriyor, sonuç siliniyor. Eski sonucu
+    bırakmak, ekranda yeni kurulumla ilgisi olmayan bir savaş
+    göstermek olurdu.
+  */
+  const birTarafDolu = Object.keys(attacker).length > 0 || Object.keys(defender).length > 0;
+  const tersCevir = () => {
+    setAttacker(defender);
+    setDefender(attacker);
+    setResult(null); setError(null);
+  };
+
   const setCount = (side, key, val) => {
     const n = Math.max(0, Math.floor(Number(val) || 0));
     const setter = side === 'atk' ? setAttacker : setDefender;
@@ -288,6 +300,19 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {}, pres
           </div>
 
           <div style={{ flex: 1 }} />
+          {/*
+            TERS ÇEVİR — yalnız iki ORDU yer değiştiriyor. Sur/hendek/
+            kule köye ait, orduya değil: taşısaydık saldırıya geçen
+            taraf surlarını da yanında götürürdü.
+          */}
+          <button onClick={tersCevir} disabled={!birTarafDolu}
+            title="Saldıran ve savunan orduları yer değiştirir; savunma yapıları köyde kalır"
+            style={btn(birTarafDolu ? 'ghost' : 'disabled', {
+              display: 'flex', alignItems: 'center', gap: 6,
+              opacity: birTarafDolu ? 1 : 0.45,
+            })}>
+            <Icon name="kilicKalkan" size={13} color={C.iceSoft} /> TERS ÇEVİR
+          </button>
           <button onClick={clearAll} style={btn('ghost')}>TEMİZLE</button>
           <button onClick={run} style={btn('primary', {
             padding: '8px 20px', fontSize: 12, letterSpacing: 1.5,

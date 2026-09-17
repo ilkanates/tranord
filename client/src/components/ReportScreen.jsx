@@ -10,8 +10,9 @@
  * try/catch içinde — gizli pencerede erişim hata atabiliyor.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { C, FONT, RES_COLOR, panel, btn, label as lbl, num, short, fmtTime } from '../theme';
-import { useViewport } from '../responsive';
+import { useViewport, useHoverable } from '../responsive';
 import { RES_LABEL } from '../flows';
 import VILLAGE_DEFS from '../data/villageDefs';
 import { unitImage } from '../data/unitImages';
@@ -491,6 +492,113 @@ function Row({ r, active, unread, onClick, ok = false }) {
 }
 
 // ── Sağ ayrıntı ──────────────────────────────────────────────────────
+/**
+ * Üstüne gelince açılan kartın genişliği. Sabit: konumu açılırken
+ * ekrana göre kırpmak için ölçüye ihtiyaç var ve kartın içeriği
+ * (104 px resim + kenar boşluğu) zaten sabit genişlikte.
+ */
+const KART_EN = 120;
+
+/**
+ * Tek birim pulu — ARMA + SAYI. Resim ve ad üstüne gelince ya da
+ * dokununca açılan kartta.
+ */
+function UnitChip({ u, n, unitDefs, color }) {
+  const [kart, setKart] = useState(null);
+  /*
+    FARELİ CİHAZDA ÜSTÜNE GELMEK, DOKUNMATİKTE TIKLAMA. İkisini birden
+    bağlamak işe yaramıyor: fareyle tıklayınca mouseenter kartı açıyor,
+    hemen ardından click kapatıyordu.
+  */
+  const hoverVar = useHoverable();
+  const ad = unitDefs[u]?.name || u;
+  const img = unitImage(u);
+
+  /*
+    KONUM ÖLÇÜLÜYOR, AKIŞTAN GELMİYOR. Kart `position: fixed`; ayrıntı
+    sütunu kaydırmalı olduğu için akış içinde duran bir balon kutunun
+    kenarında kesilirdi.
+  */
+  const ac = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    /*
+      YATAY KIRPMA. Kırpmasak sağdaki ayrıntı sütununda duran pulun
+      kartı pencerenin dışına taşıyordu (ölçüldü: 1316 > 1280) — yani
+      tam da en çok bakılan sütunda görünmüyordu.
+    */
+    const yariEn = KART_EN / 2 + 6;
+    const x = Math.min(Math.max(r.left + r.width / 2, yariEn),
+      window.innerWidth - yariEn);
+    setKart({ x, ust: r.top, alt: r.bottom });
+  };
+
+  return (
+    <div
+      onMouseEnter={hoverVar ? ac : undefined}
+      onMouseLeave={hoverVar ? () => setKart(null) : undefined}
+      onClick={hoverVar ? undefined : (e) => (kart ? setKart(null) : ac(e))}
+      title={ad}
+      style={{
+        position: 'relative', cursor: 'default',
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '4px 9px 4px 6px', borderRadius: 5,
+        background: 'rgba(8,17,28,0.6)', border: `1px solid ${color}33`,
+      }}>
+      <Amblem type={u} size={26} color={color} />
+      <div style={num({ fontSize: 15, color, lineHeight: 1.1 })}>{n}</div>
+
+      {/*
+        BODY'YE PORTAL. `position: fixed` transform'lu bir üst kutunun
+        içinde viewport'a göre konumlanmıyor — ölçüldü: kartın
+        hesaplanan `left` değeri 650 px iken ekrandaki gerçek yeri
+        1197 px çıkıyordu. Rapor satırları hover'da ölçeklendiği için
+        öyle bir üst kutu her zaman var. Projede aynı tuzak için aynı
+        çözüm zaten kullanılıyor (AyarlarMenu, SendArmyPanel).
+      */}
+      {kart && createPortal((
+        <div style={{
+          position: 'fixed', zIndex: 60, pointerEvents: 'none',
+          left: kart.x, top: kart.ust - 8,
+          transform: 'translate(-50%, -100%)',
+          /* Üstte yer yoksa aşağı düş — liste başındaki pullar ekrandan taşmasın */
+          ...(kart.ust < 210 ? { top: kart.alt + 8, transform: 'translate(-50%, 0)' } : null),
+          padding: 7, borderRadius: 7,
+          background: 'rgba(6,11,18,0.97)', border: `1px solid ${color}66`,
+          boxShadow: '0 8px 22px rgba(0,0,0,0.6)',
+        }}>
+          {img && (
+            <img src={img} alt="" draggable={false} style={{
+              display: 'block', width: 104, height: 142, objectFit: 'cover',
+              objectPosition: '50% 10%', borderRadius: 4,
+            }} />
+          )}
+          <div style={{
+            marginTop: img ? 5 : 0, maxWidth: 104, textAlign: 'center',
+            fontFamily: FONT.ui, fontSize: 10.5, color: C.frost,
+          }}>{ad}</div>
+        </div>
+      ), document.body)}
+    </div>
+  );
+}
+
+/**
+ * NE KALDI — gönderilen eksi kayıp.
+ *
+ * Türetiliyor, kaydedilmiyor: sunucuda üçüncü bir alan tutmak, kayıp
+ * hesabı değiştiğinde ikisinin ayrışması demekti. Eksiye düşmüyor;
+ * eski raporlarda alanlardan biri yoksa sonuç boş çıkıyor ve bölüm
+ * çizilmiyor.
+ */
+function kalanBirlikler(gonderilen, kayip) {
+  const out = {};
+  for (const [u, n] of Object.entries(gonderilen || {})) {
+    const k = Math.max(0, Math.floor(n) - Math.floor((kayip || {})[u] || 0));
+    if (k > 0) out[u] = k;
+  }
+  return out;
+}
+
 function UnitGrid({ units, unitDefs, color }) {
   const items = Object.entries(units || {}).filter(([, n]) => n > 0);
   if (!items.length) {
@@ -498,36 +606,9 @@ function UnitGrid({ units, unitDefs, color }) {
   }
   return (
     <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-      {items.map(([u, n]) => {
-        const img = unitImage(u);
-        return (
-          <div key={u} title={unitDefs[u]?.name || u} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '4px 8px 4px 4px', borderRadius: 5,
-            background: 'rgba(8,17,28,0.6)', border: `1px solid ${color}33`,
-          }}>
-            {/* Resim 20×28'di — asker tanınmıyordu. 44×60 ile yüz ve
-                teçhizat seçiliyor, kart hâlâ tek satıra sığıyor. */}
-            <div style={{ width: 44, height: 60, borderRadius: 4, overflow: 'hidden', background: '#0b1420' }}>
-              {img ? (
-                <img src={img} alt="" draggable={false} style={{
-                  width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 10%',
-                }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
-                  <Amblem type={u} size={30} color={color} opacity={0.8} />
-                </div>
-              )}
-            </div>
-            <div>
-              <div style={num({ fontSize: 16, color, lineHeight: 1.1 })}>{n}</div>
-              <div style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textMute }}>
-                {unitDefs[u]?.name || u}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {items.map(([u, n]) => (
+        <UnitChip key={u} u={u} n={n} unitDefs={unitDefs} color={color} />
+      ))}
     </div>
   );
 }
@@ -606,10 +687,18 @@ function simKurulumu(r) {
   }
 
   if (r.dir === 'in' && dolu(r.attackerUnits)) {
+    /*
+      İKİ ORDU DA YÜKLENİYOR (İlkan'ın isteği). Savunan ordu artık
+      raporda yazılı (army.js · defenderUnits); eski raporlarda yok, o
+      zaman savunan boş kalıyor ve oyuncu "ORDUMU YÜKLE" ile dolduruyor.
+    */
+    const savunan = dolu(r.defenderUnits) ? { ...r.defenderUnits } : {};
     return {
-      id: r.id, attacker: { ...r.attackerUnits }, defender: {},
+      id: r.id, attacker: { ...r.attackerUnits }, defender: savunan,
       surLevel: 0, hendekLevel: 0, kulePct: r.wallBonusPct || 0, mode: r.mode,
-      not: 'Sana gelen ordu yüklendi — savunmayı "ORDUMU YÜKLE" ile doldur.',
+      not: Object.keys(savunan).length
+        ? 'Bu savaşın iki ordusu da yüklendi.'
+        : 'Sana gelen ordu yüklendi — savunmayı "ORDUMU YÜKLE" ile doldur.',
     };
   }
 
@@ -852,6 +941,17 @@ function Detail({ r, unitDefs, onSimulate = null }) {
               <UnitGrid units={r.attackerUnits} unitDefs={unitDefs} color={C.danger} />
             </Section>
           )}
+          {/*
+            KÖYÜMÜ KİM SAVUNDU. "Zaten biliyorum" diye yazılmıyordu ama
+            o andaki ordu artık yok ve MİSAFİR TAKVİYELER de oradaydı —
+            oyuncu köyünü kimin savunduğunu hiç göremiyordu. Eski
+            raporlarda alan yok; o zaman bölüm çizilmiyor.
+          */}
+          {inc && sum(r.defenderUnits) > 0 && (
+            <Section title="KÖYÜMÜ SAVUNAN ORDU">
+              <UnitGrid units={r.defenderUnits} unitDefs={unitDefs} color={C.good} />
+            </Section>
+          )}
 
           <Section title="KAYBIM">
             <UnitGrid units={r.myLosses} unitDefs={unitDefs} color={C.danger} />
@@ -945,6 +1045,27 @@ function Detail({ r, unitDefs, onSimulate = null }) {
           <Section title={inc ? 'SALDIRANIN KAYBI' : 'KARŞI TARAFIN KAYBI'}>
             <UnitGrid units={r.theirLosses} unitDefs={unitDefs} color={C.good} />
           </Section>
+
+          {/*
+            KARŞI TARAFTAN NE KALDI. "Vardı" ve "öldü" yazılıydı ama
+            kalanı oyuncu kafadan çıkarmak zorundaydı — sekiz birim
+            çeşidinde kimse yapmıyor. Türetiliyor (bkz. kalanBirlikler).
+          */}
+          {sum(inc ? r.attackerUnits : r.theirSent) > 0 && (
+            <Section title={inc ? 'SALDIRANDAN KALAN' : 'KARŞI TARAFTAN KALAN'}>
+              <UnitGrid
+                units={kalanBirlikler(inc ? r.attackerUnits : r.theirSent, r.theirLosses)}
+                unitDefs={unitDefs} color={C.textDim} />
+            </Section>
+          )}
+
+          {/* Savunurken kendi kalanım — saldırırken bunu "DÖNEN ASKERLER" yazıyor */}
+          {inc && sum(r.defenderUnits) > 0 && (
+            <Section title="SAVUNMADAN KALAN">
+              <UnitGrid units={kalanBirlikler(r.defenderUnits, r.myLosses)}
+                unitDefs={unitDefs} color={C.iceSoft} />
+            </Section>
+          )}
 
           {!inc && r.survivors && (
             <Section title="DÖNEN ASKERLER">

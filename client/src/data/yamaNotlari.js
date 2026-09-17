@@ -26,6 +26,52 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-17o',
+    tarih: '17 Eylül 2026',
+    baslik: 'Raporlar sadeleşti, kahraman ganimet taşıyor',
+    notlar: [
+      {
+        id: '20260917-rapor-arma-kart',
+        tur: 'yenilik',
+        metin: 'RAPORLARDA ARTIK PORTRE DEĞİL ARMA VAR. Sekiz birim '
+          + 'çeşidi olan bir savaşta rapor on iki kartlık bir albüme '
+          + 'dönüyordu; rapor bir SAYI ekranı, resim orada gürültüydü. '
+          + 'Arma + sayı tek satıra sığıyor, resim ve ad üzerine '
+          + 'gelince (telefonda dokununca) açılıyor.',
+      },
+      {
+        id: '20260917-rapor-ne-kaldi',
+        tur: 'yenilik',
+        metin: 'NE VARDI, NE KALDI — İKİ TARAF İÇİN DE. Rapor "vardı" '
+          + 've "öldü"yü yazıyordu ama kalanı kafadan çıkarman '
+          + 'gerekiyordu. Ayrıca köyüne saldırıldığında KÖYÜNÜ KİMİN '
+          + 'SAVUNDUĞU hiç yazmıyordu — misafir takviyeler de oradaydı '
+          + 've onları hiç göremiyordun. İkisi de eklendi.',
+      },
+      {
+        id: '20260917-sim-ters-cevir',
+        tur: 'yenilik',
+        metin: 'SİMÜLATÖRDE TERS ÇEVİR. "Bana saldıran bu orduya ben '
+          + 'saldırsam ne olurdu" sorusunun cevabı ancak rolleri '
+          + 'değiştirerek alınıyor — savaş simetrik değil. Tek tuş iki '
+          + 'orduyu yer değiştiriyor; sur, hendek ve kule köyde kalıyor '
+          + 'çünkü onlar köye ait, orduya değil. Bana gelen saldırı '
+          + 'raporundan simülatöre giderken artık savunan ordu da '
+          + 'yükleniyor.',
+      },
+      {
+        id: '20260917-kahraman-ganimet',
+        tur: 'denge',
+        metin: 'KAHRAMAN ARTIK GANİMET TAŞIYOR. Sefere katılıyor, '
+          + 'savaşıyor, yara alıyordu ama tek bir odun taşımıyordu. '
+          + 'Yaya kahraman bir piyade kadar, atlı kahraman bir süvari '
+          + 'kadar taşıyor — attaki hız kuralının aynısı. Ordunun '
+          + 'kapasitesine EKLENİYOR. Bayılan kahraman taşımıyor: canı '
+          + 'biten kahraman eve ışınlanıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-17n',
     tarih: '17 Eylül 2026',
     baslik: 'Sığınak: bir gün giremezsen sıfırlanmıyorsun',
