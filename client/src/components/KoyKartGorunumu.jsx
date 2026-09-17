@@ -34,6 +34,7 @@ import { BUILDING_TEXTURE, TEXTURE_EMBLEM, MERKEZ_IMG } from './buildingArt';
  */
 export const GORUNUM_ANAHTARI_W = 118;
 import Icon, { buildingIcon } from './Icons';
+import Amblem from './Amblem';
 
 const CAT_LABEL = {
   merkez: 'Merkez', isleme: 'İşleme', askeri: 'Askeri', depo: 'Depo',
@@ -91,7 +92,7 @@ function BinaKarti({ slotKey, bina, secili, onSec }) {
           }} />
         ) : (
           <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
-            <Icon name={amblem || buildingIcon(tip)} size={26} color={kenar} />
+            <Amblem type={amblem?.icon || buildingIcon(tip)} size={26} color={kenar} />
           </div>
         )}
         {/* Okunurluk şeridi: açık görsellerde yazı kayboluyordu */}

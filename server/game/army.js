@@ -34,6 +34,8 @@ const HERO = require('./kahraman');
   saglik.js hiçbir şeyi require etmiyor — döngü kurulamaz.
 */
 const SAGLIK = require('./saglik');
+const SIGINAK = require('./siginak');
+const { VILLAGE_DEFS } = require('../data/villageDefs');
 const GT = require('./gameTime');
 
 // ── Ölçek sabitleri ────────────────────────────────────────────────────
@@ -339,10 +341,20 @@ function takeLoot(target, capacity, mode) {
   if (!(capacity > 0)) return loot;
 
   const share = mode === 'raid' ? RAID_LOOT_SHARE : 1;
+  /*
+    SIĞINAK ÖNCE DÜŞÜLÜYOR, YAĞMA PAYINDAN ÖNCE.
+
+    Sıra önemli: baskında (raid) stokun yalnız bir kısmı yağmalanıyor.
+    Payı önce alıp sığınağı sonra düşseydik sığınak baskında olduğundan
+    daha az koruyor görünürdü — oyuncuya "her kaynaktan 200 gizli"
+    dedik, %50'si değil. Önce gizleniyor, kalanın payı alınıyor.
+  */
+  const gizli = SIGINAK.gizlenen(target, VILLAGE_DEFS);
   const avail = {};
   let availTotal = 0;
   for (const res of LOOTABLE) {
-    const amt = Math.floor((target.resources?.[res] || 0) * share);
+    const acikta = SIGINAK.gorunen(target.resources?.[res], gizli);
+    const amt = Math.floor(acikta * share);
     if (amt > 0) { avail[res] = amt; availTotal += amt; }
   }
   if (availTotal <= 0) return loot;
@@ -736,8 +748,14 @@ function resolveArrival(march, origin, target, opts = {}) {
       armyTotal: totalUnits(target.army),
       defense: Math.round(armyDefense(target.army)),
       surLevel, hendekLevel, kulePct,
-      resources: Object.fromEntries(
-        LOOTABLE.map(r => [r, Math.floor(target.resources?.[r] || 0)])),
+      /*
+        İZCİ DE SIĞINAĞI GÖREMİYOR. Gerçek stoku gösterseydik saldırgan
+        keşif ile yağmayı karşılaştırıp sığınağın seviyesini çıkarır,
+        bina bir bilgi sızıntısına dönerdi (bkz. siginak.js).
+      */
+      resources: Object.fromEntries(LOOTABLE.map(r =>
+        [r, SIGINAK.gorunen(target.resources?.[r],
+          SIGINAK.gizlenen(target, VILLAGE_DEFS))])),
       at: now,
     } : null;
 

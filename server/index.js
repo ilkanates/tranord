@@ -65,6 +65,8 @@ const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
 const { buildPayload } = require('./game/payload');
 /* Rapor türü/filtresi tek cümle — hem sayfalama hem rozet sayıları oradan */
 const { kesifMi, filtrele, sayilar: raporSayilari } = require('./game/raporTur');
+/* Sığınağın gizleme miktarı tek cümle — yağma, keşif ve arayüz oradan */
+const SIGINAK = require('./game/siginak');
 const { questState, questSync, questTamam, questPayload, questFingerprint,
         egitimGoruldu, egitimBitir } = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -581,6 +583,8 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     merkezTasimaBedeli: merkezTasimaBedeli(session),
     // Acemi kalkanı — oyuncu ne kadar korunduğunu görmeli (madde 12)
     acemiKalkani: acemiKalkani(v),
+    /* Sığınak her kaynaktan ne kadarını gizliyor — yalnız sahibine */
+    siginakGizleme: SIGINAK.gizlenen(v, VILLAGE_DEFS),
     reports: statics || reportsChanged,
     /*
       İLK SAYFA + TOPLAM. Bütün raporlar (250/köy) her pakete

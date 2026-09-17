@@ -15,6 +15,7 @@ import PazarPanel from './PazarPanel';
 import ElcilikPanel from './ElcilikPanel';
 import RevirPanel from './RevirPanel';
 import VILLAGE_DEFS, { towerSlotBonus, SUR_BONUS, HENDEK_BONUS } from '../data/villageDefs';
+import { unitEmblem } from '../data/unitEmblems';
 import { EMBLEM_DY, EMBLEM_SIZE, TEXTURE_EMBLEM, BUILDING_TEXTURE, BUILDING_VIDEO, MERKEZ_IMG } from './buildingArt';
 import { popoverStyle, computePopoverPos } from './popoverStyle';
 import { C, FONT, RES_COLOR, btn, label as lbl, num, signed, fmtTime } from '../theme';
@@ -825,6 +826,50 @@ function VCHover({ slotKey, building, isTower, isCenter, ring, kind = 'hex', flo
  * Kazanılan hak bina yıkılsa da düşmez; yeni hak için bir sonraki eşiğe
  * çıkmak gerekir. Her hak 3 göçmen demek.
  */
+/**
+ * SIĞINAK BİLGİSİ — "şu an ne kadarım güvende?"
+ *
+ * Açıklama metni KURALI anlatıyor ("Lvl 1'de 200, her seviye +150");
+ * oyuncunun sorduğu ise mevcut sayı. İkisi ayrı şeyler ve ikisi de
+ * gerekli: kural yükseltme kararını, sayı güven duygusunu veriyor.
+ *
+ * SAYI SUNUCUDAN. Burada `taban + (lvl-1) * artis` diye hesaplasaydık
+ * denge ayarı yapılınca arayüz bir şey yazar, yağma başka bir şey
+ * uygular ve oyuncu hangisine inanacağını bilemezdi — bu depodaki en
+ * sık tekrarlayan hata sınıfı.
+ */
+function SiginakBilgi({ gizlenen = 0 }) {
+  const var_ = gizlenen > 0;
+  return (
+    <div style={{
+      background: 'rgba(8,17,28,0.55)', border: `1px solid ${C.lineSoft}`,
+      borderRadius: 7, padding: 9,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+        <Icon name="siginak" size={13} color={C.iceDeep} />
+        <span style={lbl({ fontSize: 8.5, letterSpacing: 1.5, flex: 1 })}>Gizlenen</span>
+        <span style={num({ fontSize: 10.5, color: var_ ? C.good : C.textMute })}>
+          {gizlenen}<span style={{ color: C.textMute }}> / kaynak</span>
+        </span>
+      </div>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        padding: '5px 8px', borderRadius: 5,
+        background: 'rgba(78,207,168,0.06)',
+        border: '1px solid rgba(78,207,168,0.22)',
+      }}>
+        <Icon name="kalkan" size={11} color={C.good} />
+        <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: C.textDim, flex: 1 }}>
+          {var_
+            ? `Yağmacı her kaynağın son ${gizlenen} birimini göremiyor — deposu boşalsa bile o kısım köyde kalıyor. İzci de göremiyor.`
+            : 'Sığınak henüz çalışmıyor.'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ExpansionInfo({ exp }) {
   const { earned = 0, used = 0, free = 0, settlers = {}, founded = [] } = exp || {};
   return (
@@ -896,6 +941,7 @@ export default function VillageCenter({
   // Zaman ölçeği: tahmin kutuları oyun dakikasını gerçek saniyeye bunlarla çevirir
   hourSeconds = 3600, worldSpeed = 1,
   culture = null, expansion = null, festival = null, festivalDefs = {}, onStartFestival,
+  siginakGizleme = 0,
   // Pazar: tüccar kapasitesi ve NPC takası (bkz. server/game/pazar.js)
   pazar = null, onPazarTakas,
   // Revir: Sağlık Çadırı ekranındaki yaralı kartları
@@ -1383,11 +1429,31 @@ export default function VillageCenter({
                   const em = TEXTURE_EMBLEM[building.type];
                   const es = em.size || EMBLEM_SIZE;
                   const ey = y - EMBLEM_DY;
+                  const png = unitEmblem(em.icon);
                   return (
                     <g opacity={building.building ? 0.4 : 1}>
                       <circle cx={x} cy={ey} r={es / 2 + 4} fill="rgba(8,14,24,0.62)" stroke={`${edge}66`} strokeWidth={1} />
                       <g transform={`translate(${x} ${ey}) rotate(${em.rot}) translate(${-es / 2} ${-es / 2})`}>
-                        <Icon name={em.icon} size={es} color={edge} strokeWidth={1.5} />
+                        {png ? (
+                          <>
+                            {/*
+                              PNG AMBLEM SVG'DE MASKE OLUYOR. Dosya beyaz
+                              siluet + alfa, SVG maskesi de parlaklık
+                              okuyor: beyaz gösteriyor, şeffaf gizliyor.
+                              Üstüne kenar renginde dikdörtgen basılınca
+                              sonuç SVG yollu amblemlerle birebir aynı.
+                            */}
+                            <mask id={`${clipId}-am`} maskUnits="userSpaceOnUse"
+                              x={0} y={0} width={es} height={es}>
+                              <image href={png} x={0} y={0} width={es} height={es}
+                                preserveAspectRatio="xMidYMid meet" />
+                            </mask>
+                            <rect x={0} y={0} width={es} height={es}
+                              fill={edge} mask={`url(#${clipId}-am)`} />
+                          </>
+                        ) : (
+                          <Icon name={em.icon} size={es} color={edge} strokeWidth={1.5} />
+                        )}
                       </g>
                     </g>
                   );
@@ -1624,6 +1690,8 @@ export default function VillageCenter({
           // Taverna: şölen paneli (kültür puanı üretimi)
           const hasFestival = selectedBuilding?.type === 'taverna';
           const hasPazar    = selectedBuilding?.type === 'pazar';
+          const hasSiginak  = selectedBuilding?.type === 'siginak'
+            && (selectedBuilding.level || 0) >= 1;
           const hasElcilik  = selectedBuilding?.type === 'elcilik';
           const binaAciklamasi = selectedBuilding
             ? (VILLAGE_DEFS[selectedBuilding.type]?.description || '') : '';
@@ -2049,6 +2117,12 @@ export default function VillageCenter({
             )}
 
             {/* SIRA: bina gorseli -> savascilar -> isci/yukseltme + ekipman */}
+            {hasSiginak && (
+              <div style={{ padding: '0 12px 8px', order: 1 }}>
+                <SiginakBilgi gizlenen={siginakGizleme} />
+              </div>
+            )}
+
             {hasExpansion && expansion && (
               <div style={{ padding: '0 10px 8px', order: 1 }}>
                 <ExpansionInfo exp={expansion} />

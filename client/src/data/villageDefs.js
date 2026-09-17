@@ -231,6 +231,13 @@ const VILLAGE_DEFS = {
     baseCapacity:2400, capacityPerLevel:1200,
     buildBaseWork:30, buildMultiplier: 1.28, cost:{ kereste:50, yontmaTas:60, tugla:60 }
   },
+  siginak: { requires:[{ tip:"anaBina", seviye:1 }], cpPerLevel:1,
+    name:'Sığınak', category:'depo', icon:'🕳️',
+    description:'Yağmacıdan kaynak GİZLER. Her kaynaktan seviyesine göre belli bir miktar saldırganın gözüne görünmez: deponun geri kalanı süpürülse bile o kısım köyde kalır. Lvl 1\'de her kaynaktan 200, sonraki her seviye +150 — Lvl 20\'de 3.050. Yağmalanabilen her kaynağı korur, işlenmiş malları da. Saldırganın raporunda gizlenen kısım GÖRÜNMEZ, keşif de göremez. Bir gün giremediğinde köyünü sıfırdan kurmak zorunda kalmamanın tek yolu bu; ilk kurulacak binalardan biri. Köyde yalnız BİR sığınak olabilir ve mancınıkla yıkılabilir.',
+    unique:true, maxLevel:20,
+    baseCapacity:200, capacityPerLevel:150,
+    buildBaseWork:20, buildMultiplier: 1.28, cost:{ kereste:40, tugla:30, yontmaTas:30 }
+  },
   tahilAmbar: { requires:[{ tip:"degirmen", seviye:1 }], cpPerLevel:1,
     name:'Tahıl Ambarı', category:'depo', icon:'🌾',
     description:'HAM tahılı depolar (un ve ekmek Erzak Ambarına gider). Tabanı 1000; bu bina Lvl 1 de +12000, sonraki her seviye +6000 ekler — oyunun en büyük deposu, çünkü tahıl hem yiyeceğin hem atların girdisi. Ambar dolunca tarlaların boşa üretir. En yüksek seviyede ikincisi kurulabilir.',

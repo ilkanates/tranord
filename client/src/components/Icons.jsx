@@ -205,6 +205,23 @@ const P = {
       <path d="M10 20v-4h4v4" />
     </>
   ),
+  /*
+    SIĞINAK — zemin çizgisi, açık kapak, ALTTA sandık.
+
+    Depo ikonundan ayrı olmalı: sığınak da bir depo ama oyuncu için
+    farkı "YER ALTINDA" olması. Kapağın açık durması ve sandığın
+    çizginin altında kalması bunu tek bakışta söylüyor; kapalı bir
+    kapak yalnız bir dikdörtgen olurdu.
+  */
+  siginak: (
+    <>
+      <path d="M2.5 7.5h6M15.5 7.5h6" />
+      <path d="M8.5 7.5 11.5 3.5" />
+      <rect x="5" y="11" width="14" height="8.5" rx="1" />
+      <path d="M5 14.5h14" />
+      <path d="M11 14.5h2v2.5h-2z" />
+    </>
+  ),
 
   // ── Binalar: askeri ─────────────────────────────────────────────
   silahci: (

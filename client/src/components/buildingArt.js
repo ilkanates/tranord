@@ -28,6 +28,7 @@ import cephaneImg from '../assets/buildings/cephane.jpg';
 import saglikCadiriImg from '../assets/buildings/saglikCadiri.jpg';
 import hammaddeDepoImg from '../assets/buildings/hammaddeDepo.jpg';
 import islenmisMalDepoImg from '../assets/buildings/islenmisMalDepo.jpg';
+import siginakImg from '../assets/buildings/siginak.jpg';
 import granaryImg from '../assets/buildings/granary.jpg';
 import pazarImg from '../assets/buildings/pazar.jpg';
 import evImg from '../assets/buildings/ev.jpg';
@@ -58,6 +59,7 @@ import tasciVideo from '../assets/buildings/videos/tasci.mp4';
 import demirciVideo from '../assets/buildings/videos/demirci.mp4';
 import hammaddeDepoVideo from '../assets/buildings/videos/hammaddeDepo.mp4';
 import tahilAmbarVideo from '../assets/buildings/videos/tahilAmbar.mp4';
+import siginakVideo from '../assets/buildings/videos/siginak.mp4';
 import granaryVideo from '../assets/buildings/videos/granary.mp4';
 import loncaOdunVideo from '../assets/buildings/videos/loncaOdun.mp4';
 import loncaTasVideo from '../assets/buildings/videos/loncaTas.mp4';
@@ -99,6 +101,7 @@ export const BUILDING_VIDEO = {
   demirci: demirciVideo,
   hammaddeDepo: hammaddeDepoVideo,
   tahilAmbar: tahilAmbarVideo,
+  siginak: siginakVideo,
   granary: granaryVideo,
   loncaOdun: loncaOdunVideo,
   loncaTas: loncaTasVideo,
@@ -138,6 +141,8 @@ export const TEXTURE_EMBLEM = {
   saglikCadiri: { icon: 'saglikAmblem', rot: 0, size: 17 },
   hammaddeDepo: { icon: 'hammaddeAmblem', rot: 0, size: 17 },
   islenmisMalDepo: { icon: 'islenmisAmblem', rot: 0, size: 17 },
+  /* Amblem bir PNG maskesi (assets/amblems/siginak.png) — bkz. dosya başı */
+  siginak: { icon: 'siginak', rot: 0, size: 19 },
   granary: { icon: 'granaryAmblem', rot: 0, size: 18 },
   pazar: { icon: 'pazarAmblem', rot: 0, size: 17 },
   ev:         { icon: 'evAmblem', rot: 0, size: 17 },
@@ -185,6 +190,7 @@ export const BUILDING_TEXTURE = {
   saglikCadiri: saglikCadiriImg,
   hammaddeDepo: hammaddeDepoImg,
   islenmisMalDepo: islenmisMalDepoImg,
+  siginak: siginakImg,
   granary: granaryImg,
   pazar: pazarImg,
   ev: evImg,

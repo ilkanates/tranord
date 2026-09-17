@@ -381,6 +381,8 @@ function buildPayload(village, tickMs, opts = {}) {
       oyuncu ne kadar güvende olduğunu ve ne zaman biteceğini bilmeli.
     */
     acemiKalkani: opts.acemiKalkani || null,
+    /* Sığınağın her kaynakta gizlediği miktar (bkz. game/siginak.js) */
+    siginakGizleme: opts.siginakGizleme ?? 0,
     tarlaTavani: tarlaTavani(village),
     tarlaTavanlari: { normal: TARLA_TAVANI, merkez: TARLA_TAVANI_MERKEZ },
     intel: village.intel || {},

@@ -5,6 +5,7 @@ import { C, FONT, RES_COLOR, btn, label as lbl, num, fmtTime, signed } from '../
 import { RES_LABEL, gameMinutesToRealSeconds, NO_WORKER_TYPES, workerTerm,
   takesWorkers, maxWorkersOf, maxBuilders, yikimOnayi } from '../flows';
 import Icon, { buildingIcon } from './Icons';
+import Amblem from './Amblem';
 import { CostRow } from './mapPanels';
 import { TEXTURE_EMBLEM } from './buildingArt';
 import WorkerAssign from './WorkerAssign';
@@ -75,7 +76,8 @@ function Row({ k, v, c = C.frost, strong }) {
  */
 function BuildingBadge({ type, size = 18, color }) {
   const amblem = TEXTURE_EMBLEM[type]?.icon;
-  return <Icon name={amblem || buildingIcon(type)} size={size} color={color} />;
+  /* `Amblem` PNG amblemi çiziyor, yoksa aynı adı çizgi ikon deniyor */
+  return <Amblem type={amblem || buildingIcon(type)} size={size} color={color} />;
 }
 
 function ColLabel({ children, icon, color }) {
