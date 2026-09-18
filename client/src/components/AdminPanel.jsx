@@ -20,6 +20,23 @@ import { C, FONT, panel, btn, label as lbl, num } from '../theme';
 import Icon from './Icons';
 import { adminTokeniSakla } from '../adminOturum';
 
+/**
+ * Yanıtı JSON olarak oku — HTML dönerse ANLAŞILIR hata ver.
+ *
+ * "Unexpected token '<', \"<!doctype\"..." tarayıcının ham çözümleme
+ * hatası ve sebebi hiç anlatmıyor. HTML dönmesinin tek bir anlamı var:
+ * istek oyun sunucusuna değil, tek sayfalık uygulamaya düştü — yani ön
+ * yüz (nginx) /admin yolunu iletmiyor.
+ */
+async function jsonOku(r) {
+  const tur = r.headers.get('content-type') || '';
+  if (!tur.includes('application/json')) {
+    throw new Error(`Sunucu JSON yerine sayfa döndürdü (${r.status}). `
+      + '/admin yolu oyun sunucusuna iletilmiyor — nginx ayarı eksik.');
+  }
+  return r.json();
+}
+
 export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) {
   const [liste, setListe] = useState(null);
   const [hata, setHata] = useState(null);
@@ -37,7 +54,7 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!r.ok) throw new Error(r.status === 404 ? 'Yetki yok' : `Sunucu ${r.status}`);
-        const d = await r.json();
+        const d = await jsonOku(r);
         if (!iptal) setListe(d.users || []);
       } catch (e) {
         if (!iptal) setHata(e.message);
@@ -59,7 +76,7 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
         body: JSON.stringify({ userId: u.id }),
       });
       if (!r.ok) throw new Error(`Sunucu ${r.status}`);
-      const d = await r.json();
+      const d = await jsonOku(r);
       if (!d.token) throw new Error('Token gelmedi');
       /*
         KENDİ TOKEN'INI SAKLA — önce. Sıra tersse ve saklama başarısız
@@ -96,7 +113,7 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error(`Sunucu ${r.status}`);
-      const d = await r.json();
+      const d = await jsonOku(r);
       setSifirSonuc(d);
       setSifirla(null);
     } catch (e) {
