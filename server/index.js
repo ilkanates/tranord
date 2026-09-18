@@ -6764,6 +6764,29 @@ io.on('connection', async socket => {
  * kayboluyordu — hangi sürümün ayakta olduğunu girişe gerek kalmadan bilmek
  * teşhis için şart.
  */
+/**
+ * NPC DÜNYASININ ASKERÎ ÖZETİ — "dünya savaşabiliyor mu?"
+ *
+ * Hem NPC→oyuncu yağması (en az 25 asker) hem NPC↔NPC savaşı (savunmada
+ * en az 15) orduya bakıyor. Ordu yoksa iki özellik de sessizce ölü kalır
+ * ve LOG BİLE YAZILMAZ — hiç denenmediği için. Bu yüzden sayı durumda
+ * duruyor: canlıda 24 saat boyunca tek bir yağma satırı olmamasının
+ * sebebini ancak bu ayırt ediyor.
+ */
+function npcOrduOzeti() {
+  const ordular = [];
+  for (const n of WORLD.npcs.values()) {
+    ordular.push(ARMY.totalUnits(n.village.army || {}));
+  }
+  if (!ordular.length) return { ordulu: 0, ortanca: 0, enCok: 0 };
+  ordular.sort((a, b) => a - b);
+  return {
+    ordulu: ordular.filter(x => x >= NPC_RAID_MIN_ARMY).length,
+    ortanca: ordular[Math.floor(ordular.length / 2)],
+    enCok: ordular[ordular.length - 1],
+  };
+}
+
 app.get('/', (_req, res) => res.json({
   ok: true,
   name: 'TraNord',
@@ -6777,6 +6800,8 @@ app.get('/', (_req, res) => res.json({
   npcs: WORLD.npcs.size,
   /* Kurulmayı bekleyen NPC köyleri — tohumlama tik başına birkaç köy ilerliyor */
   npcKuyruk: WORLD.tohumKuyrugu.length,
+  /* NPC dünyası savaşabiliyor mu — saldırıların hepsi orduya bakıyor */
+  npcOrdu: npcOrduOzeti(),
   players: WORLD.playerBySlot.size,
 }));
 
