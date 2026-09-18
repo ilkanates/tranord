@@ -512,6 +512,41 @@ function tryUpgradeProduction(v, buildWorkers) {
   return false;
 }
 
+/**
+ * KIŞLA DIŞINDA da asker eğitiliyor.
+ *
+ * Eskiden yalnız `kisla` vardı; 477 köyde ahır olmasına rağmen dünyada
+ * tek bir süvari yoktu. Atölye de burada: kuşatma makinesi olmayan NPC
+ * hiçbir zaman sur yıkamaz, yani saldırıları kalıcı bir etki bırakmaz.
+ */
+const EGITIM_BINALARI = ['kisla', 'ahir', 'atolye'];
+
+/**
+ * İZCİ NPC'YE YARAMAZ — saldırısı ve savunması yok.
+ *
+ * Rastgele seçim izciye düşerse köy kaynağını bilgi toplamaya harcamış
+ * olurdu; NPC'nin keşif diye bir kararı yok (hedefini zaten dünya
+ * durumundan biliyor).
+ */
+const NPC_ISTEMEZ = new Set(['kuzeyIzcisi', 'gocmen']);
+
+/**
+ * BU BİNADA EĞİTİLEBİLECEK BİRİMLER — ekipmanı deposunda olanlar.
+ *
+ * Liste DÖNÜYOR, tek birim değil: çağıran taraf aralarından seçiyor.
+ * Eskiden burada `.find` vardı ve her zaman tanım sırasındaki ilk
+ * birimi veriyordu — dünyadaki 297 bin askerin tamamının aynı tip
+ * olmasının sebebi tek bir kelimeydi.
+ */
+function egitilebilirler(v, bina) {
+  return Object.entries(UNIT_DEFS)
+    .filter(([key, d]) => d.trainedAt === bina
+      && !NPC_ISTEMEZ.has(key)
+      && (d.equipment || []).length > 0
+      && (d.equipment || []).every(e => (v.equipment[e] || 0) >= 1))
+    .map(([key, d]) => ({ key, guc: (d.equipment || []).length }));
+}
+
 /** Ekipman ve asker siparişi */
 function tryMilitary(v, foodShort) {
   // Ekonomi kırılganken ordu kurmak köyü açlığa sokuyordu (ölçüm: nüfus 126 → 76)
@@ -525,24 +560,63 @@ function tryMilitary(v, foodShort) {
       if (!b || b.level < 1 || (b.workers || 0) <= 0) continue;
       const q = v.equipmentQueues[bType] ||= [];
       if (q.length >= 1) continue;   // bekleyen sipariş varken üstüne yığma
-      const eq = list[0];
-      if (!canAfford(v, EQUIPMENT_DEFS[eq]?.cost)) continue;
+      /*
+        EN AZ OLAN EKİPMAN ÜRETİLİYOR — eskiden hep `list[0]`di.
+        Silahçı yalnız kılıç, zırhçı yalnız kalkan yapıyordu; mızrak ve
+        zırh hiç üretilmediği için onları isteyen birimler (spydvakt,
+        nordkamper, isbjorn) dünyada hiç doğamıyordu. "En az olanı yap"
+        kuralı kendiliğinden dengeliyor ve ayrıca ucuz: sıralama yok,
+        tek geçiş.
+      */
+      let eq = null, enAz = Infinity;
+      for (const aday of list) {
+        const stok = v.equipment[aday] || 0;
+        if (stok < enAz && canAfford(v, EQUIPMENT_DEFS[aday]?.cost)) { enAz = stok; eq = aday; }
+      }
+      if (!eq) continue;
       q.push({ id: v.nextOrderId++, type: eq, total: 10, remaining: 10, waiting: true, startTime: null, endTime: null });
       return true;
     }
   }
-  // Asker: ekipman biriktiyse eğit
-  const kisla = buildingsOfType(v, 'kisla')[0];
-  if (kisla && kisla.level >= 1 && (kisla.workers || 0) > 0 && v.freeWorkers > 5) {
-    const q = v.unitQueues.kisla ||= [];
-    if (q.length < 1) {
-      const unit = Object.entries(UNIT_DEFS).find(([, d]) =>
-        d.trainedAt === 'kisla' && (d.equipment || []).every(e => (v.equipment[e] || 0) >= 1));
-      if (unit) {
-        q.push({ id: v.nextUnitOrderId++, type: unit[0], total: 5, remaining: 5, waiting: true, startTime: null, endTime: null, workerReserved: false });
-        return true;
-      }
-    }
+  /*
+    ASKER: ÜÇ BİNADA DA. Eskiden yalnız kışla eğitiyordu; 477 köyde ahır
+    olmasına rağmen dünyada tek bir süvari yoktu.
+
+    Binalar KARIŞTIRILARAK deneniyor: sabit sırayla gidilse kışla her
+    turda önce dolar ve ahıra hiç sıra gelmezdi — bu dosyada "sıralı
+    zincir üsttekini hep kazandırır" hatası daha önce köyleri anaBina 3'te
+    kilitlemişti.
+  */
+  const binalar = [...EGITIM_BINALARI]
+    .sort(() => rand01(v.worldQ, v.worldR, (v.tickCount % 991) + 401) - 0.5);
+
+  for (const bina of binalar) {
+    const b = buildingsOfType(v, bina)[0];
+    if (!b || b.level < 1 || (b.workers || 0) <= 0 || v.freeWorkers <= 5) continue;
+    const q = v.unitQueues[bina] ||= [];
+    if (q.length >= 1) continue;
+
+    const adaylar = egitilebilirler(v, bina);
+    if (!adaylar.length) continue;
+
+    /*
+      GÜÇLÜYE EĞİLİMLİ AMA TEK TİPE ÇÖKMEYEN SEÇİM.
+
+      Adaylar güçten (ekipman sayısı) güçsüze sıralanıp `r²` ile
+      seçiliyor: kare almak dağılımı başa yığıyor, yani köy elindeki en
+      iyi birimi daha sık basıyor ama bazen ucuz olanı da basıyor.
+      Düz "en güçlüyü seç" kuralı dünyayı yine tek tipe indirirdi —
+      sadece fjordvakt yerine jernridder olurdu.
+    */
+    adaylar.sort((a, b2) => b2.guc - a.guc);
+    const r = rand01(v.worldQ, v.worldR, (v.tickCount % 991) + 601);
+    const secim = adaylar[Math.floor(r * r * adaylar.length)] || adaylar[0];
+
+    q.push({
+      id: v.nextUnitOrderId++, type: secim.key, total: 5, remaining: 5,
+      waiting: true, startTime: null, endTime: null, workerReserved: false,
+    });
+    return true;
   }
   return false;
 }
@@ -796,6 +870,12 @@ function npcSummary(v) {
 
 module.exports = {
   seedNpcVillage, seedInstant, runNpcAi, npcSummary, ensureFoodStaffing, stepVillage,
+  /*
+    tryMilitary ve egitilebilirler TESTE AÇIK: dünyadaki her askerin aynı
+    tip olması tek bir kelimeden (.find) geliyordu ve hiçbir test bunu
+    görmüyordu. Artık seçim davranışı doğrudan sınanabiliyor.
+  */
+  tryMilitary, egitilebilirler, EGITIM_BINALARI,
   assignIdleWorkers, tryBuildVillage, tryUpgradeVillage,
   tryBuildProduction, tryUpgradeProduction,
 };

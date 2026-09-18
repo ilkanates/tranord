@@ -31,6 +31,20 @@ export const YAMA_NOTLARI = [
     baslik: 'Yağma listesi',
     notlar: [
       {
+        id: '20260918-npc-birim-cesitliligi',
+        tur: 'denge',
+        metin: 'KUZEYLİLER ARTIK TEK TİP ASKER BASMIYOR. Dünyadaki 297 '
+          + 'bin askerin TAMAMI aynı birimdi (fjordvakt) ve 477 köyde '
+          + 'ahır olmasına rağmen tek bir süvari yoktu — ahırlar at '
+          + 'üretip boşa harcıyordu. Üç ayrı yerde aynı hata vardı: '
+          + 'listenin hep ilk elemanı seçiliyordu. Artık silahçı mızrak '
+          + 'da, zırhçı zırh da üretiyor; kışlanın yanında AHIR ve '
+          + 'ATÖLYE de asker eğitiyor. Ölçüldü: 1 birim türü → 12, '
+          + 'ordunun altıda biri artık SÜVARİ. Savunmanı tek birime '
+          + 'göre kurmak artık yetmiyor — mızraklı süvariye, kalkanlı '
+          + 'piyadeye karşı ayrı hazırlık gerekiyor.',
+      },
+      {
         id: '20260918-yagma-listesi',
         tur: 'yenilik',
         metin: 'YAĞMA LİSTESİ GELDİ (Ordu → Yağma listesi). Yağmaladığın '

@@ -165,10 +165,9 @@ Bu zincir sırayla ilerlemek zorunda:
 ---
 
 ## 🔵 İlkan'ın sıradaki istekleri (18 Eylül 2026)
-- **NPC ordularında TEK BİRİM TÜRÜ var** (admin panelinin ilk bulgusu):
-  dünyadaki 297 bin askerin tamamı `fjordvakt`. `seedInstant` birim
-  çeşidini güce göre seçiyor ama havuz pratikte tek birime çöküyor.
-  Savaş tek boyutlu kalıyor, simülatör de anlamsızlaşıyor.
+- ~~**NPC ordularında TEK BİRİM TÜRÜ var**~~ — **DÜZELTİLDİ** (bkz.
+  Tamamlandı · "NPC birim çeşitliliği"). Sebep `seedInstant` değil
+  `tryMilitary`ydi: üç ayrı satırda "listenin ilkini al".
 - **Hiçbir NPC köyünde Kahraman Konağı yok** → NPC kahramanı da
   olamıyor. 4. aşamanın ön koşulu bu.
 - **Hiçbir NPC köyünde Pazar yok** → NPC takası ve açık artırma tek
@@ -345,6 +344,60 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### NPC birim çeşitliliği: dünyadaki her asker aynı tipti (18 Eylül 2026)
+
+Admin panelinin ilk gün bulduğu şey. **700 köy, 297 bin asker, tek tür**
+(`fjordvakt`). Sebep `npcAi.js · tryMilitary` içinde üç satırdı ve üçü de
+aynı desende: **"listenin ilkini al, hiç çeşitlendirme."**
+
+| | eskiden | sebep |
+|---|---|---|
+| ekipman | yalnız kılıç ve kalkan | `const eq = list[0]` |
+| birim | yalnız fjordvakt | `Object.entries(UNIT_DEFS).find(...)` |
+| bina | yalnız kışla | ahır/atölye dalı hiç yoktu |
+
+Mızrak ve zırh hiç üretilmediği için onları isteyen birimler (spydvakt,
+nordkamper, isbjorn) dünyada **hiç doğamıyordu**. 477 köyde ahır vardı
+(ortalama Lvl 5,2) ve **sıfır süvari**: o ahırlar at üretip nüfus ve
+kaynak yiyordu.
+
+**Bu hata hiçbir zaman hata vermiyordu.** Ordu büyüyor, savaşlar oluyor,
+her şey çalışıyor görünüyordu. Ancak DAĞILIMA bakan biri fark edebilirdi —
+ve o bakışın yeri bugüne kadar yoktu.
+
+**Düzeltme:**
+- Ekipmanda **stoğu en az olan** üretiliyor; kural kendiliğinden
+  dengeliyor, sıralama gerekmiyor.
+- `egitilebilirler()` TÜM uygun birimleri döndürüyor; seçim güçten
+  güçsüze sıralanmış listede `r²` ile yapılıyor — güçlüye eğilimli ama
+  tek tipe çökmüyor. Düz "en güçlüyü seç" kuralı dünyayı yine tek tipe
+  indirirdi, sadece fjordvakt yerine jernridder olurdu.
+- Kışla, **ahır ve atölye** birlikte ve **karıştırılmış sırayla**
+  deneniyor: sabit sıra kışlayı hep önce doldurup ahıra sıra
+  bırakmazdı (bu dosyada "sıralı zincir üsttekini kazandırır" hatası
+  daha önce köyleri anaBina 3'te kilitlemişti).
+- Rastgelelik `rand01(worldQ, worldR, …)` ile KÖYE SABİT —
+  `Math.random` tohumlamayı belirlenimsiz yapardı.
+- İzci ve göçmen NPC adayı değil: saldırısı/savunması olmayan birime
+  kaynak harcamak israf.
+
+**Ölçüm (60 köy gerçekten tohumlanarak):**
+
+```
+birim türü        1  →  12
+süvari            0  →  %16 (demirAtli, vindreiter, jernridder, …)
+mızrak/zırh       0  →  11.552 / 4.838
+```
+
+`npc-birim-cesitliligi.test.js` (9 test) dağılımı kilitliyor: tek bir
+köye bakmak yetmez, 60 köyün seçimi sayılıyor ve hiçbir tipin %75'i
+geçmemesi şart koşuluyor.
+
+**Açık kalan:** hiçbir NPC köyünde ATÖLYE yok, yani kuşatma makinesi de
+yok — NPC saldırıları sur yıkamıyor, kalıcı etki bırakmıyor. Bina
+önceliklerinin ayrı bir işi.
+
 
 ### Yağma listesi (18 Eylül 2026)
 İlkan: *"satır satır saldırıp yağmalanabilecek köyleri ve hangi askerin
