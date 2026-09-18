@@ -31,6 +31,17 @@ export const YAMA_NOTLARI = [
     baslik: 'Kuzey yeniden kuruluyor',
     notlar: [
       {
+        id: '20260918-bina-sayfasi-disari-tikla',
+        tur: 'duzeltme',
+        metin: 'BİNA SAYFASI DIŞARIYA TIKLAYINCA KAPANIYOR. Dün bunu '
+          + 'yaptığımı söylemiştim ama yalnız köy sahnesinin boşluğunda '
+          + 'çalışıyordu — sayfa açıkken 1024 piksellik bir ekranda '
+          + 'sayfa ve iki yan raf 988 pikseli kaplıyor, yani tıklanacak '
+          + 'sahne neredeyse hiç kalmıyordu. Artık sayfanın dışındaki '
+          + 'her yere tıklamak kapatıyor. Sahneyi sürüklemek kapatmaz ve '
+          + 'tıkladığın düğme yine çalışır — tıklaman yutulmuyor.',
+      },
+      {
         id: '20260918-npc-dunya-sifirlandi',
         tur: 'denge',
         metin: 'KUZEYDEKİ KÖYLER BAŞTAN KURULDU. Bilgisayarın yönettiği '

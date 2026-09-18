@@ -1009,9 +1009,47 @@ export default function VillageCenter({
     efekt koymak yerine (setState-in-effect) sahiplik burada duruyor.
   */
   useEffect(() => () => onPanelChange?.(false), [onPanelChange]);
+
+  /**
+   * BİNA SAYFASI DIŞARIYA TIKLAYINCA KAPANIR (İlkan'ın isteği).
+   *
+   * Perde koymak yerine basış dinleniyor: tıklama hedefine normal
+   * şekilde ulaşıyor (raftaki kart çalışmaya devam ediyor) ve sayfa da
+   * kapanıyor. Ayrıntılı gerekçe için bkz. bu dosyanın üstündeki not.
+   */
+  useEffect(() => {
+    if (!showMenu || !selected) return undefined;
+    let bas = null;
+    const inis = (e) => { bas = { x: e.clientX, y: e.clientY }; };
+    const kalk = (e) => {
+      const b = bas; bas = null;
+      if (!b) return;
+      /* SÜRÜKLEME TIKLAMA DEĞİL — sahneyi kaydırmak sayfayı kapatmasın */
+      if (Math.abs(e.clientX - b.x) + Math.abs(e.clientY - b.y) > 6) return;
+      const hedef = e.target;
+      if (!(hedef instanceof Node)) return;
+      if (sayfaRef.current?.contains(hedef)) return;      // sayfanın içi
+      /*
+        PORTAL KATMANI: asker kartı gibi pencereler body'ye çiziliyor,
+        yani #root'un dışında. Oraya tıklamak "dışarı" sayılmaz.
+      */
+      const kok = document.getElementById('root');
+      if (kok && !kok.contains(hedef)) return;
+      setSelected(null);
+      setShowMenu(false);
+    };
+    document.addEventListener('pointerdown', inis, true);
+    document.addEventListener('pointerup', kalk, true);
+    return () => {
+      document.removeEventListener('pointerdown', inis, true);
+      document.removeEventListener('pointerup', kalk, true);
+    };
+  }, [showMenu, selected]);
   const [hovered, setHovered] = useState(null);
   const [viewSize, setViewSize] = useState({ w: 900, h: 720 });
   const containerRef = useRef(null);
+  /* Açık bina sayfasının kendisi — "dışarıya mı tıklandı" bunun üstünden ölçülüyor */
+  const sayfaRef = useRef(null);
 
   /**
    * DENETİM ŞERİDİNİN YÜKSEKLİĞİ — poster penceresi buna göre uzuyor.
@@ -1308,21 +1346,14 @@ export default function VillageCenter({
         )}
 
         {!kartGorunumu && (<>
+        {/*
+          BOŞ YERE TIKLAMA SAYFAYI KAPATIYOR — kural artık burada değil,
+          bileşenin üstündeki tek dışarı-tıklama efektinde. Eskiden
+          buradaki onClick yalnız hedefin SVG'NİN KENDİSİ olduğu
+          durumda çalışıyordu; sayfa açıkken sahneden geriye 36 px
+          kaldığı için pratikte hiç çalışmıyordu (ölçüm: efektin notu).
+        */}
         <svg width={W} height={H}
-          /*
-            BOŞ YERE TIKLAMA MENÜYÜ KAPATIYOR (İlkan'ın isteği).
-
-            Ölçüt hedefin SVG'NİN KENDİSİ olması: bir hücreye ya da
-            yapıya tıklandığında hedef o öğe oluyor ve menü açık
-            kalıyor. Sürükleme sonrası gelen tıklama sayılmıyor, yoksa
-            haritayı her kaydırışta menü kapanırdı.
-          */
-          onClick={(e) => {
-            if (e.target !== e.currentTarget) return;
-            if (pinch.dragging) return;
-            setSelected(null);
-            setShowMenu(false);
-          }}
           style={{
           cursor: 'pointer', flexShrink: 0,
           transform: `translate3d(${pinch.pan.x}px, ${pinch.pan.y}px, 0)`
@@ -1802,7 +1833,7 @@ export default function VillageCenter({
             overflow: 'hidden',
             display: 'flex', flexDirection: 'column',
             ...bgStyle,
-          })} className="tn-rise">
+          })} className="tn-rise" ref={sayfaRef}>
             {/* Görsel penceresi — panelin tepesinde bina net görünür */}
             {panelTex && (
               /**
