@@ -143,3 +143,61 @@ test('toplulukOzeti: bos dunya cokmeden cevap veriyor', () => {
   assert.ok(Object.keys(t.binaVarlik).length > 0);
   assert.equal(t.binaVarlik.firin.koy, 0);
 });
+
+/**
+ * YOLDAKİ VE MİSAFİR ASKER — İlkan'ın yakaladığı eksik.
+ *
+ * *"Bu ordu güçlerine yolda olan askerler dahil mi?"* Değildi.
+ * `village.army` yalnız EVDEKİ askeri tutuyor: sefere çıkan asker
+ * ordudan düşülüyor (army.js · "Askerleri köyden çıkar"), takviyeye
+ * giden asker ise hedef köyün listesinde duruyor. Yani seferdeki bir
+ * oyuncunun ordusu panelde küçük görünüyordu — bir teşhis panelinde bu,
+ * olmayan sayıdan beter: bakan kişi "ordusu yok" diye karar veriyor.
+ */
+test('seferdeki asker ayri sayiliyor — army icinde DEGIL', () => {
+  const v = koy({ army: { fjordvakt: 100 } });
+  v.marches = [
+    { units: { fjordvakt: 30 } },
+    { units: { spydvakt: 20, fjordvakt: 0 } },
+  ];
+  const o = OZET.koyOzeti(v);
+  assert.equal(o.ordu, 100, 'evdeki asker değişmemeli');
+  assert.equal(o.yolda, 50, 'yoldaki asker sayılmadı');
+  /*
+    İkisi TOPLANMIYOR: evdeki savunuyor, yoldaki savunmuyor. Tek sayıya
+    indirmek "ordusu var ama köyü boş" durumunu gizlerdi.
+  */
+  assert.equal(o.savunanToplam, 100, 'yoldaki asker savunmaya katılmamalı');
+});
+
+test('misafir asker koyu savunuyor ama koyun ordusu DEGIL', () => {
+  const v = koy({ army: { fjordvakt: 40 } });
+  v.takviyeler = [
+    { userId: 7, units: { skjoldvakt: 25 } },
+    { userId: 9, units: { fjordvakt: 10 } },
+  ];
+  const o = OZET.koyOzeti(v);
+  assert.equal(o.ordu, 40, 'misafir, ev sahibinin ordusuna yazılmış');
+  assert.equal(o.misafir, 35);
+  /* Saldırıya uğrasa sahaya 75 asker çıkar */
+  assert.equal(o.savunanToplam, 75);
+});
+
+test('sefer ve takviye yokken sayilar sifir, cokme yok', () => {
+  const o = OZET.koyOzeti(koy({ army: { fjordvakt: 5 } }));
+  assert.equal(o.yolda, 0);
+  assert.equal(o.misafir, 0);
+  assert.equal(o.savunanToplam, 5);
+});
+
+test('toplulukOzeti yolda ve misafiri de dagitiyor', () => {
+  const a = koy({ army: { fjordvakt: 10 } });
+  a.marches = [{ units: { fjordvakt: 4 } }];
+  const b = koy({ army: { fjordvakt: 20 } });
+  b.takviyeler = [{ userId: 3, units: { fjordvakt: 6 } }];
+  const t = OZET.toplulukOzeti([a, b]);
+  assert.equal(t.yolda.toplam, 4);
+  assert.equal(t.misafir.toplam, 6);
+  assert.equal(t.ordu.toplam, 30);
+  assert.equal(t.savunanToplam.toplam, 36);
+});

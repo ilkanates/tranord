@@ -168,12 +168,31 @@ app.get('/admin/istatistik', adminGate, (req, res) => {
       (bkz. bootServer), yani çevrimdışı olanlar da burada — tablo
       kimin o an bağlı olduğuna göre değişmemeli.
     */
+    /*
+      DIŞARIDAKİ ASKER HARİTASI — userId → asker sayısı.
+
+      Takviye kaydı MİSAFİR OLDUĞU köyde duruyor (bkz. army.js ·
+      takviyeBirlikleri), sahibinin köyünde hiç görünmüyor. NPC köyleri de
+      taranıyor: oyuncu bir NPC köyünü takviye edemez ama kural
+      değişirse sayım kendiliğinden doğru kalır.
+    */
+    const disaridaki = new Map();
+    const takviyeTara = (koy) => {
+      for (const t of koy.takviyeler || []) {
+        if (t.userId == null) continue;
+        const n = Object.values(t.units || {}).reduce((s, x) => s + (x || 0), 0);
+        if (n > 0) disaridaki.set(t.userId, (disaridaki.get(t.userId) || 0) + n);
+      }
+    };
+    for (const koy of npcKoyler) takviyeTara(koy);
+
     const oyuncuKoyler = [];
     const oyuncular = [];
     for (const [userId, s] of userSessions) {
       const koyler = [...(s.villages?.values() || [])];
       if (!koyler.length) continue;
       oyuncuKoyler.push(...koyler);
+      for (const koy of koyler) takviyeTara(koy);
 
       const ordu = koyler.reduce((t, v) => t + OZET.orduSayisi(v.army), 0);
       const merkez = s.villages.get(s.capitalSlot) || koyler[0];
@@ -184,6 +203,8 @@ app.get('/admin/istatistik', adminGate, (req, res) => {
         koy: koyler.length,
         nufus: koyler.reduce((t, v) => t + (v.population || 0), 0),
         ordu,
+        /* Seferdeki asker `army`da DEĞİL — ayrı sayılıyor (bkz. adminOzet) */
+        yolda: koyler.reduce((t, v) => t + OZET.orduSayisi(OZET.seferdekiler(v)), 0),
         saldiri: koyler.reduce((t, v) => t + OZET.saldiriGucu(v.army), 0),
         savunma: koyler.reduce((t, v) => t + OZET.savunmaGucu(v.army), 0),
         sefer: koyler.reduce((t, v) => t + (v.marches || []).length, 0),
@@ -195,6 +216,12 @@ app.get('/admin/istatistik', adminGate, (req, res) => {
         acKoy: koyler.filter(v => v.isStarving).length,
       });
     }
+    /*
+      DIŞARIDAKİ ASKER İKİNCİ GEÇİŞTE yazılıyor: harita ancak bütün
+      köyler tarandıktan sonra tamam oluyor.
+    */
+    for (const o of oyuncular) o.disarida = disaridaki.get(o.userId) || 0;
+
     oyuncular.sort((a, b) => b.nufus - a.nufus);
 
     res.json({

@@ -382,9 +382,10 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
                 display: 'grid', gap: 12,
                 gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))',
               }}>
-                <DagilimTablosu baslik="NPC KÖYLERİ" satirlar={<>
+                <DagilimTablosu baslik="NPC KÖYLERİ — köy başına" satirlar={<>
                   <DagilimSatiri ad="Nüfus" d={ist.npc.nufus} />
-                  <DagilimSatiri ad="Ordu" d={ist.npc.ordu} />
+                  <DagilimSatiri ad="Ordu (evde)" d={ist.npc.ordu} />
+                  <DagilimSatiri ad="Ordu (yolda)" d={ist.npc.yolda} />
                   <DagilimSatiri ad="Saldırı gücü" d={ist.npc.saldiri} />
                   <DagilimSatiri ad="Savunma gücü" d={ist.npc.savunma} />
                   <DagilimSatiri ad="Ana bina" d={ist.npc.anaBina} />
@@ -394,9 +395,12 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
                   <DagilimSatiri ad="Askerî bina" d={ist.npc.askeri} />
                   <DagilimSatiri ad="Sur" d={ist.npc.sur} />
                 </>} />
-                <DagilimTablosu baslik="OYUNCU KÖYLERİ" satirlar={<>
+                <DagilimTablosu baslik="OYUNCU KÖYLERİ — köy başına" satirlar={<>
                   <DagilimSatiri ad="Nüfus" d={ist.oyuncuToplam.nufus} />
-                  <DagilimSatiri ad="Ordu" d={ist.oyuncuToplam.ordu} />
+                  <DagilimSatiri ad="Ordu (evde)" d={ist.oyuncuToplam.ordu} />
+                  <DagilimSatiri ad="Ordu (yolda)" d={ist.oyuncuToplam.yolda} />
+                  <DagilimSatiri ad="Misafir asker" d={ist.oyuncuToplam.misafir} />
+                  <DagilimSatiri ad="Savunan toplam" d={ist.oyuncuToplam.savunanToplam} />
                   <DagilimSatiri ad="Saldırı gücü" d={ist.oyuncuToplam.saldiri} />
                   <DagilimSatiri ad="Savunma gücü" d={ist.oyuncuToplam.savunma} />
                   <DagilimSatiri ad="Ana bina" d={ist.oyuncuToplam.anaBina} />
@@ -506,9 +510,11 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
               </div>
             </div>
 
-            <DagilimTablosu baslik="NPC — bütün ölçüler" satirlar={<>
+            <DagilimTablosu baslik="NPC — bütün ölçüler (köy başına)" satirlar={<>
               <DagilimSatiri ad="Nüfus" d={ist.npc.nufus} />
-              <DagilimSatiri ad="Ordu" d={ist.npc.ordu} />
+              <DagilimSatiri ad="Ordu (evde)" d={ist.npc.ordu} />
+              <DagilimSatiri ad="Ordu (yolda)" d={ist.npc.yolda} />
+              <DagilimSatiri ad="Misafir asker" d={ist.npc.misafir} />
               <DagilimSatiri ad="Saldırı gücü" d={ist.npc.saldiri} />
               <DagilimSatiri ad="Savunma gücü" d={ist.npc.savunma} />
               <DagilimSatiri ad="Ana bina seviyesi" d={ist.npc.anaBina} />
@@ -535,11 +541,11 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
 
             <div style={kutu({ padding: 0, overflow: 'hidden' })}>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 880 }}>
                   <thead>
                     <tr>
-                      {['#', 'oyuncu', 'köy', 'nüfus', 'ordu', 'saldırı', 'savunma',
-                        'sefer', 'gümüş', 'altın', 'kah.', '', ''].map((b, i) => (
+                      {['#', 'oyuncu', 'köy', 'nüfus', 'evde', 'yolda', 'dışarıda',
+                        'saldırı', 'savunma', 'sefer', 'gümüş', 'altın', 'kah.', '', ''].map((b, i) => (
                         <th key={b + i} style={lbl({
                           fontSize: 8, letterSpacing: 1.1, padding: '7px 8px',
                           textAlign: i <= 1 ? 'left' : 'right', fontWeight: 400,
@@ -572,7 +578,8 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
                               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>{u.email}</div>
                           </td>
-                          {[o?.koy ?? u.koySayisi, o?.nufus, o?.ordu, o?.saldiri, o?.savunma,
+                          {[o?.koy ?? u.koySayisi, o?.nufus, o?.ordu, o?.yolda, o?.disarida,
+                            o?.saldiri, o?.savunma,
                             o?.sefer, o?.gumus, o?.altin, o?.kahramanSeviye].map((v, i) => (
                             <td key={i} style={num({
                               padding: '7px 8px', fontSize: 11, textAlign: 'right',
@@ -608,9 +615,12 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
             </div>
 
             {ist && (
-              <DagilimTablosu baslik="OYUNCU KÖYLERİ — bütün ölçüler" satirlar={<>
+              <DagilimTablosu baslik="OYUNCU KÖYLERİ — bütün ölçüler (KÖY başına; üstteki tablo OYUNCU başına)" satirlar={<>
                 <DagilimSatiri ad="Nüfus" d={ist.oyuncuToplam.nufus} />
-                <DagilimSatiri ad="Ordu" d={ist.oyuncuToplam.ordu} />
+                <DagilimSatiri ad="Ordu (evde)" d={ist.oyuncuToplam.ordu} />
+                <DagilimSatiri ad="Ordu (yolda)" d={ist.oyuncuToplam.yolda} />
+                <DagilimSatiri ad="Misafir asker" d={ist.oyuncuToplam.misafir} />
+                <DagilimSatiri ad="Savunan toplam" d={ist.oyuncuToplam.savunanToplam} />
                 <DagilimSatiri ad="Saldırı gücü" d={ist.oyuncuToplam.saldiri} />
                 <DagilimSatiri ad="Savunma gücü" d={ist.oyuncuToplam.savunma} />
                 <DagilimSatiri ad="Ana bina seviyesi" d={ist.oyuncuToplam.anaBina} />

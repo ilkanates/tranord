@@ -60,6 +60,38 @@ function dagilim(sayilar) {
   };
 }
 
+/**
+ * SEFERDEKİ ASKERLER — bu köyden çıkmış, yolda ya da hedefte.
+ *
+ * `village.army` bunları İÇERMİYOR: sefer açılırken ordudan düşülüyor
+ * (army.js · "Askerleri köyden çıkar — yoldayken savunmaya katılmazlar").
+ */
+function seferdekiler(village) {
+  const out = {};
+  for (const m of village.marches || []) {
+    for (const [k, n] of Object.entries(m.units || {})) {
+      if (n > 0) out[k] = (out[k] || 0) + n;
+    }
+  }
+  return out;
+}
+
+/**
+ * MİSAFİR ASKERLER — bu köyde duran ama BAŞKASINA ait takviyeler.
+ *
+ * Köyün savunmasına katılıyorlar ama köyün ordusu değiller; sahiplerinin
+ * hanesine yazılmaları gerekiyor (bkz. army.js · savunanBirlikler).
+ */
+function misafirler(village) {
+  const out = {};
+  for (const t of village.takviyeler || []) {
+    for (const [k, n] of Object.entries(t.units || {})) {
+      if (n > 0) out[k] = (out[k] || 0) + n;
+    }
+  }
+  return out;
+}
+
 /** Ordunun toplam asker sayısı */
 const orduSayisi = (army) => Object.values(army || {}).reduce((s, n) => s + (n || 0), 0);
 
@@ -111,9 +143,18 @@ function koyOzeti(v) {
     bosIsci: v.freeWorkers || 0,
     ac: !!v.isStarving,
 
+    /*
+      ÜÇ SAYI AYRI DURUYOR. Toplayıp tek "ordu" yapmak yanlış olurdu:
+      evdeki asker burayı savunuyor, yoldaki hiçbir yeri savunmuyor,
+      misafir başkasının askeri. Üçü farklı şeyler.
+    */
     ordu: orduSayisi(v.army),
+    yolda: orduSayisi(seferdekiler(v)),
+    misafir: orduSayisi(misafirler(v)),
     saldiri: saldiriGucu(v.army),
     savunma: savunmaGucu(v.army),
+    /* Bu köy saldırıya uğrasa sahaya çıkacak toplam savunma */
+    savunanToplam: orduSayisi(v.army) + orduSayisi(misafirler(v)),
 
     anaBina: seviye(v, 'anaBina'),
     binaSayisi: binalar.length,
@@ -173,6 +214,9 @@ function toplulukOzeti(koyler) {
     koySayisi: koyler.length,
     nufus: al('nufus'),
     ordu: al('ordu'),
+    yolda: al('yolda'),
+    misafir: al('misafir'),
+    savunanToplam: al('savunanToplam'),
     saldiri: al('saldiri'),
     savunma: al('savunma'),
     anaBina: al('anaBina'),
@@ -193,5 +237,6 @@ function toplulukOzeti(koyler) {
 module.exports = {
   dagilim, koyOzeti, toplulukOzeti,
   orduSayisi, saldiriGucu, savunmaGucu,
+  seferdekiler, misafirler,
   ISLEME, ASKERI, SAVUNMA,
 };
