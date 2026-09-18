@@ -72,7 +72,13 @@ export const YAMA_NOTLARI = [
   {
     surum: '2026-09-18b',
     tarih: '18 Eylül 2026',
-    baslik: 'Haritada tarlalar, bina menüsü ve admin paneli',
+    /*
+      YÖNETİM ARAÇLARI YAMA NOTUNA GİRMEZ (İlkan'ın kararı). Yama notları
+      OYUNCUNUN gördüğü değişiklikleri anlatır; admin paneli oyuncunun
+      kullanamayacağı bir araç ve varlığını duyurmak yalnızca merak
+      uyandırır.
+    */
+    baslik: 'Haritada tarlalar ve bina menüsü',
     notlar: [
       {
         id: '20260918-npc-tarla-gorunmuyordu',
