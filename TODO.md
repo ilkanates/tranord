@@ -168,7 +168,7 @@ Bu zincir sırayla ilerlemek zorunda:
 - ~~**NPC'leri sıfırla, baştan başlasınlar.**~~ — **YAPILDI**, admin panelinde düğme (bkz. Tamamlandı · "NPC dünyasını sıfırlama").
 - ~~**Bazı NPC köylerinin etrafında başlangıç tarlaları eksik**~~ — **YAPILDI** (`7c17b01`). Tarlalar yerindeydi, GÖNDERİLMİYORDU: sunucu yalnız 30 hex yarıçapındaki köylerin tarlalarını paketliyordu, köylerin sana ortanca uzaklığı ise 94 hex. Sıfırlama sonrası yeniden ölçüldü: 700 köyün hiçbiri tarlasız değil (en az 7, ortanca 16).
 - **NPC'ler kahramanı kullansın, gümüş kazansın** (4. aşamanın parçası).
-- **NPC'ler oyunculara da saldırsın** — kod var ama ordusuz dünyada hiç çalışmıyordu; ordu düzeltmesinden sonra ölçülmeli.
+- ~~**NPC'ler oyunculara da saldırsın**~~ — **YAPILDI ve ÖLÇÜLDÜ** (bkz. Tamamlandı · "NPC yağmaları ölçüldü"). Kod çalışıyordu, dünyanın ordusu yoktu; ayrıca bir ölçek hatası bulundu ve düzeltildi.
 - ~~Oyuncu NPC savaşlarını haritada görsün~~ — **GEREK YOK** (İlkan'ın kararı, 18 Eylül 2026).
 
 ---
@@ -337,6 +337,41 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### NPC yağmaları ölçüldü: özellik sağlam, dünya boştu (18 Eylül 2026)
+İlkan: *"NPC'ler bize de saldırsın, oyunculara yani."* Kod zaten vardı.
+Canlıda **24 saatte 66.191 log satırı ve SIFIR saldırı** — ne NPC→oyuncu
+ne NPC↔NPC.
+
+**Sebep tahminle değil sayıyla bulundu.** Her iki saldırı da orduya
+bakıyor (25 ve 15 asker eşiği) ve ordu yoksa hiç denenmediği için
+**log bile yazılmıyor** — yani sessiz ölüm. Durum ucuna NPC ordu özeti
+eklendi ve canlı cevap verdi:
+
+```
+700 NPC · ordusu ≥25 olan: 1 · ortanca ordu: 0 · en büyük ordu: 25
+```
+
+Yani özellik değil DÜNYA bozuktu: köyler sabahki yapay zekâ
+düzeltmesinden önce kurulmuştu. Sıfırlamadan sonra dev'de ortanca ordu
+180, 700 köyün 535'i saldırabilir durumda.
+
+**Bulunan ölçek hatası.** Bekleme süresi KÜRESEL tek bir sayaçtı:
+bütün dünyada 6 oyun saatinde bir yağma, kaç oyuncu olursa olsun.
+Oyuncu sayısı arttıkça herkesin gördüğü sıklık düşüyordu — yani oyun
+büyüdükçe dünya sessizleşiyordu. Kimse "bugün az saldırı geldi" diye
+bildirmez; oyun sadece yavaşça ölür. Sayaç artık **oyuncu başına**.
+
+- Kural `game/npcYagma.js`'e taşındı (`npcSavas.js` ile aynı desen):
+  karar orada, bağlantı `index.js`'te. Sayılar da orada — index.js'teki
+  kopyalar kaldırıldı.
+- `npc-yagma.test.js`: asıl iddia "yakın oyuncu beklemedeyken uzaktaki
+  oyuncuya saldırılabiliyor mu" — küresel sayaçla bu test kırmızı olurdu.
+
+**Ölçüm (dev, 36× hızda, 24 oyun saati):** 9 yağma + 189 NPC savaşı.
+Oyuncu başına kabaca iki günde bir yağma, aynı oyuncuya en erken 6 oyun
+saati sonra. 516/516 test yeşil.
+
 
 ### Bina sayfası dışarıya tıklayınca kapanıyor (18 Eylül 2026)
 İlkan sordu: *"köy merkezinde bina sayfalarından birini açtığımda arka

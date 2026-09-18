@@ -70,6 +70,7 @@ const { kesifMi, filtrele, sayilar: raporSayilari } = require('./game/raporTur')
 const SIGINAK = require('./game/siginak');
 /* NPC'ler birbirine saldırırken hedefi kim seçiyor (bkz. game/npcSavas.js) */
 const NPC_SAVAS = require('./game/npcSavas');
+const YAGMA = require('./game/npcYagma');
 const { questState, questSync, questTamam, questPayload, questFingerprint,
         egitimGoruldu, egitimBitir } = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -1237,11 +1238,15 @@ setInterval(async () => {
 
 // NPC → oyuncu yağmaları
 const NPC_RAIDS_ENABLED     = true;
-const NPC_RAID_MAX_DISTANCE = 18;    // bu mesafeden uzaktaki NPC oyuncuyu görmez
-const NPC_RAID_MIN_ARMY     = 25;    // bundan az ordusu olan NPC sefer açmaz
-const NPC_RAID_SEND_SHARE   = 0.4;   // ordusunun en çok bu kadarını yollar
-/** Oyuncuya gelen iki yağma arası en az bu kadar OYUN SAATİ */
-const NPC_RAID_COOLDOWN_HOURS = 6;
+/*
+  SAYILAR npcYagma.js'te — kural ve sayı aynı yerde dursun. Burada
+  kopyaları vardı; "aynı değer iki yerde" bu depoda defalarca ayrıştı.
+*/
+const NPC_RAID_MAX_DISTANCE = YAGMA.MESAFE;
+const NPC_RAID_MIN_ARMY     = YAGMA.MIN_ORDU;
+const NPC_RAID_SEND_SHARE   = YAGMA.GONDERME_ORANI;
+/** AYNI OYUNCUYA gelen iki yağma arası en az bu kadar OYUN SAATİ */
+const NPC_RAID_COOLDOWN_HOURS = YAGMA.OYUNCU_BEKLEME_SAAT;
 const NPC_RAID_COOLDOWN_MS  = NPC_RAID_COOLDOWN_HOURS * GT.HOUR_SECONDS * 1000;
 /** Uygun NPC'nin her AI turunda (saatte bir) deneme şansı */
 const NPC_RAID_CHANCE       = 0.06;
@@ -1284,7 +1289,14 @@ const npcHedefSonSaldiri = new Map();
  */
 const HEDEF_BEKLEME_SAAT = 6;
 
-let lastNpcRaidAt = 0;
+/**
+ * OYUNCU BAŞINA son yağma zamanı (userId → ms).
+ *
+ * Eskiden tek bir küresel sayaçtı: bütün dünyada 6 oyun saatinde BİR
+ * yağma. Oyuncu sayısı arttıkça herkesin gördüğü sıklık düşüyordu, yani
+ * oyun büyüdükçe dünya sessizleşiyordu (bkz. game/npcYagma.js).
+ */
+const npcYagmaSonPerOyuncu = new Map();
 
 /**
  * BENİM ASKERİM NEREDE — başka köylerde misafir duran birliklerim.
@@ -2713,7 +2725,7 @@ function npcSavasSeferSayisi() {
  *
  * DÖRT SINIR bu işi ekonomiyi bozmadan yapıyor:
  *
- *  1) AYRI BÜTÇE — oyuncuya giden yağmanın küresel sayacını (`lastNpcRaidAt`)
+ *  1) AYRI BÜTÇE — oyuncuya giden yağmanın sayacını (`npcYagmaSonPerOyuncu`)
  *     kullanmıyor. Kullansaydı NPC'ler birbirine saldırdıkça oyuncuya hiç
  *     yağma gelmezdi; bir özellik diğerini sessizce kapatırdı.
  *  2) AYNI ANDA YOLDA OLAN SEFER TAVANI (bkz. NPC_VS_NPC_MAX_INFLIGHT).
@@ -2795,7 +2807,6 @@ function maybeNpcVsNpcRaid(n, inflight) {
 function maybeNpcRaid(n) {
   if (!NPC_RAIDS_ENABLED) return;
   const now = Date.now();
-  if (now - lastNpcRaidAt < NPC_RAID_COOLDOWN_MS / Math.max(0.01, WORLD.speed)) return;
   if (Math.random() > NPC_RAID_CHANCE) return;
 
   const v = n.village;
@@ -2803,16 +2814,27 @@ function maybeNpcRaid(n) {
   const total = ARMY.totalUnits(v.army);
   if (total < NPC_RAID_MIN_ARMY) return;
 
-  // En yakın uygun oyuncuyu bul
-  let best = null;
+  /*
+    ADAYLAR = saldırıya AÇIK oyuncu köyleri. Kalkan ve "hiç ordusu yok"
+    kuralı burada (playerRaidable), çünkü oturum ve köy durumu burada;
+    hedef seçiminin kendisi npcYagma.js'te ve saniyede sınanabiliyor.
+  */
+  const adaylar = [];
   for (const [slotKey, p] of WORLD.playerBySlot) {
     if (!playerRaidable(p.userId)) continue;
     const slot = WORLD.slotByKey.get(slotKey);
     if (!slot) continue;
-    const dist = W.distanceBetween(n.slot, slot);
-    if (dist > NPC_RAID_MAX_DISTANCE) continue;
-    if (!best || dist < best.dist) best = { slotKey, slot, p, dist };
+    adaylar.push({ key: slotKey, slot, userId: p.userId, ad: p.name || slot.name });
   }
+
+  const best = YAGMA.hedefSec(n, adaylar, (id) => npcYagmaSonPerOyuncu.get(id),
+    {
+      now,
+      /* Bekleme OYUN saati cinsinden; dünya hızı onu gerçek zamana çeviriyor */
+      beklemeMs: NPC_RAID_COOLDOWN_MS / Math.max(0.01, WORLD.speed),
+      mesafe: NPC_RAID_MAX_DISTANCE,
+      uzaklik: W.distanceBetween,
+    });
   if (!best) return;
 
   // Ordusunun bir kısmını yolla — savunmasız kalmasın
@@ -2826,13 +2848,13 @@ function maybeNpcRaid(n) {
   const res = ARMY.createMarch(v, {
     mode: 'raid', units, distance: best.dist,
     fromKey: n.slot.key, fromName: n.slot.name,
-    toKey: best.slotKey, toName: best.p.name || best.slot.name,
+    toKey: best.key, toName: best.ad,
     toKind: 'player', ownerKind: 'npc',
   });
   if (!res.ok) return;
-  lastNpcRaidAt = now;
+  npcYagmaSonPerOyuncu.set(best.userId, now);
   markNpcDirty(n.slot.key);
-  console.log(`[YAĞMA] ${n.slot.name} → ${best.p.name} (${best.dist} hex, ${ARMY.totalUnits(units)} asker, ${res.march.legSeconds} sn)`);
+  console.log(`[YAĞMA] ${n.slot.name} → ${best.ad} (${best.dist} hex, ${ARMY.totalUnits(units)} asker, ${res.march.legSeconds} sn)`);
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -31,6 +31,20 @@ export const YAMA_NOTLARI = [
     baslik: 'Kuzey yeniden kuruluyor',
     notlar: [
       {
+        id: '20260918-npc-yagma-olcek',
+        tur: 'denge',
+        metin: 'KUZEYLİLER ARTIK SANA DA SALDIRIYOR. Bilgisayarın '
+          + 'yönettiği köylerin yağma göndermesi zaten vardı ama son 24 '
+          + 'saatte tek bir saldırı bile olmamıştı: köylerin ordusu yoktu '
+          + '(700 köyün ortanca ordusu 0, en büyüğü 25 asker). Dünya '
+          + 'yeniden kurulunca ordular geldi. Ayrıca bir ölçek hatası '
+          + 'düzeldi — saldırı sıklığı BÜTÜN DÜNYA için tek bir sayaçla '
+          + 'sınırlıydı, yani oyuncu sayısı arttıkça herkesin gördüğü '
+          + 'saldırı azalıyordu. Artık sayaç oyuncu başına: köyün kabaca '
+          + 'iki günde bir yağmalanabilir, aynı köye en erken 6 saat '
+          + 'sonra tekrar gelinir. SIĞINAĞINI YÜKSELT.',
+      },
+      {
         id: '20260918-bina-sayfasi-disari-tikla',
         tur: 'duzeltme',
         metin: 'BİNA SAYFASI DIŞARIYA TIKLAYINCA KAPANIYOR. Dün bunu '
