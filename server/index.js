@@ -3062,7 +3062,20 @@ function worldSnapshot(forUserId, activeSlot = null) {
 
   // Yakındaki köylerin TARLALARI da gönderilir; harita onları oyuncunun
   // tarlaları gibi (doku + seviye) çizsin. Uzaktakiler için gereksiz veri olur.
-  const TILE_RADIUS = 30;
+  /**
+   * TARLALARIN GÖNDERİLDİĞİ YARIÇAP — dünyanın tamamı.
+   *
+   * 30 iken köylerin yalnız %4'ü tarlalarını gönderiyordu (ölçüldü:
+   * oyuncuya ortanca uzaklık 94 hex) ve harita NPC köylerini çıplak
+   * gösteriyordu — İlkan bildirdi. 200 NPC'de belli değildi çünkü
+   * köyler merkeze yakın toplanmıştı; 700'e çıkınca dünya yayıldı.
+   *
+   * MALİYET ÖLÇÜLDÜ: 700 köyün tarla haritası 88,7 KB (5.000 girdi) ve
+   * dünya yayını olay tabanlı (köy kurulması/yıkılması, işaretler),
+   * saniyede bir değil. Saniyelik bir yayın olsaydı bu boyut kabul
+   * edilemezdi ve görüş alanına göre istek gerekirdi.
+   */
+  const TILE_RADIUS = W.WORLD_RADIUS * 2;
   /**
    * Yakındaki köylerin tarlaları haritaya çizilsin diye gönderilir.
    * SEVİYE YALNIZ KENDİ köylerimde: yabancının tarla seviyesi keşifsiz

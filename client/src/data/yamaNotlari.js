@@ -26,6 +26,32 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-18b',
+    tarih: '18 Eylül 2026',
+    baslik: 'Haritada tarlalar, bina menüsü ve admin paneli',
+    notlar: [
+      {
+        id: '20260918-npc-tarla-gorunmuyordu',
+        tur: 'duzeltme',
+        metin: 'NPC KÖYLERİNİN ETRAFINDA TARLA GÖRÜNMÜYORDU. Tarlalar '
+          + 'yerinde duruyordu — sunucu onları yalnız sana 30 hex\'ten '
+          + 'yakın köyler için gönderiyordu. Ölçüldü: köylerin sana '
+          + 'ortanca uzaklığı 94 hex, yani %96\'sı çıplak görünüyordu. '
+          + 'NPC sayısı 200\'den 700\'e çıkıp dünya yayılınca sorun '
+          + 'ortaya çıktı. Artık bütün köylerin tarlaları geliyor.',
+      },
+      {
+        id: '20260918-bina-menusu-kapanma',
+        tur: 'duzeltme',
+        metin: 'BİNA MENÜSÜ BOŞ YERE TIKLAYINCA KAPANIYOR. Eskiden '
+          + 'yalnız aynı binaya tekrar tıklayarak, Esc ile ya da kapat '
+          + 'düğmesiyle kapanıyordu; sahnenin boş bir yerine tıklamak '
+          + 'hiçbir şey yapmıyordu. Haritayı kaydırmak menüyü '
+          + 'kapatmıyor — sürükleme tıklama sayılmıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-18a',
     tarih: '18 Eylül 2026',
     baslik: 'Dünya kalabalıklaştı: 200 köy yerine 700',

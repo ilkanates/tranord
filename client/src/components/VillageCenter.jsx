@@ -1308,7 +1308,22 @@ export default function VillageCenter({
         )}
 
         {!kartGorunumu && (<>
-        <svg width={W} height={H} style={{
+        <svg width={W} height={H}
+          /*
+            BOŞ YERE TIKLAMA MENÜYÜ KAPATIYOR (İlkan'ın isteği).
+
+            Ölçüt hedefin SVG'NİN KENDİSİ olması: bir hücreye ya da
+            yapıya tıklandığında hedef o öğe oluyor ve menü açık
+            kalıyor. Sürükleme sonrası gelen tıklama sayılmıyor, yoksa
+            haritayı her kaydırışta menü kapanırdı.
+          */
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (pinch.dragging) return;
+            setSelected(null);
+            setShowMenu(false);
+          }}
+          style={{
           cursor: 'pointer', flexShrink: 0,
           transform: `translate3d(${pinch.pan.x}px, ${pinch.pan.y}px, 0)`
             + ` scale(${VC_SCALE}) rotateX(16deg)`,
