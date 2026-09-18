@@ -558,7 +558,7 @@ function structFingerprint(v) {
     */
     + `|Y${(v.yagmaListeleri || []).length}:${(v.yagmaListeleri || [])
       .map(l => `${l.id}${(l.hedefler || []).length}${(l.hedefler || [])
-        .map(h => (h.sonSonuc || '-')[0] + (h.sonHata ? 'x' : '')).join('')}`)
+        .map(h => (h.sonSonuc || '-')[0] + (h.sonHata ? 'x' : '') + (h.sonKayip ? 'k' : '')).join('')}`)
       .join(',')}`
     + `|R${(v.saglikYatan || []).length}:${(v.saglikYatan || [])
       .reduce((s2, y) => s2 + (y.adet || 0), 0)}:${(v.saglikYatan || [])

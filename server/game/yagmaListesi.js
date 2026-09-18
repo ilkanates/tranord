@@ -151,6 +151,8 @@ function hedefEkle(v, listeId, { slotKey, ad, birimler }, unitDefs = null) {
     sonGonderim: null,
     sonSonuc: null,
     sonGanimet: 0,
+    sonGanimetler: {},
+    sonKayip: 0,
     sonHata: null,
   };
   liste.hedefler.push(hedef);
@@ -230,6 +232,12 @@ function sonucIsle(v, march) {
 
   const ganimet = Object.values(march.loot || {})
     .reduce((s, n) => s + (Number(n) || 0), 0);
+  /* Kaynak dökümü ve kayıp — satırın üstüne gelince gösterilecek ayrıntı */
+  const dokum = {};
+  for (const [k, n] of Object.entries(march.loot || {})) {
+    if (n > 0) dokum[k] = Math.floor(n);
+  }
+  const kayip = Math.max(0, Math.floor(Number(march.yagmaKayip) || 0));
   const kapasite = Number(march.yagmaKapasite) || 0;
   const askerKaldi = Object.values(march.units || {})
     .reduce((s, n) => s + (Number(n) || 0), 0);
@@ -250,6 +258,13 @@ function sonucIsle(v, march) {
       if (h.slotKey !== march.toKey) continue;
       h.sonSonuc = sonuc;
       h.sonGanimet = ganimet;
+      h.sonGanimetler = dokum;
+      /*
+        KAYIP AYRI BİR RENK. "Dolu döndü ama 12 asker kaybettim" ile
+        "dolu döndü, kayıpsız" aynı satırda aynı görünmemeli — ikisi
+        tamamen farklı kararlar gerektiriyor.
+      */
+      h.sonKayip = kayip;
       h.sonDonus = Date.now();
     }
   }
@@ -281,6 +296,12 @@ function hydrate(v) {
           sonDonus: Number(h.sonDonus) || null,
           sonSonuc: Object.values(SONUC).includes(h.sonSonuc) ? h.sonSonuc : null,
           sonGanimet: Math.max(0, Math.floor(Number(h.sonGanimet) || 0)),
+          sonGanimetler: (h.sonGanimetler && typeof h.sonGanimetler === 'object')
+            ? Object.fromEntries(Object.entries(h.sonGanimetler)
+              .filter(([, n]) => Number(n) > 0)
+              .map(([k, n]) => [String(k).slice(0, 16), Math.floor(Number(n))]))
+            : {},
+          sonKayip: Math.max(0, Math.floor(Number(h.sonKayip) || 0)),
           sonHata: h.sonHata ? String(h.sonHata).slice(0, 40) : null,
         })),
     }));

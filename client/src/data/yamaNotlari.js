@@ -31,6 +31,27 @@ export const YAMA_NOTLARI = [
     baslik: 'Yağma listesi',
     notlar: [
       {
+        id: '20260918-yagma-liste-detay',
+        tur: 'yenilik',
+        metin: 'YAĞMA LİSTESİ ARTIK NE OLDUĞUNU ANLATIYOR. Bir hedefe '
+          + 'sefer yoldaysa satırda YOLDA ya da DÖNÜYOR yazıyor, kalan '
+          + 'süresiyle. Satırın üstüne gelince son seferin dökümü '
+          + 'açılıyor: hangi hammaddeden kaç tane getirdin ve asker '
+          + 'kaybettin mi. Asker kaybettiğin satır kırmızıya çalıyor — '
+          + '"dolu döndü ama 12 asker verdim" ile "dolu döndü, kayıpsız" '
+          + 'aynı görünmemeli.',
+      },
+      {
+        id: '20260918-sefer-limiti-30',
+        tur: 'denge',
+        metin: 'AYNI ANDA YOLDA OLABİLECEK SEFER 8\'DEN 30\'A ÇIKTI. '
+          + 'Yağma listesi tek tuşla onlarca hedefe sefer açıyor ve 8\'lik '
+          + 'sınır listeyi işe yaramaz hâle getiriyordu: 40 satırın 8\'i '
+          + 'gidiyor, kalanı "sefer limiti dolu" diyordu. Sınır tamamen '
+          + 'kalkmadı — sınırsız sefer, oyunun kendi kaydını şişirmenin '
+          + 'yolu olurdu.',
+      },
+      {
         id: '20260918-npc-birim-cesitliligi',
         tur: 'denge',
         metin: 'KUZEYLİLER ARTIK TEK TİP ASKER BASMIYOR. Dünyadaki 297 '

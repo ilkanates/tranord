@@ -434,6 +434,26 @@ baloncuğunu tek özete indiriyor.
 - Haritadan ekleme: köy panelinde LİSTEYE EKLE. Asker seçimi orada
   sorulmuyor — hedef toplarken her tıklamaya bir soru daha eklerdi.
 
+**İkinci tur (aynı gün, İlkan'ın geri bildirimi):**
+- **Yoldaki sefer satırda görünüyor** — YOLDA / DÖNÜYOR + kalan süre.
+  Sunucuya yeni alan eklenmedi: `village.marches` pakette zaten var ve
+  hedefi `toKey`. Listeye ayrı bir "yolda mı" alanı koymak aynı gerçeği
+  iki yerde tutmak olurdu.
+- **Üstüne gelince son seferin dökümü** — hangi hammaddeden kaç tane,
+  asker kaybı var mı, ne zaman. Kart `createPortal` ile body'ye
+  çiziliyor: liste paneli `overflow: hidden` taşıdığı için satır içinde
+  konumlanan kartın başı kesiliyordu (ekranda görüldü). Aynı tuzağın
+  aynı çözümü ReportScreen, AyarlarMenu ve SendArmyPanel'de de var.
+- **Kayıp ayrı renk.** "Dolu döndü ama 12 asker kaybettim" ile "dolu
+  döndü, kayıpsız" aynı satırda aynı görünmemeli: ilki "buraya bu
+  orduyla gitme", ikincisi "buraya yine git" demek. Kayıp `march`'a
+  varışta yazılıyor (`yagmaKayip`) — dönüşte hesaplanamaz, o an yalnız
+  sağ dönen asker biliniyor.
+- **Sefer limiti 8 → 30.** Ölçüldü: bir sefer pakette 276 bayt, 30 sefer
+  8,1 KB. 8'lik tavan 40 satırlık listenin 32'sine "sefer limiti dolu"
+  dedirtiyordu. Tamamen kaldırılmadı: sınırsız sefer, köy kaydını
+  oyuncunun kendi eliyle şişirmesinin yolu olurdu.
+
 **Tarayıcıda uçtan uca doğrulandı:** liste açıldı, haritadan satır
 eklendi, asker seçildi, TÜMÜNE GÖNDER ile "1 sefer yola çıktı ·
 2 gidemedi" ve ordu 150 → 110 düştü; gidemeyen iki satır "Hedef yok"

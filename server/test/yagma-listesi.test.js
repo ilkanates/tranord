@@ -203,3 +203,62 @@ test('liste silinince hedefleri de gidiyor, digeri duruyor', () => {
   assert.equal(v.yagmaListeleri[0].hedefler[0].slotKey, '2,2');
   assert.deepEqual(Y.listeSil(v, 'yok'), { ok: false, sebep: 'liste_yok' });
 });
+
+/**
+ * KAYIP VE GANİMET DÖKÜMÜ — İlkan: *"son raporuna da o ekrandan üzerine
+ * gelince ne almışım, asker kaybetmiş miyim gözükmeli."*
+ *
+ * Kayıp AYRI bir bilgi, sonucun içinde eriyemez: "dolu döndü ama 12
+ * asker kaybettim" ile "dolu döndü, kayıpsız" aynı satırda aynı
+ * görünürse, asker kaybettiren bir hedef farkında olmadan tekrar tekrar
+ * vurulur.
+ */
+test('sonucIsle kaybi ve ganimet dokumunu ayri ayri yaziyor', () => {
+  const v = listeliKoy();
+  Y.hedefEkle(v, id(v), { slotKey: '1,1', birimler: { fjordvakt: 50 } });
+
+  Y.sonucIsle(v, {
+    toKey: '1,1',
+    loot: { odun: 120, kil: 80, tahil: 0 },
+    units: { fjordvakt: 38 },
+    yagmaKapasite: 200,
+    yagmaKayip: 12,
+  });
+  const h = hedefler(v)[0];
+  assert.equal(h.sonSonuc, Y.SONUC.DOLU);
+  assert.equal(h.sonGanimet, 200);
+  assert.equal(h.sonKayip, 12, 'kayıp yazılmadı');
+  /* Sıfır kalemler dökümde yer kaplamamalı */
+  assert.deepEqual(h.sonGanimetler, { odun: 120, kil: 80 });
+});
+
+test('kayipsiz sefer sonKayip 0 yaziyor, eskisini birakmiyor', () => {
+  const v = listeliKoy();
+  Y.hedefEkle(v, id(v), { slotKey: '1,1', birimler: { fjordvakt: 50 } });
+
+  Y.sonucIsle(v, { toKey: '1,1', loot: { odun: 10 }, units: { fjordvakt: 40 }, yagmaKapasite: 200, yagmaKayip: 12 });
+  assert.equal(hedefler(v)[0].sonKayip, 12);
+
+  /*
+    İKİNCİ SEFER TEMİZ DÖNDÜ. Eski kayıp kalsaydı satır sonsuza kadar
+    kırmızı görünür ve oyuncu artık güvenli olan bir hedefi atlardı.
+  */
+  Y.sonucIsle(v, { toKey: '1,1', loot: { odun: 10 }, units: { fjordvakt: 50 }, yagmaKapasite: 200, yagmaKayip: 0 });
+  assert.equal(hedefler(v)[0].sonKayip, 0, 'eski kayıp silinmedi');
+});
+
+test('hydrate bozuk dokum ve kaybi temizliyor', () => {
+  const d = Y.hydrate({
+    yagmaListeleri: [{
+      ad: 'A',
+      hedefler: [{
+        slotKey: '1,1',
+        sonGanimetler: { odun: 50, kil: -3, bozuk: 'x' },
+        sonKayip: -7,
+      }],
+    }],
+  });
+  const h = d.yagmaListeleri[0].hedefler[0];
+  assert.deepEqual(h.sonGanimetler, { odun: 50 }, 'negatif/bozuk kalem geçti');
+  assert.equal(h.sonKayip, 0, 'negatif kayıp geçti');
+});

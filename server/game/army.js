@@ -947,6 +947,12 @@ function resolveArrival(march, origin, target, opts = {}) {
     biliniyor ama hangi kapasiteyle gidildiği bilinmiyor.
   */
   march.yagmaKapasite = yagmaKapasite;
+  /*
+    KAYIP DA SEFERE YAZILIYOR: yağma listesi "bu hedefe giderken asker
+    kaybediyor muyum" sorusunu dönüşte cevaplıyor. Dönüşte hesaplanamaz —
+    o an yalnız sağ dönen asker biliniyor, kaç tane gittiği bilinmiyor.
+  */
+  march.yagmaKayip = totalUnits(res.attackerLosses || {});
 
   march.units = survivors;
   march.loot  = loot;

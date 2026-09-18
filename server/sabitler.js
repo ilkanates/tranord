@@ -35,7 +35,21 @@ const FULL_SYNC_MS = 30000;
 //  Zaman: seferler Date.now() ile ilerler, köy saatiyle DEĞİL (gerekçe
 //  game/army.js başında). Bu yüzden set_speed sefer süresini kısaltmaz.
 // ═══════════════════════════════════════════════════════════════════
-const MAX_MARCHES_PER_TOWN  = 8;     // aynı anda yolda olabilecek sefer sayısı
+/*
+  AYNI ANDA YOLDA OLABİLECEK SEFER SAYISI.
+
+  8'DEN 30'A ÇIKTI. Yağma listesi tek tuşla onlarca hedefe sefer açıyor
+  ve 8'lik tavan listeyi işe yaramaz hâle getiriyordu: 40 satırlık
+  listenin 8'i gidiyor, 32'si "sefer limiti dolu" diyordu.
+
+  BEDELİ ÖLÇÜLDÜ: bir sefer pakette 276 bayt yer kaplıyor.
+    8 sefer → 2,2 KB      30 sefer → 8,1 KB
+  Paket köy değiştikçe gidiyor, yani bu ek yalnız çok seferi olan
+  oyuncuda ve yalnız seferleri değişirken oluşuyor. Tavan tamamen
+  kaldırılmadı: sınırsız sefer, köy kaydını ve her yayını oyuncunun
+  kendi eliyle şişirebileceği bir yol açardı.
+*/
+const MAX_MARCHES_PER_TOWN  = 30;
 
 /**
  * BAŞLANGIÇ KORUMASI: oyuncu askerî sisteme girene kadar NPC saldırmaz.

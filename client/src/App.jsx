@@ -1610,6 +1610,8 @@ function Game({ token, onLogout, onToken }) {
                   army={village.army || {}}
                   unitDefs={village.unitDefs || {}}
                   koyAdi={village.name || ''}
+                  /* Yoldaki seferler zaten pakette — listeye ayrıca yazılmıyor */
+                  marches={village.marches || []}
                   sonuc={yagmaSonuc} />
               )}
               {orduAlt === 'simulator' && (

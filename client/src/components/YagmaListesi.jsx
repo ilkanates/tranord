@@ -28,7 +28,8 @@
  * KAYIP (savaşı kaybettik — oraya bir daha bu orduyla gitme).
  */
 import { useState } from 'react';
-import { C, FONT, panel, btn, label as lbl, num, short } from '../theme';
+import { createPortal } from 'react-dom';
+import { C, FONT, panel, btn, label as lbl, num, short, fmtTime } from '../theme';
 import Icon from './Icons';
 import { unitEmblem } from '../data/unitEmblems';
 
@@ -48,6 +49,71 @@ const HATA_AD = {
   asker_secilmedi: 'Asker seçilmedi',
 };
 const hataYaz = (k) => HATA_AD[k] || (k ? String(k).replace(/_/g, ' ') : null);
+
+/** Hammadde adları — ganimet dökümü oyuncunun bildiği isimlerle yazılsın */
+const RES_AD = {
+  odun: 'Odun', kil: 'Kil', tas: 'Taş', demir: 'Demir', tahil: 'Tahıl',
+  kereste: 'Kereste', tugla: 'Tuğla', yontmaTas: 'Yontma taş',
+  demirKulce: 'Demir külçe', un: 'Un', ekmek: 'Ekmek',
+};
+
+/**
+ * SON SEFERİN DÖKÜMÜ — satırın üstüne gelince.
+ *
+ * Rapor ekranına gitmeden "ne aldım, ne kaybettim" görünsün diye.
+ * Yağma listesinin bütün işi tekrar tekrar aynı hedeflere gitmek;
+ * her seferinde rapor ekranını açmak o döngüyü kırardı.
+ */
+function SonRapor({ h, kutu }) {
+  const kalemler = Object.entries(h.sonGanimetler || {}).filter(([, n]) => n > 0);
+  if (!kutu) return null;
+  /* Üstte yer yoksa aşağı düş — listenin ilk satırlarında kart taşıyordu */
+  const ustte = kutu.top > 250;
+  return createPortal((
+    <div style={{
+      position: 'fixed', zIndex: 70, pointerEvents: 'none',
+      left: Math.min(kutu.right, window.innerWidth - 16),
+      top: ustte ? kutu.top - 8 : kutu.bottom + 8,
+      transform: ustte ? 'translate(-100%, -100%)' : 'translate(-100%, 0)',
+      minWidth: 190, padding: '9px 11px', borderRadius: 6,
+      background: 'rgba(6,12,20,0.97)', border: `1px solid ${C.lineBright}`,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+    }}>
+      <div style={lbl({ fontSize: 8, letterSpacing: 1.2, marginBottom: 5 })}>
+        son sefer
+      </div>
+      {kalemler.length ? kalemler.map(([k, n]) => (
+        <div key={k} style={{
+          display: 'flex', justifyContent: 'space-between', gap: 14,
+          fontFamily: FONT.ui, fontSize: 10.5, color: C.textDim, lineHeight: 1.65,
+        }}>
+          <span>{RES_AD[k] || k}</span>
+          <span style={num({ color: C.iceSoft })}>{short(n)}</span>
+        </div>
+      )) : (
+        <div style={{ fontFamily: FONT.ui, fontSize: 10.5, color: C.textMute }}>
+          Ganimet yok
+        </div>
+      )}
+      <div style={{
+        marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.lineSoft}`,
+        display: 'flex', justifyContent: 'space-between', gap: 14,
+        fontFamily: FONT.ui, fontSize: 10.5,
+        color: h.sonKayip ? C.danger : C.good,
+      }}>
+        <span>{h.sonKayip ? 'Kaybedilen asker' : 'Kayıp'}</span>
+        <span style={num({ color: 'inherit' })}>{h.sonKayip || 'yok'}</span>
+      </div>
+      {h.sonDonus && (
+        <div style={lbl({ fontSize: 8, letterSpacing: 1, marginTop: 5 })}>
+          {new Date(h.sonDonus).toLocaleString('tr-TR', {
+            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+          })}
+        </div>
+      )}
+    </div>
+  ), document.body);
+}
 
 /* ── Satırdaki birim seçici ──────────────────────────────────────── */
 
@@ -109,10 +175,29 @@ function BirimSecici({ army, unitDefs, birimler, onDegis }) {
 
 export default function YagmaListesi({
   socket, listeler = [], army = {}, unitDefs = {}, koyAdi = '', sonuc = null,
+  /*
+    YOLDAKİ SEFERLER pakette zaten var (village.marches). Listeye ayrı
+    bir "yolda mı" alanı eklemek, aynı gerçeği iki yerde tutmak olurdu.
+  */
+  marches = [],
 }) {
   const [seciliId, setSeciliId] = useState(null);
   const [yeniAd, setYeniAd] = useState('');
   const [adDuzenle, setAdDuzenle] = useState(null);
+  /* { slotKey, kutu } — kutu satırın EKRANDAKİ yeri (portal için) */
+  const [acikRapor, setAcikRapor] = useState(null);
+
+  /*
+    HEDEF BAŞINA YOLDAKİ SEFER. Bir hedefe birden çok sefer yolda
+    olabilir (art arda gönderim); en yakın varış gösteriliyor, çünkü
+    oyuncunun beklediği şey "ilk haber ne zaman gelecek".
+  */
+  const seferler = new Map();
+  for (const m of marches) {
+    if (m.mode !== 'raid' || !m.toKey) continue;
+    const onceki = seferler.get(m.toKey);
+    if (!onceki || (m.timeLeft ?? 1e9) < (onceki.timeLeft ?? 1e9)) seferler.set(m.toKey, m);
+  }
 
   /*
     SEÇİLİ LİSTE SUNUCUDAN GELENE GÖRE ÇÖZÜLÜYOR. Kendi kopyasını
@@ -265,20 +350,52 @@ export default function YagmaListesi({
               satır ekleyebilirsin.
             </div>
           ) : hedefler.map(h => {
+            const sefer = seferler.get(h.slotKey) || null;
             const renk = SONUC_RENK[h.sonSonuc] || C.lineSoft;
             const secilenAsker = Object.values(h.birimler || {})
               .reduce((s, n) => s + (n || 0), 0);
             return (
-              <div key={h.slotKey} style={{
-                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-                padding: '9px 12px', borderTop: `1px solid ${C.lineSoft}`,
-                borderLeft: `3px solid ${renk}`,
-              }}>
+              <div key={h.slotKey}
+                onMouseEnter={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setAcikRapor({ slotKey: h.slotKey, kutu: r });
+                }}
+                onMouseLeave={() => setAcikRapor(null)}
+                style={{
+                  position: 'relative',
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                  padding: '9px 12px', borderTop: `1px solid ${C.lineSoft}`,
+                  borderLeft: `3px solid ${renk}`,
+                  /*
+                    KAYIP VARSA SATIR DA KIRMIZIYA ÇALIYOR. Sonuç şeridi
+                    "dolu" diyip satır sakin görünürse, asker kaybettiren
+                    bir hedef farkında olmadan tekrar tekrar vurulur.
+                  */
+                  background: h.sonKayip ? 'rgba(88,22,30,0.28)' : 'transparent',
+                }}>
                 <div style={{ minWidth: 150, flex: '0 0 auto' }}>
                   <div style={{ fontFamily: FONT.ui, fontSize: 12, color: C.frost }}>
                     {h.ad}
                   </div>
-                  <div style={num({ fontSize: 9, color: C.textMute })}>{h.slotKey}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={num({ fontSize: 9, color: C.textMute })}>{h.slotKey}</span>
+                    {/*
+                      YOLDAKİ SEFER — dönüş ayağı da gösteriliyor: "ordum
+                      nerede" sorusunun cevabı seferin yönüne göre değişiyor.
+                    */}
+                    {sefer && (
+                      <span style={{
+                        fontFamily: FONT.ui, fontSize: 8.5, letterSpacing: 0.6,
+                        padding: '1px 5px', borderRadius: 3,
+                        color: sefer.phase === 'return' ? C.iceSoft : C.warn,
+                        background: sefer.phase === 'return'
+                          ? 'rgba(143,220,255,0.12)' : 'rgba(224,168,74,0.14)',
+                      }}>
+                        {sefer.phase === 'return' ? 'DÖNÜYOR' : 'YOLDA'}
+                        {sefer.timeLeft > 0 ? ` ${fmtTime(sefer.timeLeft)}` : ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ flex: 1, minWidth: 220 }}>
@@ -288,7 +405,11 @@ export default function YagmaListesi({
                     })} />
                 </div>
 
-                <div style={{ minWidth: 118, textAlign: 'right' }}>
+                <div style={{ minWidth: 118, textAlign: 'right', position: 'relative' }}>
+                  {/* Üstüne gelince son seferin dökümü */}
+                  {acikRapor?.slotKey === h.slotKey && h.sonSonuc && (
+                    <SonRapor h={h} kutu={acikRapor.kutu} />
+                  )}
                   {h.sonHata ? (
                     <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.warn }}>
                       {hataYaz(h.sonHata)}
@@ -301,6 +422,11 @@ export default function YagmaListesi({
                       {h.sonGanimet > 0 && (
                         <div style={num({ fontSize: 9.5, color: C.textMute })}>
                           {short(h.sonGanimet)} ganimet
+                        </div>
+                      )}
+                      {h.sonKayip > 0 && (
+                        <div style={num({ fontSize: 9.5, color: C.danger })}>
+                          −{h.sonKayip} asker
                         </div>
                       )}
                     </>
