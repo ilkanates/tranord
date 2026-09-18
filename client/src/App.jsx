@@ -1652,7 +1652,8 @@ function Game({ token, onLogout, onToken }) {
                   marches={village.marches || []}
                   incoming={village.incoming || []}
                   unitDefs={village.unitDefs || {}}
-                  maxMarches={village.marchInfo?.maxMarches || 8}
+                  /* null = sınır yok; sayaç payda göstermiyor */
+                  maxMarches={village.marchInfo?.maxMarches ?? null}
                   kahraman={village.kahraman}
                   digerSeferler={village.digerKoySeferleri || []}
                   hourSeconds={village.marchInfo?.hourSeconds || 3600}

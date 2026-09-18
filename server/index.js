@@ -61,7 +61,7 @@ const KUYRUK = require('./game/kuyruk');
 const ADET_TAVANI = 10000;
 const { UNITS_BY_BUILDING } = require('./game/birimler');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, FULL_SYNC_MS,
-        MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY,
+        MAX_MARCHES_PER_TOWN, NPC_MAX_MARCHES, PROTECT_MIN_ARMY,
         KALKAN_OYUN_SAATI, KALKAN_NUFUS } = require('./sabitler');
 const { buildPayload } = require('./game/payload');
 /* Rapor türü/filtresi tek cümle — hem sayfalama hem rozet sayıları oradan */
@@ -2606,6 +2606,15 @@ function processMarches(hours) {
           kahramanSavunmaYuzde: savunanKahYuzde,
           kahramanBirimSavunma: savunanKahBirim,
         });
+        /*
+          YAĞMA LİSTESİ SONUCU — SAVAŞIN OLDUĞU ANDA. Dönüşte yazmak,
+          oyuncunun zaten bildiği (raporu varışta gelen) bir sonucu
+          listede saatlerce "henüz gidilmedi" diye göstermek oluyordu.
+        */
+        if (m.mode === 'raid') {
+          try { YAGMA_LISTE.sonucIsle(v, m); }
+          catch { /* liste bozuksa sefer yine tamamlansın */ }
+        }
         entry.dirty();
         if (tgt?.userId) markUserDirty(tgt.userId, m.toKey);
         else if (tgt?.kind === 'npc') markNpcDirty(m.toKey);
@@ -2740,11 +2749,9 @@ function processMarches(hours) {
         const { caps, foodRoom } = lootRoom(v);
         ARMY.resolveReturn(m, v, caps, foodRoom);
         /*
-          YAĞMA LİSTESİ SONUCU — sefer eve döndüğü anda yazılıyor.
-          Varışta yazsaydık ganimet henüz depoya girmemiş olurdu ve
-          "dolu döndü" bilgisi seferin yarısında donardı.
+          SONUÇ BURADA YAZILMIYOR — varışta yazılıyor (bkz. yukarıda).
+          İki yerde yazmak, aynı gerçeği iki kez hesaplamak olurdu.
         */
-        if (m.mode === 'raid') { try { YAGMA_LISTE.sonucIsle(v, m); } catch { /* liste bozuksa sefer yine tamamlansın */ } }
         /*
           KAHRAMAN EVE VARDI — artık yeni emir alabilir.
 
@@ -2872,7 +2879,7 @@ function maybeNpcVsNpcRaid(n, inflight) {
   if (Math.random() > NPC_VS_NPC_CHANCE) return false;
 
   const v = n.village;
-  if ((v.marches || []).length >= MAX_MARCHES_PER_TOWN) return false;
+  if ((v.marches || []).length >= NPC_MAX_MARCHES) return false;
   const total = ARMY.totalUnits(v.army);
   if (total < NPC_RAID_MIN_ARMY) return false;
 
@@ -2937,7 +2944,7 @@ function maybeNpcRaid(n) {
   if (Math.random() > NPC_RAID_CHANCE) return;
 
   const v = n.village;
-  if ((v.marches || []).length >= MAX_MARCHES_PER_TOWN) return;
+  if ((v.marches || []).length >= NPC_MAX_MARCHES) return;
   const total = ARMY.totalUnits(v.army);
   if (total < NPC_RAID_MIN_ARMY) return;
 
@@ -5927,7 +5934,10 @@ io.on('connection', async socket => {
     const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
     if (!mySlot) return fail('konum_yok');
     if (targetKey === mySlot) return fail('kendi_koyun');
-    if ((village.marches || []).length >= MAX_MARCHES_PER_TOWN) return fail('sefer_limiti');
+    /* SINIR YOK (İlkan'ın kararı) — sabit null ise denetim hiç çalışmıyor */
+    if (MAX_MARCHES_PER_TOWN && (village.marches || []).length >= MAX_MARCHES_PER_TOWN) {
+      return fail('sefer_limiti');
+    }
 
     const me = WORLD.slotByKey.get(mySlot);
 
@@ -6199,9 +6209,15 @@ io.on('connection', async socket => {
    * işaretleniyor ve üçüncü düğmeyle daha sonra denenebiliyor. Sessizce
    * düşmüyorlar.
    */
-  socket.on('yagma_toplu_gonder', ({ listeId, filtre = 'hepsi' } = {}) => {
+  socket.on('yagma_toplu_gonder', ({ listeId, filtre = 'hepsi', slotKey = null } = {}) => {
     const village = v();
-    const hedefler = YAGMA_LISTE.gonderilecekler(village, listeId, filtre);
+    /*
+      TEK SATIR = aynı yolun bir hedefle koşması (İlkan'ın isteği).
+      Ayrı bir olay yazmak, sonuç yazma ve hata kaydını ikinci kez
+      kurmak olurdu.
+    */
+    const hedefler = YAGMA_LISTE.gonderilecekler(village, listeId, filtre)
+      .filter(h => !slotKey || h.slotKey === slotKey);
     if (!hedefler.length) {
       return socket.emit('yagma_sonuc', { gonderilen: 0, basarisiz: 0, sebepler: {} });
     }

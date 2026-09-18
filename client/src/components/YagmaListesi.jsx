@@ -430,6 +430,14 @@ export default function YagmaListesi({
                         </div>
                       )}
                     </>
+                  ) : h.sonGonderim ? (
+                    /*
+                      GÖNDERİLDİ AMA SONUÇ YOK — sefer daha varmadı.
+                      "Henüz gidilmedi" demek yanlıştı: ordu yolda.
+                    */
+                    <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.warn }}>
+                      sonuç bekleniyor
+                    </div>
                   ) : (
                     <div style={{ fontFamily: FONT.ui, fontSize: 10, color: C.textMute }}>
                       henüz gidilmedi
@@ -440,6 +448,20 @@ export default function YagmaListesi({
                 <div style={num({ fontSize: 11, color: secilenAsker ? C.iceSoft : C.danger, minWidth: 42, textAlign: 'right' })}>
                   {secilenAsker || '0'}
                 </div>
+
+                {/*
+                  TEK SATIRI GÖNDER. Asker seçilmemişse kapalı: "0 asker
+                  yolla" sessizce başarısız olan bir sefer olurdu.
+                */}
+                <button type="button" title="yalnız bu hedefe gönder"
+                  disabled={!secilenAsker}
+                  onClick={() => socket?.emit('yagma_toplu_gonder', {
+                    listeId: secili.id, filtre: 'hepsi', slotKey: h.slotKey,
+                  })}
+                  style={btn('good', {
+                    padding: '4px 9px', fontSize: 9,
+                    opacity: secilenAsker ? 1 : 0.4,
+                  })}>GÖNDER</button>
 
                 <button type="button" title="satırı sil"
                   onClick={() => socket?.emit('yagma_hedef_sil', {

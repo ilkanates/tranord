@@ -35,21 +35,29 @@ const FULL_SYNC_MS = 30000;
 //  Zaman: seferler Date.now() ile ilerler, köy saatiyle DEĞİL (gerekçe
 //  game/army.js başında). Bu yüzden set_speed sefer süresini kısaltmaz.
 // ═══════════════════════════════════════════════════════════════════
-/*
-  AYNI ANDA YOLDA OLABİLECEK SEFER SAYISI.
+/**
+ * OYUNCUNUN AYNI ANDA YOLDA TUTABİLECEĞİ SEFER SAYISI — SINIR YOK.
+ *
+ * İlkan'ın kararı: *"sefer limitini kaldır, limit olmasın."* Önce 8'di,
+ * yağma listesi gelince 30'a çıktı, sonra tamamen kalktı. `null` =
+ * sınırsız; denetim yapan yerler bu değere bakıp kapıyı hiç kurmuyor.
+ *
+ * BEDELİ ÖLÇÜLDÜ: bir sefer pakette 276 bayt. Yağma listesi hedef
+ * başına 100 ile sınırlı olduğundan tek toplu gönderim en çok ~100
+ * sefer açıyor (27,6 KB) ve bu, köy paketi her değiştiğinde gidiyor.
+ * Sayı büyürse asıl darboğaz burası olur; çözümü seferleri paketten
+ * ayırıp istek üzerine göndermek olur, tavan koymak değil.
+ */
+const MAX_MARCHES_PER_TOWN  = null;
 
-  8'DEN 30'A ÇIKTI. Yağma listesi tek tuşla onlarca hedefe sefer açıyor
-  ve 8'lik tavan listeyi işe yaramaz hâle getiriyordu: 40 satırlık
-  listenin 8'i gidiyor, 32'si "sefer limiti dolu" diyordu.
-
-  BEDELİ ÖLÇÜLDÜ: bir sefer pakette 276 bayt yer kaplıyor.
-    8 sefer → 2,2 KB      30 sefer → 8,1 KB
-  Paket köy değiştikçe gidiyor, yani bu ek yalnız çok seferi olan
-  oyuncuda ve yalnız seferleri değişirken oluşuyor. Tavan tamamen
-  kaldırılmadı: sınırsız sefer, köy kaydını ve her yayını oyuncunun
-  kendi eliyle şişirebileceği bir yol açardı.
-*/
-const MAX_MARCHES_PER_TOWN  = 30;
+/**
+ * NPC'NİN sefer tavanı — OYUNCUDAN AYRI ve duruyor.
+ *
+ * İstek oyuncunun kendi oynayışıyla ilgiliydi. NPC tarafı başka bir
+ * hesap: 700 köy × sınırsız sefer, oyuncunun hiç görmediği ama
+ * sunucunun ödediği bir yük.
+ */
+const NPC_MAX_MARCHES = 30;
 
 /**
  * BAŞLANGIÇ KORUMASI: oyuncu askerî sisteme girene kadar NPC saldırmaz.
@@ -68,6 +76,6 @@ const KALKAN_NUFUS      = 200;
 
 module.exports = {
   DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS,
-  FULL_SYNC_MS, MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY,
+  FULL_SYNC_MS, MAX_MARCHES_PER_TOWN, NPC_MAX_MARCHES, PROTECT_MIN_ARMY,
   KALKAN_OYUN_SAATI, KALKAN_NUFUS,
 };

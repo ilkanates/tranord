@@ -85,7 +85,7 @@ export function IncomingAlert({ incoming = [], onKapat = null }) {
 
 // ── Yoldaki seferler ─────────────────────────────────────────────────
 export function MarchPanel({
-  marches = [], incoming = [], unitDefs = {}, maxMarches = 8, onRecall,
+  marches = [], incoming = [], unitDefs = {}, maxMarches = null, onRecall,
   kahraman = null, hourSeconds = 3600, worldSpeed = 1,
   /*
     ÖTEKİ KÖYLERİMDEN çıkan seferler. `marches` tanımı gereği yalnız
@@ -149,7 +149,11 @@ export function MarchPanel({
         <Icon name="ordu" size={14} color={C.iceDeep} />
         <span style={lbl({ fontSize: 9, letterSpacing: 1.5 })}>Seferler</span>
         <span style={num({ fontSize: 9.5, color: C.textMute, marginLeft: 'auto' })}>
-          {mine.length}/{maxMarches}
+          {/*
+            SINIR YOKSA PAYDA DA YOK. "12/∞" ya da "12/30" yazmak,
+            olmayan bir tavanı varmış gibi göstermek olurdu.
+          */}
+          {maxMarches ? mine.length + '/' + maxMarches : mine.length}
         </span>
       </div>
 

@@ -42,14 +42,31 @@ export const YAMA_NOTLARI = [
           + 'aynı görünmemeli.',
       },
       {
-        id: '20260918-sefer-limiti-30',
+        id: '20260918-sefer-limiti-kalkti',
         tur: 'denge',
-        metin: 'AYNI ANDA YOLDA OLABİLECEK SEFER 8\'DEN 30\'A ÇIKTI. '
-          + 'Yağma listesi tek tuşla onlarca hedefe sefer açıyor ve 8\'lik '
-          + 'sınır listeyi işe yaramaz hâle getiriyordu: 40 satırın 8\'i '
-          + 'gidiyor, kalanı "sefer limiti dolu" diyordu. Sınır tamamen '
-          + 'kalkmadı — sınırsız sefer, oyunun kendi kaydını şişirmenin '
-          + 'yolu olurdu.',
+        metin: 'SEFER LİMİTİ TAMAMEN KALKTI. Aynı anda kaç sefer '
+          + 'yürüteceğine artık ordun karar veriyor, bir sayaç değil. '
+          + 'Önce 8\'di, yağma listesi gelince 30 oldu, sonra kalktı. '
+          + 'Seferler ekranındaki sayaç da artık paydasız: "12/30" değil '
+          + 'sadece "12".',
+      },
+      {
+        id: '20260918-yagma-tek-satir',
+        tur: 'yenilik',
+        metin: 'YAĞMA LİSTESİNDEN TEK TEK DE GÖNDEREBİLİRSİN. Her '
+          + 'satırın kendi GÖNDER tuşu var; bütün listeyi yollamadan '
+          + 'yalnız bir hedefe sefer açabiliyorsun. Asker seçmediğin '
+          + 'satırda tuş kapalı.',
+      },
+      {
+        id: '20260918-yagma-sonuc-varista',
+        tur: 'duzeltme',
+        metin: 'YAĞMA SONUCU ARTIK SAVAŞIN OLDUĞU ANDA YAZILIYOR. '
+          + 'Ganimeti alıp dönmeye başlamış bir sefer için liste hâlâ '
+          + '"henüz gidilmedi" diyordu; sonucu ordunun eve varmasını '
+          + 'bekleyerek yazıyordum. Oysa ganimet varışta kesinleşiyor ve '
+          + 'raporun da o an geliyor. Artık "dolu dönenlere saldır" '
+          + 'düğmesi de o hedefi hemen sayıyor.',
       },
       {
         id: '20260918-npc-birim-cesitliligi',
