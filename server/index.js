@@ -558,7 +558,7 @@ function structFingerprint(v) {
     */
     + `|Y${(v.yagmaListeleri || []).length}:${(v.yagmaListeleri || [])
       .map(l => `${l.id}${(l.hedefler || []).length}${(l.hedefler || [])
-        .map(h => (h.sonSonuc || '-')[0] + (h.sonHata ? 'x' : '') + (h.sonKayip ? 'k' : '')).join('')}`)
+        .map(h => (h.sonSonuc || '-')[0] + (h.sonHata ? 'x' : '') + (h.sonKayip || 0) + ':' + (h.sonGanimet || 0)).join('')}`)
       .join(',')}`
     + `|R${(v.saglikYatan || []).length}:${(v.saglikYatan || [])
       .reduce((s2, y) => s2 + (y.adet || 0), 0)}:${(v.saglikYatan || [])
@@ -2612,7 +2612,7 @@ function processMarches(hours) {
           listede saatlerce "henüz gidilmedi" diye göstermek oluyordu.
         */
         if (m.mode === 'raid') {
-          try { YAGMA_LISTE.sonucIsle(v, m); }
+          try { YAGMA_LISTE.sonucIsle(v, m); m.yagmaListeYazildi = true; }
           catch { /* liste bozuksa sefer yine tamamlansın */ }
         }
         entry.dirty();
@@ -2749,9 +2749,16 @@ function processMarches(hours) {
         const { caps, foodRoom } = lootRoom(v);
         ARMY.resolveReturn(m, v, caps, foodRoom);
         /*
-          SONUÇ BURADA YAZILMIYOR — varışta yazılıyor (bkz. yukarıda).
-          İki yerde yazmak, aynı gerçeği iki kez hesaplamak olurdu.
+          VARIŞTA YAZILMADIYSA BURADA YAZ — ağ deliği kapanıyor.
+
+          Varışını ESKİ SÜRÜMLE yapmış (dağıtım anında yolda olan) ve
+          hedefi kaybolduğu için hiç savaşmamış seferler buraya düşüyor.
+          İşaret sayesinde aynı sonuç iki kez yazılmıyor.
         */
+        if (m.mode === 'raid' && !m.yagmaListeYazildi) {
+          try { YAGMA_LISTE.sonucIsle(v, m); }
+          catch { /* liste bozuksa sefer yine tamamlansın */ }
+        }
         /*
           KAHRAMAN EVE VARDI — artık yeni emir alabilir.
 

@@ -47,6 +47,7 @@ const HATA_AD = {
   gecersiz_hedef: 'Hedef yok',
   kendi_koyun: 'Kendi köyün',
   asker_secilmedi: 'Asker seçilmedi',
+  zaten_listede: 'Bu köy zaten başka bir listende',
 };
 const hataYaz = (k) => HATA_AD[k] || (k ? String(k).replace(/_/g, ' ') : null);
 
@@ -188,15 +189,27 @@ export default function YagmaListesi({
   const [acikRapor, setAcikRapor] = useState(null);
 
   /*
-    HEDEF BAŞINA YOLDAKİ SEFER. Bir hedefe birden çok sefer yolda
-    olabilir (art arda gönderim); en yakın varış gösteriliyor, çünkü
-    oyuncunun beklediği şey "ilk haber ne zaman gelecek".
+    HEDEF BAŞINA YOLDAKİ SEFER — GİDEN ÖNCELİKLİ.
+
+    Aynı hedefe birden çok sefer yolda olabilir. Önce "en yakın varış"
+    gösteriliyordu ve bu yanlıştı: dönüşe geçmiş bir sefer 3 dakika
+    uzaktayken yeni yola çıkan saldırı 15 dakika uzakta oluyor, rozeti
+    dönüş kazanıyor ve oyuncu saldırısının gittiğini göremiyordu
+    (İlkan bildirdi).
+
+    Oyuncunun sorduğu soru "ilk haber ne zaman gelecek" değil, "şu an
+    saldırıyor muyum". Giden ordu bir KARAR, dönen ordu bir SONUÇ.
   */
   const seferler = new Map();
   for (const m of marches) {
     if (m.mode !== 'raid' || !m.toKey) continue;
     const onceki = seferler.get(m.toKey);
-    if (!onceki || (m.timeLeft ?? 1e9) < (onceki.timeLeft ?? 1e9)) seferler.set(m.toKey, m);
+    const giden = (x) => x.phase !== 'return';
+    const dahaIyi = !onceki
+      || (giden(m) && !giden(onceki))
+      || (giden(m) === giden(onceki) && (m.timeLeft ?? 1e9) < (onceki.timeLeft ?? 1e9));
+    if (dahaIyi) seferler.set(m.toKey, { ...m, adet: (onceki?.adet || 0) + 1 });
+    else seferler.set(m.toKey, { ...onceki, adet: (onceki.adet || 0) + 1 });
   }
 
   /*
@@ -391,8 +404,13 @@ export default function YagmaListesi({
                         background: sefer.phase === 'return'
                           ? 'rgba(143,220,255,0.12)' : 'rgba(224,168,74,0.14)',
                       }}>
-                        {sefer.phase === 'return' ? 'DÖNÜYOR' : 'YOLDA'}
+                        {sefer.phase === 'return' ? 'DÖNÜYOR' : 'SALDIRIYOR'}
                         {sefer.timeLeft > 0 ? ` ${fmtTime(sefer.timeLeft)}` : ''}
+                        {/*
+                          KAÇ SEFER — "saldırıyorum" ile "üç koldan
+                          saldırıyorum" aynı şey değil.
+                        */}
+                        {sefer.adet > 1 ? ` ×${sefer.adet}` : ''}
                       </span>
                     )}
                   </div>

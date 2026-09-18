@@ -991,6 +991,9 @@ function Game({ token, onLogout, onToken }) {
       "bastım, bir şey olmadı" demesin diye sebebi yazıyoruz.
     */
     const SEFER_SEBEP = {
+      /* Yağma listesi de bu şeride yazıyor — ayrı bir bildirim yolu kurmak
+         aynı işi ikinci kez yapmak olurdu */
+      zaten_listede: 'Bu köy zaten başka bir yağma listende.',
       sefer_yok: 'Bu sefer artık listede değil.',
       zaten_donuyor: 'Sefer zaten dönüşte.',
       sure_doldu: 'Geri çağırma süresi doldu — ordu yoluna devam ediyor.',

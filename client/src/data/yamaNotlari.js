@@ -59,6 +59,26 @@ export const YAMA_NOTLARI = [
           + 'satırda tuş kapalı.',
       },
       {
+        id: '20260918-yagma-saldiriyor-rozeti',
+        tur: 'duzeltme',
+        metin: 'DÖNÜYOR YAZAN KÖYE SALDIRINCA ARTIK "SALDIRIYOR" YAZIYOR. '
+          + 'Aynı hedefe birden çok sefer yolda olabildiği için en yakın '
+          + 'varışı gösteriyordum; dönüşteki ordu yeni giden saldırının '
+          + 'rozetini kapatıyordu. Giden ordu bir karar, dönen ordu bir '
+          + 'sonuç — artık giden öncelikli ve birden çok sefer varsa '
+          + 'sayısı da yazıyor (×3).',
+      },
+      {
+        id: '20260918-yagma-tek-liste',
+        tur: 'duzeltme',
+        metin: 'AYNI KÖY İKİ LİSTEYE EKLENEMİYOR. Aynı liste içinde '
+          + 'zaten engelliydi ama listeler arasında değildi: iki listeyi '
+          + 'de gönderince aynı hedefe iki sefer gidiyor ve sebebini '
+          + 'hiçbir yerde göremiyordun. Zaten ekliyse hangi listede '
+          + 'olduğu yazıyor. Eski listelerindeki çift satırlar silinmedi '
+          + '— senin kurduğun listeyi habersiz bozmak doğru olmazdı.',
+      },
+      {
         id: '20260918-yagma-sonuc-varista',
         tur: 'duzeltme',
         metin: 'YAĞMA SONUCU ARTIK SAVAŞIN OLDUĞU ANDA YAZILIYOR. '

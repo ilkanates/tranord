@@ -143,6 +143,16 @@ function hedefEkle(v, listeId, { slotKey, ad, birimler }, unitDefs = null) {
     return { ok: true, hedef: mevcut, zatenVardi: true };
   }
 
+  /*
+    BAŞKA BİR LİSTEDE Mİ? Aynı köy iki listede olursa ikisini de
+    gönderen oyuncu aynı hedefe iki sefer yollar ve sebebini hiçbir
+    yerde görmez (İlkan'ın isteği). Hangi listede olduğu da dönüyor:
+    "eklenmedi" demek yetmez, nereye bakacağını bilmeli.
+  */
+  const baska = listeler(v).find(l => l !== liste
+    && l.hedefler.some(h => h.slotKey === slotKey));
+  if (baska) return { ok: false, sebep: 'zaten_listede', listeAd: baska.ad };
+
   if (liste.hedefler.length >= MAX_HEDEF) return { ok: false, sebep: 'hedef_limiti' };
   const hedef = {
     slotKey,
@@ -222,9 +232,11 @@ function gonderimIsle(v, listeId, slotKey, sonuc) {
  * doldurduysa hedefte daha fazlası kalmıştır. Kapasite sefere
  * iliştirilmiş olmalı (bkz. army.js · resolveArrival).
  *
- * AYNI HEDEF BİRDEN ÇOK LİSTEDE olabilir — hepsi güncelleniyor. Tek
- * listeyi güncellemek, aynı köyü iki listede tutan oyuncuya iki farklı
- * gerçek göstermek olurdu.
+ * BÜTÜN LİSTELER TARANIYOR. Yeni eklemelerde bir köy artık yalnız tek
+ * listede olabiliyor (bkz. hedefEkle), ama ESKİ kayıtlarda çift satır
+ * bulunabilir; onları kendiliğinden silmek oyuncunun listesini habersiz
+ * bozmak olurdu. Tarama, o satırların da doğru sonucu görmesini
+ * sağlıyor.
  */
 function sonucIsle(v, march) {
   const L = v.yagmaListeleri;

@@ -135,22 +135,6 @@ test('sonucIsle: bir-iki birim eksik de DOLU sayiliyor', () => {
   assert.equal(hedefler(v)[0].sonSonuc, Y.SONUC.DOLU);
 });
 
-test('sonucIsle AYNI HEDEFI BUTUN listelerde guncelliyor', () => {
-  /*
-    Tek listeyi güncellemek, aynı köyü iki listede tutan oyuncuya iki
-    farklı gerçek göstermek olurdu.
-  */
-  const v = koy();
-  Y.listeEkle(v, 'A'); Y.listeEkle(v, 'B');
-  const [a, b] = v.yagmaListeleri;
-  Y.hedefEkle(v, a.id, { slotKey: '9,9', birimler: { fjordvakt: 5 } });
-  Y.hedefEkle(v, b.id, { slotKey: '9,9', birimler: { fjordvakt: 5 } });
-
-  Y.sonucIsle(v, { toKey: '9,9', loot: { odun: 100 }, units: { fjordvakt: 5 }, yagmaKapasite: 100 });
-  assert.equal(a.hedefler[0].sonSonuc, Y.SONUC.DOLU);
-  assert.equal(b.hedefler[0].sonSonuc, Y.SONUC.DOLU);
-});
-
 test('sinirlar: liste ve hedef sayisi tavanli', () => {
   /*
     Liste köyün kayıtlı durumunun içinde ve her kayıtta diske yazılıyor;
@@ -261,4 +245,101 @@ test('hydrate bozuk dokum ve kaybi temizliyor', () => {
   const h = d.yagmaListeleri[0].hedefler[0];
   assert.deepEqual(h.sonGanimetler, { odun: 50 }, 'negatif/bozuk kalem geçti');
   assert.equal(h.sonKayip, 0, 'negatif kayıp geçti');
+});
+
+/**
+ * SONUÇ İKİ KAPIDAN DA GEÇEBİLİR — ama bir kez yazılır.
+ *
+ * İlkan: *"dönüyor diyor ama sağda sonuç bekleniyor yazıyor."* Sebebi
+ * sürüm geçişiydi: sonuç yazma dönüşten VARIŞA taşındığında, o anda
+ * yolda olan seferler varışlarını eski kodla yapmıştı ve sonuçları
+ * hiçbir zaman yazılmadı.
+ *
+ * Bu tek seferlik bir olay değil — her dağıtımda yoldaki her sefer aynı
+ * boşluğa düşer. Ayrıca hedefi kaybolan sefer hiç savaşmadan döner ve o
+ * dal da yazmaz. Kural: varışta yaz ve işaretle, dönüşte yalnız
+ * işaretlenmemişse yaz.
+ */
+test('ayni sefer icin sonuc iki kez yazilsa da DEGER bozulmuyor', () => {
+  const v = listeliKoy();
+  Y.hedefEkle(v, id(v), { slotKey: '1,1', birimler: { fjordvakt: 50 } });
+  const sefer = {
+    toKey: '1,1', loot: { odun: 200 }, units: { fjordvakt: 45 },
+    yagmaKapasite: 200, yagmaKayip: 5,
+  };
+
+  Y.sonucIsle(v, sefer);                 // varış
+  const ilk = { ...hedefler(v)[0] };
+  Y.sonucIsle(v, sefer);                 // dönüş (işaretsiz eski sefer)
+  const son = hedefler(v)[0];
+
+  assert.equal(son.sonSonuc, ilk.sonSonuc);
+  assert.equal(son.sonGanimet, ilk.sonGanimet);
+  assert.equal(son.sonKayip, ilk.sonKayip, 'kayıp ikinci yazımda değişti');
+});
+
+test('hedefi kaybolan sefer BOS olarak yaziliyor, beklemede kalmiyor', () => {
+  /*
+    Hedef bulunamayınca sefer savaşmadan dönüyor: ganimet yok, asker
+    tam. Satır sonsuza kadar "sonuç bekleniyor" da kalmamalı.
+  */
+  const v = listeliKoy();
+  Y.hedefEkle(v, id(v), { slotKey: '1,1', birimler: { fjordvakt: 50 } });
+  Y.sonucIsle(v, { toKey: '1,1', loot: {}, units: { fjordvakt: 50 }, yagmaKapasite: 200, yagmaKayip: 0 });
+  assert.equal(hedefler(v)[0].sonSonuc, Y.SONUC.BOS);
+  assert.equal(hedefler(v)[0].sonKayip, 0);
+});
+
+/**
+ * AYNI KÖY YALNIZ TEK LİSTEDE — İlkan: *"listeye aynı köy iki kere
+ * eklenemesin."*
+ *
+ * Aynı liste içinde zaten engelliydi; eksik olan LİSTELER ARASIydı.
+ * İki listeyi de gönderen oyuncu aynı hedefe iki sefer yolluyor ve
+ * bunu hiçbir yerde görmüyordu. Haritadan eklemede daha da görünmezdi:
+ * harita ilk listeye ekliyor, oyuncu başka listeye bakıyor,
+ * eklediğini göremeyip tekrar ekliyordu.
+ */
+test('ayni koy BASKA bir listeye eklenemiyor', () => {
+  const v = koy();
+  Y.listeEkle(v, 'Kuzey'); Y.listeEkle(v, 'Güney');
+  const [a, b] = v.yagmaListeleri;
+
+  assert.equal(Y.hedefEkle(v, a.id, { slotKey: '4,4', birimler: { fjordvakt: 5 } }).ok, true);
+
+  const r = Y.hedefEkle(v, b.id, { slotKey: '4,4', birimler: { fjordvakt: 5 } });
+  assert.equal(r.ok, false);
+  assert.equal(r.sebep, 'zaten_listede');
+  /* Hangi listede olduğu da dönmeli — "eklenmedi" demek yetmez */
+  assert.equal(r.listeAd, 'Kuzey');
+  assert.equal(b.hedefler.length, 0);
+});
+
+test('ayni listede tekrar ekleme yine sadece GUNCELLIYOR', () => {
+  /* Listeler arası kural, aynı liste içindeki güncellemeyi bozmamalı */
+  const v = listeliKoy();
+  Y.hedefEkle(v, id(v), { slotKey: '4,4', birimler: { fjordvakt: 5 } });
+  const r = Y.hedefEkle(v, id(v), { slotKey: '4,4', birimler: { fjordvakt: 30 } });
+  assert.equal(r.ok, true);
+  assert.equal(r.zatenVardi, true);
+  assert.equal(hedefler(v).length, 1);
+  assert.deepEqual(hedefler(v)[0].birimler, { fjordvakt: 30 });
+});
+
+test('ESKI kayittaki cift satir SILINMIYOR — sonuc ikisine de yaziliyor', () => {
+  /*
+    Kendiliğinden satır silmek, oyuncunun kurduğu listeyi habersiz
+    bozmak olurdu. Kural yalnız YENİ eklemelere uygulanıyor; eski çift
+    satırlar da doğru sonucu görmeye devam ediyor.
+  */
+  const v = koy();
+  Y.listeEkle(v, 'A'); Y.listeEkle(v, 'B');
+  const [a, b] = v.yagmaListeleri;
+  /* Kuralın öncesinden kalmış gibi elle iki listeye de koy */
+  a.hedefler.push({ slotKey: '7,7', ad: 'x', birimler: { fjordvakt: 5 } });
+  b.hedefler.push({ slotKey: '7,7', ad: 'x', birimler: { fjordvakt: 5 } });
+
+  Y.sonucIsle(v, { toKey: '7,7', loot: { odun: 100 }, units: { fjordvakt: 5 }, yagmaKapasite: 100 });
+  assert.equal(a.hedefler[0].sonSonuc, Y.SONUC.DOLU);
+  assert.equal(b.hedefler[0].sonSonuc, Y.SONUC.DOLU);
 });
