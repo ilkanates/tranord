@@ -338,6 +338,31 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Bina sayfası dışarıya tıklayınca kapanıyor (18 Eylül 2026)
+İlkan sordu: *"köy merkezinde bina sayfalarından birini açtığımda arka
+plana tıkladığımda çık sayfayı kapamayı yaptın mı"*. **Yapmamışım** —
+kural SVG'nin kendisine bağlıydı ve pratikte hiç çalışmıyordu.
+
+**Ölçüm, 1024 px'de bina sayfası açıkken:** sol raf 150 + sayfa 688 +
+sağ raf 150 = 988 px. Sahneden geriye 36 px kalıyor. Sayfanın etrafından
+alınan örnek noktaların 21'i raflara düşüyordu, SVG'ye bir tanesi bile
+değil. Yani tıklanacak "arka plan" diye bir şey yoktu.
+
+**Perde (backdrop) koymadım.** Perde raflardaki kartları da kapatır ve
+ilk tıklamayı yutar — oyuncu karta basar, hiçbir şey olmaz, tekrar basar.
+Bunun yerine sayfa dışındaki basış dinleniyor: tıklama hedefine normal
+şekilde ulaşıyor, sayfa da kapanıyor.
+
+- Sürükleme tıklama değil (6 px eşiği) — sahneyi kaydırmak kapatmıyor.
+- Portal katmanları dokunulmaz; ölçüt "hedef #root'un içinde mi", yani
+  yarın eklenecek bir portal da kendiliğinden korunuyor.
+- Yakalama aşamasında `pointerup`: başka binaya tıklayınca önce kapanıyor,
+  sonra altıgenin kendi `click`'i yeni binayı açıyor.
+- Eski SVG kuralı kaldırıldı — aynı işi iki yerde yapan iki kural ayrışır.
+
+Tarayıcıda doğrulandı (1024×768 ve 375×812).
+
+
 ### NPC dünyasını sıfırlama (18 Eylül 2026)
 İlkan: *"npcleri sıfırla baştan başlasınlar"*. Canlıdaki 700 köy eski,
 gelişmemiş hâlleriyle diskten geliyordu; üç büyük yapay zekâ düzeltmesinin
