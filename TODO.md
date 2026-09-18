@@ -164,6 +164,15 @@ Bu zincir sırayla ilerlemek zorunda:
 
 ---
 
+## 🔵 İlkan'ın sıradaki istekleri (18 Eylül 2026)
+- **NPC'leri sıfırla, baştan başlasınlar.** Canlıdaki 700 köy diskten geliyor ve eski, gelişmemiş hâlleri; yeni yapay zekâyla baştan tohumlanırsa düzeltmelerin etkisi anında görünür. *(Kayıtları silmek geri alınamaz — silmeden önce yedek.)*
+- **Bazı NPC köylerinin etrafında başlangıç tarlaları eksik** (6–7 tarla gelmiyor). `seedNpcVillage` tarla kurulumunda bir eksik var; ölçülmesi gerekiyor.
+- **NPC'ler kahramanı kullansın, gümüş kazansın** (4. aşamanın parçası).
+- **NPC'ler oyunculara da saldırsın** — kod var ama ordusuz dünyada hiç çalışmıyordu; ordu düzeltmesinden sonra ölçülmeli.
+- ~~Oyuncu NPC savaşlarını haritada görsün~~ — **GEREK YOK** (İlkan'ın kararı, 18 Eylül 2026).
+
+---
+
 ## 🟠 Büyük iş: NPC sistemi — yaşayan bir dünya (18 Eylül 2026)
 
 İlkan'ın tarifi: *"NPC sistemini geliştir, çok daha fazla NPC köyü olsun
@@ -192,9 +201,8 @@ Bkz. Tamamlandı · "NPC dünyası 700 köye çıktı".
 
 ### Aşama 2 — NPC'ler birbirine saldırsın — ~~YAPILDI~~
 Bkz. Tamamlandı · "NPC'ler birbirine saldırıyor".
-- **KALAN:** oyuncu bunu haritada GÖRSÜN — "şu an kim kime saldırıyor"
-  işareti. Bugün yalnız kendi seferlerin haritada görünüyor; NPC
-  savaşları sıralamadaki yer değişiminden dolaylı hissediliyor.
+- ~~Oyuncu bunu haritada görsün~~ — **YAPILMAYACAK** (İlkan'ın kararı,
+  18 Eylül 2026: *"oyuncu NPC savaşlarını görmesine gerek yok"*).
 
 ### Aşama 3 — NPC'ler yeni köy kursun
 Harita zamanla dolsun; dünya oyuncu girmeden de değişsin.
@@ -329,6 +337,18 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### Admin paneli: başka bir oyuncunun hesabına girme (18 Eylül 2026)
+- İlkan: *"her şeyden önce bir admin paneli girişi ekle. Admin olarak herkesin kullanıcısına girebiliyor olmalıyım."*
+- **YETKİ LİSTESİ ORTAM DEĞİŞKENİNDE** (`TRANORD_ADMIN`, virgülle ayrılmış e-postalar), kodda değil: e-postayı kaynağa gömmek herkese açık bir depoda yetkili hesabı ilan etmek olurdu, ayrıca yetkiyi değiştirmek için sürüm çıkmak gerekirdi.
+- **GÜVENLİ VARSAYILAN: değişken boşsa ADMİN YOK.** Eksik yapılandırma kapıyı açık bırakmamalı. "İlk kullanıcı admindir" gibi bir tahmin kolay olurdu ama yanlış tarafta hata yapardı.
+- **404, 401 DEĞİL.** 401 "doğru yetkiyle erişilebilecek bir uç var" demektir ve saldırgana hedef gösterir; admin olmayan için bu yollar hiç yok.
+- **HER TAKLİT KAYDA GEÇİYOR** (`[ADMIN] x@y → a@b (#3) hesabına girdi`). Denetlenebilir olmayan bir arka kapı, arka kapıdır.
+- **GERİ DÖNÜŞ YOLU ŞART.** Adminin kendi token'ı ayrı bir anahtarda saklanıyor (`client/src/adminOturum.js`) ve ekranın üstündeki şeritten tek tıkla dönülüyor. Şerit ayrıca **hangi hesapta olduğunu söylüyor**: yoksa admin kendi köyünü sanıp başkasının ordusunu harcar.
+- **Ölçerek çıkan iki hata:** (1) panel göreli yol kullanıyordu — üretimde aynı origin olduğu için çalışır ama yerelde istemci 5180 sunucu 3311, yani "bende çalışıyor sunucuda çalışmıyor" sınıfı bir hata; `SERVER_URL` prop'a bağlandı. (2) Token'ı yerinde değiştirmek **soketi kopuk bırakıyordu** (ölçüldü: "sunucu bağlantısı kopuk") — kimlik değişimi nadir ve kesin bir olay, temiz yeniden yükleme yarı değişmiş oturumdan çok daha güvenli.
+- Dönen token NORMAL bir oyuncu token'ı: admin o hesaba girdiğinde oyunun geri kalanı için sıradan bir oyuncu oluyor. Ayrı bir "admin modu" her özelliğin iki kez düşünülmesi demekti.
+- Testler: `admin.test.js` (3 — güvenli varsayılan, liste, büyük/küçük harf ve boşluk atlatması) + `admin-uctan.test.js` (2 — geçerli oyuncu token'ı, tokensiz ve bozuk token admin yollarını açmıyor).
+- **CANLIDA AÇMAK İÇİN:** `/etc/tranord.env` dosyasına `TRANORD_ADMIN=eposta@adres` satırı eklenip servis yeniden başlatılmalı. Sudo gerektirdiği için İlkan çalıştırıyor.
 
 ### NPC'ler hiç gelişmiyordu — üç kilit, aynı hata deseni (18 Eylül 2026)
 - 2. aşamayı (NPC savaşı) ölçerken çıktı: **hiç sefer açılmıyordu.** Sebep savaş kodunda değildi — dünyada saldıracak ordu yoktu.

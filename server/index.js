@@ -17,6 +17,7 @@ const KUSAM = require('./game/kusam');
 const { hesapKaydiniTasi } = require('./game/hesapKaydi');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
+const { router: adminRouter, isAdminEmail } = require('./admin');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVillage,
   deleteUser,
         loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
@@ -128,6 +129,11 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use('/auth', authRouter);
+/*
+  ADMİN PANELİ — başka bir oyuncunun hesabına girme.
+  Yetki listesi ortam değişkeninde (TRANORD_ADMIN); boşsa admin yok.
+*/
+app.use('/admin', adminRouter);
 
 // Oturumlar (userId -> session) ve dünya durumu tek yerde: durum.js
 const { userSessions, WORLD, markNpcDirty, markUserDirty } = require('./durum');
@@ -585,6 +591,11 @@ function emitVillage(session, { force = false, statics = false } = {}) {
     merkezTasimaBedeli: merkezTasimaBedeli(session),
     // Acemi kalkanı — oyuncu ne kadar korunduğunu görmeli (madde 12)
     acemiKalkani: acemiKalkani(v),
+    /*
+      ADMİN BAYRAĞI — yalnız admin için gönderiliyor, ötekilerde alan
+      hiç yok. Panelin varlığını admin olmayan öğrenmiyor.
+    */
+    ...(session.isAdmin ? { admin: true } : {}),
     /* Sığınak her kaynaktan ne kadarını gizliyor — yalnız sahibine */
     siginakGizleme: SIGINAK.gizlenen(v, VILLAGE_DEFS),
     reports: statics || reportsChanged,
@@ -3194,6 +3205,8 @@ io.use((socket, next) => {
     const payload = verifyToken(token);
     socket.userId    = payload.userId;
     socket.userEmail = payload.email;
+    /* Arayüz ipucu — gerçek yetki her istekte sunucuda sınanıyor */
+    socket.isAdmin   = isAdminEmail(payload.email);
     next();
   } catch {
     next(new Error('auth:token_invalid'));
@@ -3272,6 +3285,12 @@ io.on('connection', async socket => {
 
   socket.join(userRoom(userId));
 
+  /*
+    ADMİN BAYRAĞI HER BAĞLANTIDA TAZELENİYOR. Oturumlar açılışta
+    önceden yükleniyor; yalnız kuruluş dalına yazsaydık o yoldan gelen
+    oturumda bayrak hiç atanmazdı. Yetki listesi değiştiyse de eski
+    bayrak asılı kalmamalı.
+  */
   let session = userSessions.get(userId);
   if (session) {
     session.socketId = socket.id;
@@ -3328,6 +3347,19 @@ io.on('connection', async socket => {
         + ` (merkez ${capitalSlot})`);
     }
   }
+  /*
+    ADMİN BAYRAĞI — oturum hangi yoldan geldiyse burada tazeleniyor.
+
+    Oturumlar açılışta önceden yükleniyor (çevrimdışı oyuncuya da ödeme
+    yapılabilsin diye); yalnız kuruluş dalına yazsaydık o yoldan gelen
+    oturumda bayrak hiç atanmazdı. Ayrıca yetki listesi değiştiyse eski
+    bayrak asılı kalmamalı — karar her bağlantıda yeniden veriliyor.
+
+    Bu YETKİ DEĞİL, arayüz ipucu: gerçek kontrol her istekte sunucuda
+    (admin.js · adminGate).
+  */
+  session.isAdmin = !!socket.isAdmin;
+
   /*
     OKUNMAMIŞ MESAJ SAYISI — bağlantıda BİR KEZ okunur.
 

@@ -393,6 +393,25 @@ async function loadDisplayNames() {
   return new Map(res.rows.map(r => [r.id, r.display_name]));
 }
 
+/**
+ * ADMİN PANELİ İÇİN OYUNCU LİSTESİ — kimlik, ad ve köy sayısı.
+ *
+ * Şifre özeti bilerek DIŞARIDA: panelin ihtiyacı yok, ağa çıkarmanın
+ * tek sonucu sızma riski olur.
+ */
+async function listPlayers() {
+  const res = await pool.query(`
+    SELECT u.id, u.email, u.display_name,
+           (SELECT COUNT(*) FROM villages v WHERE v.user_id = u.id) AS village_count
+    FROM users u
+    ORDER BY u.id
+  `);
+  return res.rows.map(r => ({
+    id: r.id, email: r.email, display_name: r.display_name,
+    village_count: Number(r.village_count) || 0,
+  }));
+}
+
 /** Tek köyün adını değiştir */
 async function renameVillage(userId, slotKey, name) {
   const res = await pool.query(
@@ -1146,7 +1165,7 @@ module.exports = {
   grupOkundu, grupAyril, grupSil,
   findUserByDisplayName, mesajYaz, mesajKutusu, mesajOkunmamisSayisi,
   mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
-  setDisplayName, loadDisplayNames, renameVillage,
+  setDisplayName, loadDisplayNames, listPlayers, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage, deleteUser,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,

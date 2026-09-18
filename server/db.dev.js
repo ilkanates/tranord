@@ -191,6 +191,14 @@ async function loadDisplayNames() {
     .map(u => [u.id, u.display_name]));
 }
 
+/** Admin paneli için oyuncu listesi — şifre özeti dışarıda (bkz. db.js) */
+async function listPlayers() {
+  return db.users.map(u => ({
+    id: u.id, email: u.email, display_name: u.display_name || null,
+    village_count: Object.keys(db.villages[u.id] || {}).length,
+  }));
+}
+
 /** Tek köyün adını değiştir */
 async function renameVillage(userId, slotKey, name) {
   const row = db.villages[userId]?.[slotKey];
@@ -871,7 +879,7 @@ module.exports = {
   pool, initDB, createUser, findUserByEmail, findUserById,
   findUserByDisplayName, mesajYaz, mesajKutusu, mesajOkunmamisSayisi,
   mesajOkundu, mesajSil, engelEkle, engelKaldir, engelListesi, engelliMi,
-  setDisplayName, loadDisplayNames, renameVillage,
+  setDisplayName, loadDisplayNames, listPlayers, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage, deleteUser,
   loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,

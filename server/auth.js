@@ -171,4 +171,9 @@ router.get('/me', (req, res) => {
   }
 });
 
-module.exports = { router, verifyToken };
+/*
+  signToken DIŞA AÇIK: admin taklidi (admin.js) o kullanıcının token'ını
+  üretiyor. İkinci bir imzalama yolu yazmak, sırrın ve süre politikasının
+  iki yerde durması demekti.
+*/
+module.exports = { router, verifyToken, signToken };

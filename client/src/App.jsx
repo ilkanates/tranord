@@ -17,6 +17,8 @@ import WorkerScreen   from './components/WorkerScreen';
 import { startMusic }  from './audio';
 import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
+import AdminPanel from './components/AdminPanel';
+import { adminTakliteMi, adminTokeniGeriAl } from './adminOturum';
 import { MarchPanel, IncomingAlert } from './components/WarPanel';
 import ReportScreen, { unseenCount } from './components/ReportScreen';
 import QuestScreen, { QuestCard, Spotlight } from './components/QuestGuide';
@@ -245,7 +247,7 @@ const IKON_TABANI = 0.55;     // ikon 15 px; yarıya insa da taniniyor
 export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, onLogout, badges = {}, hourSeconds = 3600, socket = null,
   villages = [], activeSlot = null, onSwitchVillage, playerName = '',
   vp = { mobile: false, railW: 186 }, onOpenStatus, nufus = null,
-  kese = null, onOpenKese = null }) {
+  kese = null, onOpenKese = null, onAdmin = null }) {
   const dar = vp.mobile;
 
   /*
@@ -573,6 +575,21 @@ export function TopBar({ tab, setTab, tickMs, setSpeed, userEmail, connected, on
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 2px' }}>
           <MusicButton />
           <AyarlarMenu dar={dar} />
+          {/*
+            ADMİN DÜĞMESİ — yalnız admin oturumunda çiziliyor. Bu bir
+            yetki değil arayüz ipucu; admin olmayan için sunucudaki
+            yollar 404 (server/admin.js · adminGate).
+          */}
+          {onAdmin && (
+            <button type="button" onClick={onAdmin} title="Admin paneli"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                display: 'grid', placeItems: 'center', padding: 0,
+                width: dar ? TAP - 8 : 24, height: dar ? TAP - 8 : 24,
+              }}>
+              <Icon name="kilit" size={15} color={C.warn} />
+            </button>
+          )}
         </div>
 
         {/*
@@ -767,7 +784,7 @@ function BaglaniyorEkrani({ socket, onLogout }) {
 }
 
 // ── Oyun ──────────────────────────────────────────────────────────────
-function Game({ token, onLogout }) {
+function Game({ token, onLogout, onToken }) {
   /**
    * Socket token'a bağlı: çıkış yapıp başka hesapla girince yenisi kurulur.
    *
@@ -872,6 +889,8 @@ function Game({ token, onLogout }) {
     simülatöre her dönüşünde baştan tıklamasın.
   */
   const [orduAlt, setOrduAlt] = useState('ordu');
+  /* Admin paneli açık mı (yalnız admin oturumunda çizilebiliyor) */
+  const [adminAcik, setAdminAcik] = useState(false);
   /* Rapordan simülatöre taşınan kurulum (bkz. raporuSimuleEt) */
   const [simKurulum, setSimKurulum] = useState(null);
   const openHelp = (topic) => { setHelpTopic(topic); setTab('yardim'); };
@@ -1172,6 +1191,19 @@ function Game({ token, onLogout }) {
   };
 
   /*
+    TAKLİTTEN KENDİ HESABINA DÖN. Adminin token'ı taklide girerken
+    saklandı (AdminPanel); burada geri yükleniyor ve uygulama yeniden
+    kendi kimliğiyle bağlanıyor.
+  */
+  const adminGeriDon = () => {
+    const kendi = adminTokeniGeriAl();
+    if (!kendi) return;
+    onToken(kendi);
+    /* Girişte olduğu gibi çıkışta da temiz yeniden yükleme (bkz. AdminPanel) */
+    window.location.reload();
+  };
+
+  /*
     RAPOR ROZETİ BÜTÜN KÖYLERDEN. `village.reports` sayfalamadan sonra
     yalnız ilk sayfa; ondan saymak rozeti sayfa boyunda tavanlıyordu.
     Köy listesindeki `reportIds` (bkz. index.js · villageList) hesap
@@ -1221,6 +1253,7 @@ function Game({ token, onLogout }) {
 
       <TopBar tab={tab} setTab={setTab} tickMs={tickMs} setSpeed={setSpeed}
         userEmail={userEmail} connected={connected} onLogout={handleLogout}
+        onAdmin={village.admin ? () => setAdminAcik(true) : null}
         badges={{ raporlar: raporRozeti,
             /*
               ROZET İKİ SAYININ TOPLAMI: doğrudan mesajlar + grup
@@ -1781,6 +1814,38 @@ function Game({ token, onLogout }) {
         </div>
       </main>
 
+      {/*
+        ADMİN PANELİ — yalnız paket `admin: true` derse. Bu bir yetki
+        değil arayüz ipucu; sunucu her istekte yeniden karar veriyor ve
+        admin olmayana o yollar 404 dönüyor (server/admin.js).
+      */}
+      {adminAcik && village.admin && (
+        <AdminPanel token={token} onToken={onToken} serverUrl={SERVER_URL}
+          onKapat={() => setAdminAcik(false)} />
+      )}
+
+      {/*
+        TAKLİT ŞERİDİ. Başka bir hesaptayken bunu BİLMEK şart: yoksa
+        admin kendi köyünü sanıp başkasının ordusunu harcar. Şerit
+        ekranın üstünde duruyor ve tek tıkla geri dönüyor.
+      */}
+      {adminTakliteMi() && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 90,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          padding: '4px 10px',
+          background: 'rgba(224,179,87,0.92)', color: '#2a1d05',
+          fontFamily: FONT.ui, fontSize: 11, fontWeight: 600, letterSpacing: 0.6,
+        }}>
+          <span>ADMİN: başka bir oyuncunun hesabındasın ({userEmail || '—'})</span>
+          <button type="button" onClick={adminGeriDon} style={{
+            padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+            border: '1px solid rgba(42,29,5,0.5)', background: 'rgba(42,29,5,0.12)',
+            fontFamily: FONT.ui, fontSize: 10, fontWeight: 700, color: '#2a1d05',
+          }}>KENDİ HESABIMA DÖN</button>
+        </div>
+      )}
+
       {/* Telefonda sekmeler altta */}
       {vp.mobile && (
         <BottomTabs tab={tab} setTab={setTab}
@@ -1896,5 +1961,5 @@ export default function App() {
   const onLogout = () => { localStorage.removeItem(TOKEN_KEY); setToken(null); };
 
   if (!token) return <LoginScreen serverUrl={SERVER_URL} onToken={onToken} />;
-  return <Game token={token} onLogout={onLogout} />;
+  return <Game token={token} onLogout={onLogout} onToken={onToken} />;
 }

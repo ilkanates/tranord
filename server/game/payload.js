@@ -381,6 +381,15 @@ function buildPayload(village, tickMs, opts = {}) {
       oyuncu ne kadar güvende olduğunu ve ne zaman biteceğini bilmeli.
     */
     acemiKalkani: opts.acemiKalkani || null,
+    /*
+      ADMİN BAYRAĞI — yalnız admin oturumunda geliyor, ötekilerde alan
+      hiç yok. Panelin varlığını admin olmayan öğrenmiyor.
+
+      YETKİ DEĞİL, arayüz ipucu: gerçek kontrol her istekte sunucuda
+      (server/admin.js · adminGate). İstemci bunu kendi kendine true
+      yapsa hiçbir kapı açılmıyor.
+    */
+    ...(opts.admin ? { admin: true } : {}),
     /* Sığınağın her kaynakta gizlediği miktar (bkz. game/siginak.js) */
     siginakGizleme: opts.siginakGizleme ?? 0,
     tarlaTavani: tarlaTavani(village),
