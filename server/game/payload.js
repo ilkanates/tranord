@@ -338,6 +338,15 @@ function buildPayload(village, tickMs, opts = {}) {
     })(),
     takviyelerim: opts.takviyelerim || [],
     /*
+      YAĞMA LİSTELERİ — köye özel ("farm list", bkz. game/yagmaListesi.js).
+      Kopyalanarak gönderiliyor: istemciye canlı referans vermek, orada
+      yapılan bir değişikliğin sunucunun durumuna sızması demekti.
+    */
+    yagmaListeleri: (village.yagmaListeleri || []).map(l => ({
+      id: l.id, ad: l.ad,
+      hedefler: (l.hedefler || []).map(h => ({ ...h, birimler: { ...h.birimler } })),
+    })),
+    /*
       SAVUNMA YAPILARI — sur, hendek ve her kule AYRI AYRI yüzde olarak.
       Tek bir toplam sayı "hangisini yükselteyim" sorusunu
       cevaplamıyordu (bkz. combat.js · savunmaOzeti).

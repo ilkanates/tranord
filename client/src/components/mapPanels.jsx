@@ -599,7 +599,7 @@ export function ForeignVillagePanel({
     açıp oradaki kipi değiştirmek zorundaydı. Kip kararı köyün başında
     veriliyor, ekranı açtıktan sonra değil.
   */
-  onKisayol = null, onHammadde = null,
+  onKisayol = null, onHammadde = null, onYagmaListesi = null,
 }) {
   /*
     BAŞLIK RENGİ HARİTAYLA AYNI DİLİ KONUŞUYOR: panel kırmızı yazarken
@@ -726,6 +726,15 @@ export function ForeignVillagePanel({
                   onClick={() => (onKisayol ? onKisayol('raid') : onAttack?.())} />
                 <KisayolDugme ad="KEŞFET" ikon="harita" renk={C.ice}
                   onClick={() => (onKisayol ? onKisayol('scout') : onAttack?.())} />
+                {/*
+                  YAĞMA LİSTESİNE EKLE — asker seçimi burada sorulmuyor,
+                  satır boş eklenip Ordu → Yağma listesi ekranında
+                  dolduruluyor (bkz. YagmaListesi.jsx).
+                */}
+                {onYagmaListesi && (
+                  <KisayolDugme ad="LİSTEYE EKLE" ikon="depo" renk={C.good}
+                    onClick={onYagmaListesi} />
+                )}
               </>
             )}
             {canReinforce && (

@@ -936,9 +936,17 @@ function resolveArrival(march, origin, target, opts = {}) {
   const kahTasima = kahAyakta ? (march.kahraman.tasima || 0) : 0;
 
   // Ganimet: hayatta kalan varsa taşınır. Keşifte ve tam yok olmada yok.
+  const yagmaKapasite = carryCapacity(survivors) + kahTasima;
   const loot = (survTotal > 0 || kahTasima > 0)
-    ? takeLoot(target, carryCapacity(survivors) + kahTasima, march.mode)
+    ? takeLoot(target, yagmaKapasite, march.mode)
     : {};
+  /*
+    KAPASİTE SEFERE YAZILIYOR: yağma listesi dönüşte "dolu mu döndü"
+    sorusunu buna bakarak cevaplıyor (bkz. game/yagmaListesi.js).
+    Dönüşte yeniden hesaplanamaz — hayatta kalan asker sayısı o an
+    biliniyor ama hangi kapasiteyle gidildiği bilinmiyor.
+  */
+  march.yagmaKapasite = yagmaKapasite;
 
   march.units = survivors;
   march.loot  = loot;

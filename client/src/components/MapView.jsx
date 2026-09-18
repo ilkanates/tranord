@@ -1191,6 +1191,12 @@ export default function MapView({
     Haritadaki canlı kılıç rozeti bunu çiziyor (bkz. SeferRozeti).
   */
   yoldakiSeferler = {},
+  /*
+    YAĞMA LİSTESİNE EKLE — haritadan satır eklemenin yolu. Harita
+    listeleri bilmiyor, yalnız "bu köyü ekle" diyor; hangi listeye
+    gideceğine App karar veriyor (bkz. App.jsx · yagmayaEkle).
+  */
+  onYagmaEkle = null,
   /* Tarla seviye tavanı — merkezde 20, diğer köylerde 10 */
   tarlaTavani = 20, tarlaTavanlari = null, merkezMi = false,
   // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
@@ -2449,6 +2455,15 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
             setSendMode(kip); setSendTarget(selVillage); setSelVillage(null);
           }}
           onHammadde={() => { setGonderiHedef(selVillage); setSelVillage(null); }}
+          /*
+            YAĞMA LİSTESİNE EKLE — hangi listeye? İLK listeye, liste yoksa
+            sunucu yeni bir tane açıyor. Haritada liste seçtirmek, hedef
+            toplarken her tıklamaya bir soru daha eklerdi; satır zaten
+            Ordu → Yağma listesi ekranında taşınabiliyor.
+          */
+          onYagmaListesi={onYagmaEkle
+            ? () => { onYagmaEkle(selVillage); setSelVillage(null); }
+            : null}
           onClose={() => setSelVillage(null)} />
       )}
 

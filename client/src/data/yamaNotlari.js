@@ -26,6 +26,35 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-18d',
+    tarih: '18 Eylül 2026',
+    baslik: 'Yağma listesi',
+    notlar: [
+      {
+        id: '20260918-yagma-listesi',
+        tur: 'yenilik',
+        metin: 'YAĞMA LİSTESİ GELDİ (Ordu → Yağma listesi). Yağmaladığın '
+          + 'köyleri satır satır bir listede topluyorsun; her satırda '
+          + 'hangi askerden kaç tane gideceğini yazıyorsun ve TEK TUŞLA '
+          + 'hepsine birden sefer açıyorsun. Listeye haritadan da '
+          + 'ekleyebilirsin: köye tıkla, LİSTEYE EKLE. Listeler KÖYE '
+          + 'ÖZEL ve birden fazla olabilir — her köyün kendi av sahası.',
+      },
+      {
+        id: '20260918-yagma-dolu-donenler',
+        tur: 'yenilik',
+        metin: 'DOLU DÖNENLERE SALDIR. Sefer ganimetle DOLU döndüyse o '
+          + 'köyde daha fazlası kalmış demektir; satırın solundaki şerit '
+          + 'yeşile dönüyor ve tek tuşla yalnız o hedeflere yeniden '
+          + 'gidebiliyorsun. Sarı şerit köyün boşaldığını, kırmızı ise '
+          + 'savaşı kaybettiğini söylüyor. Bir de GÖNDERİLEMEYENLERE '
+          + 'tuşu var: asker yetmediği ya da sefer limiti dolduğu için '
+          + 'gidemeyen satırları tek tuşla yeniden deniyor — 40 satırlık '
+          + 'listede gitmeyen 6 tanesini aramana gerek kalmıyor.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-18c',
     tarih: '18 Eylül 2026',
     baslik: 'Kuzey yeniden kuruluyor',

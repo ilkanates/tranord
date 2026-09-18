@@ -72,6 +72,7 @@ const SIGINAK = require('./game/siginak');
 const NPC_SAVAS = require('./game/npcSavas');
 const YAGMA = require('./game/npcYagma');
 const OZET = require('./game/adminOzet');
+const YAGMA_LISTE = require('./game/yagmaListesi');
 const { questState, questSync, questTamam, questPayload, questFingerprint,
         egitimGoruldu, egitimBitir } = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -550,6 +551,15 @@ function structFingerprint(v) {
       parmak izinin var olma sebebi tam paketi her tikte yollamamak.
       Sayı + yatan toplamı, giriş ve taburcu anlarını zaten yakalıyor.
     */
+    /*
+      YAĞMA LİSTESİ. Satır eklemek/çıkarmak ve seferin dönüp sonucu
+      yazması anında görünmeli. İz dar: liste sayısı, hedef sayısı ve
+      sonuç harflerinin özeti.
+    */
+    + `|Y${(v.yagmaListeleri || []).length}:${(v.yagmaListeleri || [])
+      .map(l => `${l.id}${(l.hedefler || []).length}${(l.hedefler || [])
+        .map(h => (h.sonSonuc || '-')[0] + (h.sonHata ? 'x' : '')).join('')}`)
+      .join(',')}`
     + `|R${(v.saglikYatan || []).length}:${(v.saglikYatan || [])
       .reduce((s2, y) => s2 + (y.adet || 0), 0)}:${(v.saglikYatan || [])
       .reduce((s2, y) => s2 + Math.ceil(y.kalanSaat || 0), 0)}`
@@ -2729,6 +2739,12 @@ function processMarches(hours) {
       } else {
         const { caps, foodRoom } = lootRoom(v);
         ARMY.resolveReturn(m, v, caps, foodRoom);
+        /*
+          YAĞMA LİSTESİ SONUCU — sefer eve döndüğü anda yazılıyor.
+          Varışta yazsaydık ganimet henüz depoya girmemiş olurdu ve
+          "dolu döndü" bilgisi seferin yarısında donardı.
+        */
+        if (m.mode === 'raid') { try { YAGMA_LISTE.sonucIsle(v, m); } catch { /* liste bozuksa sefer yine tamamlansın */ } }
         /*
           KAHRAMAN EVE VARDI — artık yeni emir alabilir.
 
@@ -5881,15 +5897,31 @@ io.on('connection', async socket => {
 
 
   // ── SEFER: ordu gönder ────────────────────────────────────────────
-  socket.on('send_army', ({ targetKey, mode, units, hedefBina = null, hedefBina2 = null,
+  /**
+   * SEFER AÇ — hem `send_army` olayı hem TOPLU YAĞMA bunu çağırıyor.
+   *
+   * `sessiz` toplu gönderim için: 40 hedefin 6'sı gidemediğinde 6 ayrı
+   * hata baloncuğu değil, tek bir özet gösteriliyor. Kurallar aynı kalıyor
+   * — yalnız hatanın nereye gittiği değişiyor.
+   */
+  const seferAc = ({ targetKey, mode, units, hedefBina = null, hedefBina2 = null,
     kahraman: kahramaniGotur = false,
     /*
       YUVA SEÇİMİ — yalnız takviyede ve yalnız kendi köyüne anlamlı.
       Varsayılan true: eski davranış (kendi köyüne giden kahraman oraya
       taşınır) ve oyuncunun en sık istediği şey.
     */
-    kahramanYuva = true } = {}) => {
-    const fail = (reason) => socket.emit('army_error', { reason });
+    kahramanYuva = true } = {}, { sessiz = false } = {}) => {
+    /*
+      HATA HEM DÖNÜYOR HEM YAYINLANIYOR. Çağrı yerlerinin hepsi
+      `return fail(...)` biçimindeydi; dönen değeri anlamlı yapmak,
+      yirmi satırı tek tek elden geçirmeden toplu gönderime sonuç
+      taşımanın en az riskli yolu.
+    */
+    const fail = (reason) => {
+      if (!sessiz) socket.emit('army_error', { reason });
+      return { ok: false, sebep: reason };
+    };
     const village = v();
     // ÇOKLU KÖY: sefer AKTİF köyden çıkar, oyuncunun "ilk" köyünden değil
     const mySlot = session.activeSlot || WORLD.slotByUser.get(userId);
@@ -6097,7 +6129,7 @@ io.on('connection', async socket => {
     */
     if (mode !== 'yerlesim' && mode !== 'takviye') village.hasAttacked = true;
     dirty(); emit();
-    socket.emit('army_sent', {
+    if (!sessiz) socket.emit('army_sent', {
       id: res.march.id, toName: tgtName, mode,
       seconds: res.march.legSeconds, distance: dist,
       /*
@@ -6107,7 +6139,90 @@ io.on('connection', async socket => {
       kahramanAtlandi: (kahramaniGotur && KAHRAMAN_MODLARI.has(mode) && kahEngel)
         ? kahEngel : null,
     });
-    console.log(`[SEFER] ${userEmail} → ${tgtName} (${mode}, ${dist} hex, ${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
+    /* Toplu gönderimde konsolu boğmasın — özet zaten dönüyor */
+    if (!sessiz) {
+      console.log(`[SEFER] ${userEmail} → ${tgtName} (${mode}, ${dist} hex, ${ARMY.totalUnits(res.march.units)} birim, ${res.march.legSeconds} sn)`);
+    }
+    return { ok: true, march: res.march, toName: tgtName };
+  };
+
+  socket.on('send_army', (istek) => { seferAc(istek); });
+
+  /* ── YAĞMA LİSTESİ ─────────────────────────────────────────────── */
+
+  const yagmaYanit = (sonuc) => {
+    if (!sonuc.ok) return socket.emit('army_error', { reason: sonuc.sebep });
+    dirty(); emit();
+  };
+
+  socket.on('yagma_liste_ekle', ({ ad } = {}) =>
+    yagmaYanit(YAGMA_LISTE.listeEkle(v(), ad)));
+
+  socket.on('yagma_liste_sil', ({ listeId } = {}) =>
+    yagmaYanit(YAGMA_LISTE.listeSil(v(), listeId)));
+
+  socket.on('yagma_liste_adlandir', ({ listeId, ad } = {}) =>
+    yagmaYanit(YAGMA_LISTE.listeAdlandir(v(), listeId, ad)));
+
+  socket.on('yagma_hedef_ekle', ({ listeId, slotKey, ad, birimler } = {}) => {
+    /*
+      HEDEF ADI SUNUCUDAN ÇÖZÜLÜYOR. İstemcinin yolladığı ada güvenmek,
+      haritada gördüğü adı değiştirip listede başka bir köy gibi
+      göstermesine izin vermek olurdu; ayrıca köy adı sonradan değişirse
+      liste eski adı taşırdı.
+    */
+    const hedef = villageAtSlot(slotKey);
+    const cozulenAd = hedef?.name || WORLD.slotByKey.get(slotKey)?.name || ad || slotKey;
+    yagmaYanit(YAGMA_LISTE.hedefEkle(v(), listeId,
+      { slotKey, ad: cozulenAd, birimler }, v().unitDefs || null));
+  });
+
+  socket.on('yagma_hedef_sil', ({ listeId, slotKey } = {}) =>
+    yagmaYanit(YAGMA_LISTE.hedefSil(v(), listeId, slotKey)));
+
+  socket.on('yagma_hedef_guncelle', ({ listeId, slotKey, birimler } = {}) =>
+    yagmaYanit(YAGMA_LISTE.hedefGuncelle(v(), listeId, slotKey, birimler)));
+
+  /**
+   * TOPLU YAĞMA — listedeki hedeflere sırayla sefer açar.
+   *
+   * İlkan'ın üç düğmesi tek olayda, `filtre` ile ayrılıyor:
+   *   hepsi          — listedeki her hedef
+   *   dolu           — en son DOLU dönenler (hedefte hâlâ kaynak var)
+   *   gonderilemeyen — en son gönderilemeyenler (asker yetmedi, limit doldu…)
+   *
+   * SEFER AÇMA YOLU AYNI (seferAc): acemi kalkanı, sefer limiti, mesafe,
+   * hedef çözümü hep aynı kurallardan geçiyor. İkinci bir gönderim yolu
+   * yazmak, kalkan denetiminin toplu yağmada atlanması demek olurdu.
+   *
+   * SIRA ÖNEMLİ: sefer limiti dolunca kalanlar "gönderilemedi" diye
+   * işaretleniyor ve üçüncü düğmeyle daha sonra denenebiliyor. Sessizce
+   * düşmüyorlar.
+   */
+  socket.on('yagma_toplu_gonder', ({ listeId, filtre = 'hepsi' } = {}) => {
+    const village = v();
+    const hedefler = YAGMA_LISTE.gonderilecekler(village, listeId, filtre);
+    if (!hedefler.length) {
+      return socket.emit('yagma_sonuc', { gonderilen: 0, basarisiz: 0, sebepler: {} });
+    }
+
+    let gonderilen = 0;
+    const sebepler = {};
+    for (const h of hedefler) {
+      const sonuc = seferAc(
+        { targetKey: h.slotKey, mode: 'raid', units: h.birimler },
+        { sessiz: true });
+      YAGMA_LISTE.gonderimIsle(village, listeId, h.slotKey, sonuc);
+      if (sonuc.ok) gonderilen++;
+      else sebepler[sonuc.sebep] = (sebepler[sonuc.sebep] || 0) + 1;
+    }
+
+    const basarisiz = hedefler.length - gonderilen;
+    console.log(`[YAĞMA LİSTESİ] ${userEmail} · ${filtre} · ${gonderilen} sefer`
+      + (basarisiz ? ` · ${basarisiz} gidemedi (${Object.keys(sebepler).join(', ')})` : ''));
+
+    dirty(); emit();
+    socket.emit('yagma_sonuc', { gonderilen, basarisiz, sebepler });
   });
 
   /**

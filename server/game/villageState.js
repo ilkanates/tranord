@@ -117,6 +117,16 @@ function createVillage(worldQ = 0, worldR = 0) {
 
     army: {},
 
+    /**
+     * YAĞMA LİSTELERİ — köye özel ("farm list").
+     *
+     * Liste KÖYE ait, hesaba değil (İlkan'ın kararı): yağma bir köyden
+     * çıkıyor, mesafe o köye göre, asker o köyün ordusundan. Kurallar
+     * game/yagmaListesi.js'te; burada yalnız alan duruyor.
+     */
+    yagmaListeleri: [],
+    yagmaSonId: 0,
+
     /*
       REVİR — sağlık çadırında YATAN yaralılar.
       [{ birim, adet, kalanSaat }]. Savunulan savaşta ölenlerin bir kısmı
@@ -220,6 +230,12 @@ function createVillage(worldQ = 0, worldR = 0) {
  * (Set'leri ve tarih alanlarını restore eder)
  */
 function hydrateVillage(raw) {
+  /*
+    YAĞMA LİSTESİ ONARIMI — eski kayıtlarda alan hiç yok. "Eski kayıt
+    yeni alanı bilmiyor" hatası bu depoda defalarca canlıda patladı.
+  */
+  require('./yagmaListesi').hydrate(raw);
+  if (typeof raw.yagmaSonId !== 'number') raw.yagmaSonId = 0;
   // Eski kayıtlarda sanal saat yok: duvar saatiyle başlat, mevcut mutlak
   // zaman damgaları böylece doğru kalan süreyi verir.
   if (typeof raw.clockMs !== 'number') raw.clockMs = Date.now();

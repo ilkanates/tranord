@@ -17,6 +17,7 @@ import WorkerScreen   from './components/WorkerScreen';
 import { startMusic }  from './audio';
 import ArmyPanel       from './components/ArmyPanel';
 import BattleSimulator from './components/BattleSimulator';
+import YagmaListesi from './components/YagmaListesi';
 import AdminPanel from './components/AdminPanel';
 import { adminTakliteMi, adminTokeniGeriAl } from './adminOturum';
 import { MarchPanel, IncomingAlert } from './components/WarPanel';
@@ -193,6 +194,7 @@ const SPEED_STEPS = [0.1, 0.5, 1, 2, 4, 8, 16, 32, 64, 128];
 function OrduSekmesi({ alt, setAlt }) {
   const SEKME = [
     { id: 'ordu', ad: 'Ordum', ikon: 'ordu' },
+    { id: 'yagma', ad: 'Yağma listesi', ikon: 'kilic' },
     { id: 'simulator', ad: 'Savaş simülatörü', ikon: 'kilicKalkan' },
   ];
   return (
@@ -891,6 +893,37 @@ function Game({ token, onLogout, onToken }) {
   const [orduAlt, setOrduAlt] = useState('ordu');
   /* Admin paneli açık mı (yalnız admin oturumunda çizilebiliyor) */
   const [adminAcik, setAdminAcik] = useState(false);
+  /*
+    TOPLU YAĞMA ÖZETİ — 40 hedefin 6'sı gidemediğinde 6 ayrı hata
+    baloncuğu değil tek satır. Sunucu da o yüzden sessiz gönderiyor.
+  */
+  const [yagmaSonuc, setYagmaSonuc] = useState(null);
+
+  /**
+   * HARİTADAN YAĞMA LİSTESİNE EKLE.
+   *
+   * Hangi listeye? İLK listeye. Liste yoksa önce bir tane açılıyor —
+   * haritada "önce liste oluştur" diye geri çevirmek, hedef toplarken
+   * akışı kesen ve sebebi ekranda görünmeyen bir ret olurdu.
+   *
+   * Asker seçimi burada sorulmuyor; satır boş ekleniyor ve Ordu →
+   * Yağma listesi ekranında dolduruluyor.
+   */
+  const yagmayaEkle = (hedef) => {
+    if (!socket || !hedef?.key) return;
+    /*
+      LİSTE KİMLİĞİ YOLLANMIYOR: sunucu boş gelince İLK listeyi kullanıyor,
+      hiç liste yoksa bir tane açıyor (bkz. yagmaListesi.js · hedefEkle).
+      Burada önce liste açıp kimliğini beklemek, iki olay arası gecikmede
+      satırın kaybolması demekti.
+    */
+    socket.emit('yagma_hedef_ekle', {
+      listeId: null,
+      slotKey: hedef.key,
+      ad: hedef.name || hedef.ad || hedef.key,
+      birimler: {},
+    });
+  };
   /* Rapordan simülatöre taşınan kurulum (bkz. raporuSimuleEt) */
   const [simKurulum, setSimKurulum] = useState(null);
   const openHelp = (topic) => { setHelpTopic(topic); setTab('yardim'); };
@@ -1045,11 +1078,18 @@ function Game({ token, onLogout, onToken }) {
     socket.on('army_error', onSeferHata);
     socket.on('birlik_error', onBirlikHata);
     socket.on('kahraman_error', onKahramanHata);
+    /*
+      TOPLU YAĞMA ÖZETİ. Tek tek "army_sent"/"army_error" gelmiyor
+      (sunucu sessiz gönderiyor): 40 hedefin 6'sı gidemediğinde 6 ayrı
+      baloncuk ekranı kaplardı.
+    */
+    socket.on('yagma_sonuc', setYagmaSonuc);
     return () => {
       clearTimeout(zaman);
       socket.off('village_update', onUpdate);
       socket.off('connect', onConn);
       socket.off('disconnect', onDisc);
+      socket.off('yagma_sonuc', setYagmaSonuc);
       socket.off('build_refused', onRefused);
       socket.off('pazar_sonuc', onPazar);
       socket.off('army_error', onSeferHata);
@@ -1366,6 +1406,7 @@ function Game({ token, onLogout, onToken }) {
         <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
           {tab === 'harita' && (
             <MapView
+              onYagmaEkle={yagmayaEkle}
               onPanelChange={setPanelAcik}
               socket={socket}
               world={village.world}
@@ -1561,6 +1602,15 @@ function Game({ token, onLogout, onToken }) {
                 onGeriYolla={(istek) =>
                   socket?.emit('takviye_geri_yolla', istek)}
               />
+              )}
+              {orduAlt === 'yagma' && (
+                <YagmaListesi
+                  socket={socket}
+                  listeler={village.yagmaListeleri || []}
+                  army={village.army || {}}
+                  unitDefs={village.unitDefs || {}}
+                  koyAdi={village.name || ''}
+                  sonuc={yagmaSonuc} />
               )}
               {orduAlt === 'simulator' && (
                 <BattleSimulator

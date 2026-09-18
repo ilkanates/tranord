@@ -346,6 +346,47 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Yağma listesi (18 Eylül 2026)
+İlkan: *"satır satır saldırıp yağmalanabilecek köyleri ve hangi askerin
+kaç adet gideceğini ekleyebileyim… toplu yağmaya gönder tuşu olsun…
+dolu dönenlere saldır tuşu olsun… şu an saldıramadıklarıma saldır tuşu
+olsun… birden fazla liste olsun ve listeler köye özel olsun."*
+
+**Liste KÖYE ait, hesaba değil.** Yağma bir köyden çıkıyor: mesafe o
+köye göre, asker o köyün ordusundan. Hesap düzeyinde tek liste olsaydı
+beş köylü oyuncu her satırda "bu hangi köyden gidecek?" sorusunu
+yeniden cevaplardı.
+
+**"Dolu döndü" ölçülüyor, tahmin edilmiyor.** Ganimet taşıma
+kapasitesini doldurduysa hedefte daha fazlası kalmıştır. Kapasite sefer
+VARIŞTA sefere yazılıyor (`march.yagmaKapasite`), çünkü dönüşte yeniden
+hesaplanamaz: hayatta kalan asker biliniyor ama hangi kapasiteyle
+gidildiği bilinmiyor. Oyunun bütün yağma döngüsü bu tek bitlik bilgiye
+dayanıyor.
+
+**`send_army` yeniden kullanıldı, kopyalanmadı.** Toplu yağma listedeki
+her hedefe tek tek sefer açıyor ve o seferin bütün kuralları gerekli:
+hedef çözümü, acemi kalkanı, sefer limiti, mesafe, kahraman, kuşatma.
+İkinci bir gönderim yolu yazmak, kalkan denetiminin toplu yağmada
+atlanması demekti. Değişiklik küçük tutuldu: `fail()` artık
+`{ ok:false, sebep }` döndürüyor (çağrı yerlerinin hepsi zaten
+`return fail(...)` biçimindeydi) ve `sessiz` seçeneği 40 ayrı hata
+baloncuğunu tek özete indiriyor.
+
+- Kurallar `game/yagmaListesi.js`, 12 test (`yagma-listesi.test.js`).
+- Liste ve hedef sayısı tavanlı (12 / 100): liste köyün kayıtlı
+  durumunda ve her kayıtta diske yazılıyor.
+- Parmak izine girdi (`structFingerprint`): satır eklemek anında
+  görünsün, kalp atışını beklemesin.
+- Haritadan ekleme: köy panelinde LİSTEYE EKLE. Asker seçimi orada
+  sorulmuyor — hedef toplarken her tıklamaya bir soru daha eklerdi.
+
+**Tarayıcıda uçtan uca doğrulandı:** liste açıldı, haritadan satır
+eklendi, asker seçildi, TÜMÜNE GÖNDER ile "1 sefer yola çıktı ·
+2 gidemedi" ve ordu 150 → 110 düştü; gidemeyen iki satır "Hedef yok"
+yazdı ve GÖNDERİLEMEYENLERE düğmesi · 2 ile açıldı. 541/541 yeşil.
+
+
 ### Admin paneli: tam ekran inceleme tezgâhı (18 Eylül 2026)
 İlkan: *"admin ekranı tam bir ayrıntılı inceleme ekranı olsun,
 olabildiğin kadar bilgi ver, tam ekran olsun."*
