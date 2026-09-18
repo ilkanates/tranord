@@ -319,6 +319,14 @@ async function loadNpcVillages() {
   }));
 }
 
+/** Bütün NPC köylerini sil — yalnız `world` bölümü (bkz. db.js) */
+async function deleteAllNpcVillages() {
+  const adet = Object.keys(db.world || {}).length;
+  db.world = {};
+  persist();
+  return adet;
+}
+
 async function saveNpcVillages(list) {
   for (const n of list) {
     db.world[n.slotKey] = {
@@ -882,5 +890,5 @@ module.exports = {
   setDisplayName, loadDisplayNames, listPlayers, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage, deleteUser,
-  loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
+  loadNpcVillages, saveNpcVillages, deleteAllNpcVillages, loadPlayerSlots, setPlayerSlot,
 };

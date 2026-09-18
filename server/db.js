@@ -475,6 +475,21 @@ async function loadNpcVillages() {
   }));
 }
 
+/**
+ * BÜTÜN NPC KÖYLERİNİ SİL — dünyayı baştan tohumlamak için.
+ *
+ * GERİ ALINAMAZ. Yalnız `world_villages` tablosuna dokunuyor; oyuncu
+ * köyleri `villages` tablosunda ve bu sorgunun erişemeyeceği yerde.
+ * Ayrım koşulda değil TABLODA: yanlış satırı silen bir koşul yazılabilir,
+ * yanlış tabloyu silen bir sorgu ise burada gözle görülür.
+ *
+ * @returns {number} silinen kayıt sayısı
+ */
+async function deleteAllNpcVillages() {
+  const res = await pool.query('DELETE FROM world_villages');
+  return res.rowCount || 0;
+}
+
 async function saveNpcVillages(list) {
   if (!list.length) return;
   // Tek sorguda toplu upsert
@@ -1168,5 +1183,5 @@ module.exports = {
   setDisplayName, loadDisplayNames, listPlayers, renameVillage,
   loadVillage, loadVillages, saveVillage, loadAllVillages,
   setCapital, deleteVillage, deleteUser,
-  loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
+  loadNpcVillages, saveNpcVillages, deleteAllNpcVillages, loadPlayerSlots, setPlayerSlot,
 };

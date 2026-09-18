@@ -25,6 +25,9 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
   const [hata, setHata] = useState(null);
   const [ara, setAra] = useState('');
   const [bekleyen, setBekleyen] = useState(null);
+  /* null · 'soru' (uyarı açık) · 'calisiyor' */
+  const [sifirla, setSifirla] = useState(null);
+  const [sifirSonuc, setSifirSonuc] = useState(null);
 
   useEffect(() => {
     let iptal = false;
@@ -74,6 +77,31 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
     } catch (e) {
       setHata(e.message);
       setBekleyen(null);
+    }
+  };
+
+  /**
+   * NPC DÜNYASINI SIFIRLA — bütün NPC köyleri silinir, dünya baştan kurulur.
+   *
+   * GERİ ALINAMAZ. Oyuncu köylerine dokunmuyor (ayrım veritabanı
+   * TABLOSUNDA, bkz. server/db.js · deleteAllNpcVillages), ama NPC'lerin
+   * biriktirdiği her şey gider. Yeni köyler anında değil, tik başına
+   * birkaç tanesi kurulur — sunucu bu sırada açık kalır.
+   */
+  const npcSifirla = async () => {
+    setSifirla('calisiyor'); setHata(null); setSifirSonuc(null);
+    try {
+      const r = await fetch(`${serverUrl}/admin/npc-sifirla`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error(`Sunucu ${r.status}`);
+      const d = await r.json();
+      setSifirSonuc(d);
+      setSifirla(null);
+    } catch (e) {
+      setHata('Sıfırlama başarısız: ' + e.message);
+      setSifirla(null);
     }
   };
 
@@ -163,6 +191,65 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
             <div style={{ fontFamily: FONT.ui, fontSize: 11, color: C.textMute }}>
               Eşleşen oyuncu yok.
             </div>
+          )}
+        </div>
+
+        {/*
+          TEHLİKELİ BÖLGE — listeden çizgiyle ayrı. Yukarıdaki her satır
+          tek tıkla çalışıyor; buranın da öyle görünmesi, kayan bir
+          parmağın 700 köyü silmesi demekti.
+        */}
+        <div style={{
+          borderTop: `1px solid ${C.dangerDim}`, paddingTop: 10,
+          display: 'flex', flexDirection: 'column', gap: 7,
+        }}>
+          {sifirSonuc ? (
+            <div style={{
+              padding: '8px 10px', borderRadius: 5,
+              background: 'rgba(12,28,20,0.8)', border: `1px solid ${C.lineSoft}`,
+              fontFamily: FONT.ui, fontSize: 11, color: C.frost, lineHeight: 1.5,
+            }}>
+              NPC dünyası sıfırlandı · <b>{sifirSonuc.kaldirilan}</b> köy kaldırıldı,{' '}
+              <b>{sifirSonuc.kuyrukta}</b> yeni köy kuruluyor.
+              <div style={lbl({ fontSize: 8.5, letterSpacing: 1.2, marginTop: 3 })}>
+                köyler tik tik kuruluyor, birkaç dakika sürer
+              </div>
+            </div>
+          ) : sifirla === 'soru' ? (
+            <>
+              <div style={{
+                padding: '8px 10px', borderRadius: 5,
+                background: 'rgba(58,14,20,0.8)', border: `1px solid ${C.dangerDim}`,
+                fontFamily: FONT.ui, fontSize: 11, color: '#f0b8bd', lineHeight: 1.5,
+              }}>
+                <b>Bütün NPC köyleri silinecek</b> ve dünya baştan kurulacak.
+                Orduları, binaları, kaynakları geri gelmez.
+                Oyuncu köylerine dokunulmaz.
+              </div>
+              <div style={{ display: 'flex', gap: 7 }}>
+                <button type="button" onClick={() => setSifirla(null)}
+                  style={{ ...btn('ghost', { padding: '7px 12px', fontSize: 10 }), flex: 1 }}>
+                  VAZGEÇ
+                </button>
+                <button type="button" onClick={npcSifirla}
+                  style={{
+                    ...btn('danger', { padding: '7px 12px', fontSize: 10 }),
+                    flex: 1,
+                  }}>
+                  EVET, SIFIRLA
+                </button>
+              </div>
+            </>
+          ) : (
+            <button type="button" disabled={sifirla === 'calisiyor'}
+              onClick={() => setSifirla('soru')}
+              style={{
+                ...btn('ghost', { padding: '7px 12px', fontSize: 10 }),
+                color: '#f0b8bd', borderColor: C.dangerDim,
+                opacity: sifirla === 'calisiyor' ? 0.6 : 1,
+              }}>
+              {sifirla === 'calisiyor' ? 'SIFIRLANIYOR…' : 'NPC DÜNYASINI SIFIRLA'}
+            </button>
           )}
         </div>
       </div>

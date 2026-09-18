@@ -17,10 +17,10 @@ const KUSAM = require('./game/kusam');
 const { hesapKaydiniTasi } = require('./game/hesapKaydi');
 const GT = require('./game/gameTime');
 const { router: authRouter, verifyToken } = require('./auth');
-const { router: adminRouter, isAdminEmail } = require('./admin');
+const { router: adminRouter, isAdminEmail, adminGate } = require('./admin');
 const { initDB, loadVillages, saveVillage, loadAllVillages, setCapital, deleteVillage,
   deleteUser,
-        loadNpcVillages, saveNpcVillages, loadPlayerSlots, setPlayerSlot,
+        loadNpcVillages, saveNpcVillages, deleteAllNpcVillages, loadPlayerSlots, setPlayerSlot,
         setDisplayName, loadDisplayNames, renameVillage,
         findUserById, findUserByDisplayName,
         isaretleriOku, isaretYaz,
@@ -134,6 +134,50 @@ app.use('/auth', authRouter);
   Yetki listesi ortam değişkeninde (TRANORD_ADMIN); boşsa admin yok.
 */
 app.use('/admin', adminRouter);
+
+/**
+ * POST /admin/npc-sifirla — NPC dünyasını baştan kur.
+ *
+ * Yol burada çünkü WORLD ve tohumlama kuyruğu burada; ama yetki AYNI
+ * kapıdan geçiyor (admin.js · adminGate). İkinci bir yetki kontrolü
+ * yazmak, iki kuralın ayrışması demekti.
+ */
+app.post('/admin/npc-sifirla', adminGate, async (req, res) => {
+  try {
+    const oncekiSayi = WORLD.npcs.size;
+
+    /*
+      ÖNCE BELLEK, SONRA DİSK. Ters sırada, silme ile boşaltma arasındaki
+      tikte kaydedici silinen köyleri geri yazabilirdi.
+    */
+    WORLD.npcs.clear();
+    WORLD.dirtyNpcs.clear();
+    WORLD.tohumKuyrugu.length = 0;
+
+    const silinen = await deleteAllNpcVillages();
+
+    /*
+      YENİ SLOTLAR — oyuncunun oturduğu slotlar DIŞARIDA. Oyuncu bir NPC
+      slotuna yerleşmiş olabilir; oraya tohumlamak iki köyü üst üste
+      bindirirdi.
+    */
+    const dolu = new Set(WORLD.playerBySlot.keys());
+    const bos = WORLD.slots.filter(s => !dolu.has(s.key));
+    for (const s of W.pickNpcSlots(bos, W.NPC_TARGET)) WORLD.tohumKuyrugu.push(s);
+
+    console.log('[ADMIN] ' + req.admin.email + ' NPC dünyasını sıfırladı'
+      + ' · ' + oncekiSayi + ' köy kaldırıldı, ' + silinen + ' kayıt silindi'
+      + ' · ' + WORLD.tohumKuyrugu.length + ' köy kuyruğa alındı');
+
+    res.json({
+      ok: true, kaldirilan: oncekiSayi, silinen,
+      kuyrukta: WORLD.tohumKuyrugu.length,
+    });
+  } catch (err) {
+    console.error('[ADMIN] npc-sifirla:', err.message);
+    res.status(500).json({ error: 'Sıfırlama başarısız: ' + err.message });
+  }
+});
 
 // Oturumlar (userId -> session) ve dünya durumu tek yerde: durum.js
 const { userSessions, WORLD, markNpcDirty, markUserDirty } = require('./durum');
@@ -6731,6 +6775,8 @@ app.get('/', (_req, res) => res.json({
   },
   timeScale: { hourSeconds: GT.HOUR_SECONDS, hoursPerTick: GT.HOURS_PER_TICK },
   npcs: WORLD.npcs.size,
+  /* Kurulmayı bekleyen NPC köyleri — tohumlama tik başına birkaç köy ilerliyor */
+  npcKuyruk: WORLD.tohumKuyrugu.length,
   players: WORLD.playerBySlot.size,
 }));
 

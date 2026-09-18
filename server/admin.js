@@ -136,4 +136,9 @@ router.post('/impersonate', adminGate, async (req, res) => {
   }
 });
 
-module.exports = { router, isAdminEmail, ADMIN_EMAILS };
+/*
+  `adminGate` DIŞA AÇIK: NPC sıfırlama yolu index.js'te duruyor (WORLD
+  ve tohumlama kuyruğu orada), ama AYNI kapıdan geçmek zorunda. İkinci
+  bir yetki kontrolü yazmak, iki kuralın ayrışması demekti.
+*/
+module.exports = { router, isAdminEmail, ADMIN_EMAILS, adminGate };

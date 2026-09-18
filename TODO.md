@@ -165,7 +165,7 @@ Bu zincir sırayla ilerlemek zorunda:
 ---
 
 ## 🔵 İlkan'ın sıradaki istekleri (18 Eylül 2026)
-- **NPC'leri sıfırla, baştan başlasınlar.** Canlıdaki 700 köy diskten geliyor ve eski, gelişmemiş hâlleri; yeni yapay zekâyla baştan tohumlanırsa düzeltmelerin etkisi anında görünür. *(Kayıtları silmek geri alınamaz — silmeden önce yedek.)*
+- ~~**NPC'leri sıfırla, baştan başlasınlar.**~~ — **YAPILDI**, admin panelinde düğme (bkz. Tamamlandı · "NPC dünyasını sıfırlama").
 - **Bazı NPC köylerinin etrafında başlangıç tarlaları eksik** (6–7 tarla gelmiyor). `seedNpcVillage` tarla kurulumunda bir eksik var; ölçülmesi gerekiyor.
 - **NPC'ler kahramanı kullansın, gümüş kazansın** (4. aşamanın parçası).
 - **NPC'ler oyunculara da saldırsın** — kod var ama ordusuz dünyada hiç çalışmıyordu; ordu düzeltmesinden sonra ölçülmeli.
@@ -337,6 +337,30 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### NPC dünyasını sıfırlama (18 Eylül 2026)
+İlkan: *"npcleri sıfırla baştan başlasınlar"*. Canlıdaki 700 köy eski,
+gelişmemiş hâlleriyle diskten geliyordu; üç büyük yapay zekâ düzeltmesinin
+etkisi ancak dünya baştan tohumlanınca görünüyor.
+
+**Manuel SQL yerine admin panelinde düğme.** Sebep: sunucuyu durdurmadan,
+sudo istemeden, kim ne zaman sıfırladı kayda geçerek çalışıyor — ve aynı
+düğme ileride yine gerekecek.
+
+**Oyuncu verisi güvende, çünkü ayrım KOŞULDA DEĞİL TABLODA.** NPC'ler
+`world_villages`, oyuncu köyleri `villages` tablosunda; `deleteAllNpcVillages`
+ikincisine erişemiyor. Yanlış yazılmış bir koşul gözden kaçar, yanlış
+tabloya yazılmış bir sorgu kaçmaz. `npc-sifirla.test.js` gerçek sunucuda
+gerçek bir oyuncu köyü kurup sıfırlama sonrası hâlâ yerinde olduğunu
+okuyor; ayrıca sıradan oyuncunun 404 aldığını.
+
+- Yol: `POST /admin/npc-sifirla`, `admin.js`'teki AYNI `adminGate`
+  kapısından geçiyor (ikinci bir yetki kontrolü = zamanla ayrışan iki kural).
+- Oyuncunun oturduğu slotlar yeni tohumlamanın dışında — üst üste köy olmaz.
+- Yeni dünya kuyruğa giriyor (tik başına 2 köy, ~6 dakika); sunucu açık kalıyor.
+- Panelde iki adımlı onay: ilk tıklama yalnız uyarıyı açıyor.
+- `GET /` artık `npcKuyruk` de dönüyor — kaç köyün kurulmayı beklediği.
+
 
 ### Admin paneli: başka bir oyuncunun hesabına girme (18 Eylül 2026)
 - İlkan: *"her şeyden önce bir admin paneli girişi ekle. Admin olarak herkesin kullanıcısına girebiliyor olmalıyım."*

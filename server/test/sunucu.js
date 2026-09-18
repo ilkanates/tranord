@@ -48,7 +48,7 @@ function bosPort() {
  * Dev sunucusunu başlat ve HTTP'ye cevap verene kadar bekle.
  * Döndürülen nesne `kapat()` ile temizlenir — testin sonunda MUTLAKA çağır.
  */
-async function sunucuBaslat({ hile = true, acilisSaniye = 90 } = {}) {
+async function sunucuBaslat({ hile = true, acilisSaniye = 90, ortam = {} } = {}) {
   const gecici = fs.mkdtempSync(path.join(os.tmpdir(), 'tranord-test-'));
   const port = await bosPort();
 
@@ -60,6 +60,7 @@ async function sunucuBaslat({ hile = true, acilisSaniye = 90 } = {}) {
       TRANORD_DEV: '1',
       TRANORD_DEV_DATA: path.join(gecici, 'dev-data.json'),
       TRANORD_DEV_CHEATS: hile ? '1' : '0',
+      ...ortam,          // örn. TRANORD_ADMIN — admin yollarını açmak için
     },
   });
 
@@ -110,9 +111,10 @@ async function sunucuBaslat({ hile = true, acilisSaniye = 90 } = {}) {
  * zorunda; testler arka arkaya koştuğu için ada da zaman damgası
  * giriyor — sabit bir ad ikinci testte "alınmış" hatası verirdi.
  */
-async function hesapAc(sunucu) {
+async function hesapAc(sunucu, { email: istenenEposta } = {}) {
   const damga = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const email = `test-${damga}@ornek.test`;
+  /* Admin testleri e-postayı önceden bilmek zorunda (sunucu listeyi açılışta okuyor) */
+  const email = istenenEposta || `test-${damga}@ornek.test`;
   const username = `t${damga}`.slice(0, 18);
   const yanit = await fetch(sunucu.taban + '/auth/register', {
     method: 'POST',

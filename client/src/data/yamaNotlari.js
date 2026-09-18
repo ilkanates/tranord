@@ -26,6 +26,25 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-18c',
+    tarih: '18 Eylül 2026',
+    baslik: 'Kuzey yeniden kuruluyor',
+    notlar: [
+      {
+        id: '20260918-npc-dunya-sifirlandi',
+        tur: 'denge',
+        metin: 'KUZEYDEKİ KÖYLER BAŞTAN KURULDU. Bilgisayarın yönettiği '
+          + 'köyler yıllardır büyüyemiyordu — üç ayrı hatadan dolayı '
+          + 'değirmen, fırın ve işlik hiç yapılmıyordu; 700 köyde toplam '
+          + '1 ordu vardı. Hatalar düzeldi ama eski köyler bozuk hâlleriyle '
+          + 'kalmıştı. Dünya sıfırlandı: köyler yeniden, doğru şekilde '
+          + 'büyüyor. Artık ortalama nüfusları 1840\'a, orduları birkaç '
+          + 'yüz askere çıkıyor — yağma daha zor, ödül daha büyük. '
+          + 'SENİN KÖYLERİNE DOKUNULMADI.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-18b',
     tarih: '18 Eylül 2026',
     baslik: 'Haritada tarlalar, bina menüsü ve admin paneli',
