@@ -166,7 +166,7 @@ Bu zincir sırayla ilerlemek zorunda:
 
 ## 🔵 İlkan'ın sıradaki istekleri (18 Eylül 2026)
 - ~~**NPC'leri sıfırla, baştan başlasınlar.**~~ — **YAPILDI**, admin panelinde düğme (bkz. Tamamlandı · "NPC dünyasını sıfırlama").
-- **Bazı NPC köylerinin etrafında başlangıç tarlaları eksik** (6–7 tarla gelmiyor). `seedNpcVillage` tarla kurulumunda bir eksik var; ölçülmesi gerekiyor.
+- ~~**Bazı NPC köylerinin etrafında başlangıç tarlaları eksik**~~ — **YAPILDI** (`7c17b01`). Tarlalar yerindeydi, GÖNDERİLMİYORDU: sunucu yalnız 30 hex yarıçapındaki köylerin tarlalarını paketliyordu, köylerin sana ortanca uzaklığı ise 94 hex. Sıfırlama sonrası yeniden ölçüldü: 700 köyün hiçbiri tarlasız değil (en az 7, ortanca 16).
 - **NPC'ler kahramanı kullansın, gümüş kazansın** (4. aşamanın parçası).
 - **NPC'ler oyunculara da saldırsın** — kod var ama ordusuz dünyada hiç çalışmıyordu; ordu düzeltmesinden sonra ölçülmeli.
 - ~~Oyuncu NPC savaşlarını haritada görsün~~ — **GEREK YOK** (İlkan'ın kararı, 18 Eylül 2026).
