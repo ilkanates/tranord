@@ -96,6 +96,12 @@ router.get('/users', adminGate, async (req, res) => {
     const liste = await listPlayers();
     res.json({
       admin: req.admin.email,
+      /*
+        YETKİLİ LİSTESİ. Ortam değişkeninde duruyor ve o dosya root'a
+        kilitli; "şu an kimlerde admin var" sorusunun sunucuya root
+        girmeden cevaplanabildiği tek yer burası.
+      */
+      adminler: [...ADMIN_EMAILS],
       users: liste.map(u => ({
         id: u.id,
         email: u.email,

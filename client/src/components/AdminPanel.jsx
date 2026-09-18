@@ -39,6 +39,8 @@ async function jsonOku(r) {
 
 export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) {
   const [liste, setListe] = useState(null);
+  /* Yetkili e-postalar — ortam değişkeninden geliyor (bkz. server/admin.js) */
+  const [adminler, setAdminler] = useState([]);
   const [hata, setHata] = useState(null);
   const [ara, setAra] = useState('');
   const [bekleyen, setBekleyen] = useState(null);
@@ -55,7 +57,7 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
         });
         if (!r.ok) throw new Error(r.status === 404 ? 'Yetki yok' : `Sunucu ${r.status}`);
         const d = await jsonOku(r);
-        if (!iptal) setListe(d.users || []);
+        if (!iptal) { setListe(d.users || []); setAdminler(d.adminler || []); }
       } catch (e) {
         if (!iptal) setHata(e.message);
       }
@@ -145,8 +147,19 @@ export default function AdminPanel({ token, onToken, onKapat, serverUrl = '' }) 
             <div style={{ fontFamily: FONT.head, fontSize: 17, letterSpacing: 2, color: C.frost }}>
               ADMİN PANELİ
             </div>
-            <div style={lbl({ fontSize: 8.5, letterSpacing: 1.4 })}>
-              bir oyuncuya tıkla, o hesaba gir
+            <div style={lbl({
+              fontSize: 8.5, letterSpacing: 1.4,
+              /*
+                E-POSTA BÜYÜK HARFE ÇEVRİLMİYOR. Etiket stili varsayılan
+                olarak büyük harf yapıyor; adresi olduğu gibi göstermek
+                gerek, yoksa `TRANORD_ADMIN` satırıyla karşılaştırmak
+                isteyen kişi yazdığıyla aynı olup olmadığını göremez.
+              */
+              ...(adminler.length ? { textTransform: 'none' } : {}),
+            })}>
+              {adminler.length
+                ? `yetkili: ${adminler.join(' · ')}`
+                : 'bir oyuncuya tıkla, o hesaba gir'}
             </div>
           </div>
           <button type="button" onClick={onKapat}
