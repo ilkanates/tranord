@@ -165,6 +165,14 @@ Bu zincir sırayla ilerlemek zorunda:
 ---
 
 ## 🔵 İlkan'ın sıradaki istekleri (18 Eylül 2026)
+- **NPC ordularında TEK BİRİM TÜRÜ var** (admin panelinin ilk bulgusu):
+  dünyadaki 297 bin askerin tamamı `fjordvakt`. `seedInstant` birim
+  çeşidini güce göre seçiyor ama havuz pratikte tek birime çöküyor.
+  Savaş tek boyutlu kalıyor, simülatör de anlamsızlaşıyor.
+- **Hiçbir NPC köyünde Kahraman Konağı yok** → NPC kahramanı da
+  olamıyor. 4. aşamanın ön koşulu bu.
+- **Hiçbir NPC köyünde Pazar yok** → NPC takası ve açık artırma tek
+  oyunculu kalıyor.
 - ~~**NPC'leri sıfırla, baştan başlasınlar.**~~ — **YAPILDI**, admin panelinde düğme (bkz. Tamamlandı · "NPC dünyasını sıfırlama").
 - ~~**Bazı NPC köylerinin etrafında başlangıç tarlaları eksik**~~ — **YAPILDI** (`7c17b01`). Tarlalar yerindeydi, GÖNDERİLMİYORDU: sunucu yalnız 30 hex yarıçapındaki köylerin tarlalarını paketliyordu, köylerin sana ortanca uzaklığı ise 94 hex. Sıfırlama sonrası yeniden ölçüldü: 700 köyün hiçbiri tarlasız değil (en az 7, ortanca 16).
 - **NPC'ler kahramanı kullansın, gümüş kazansın** (4. aşamanın parçası).
@@ -337,6 +345,49 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 ---
 
 ## ✅ Tamamlandı
+
+### Admin paneli: tam ekran inceleme tezgâhı (18 Eylül 2026)
+İlkan: *"admin ekranı tam bir ayrıntılı inceleme ekranı olsun,
+olabildiğin kadar bilgi ver, tam ekran olsun."*
+
+**Bu ekran süs değil, teşhis aracı.** 700 NPC köyü haftalarca hiç
+gelişmedi ve kimse fark etmedi; hatayı ancak elle yazılmış ölçüm
+betikleriyle bulabildim. "Köylerin kaçında fırın var" sorusunun
+sorulabildiği bir yer olsaydı hata ilk gün görülürdü. O betikler artık
+`game/adminOzet.js`.
+
+**Dört sekme:** Özet (dünya sayıları + NPC ve oyuncu yan yana),
+NPC dünyası (bina varlığı, birim dağılımı, bütün ölçüler),
+Oyuncular (satır satır tablo + hesaba gir), Araçlar (sıfırlama).
+
+**Üç tasarım kararı:**
+- **Ortanca, ortalamanın yanında.** Tek başına ortalama yalan söyler:
+  sıfırlamadan önce dünyanın ORTALAMA ordusu sıfırdan büyüktü ama
+  ORTANCA 0'dı. Karar ortancadan çıktı.
+- **"Kaçında hiç yok" ayrı sütun** ve kırmızı. Ortalamanın içinde
+  kaybolan ama en çok konuşan sayı bu.
+- **Kendi kendine yenilemiyor.** Hesap 700 köyde ölçüldü: dizüstünde
+  174 ms, Pi'de ~0,7 sn. Saniyede bir koşan bir panel sunucuya sürekli
+  yük bindirirdi; tazeleme düğmesi var.
+
+**Yükleme tek kopya, efektin içinde.** Lint "efekt gövdesinde eşzamanlı
+setState" diyordu; iki kopya yazmak (biri efektte biri düğmede) kolay
+çözümdü ama bu depodaki en pahalı hata sınıfı tam olarak o. Çözüm bir
+sayaç: düğme artırıyor, efekt dinliyor. İptal edilebilir de — panel
+kapanırken yarım kalan istek state'e yazmıyor.
+
+**Telefonda başlık şeridi sayıları bırakıyor.** Ölçüldü (375 px): dört
+sayı 149 px alıyor, başlığa 59 px kalıyor ve başlık sarıp kırpılıyordu.
+Aynı dört sayı Özet sekmesinde daha büyük ve açıklamalı duruyor.
+
+`admin-ozet.test.js` (9 test) sayıların DOĞRU olduğunu kilitliyor —
+yanlış bir ortalama, hiç olmayan ortalamadan daha tehlikelidir, çünkü
+ona bakıp karar veriliyor. 525/525 yeşil.
+
+**Panelin ilk gün bulduğu üç şey** (bkz. Sıradaki işler):
+NPC ordularında tek birim türü var, hiçbir NPC köyünde Kahraman Konağı
+yok, hiçbirinde Pazar yok.
+
 
 ### NPC yağmaları ölçüldü: özellik sağlam, dünya boştu (18 Eylül 2026)
 İlkan: *"NPC'ler bize de saldırsın, oyunculara yani."* Kod zaten vardı.

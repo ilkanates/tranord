@@ -71,6 +71,7 @@ const SIGINAK = require('./game/siginak');
 /* NPC'ler birbirine saldırırken hedefi kim seçiyor (bkz. game/npcSavas.js) */
 const NPC_SAVAS = require('./game/npcSavas');
 const YAGMA = require('./game/npcYagma');
+const OZET = require('./game/adminOzet');
 const { questState, questSync, questTamam, questPayload, questFingerprint,
         egitimGoruldu, egitimBitir } = require('./game/quests');
 const { seedNpcVillage, runNpcAi, npcSummary, stepVillage } = require('./game/npcAi');
@@ -135,6 +136,89 @@ app.use('/auth', authRouter);
   Yetki listesi ortam değişkeninde (TRANORD_ADMIN); boşsa admin yok.
 */
 app.use('/admin', adminRouter);
+
+/**
+ * GET /admin/istatistik — dünyanın sayısal röntgeni.
+ *
+ * İlkan: *"admin ekranı tam bir ayrıntılı inceleme ekranı olsun."*
+ *
+ * Bu sayılar süs değil TEŞHİS ARACI: 700 NPC köyü haftalarca hiç
+ * gelişmedi ve kimse fark etmedi, çünkü "köylerin kaçında fırın var"
+ * sorusunu soracak bir yer yoktu.
+ *
+ * Yol burada çünkü WORLD ve oturumlar burada; yetki AYNI kapıdan
+ * (admin.js · adminGate). Hesabın kendisi game/adminOzet.js'te ve saf —
+ * yanlış bir ortalama, hiç olmayan ortalamadan daha tehlikelidir, çünkü
+ * ona güvenip karar verilir.
+ *
+ * MALİYET ÖLÇÜLDÜ: 700 NPC + 16 oyuncu köyü için dizüstünde 174 ms
+ * (Pi kabaca 4 kat yavaş → ~0,7 sn). Tik üstünde olsaydı kabul edilemezdi;
+ * İSTEK ÜZERİNE koşuyor ve yalnız admin çağırabiliyor. Panel kendi
+ * kendine yenilemiyor, tazeleme düğmesi var.
+ */
+app.get('/admin/istatistik', adminGate, (req, res) => {
+  try {
+    const basla = Date.now();
+
+    /* NPC köyleri — bellekteki canlı hâlleri */
+    const npcKoyler = [...WORLD.npcs.values()].map(n => n.village);
+
+    /*
+      OYUNCU KÖYLERİ. Bütün oyuncular açılışta belleğe yükleniyor
+      (bkz. bootServer), yani çevrimdışı olanlar da burada — tablo
+      kimin o an bağlı olduğuna göre değişmemeli.
+    */
+    const oyuncuKoyler = [];
+    const oyuncular = [];
+    for (const [userId, s] of userSessions) {
+      const koyler = [...(s.villages?.values() || [])];
+      if (!koyler.length) continue;
+      oyuncuKoyler.push(...koyler);
+
+      const ordu = koyler.reduce((t, v) => t + OZET.orduSayisi(v.army), 0);
+      const merkez = s.villages.get(s.capitalSlot) || koyler[0];
+      oyuncular.push({
+        userId,
+        ad: statsOyuncuAdi(userId),
+        eposta: s.userEmail || WORLD.playerBySlot.get(s.capitalSlot)?.email || null,
+        koy: koyler.length,
+        nufus: koyler.reduce((t, v) => t + (v.population || 0), 0),
+        ordu,
+        saldiri: koyler.reduce((t, v) => t + OZET.saldiriGucu(v.army), 0),
+        savunma: koyler.reduce((t, v) => t + OZET.savunmaGucu(v.army), 0),
+        sefer: koyler.reduce((t, v) => t + (v.marches || []).length, 0),
+        gumus: merkez?.kese?.gumus ?? null,
+        altin: merkez?.kese?.altin ?? null,
+        kahramanSeviye: merkez?.kahraman?.var ? (merkez.kahraman.seviye || 1) : null,
+        /* Soket varsa bağlı — oturum nesnesi çevrimdışıyken de duruyor */
+        cevrimici: !!s.socketId,
+        acKoy: koyler.filter(v => v.isStarving).length,
+      });
+    }
+    oyuncular.sort((a, b) => b.nufus - a.nufus);
+
+    res.json({
+      dunya: {
+        npc: WORLD.npcs.size,
+        npcKuyruk: WORLD.tohumKuyrugu.length,
+        npcHedef: W.NPC_TARGET,
+        slot: WORLD.slots.length,
+        oyuncu: oyuncular.length,
+        oyuncuKoy: oyuncuKoyler.length,
+        saatSaniye: GT.HOUR_SECONDS,
+        calismaSn: Math.round(process.uptime()),
+        bellekMb: Math.round(process.memoryUsage().heapUsed / 1048576),
+      },
+      npc: OZET.toplulukOzeti(npcKoyler),
+      oyuncuToplam: OZET.toplulukOzeti(oyuncuKoyler),
+      oyuncular,
+      hesapMs: Date.now() - basla,
+    });
+  } catch (err) {
+    console.error('[ADMIN] istatistik:', err.message);
+    res.status(500).json({ error: 'İstatistik alınamadı: ' + err.message });
+  }
+});
 
 /**
  * POST /admin/npc-sifirla — NPC dünyasını baştan kur.
