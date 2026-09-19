@@ -218,11 +218,42 @@ function getStorageCaps(village) {
   return { caps, granaryCap };
 }
 
+/**
+ * LONCA BONUSU — bu kaynağı artıran loncaların toplam yüzdesi.
+ *
+ * Tanım tek kaynak: `bonusPerLevel` ve `affects` alanları
+ * villageDefs'te duruyor, buradaki kod yalnız okuyor. Sayıyı buraya
+ * kopyalasaydım lonca dengesi değiştiğinde açıklama ile gerçek
+ * ayrışırdı.
+ *
+ * Loncalar `unique` — yine de DÖNGÜ ile toplanıyor: ileride ikinci bir
+ * lonca aynı kaynağı etkilerse kural kendiliğinden doğru kalsın.
+ */
+function loncaYuzdesi(village, kaynakTipi) {
+  let yuzde = 0;
+  for (const b of Object.values(village?.villageBuildings || {})) {
+    if (!b || !(b.level >= 1)) continue;          // inşa hâlindeki bina üretmez
+    const def = VILLAGE_DEFS[b.type];
+    if (!def?.bonusPerLevel || def.affects !== kaynakTipi) continue;
+    yuzde += def.bonusPerLevel * Math.min(b.level, def.maxLevel || b.level);
+  }
+  return yuzde;
+}
+
+/**
+ * TARLANIN TOPLAM ÇARPANI — mesafe cezası × arazi bonusu × lonca.
+ *
+ * ÜÇ YERDEN OKUNUYOR: üretim (processTick), paketteki `efficiency` ve
+ * köy ekranındaki önizleme. Lonca bonusunu doğrudan üretim hesabına
+ * eklemek kolay olurdu ama o zaman önizleme yalan söylerdi — oyuncu
+ * loncayı kurup tarlada eski sayıyı görürdü.
+ */
 function getSlotTotalMultiplier(slotKey, buildingType, village) {
   const [q, r] = slotKey.split(',').map(Number);
   const wq = village?.worldQ || 0;
   const wr = village?.worldR || 0;
-  return fieldMultiplier(wq, wr, q, r, buildingType);
+  const lonca = loncaYuzdesi(village, buildingType);
+  return fieldMultiplier(wq, wr, q, r, buildingType) * (1 + lonca / 100);
 }
 
 // cost object for upgrading FROM level TO level+1
@@ -1071,7 +1102,7 @@ module.exports = {
   formatTime,
   hexDistanceFromCenter,
   getProductionMultiplier,
-  getSlotTotalMultiplier,
+  getSlotTotalMultiplier, loncaYuzdesi,
   getStorageCaps,
   worldTileBonus,
   localEfficiency,

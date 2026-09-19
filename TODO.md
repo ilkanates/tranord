@@ -345,6 +345,43 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Loncalar çalışmıyordu (19 Eylül 2026)
+
+Oyunu baştan analiz ederken çıktı. Beş lonca binası (demir/odun/taş/kil/
+tahıl) tanımda duruyor, görseli ve videosu var, oyuncuya *"her seviye +%5,
+en fazla +%25"* diye yazıyor — ve motorda `bonusPerLevel` ile `affects`
+alanlarını **hiçbir kod okumuyordu.**
+
+**Bu hata hiç hata vermiyordu.** Bina kuruluyor, ekranda duruyor, sayılar
+akıyor. Yalnız "kurmadan önce ve sonra üretimi ölç" diyen biri görebilirdi.
+
+**Nereye eklendi ve neden:** bonus `getSlotTotalMultiplier`'a, yani
+tarlanın çarpanına girdi. Üretim hesabına ayrıca eklemek kolaydı ama o
+çarpan ÜÇ yerden okunuyor: üretim (tick), paketteki `productionPerHour` ve
+`efficiency`. Tek yere koyunca üçü birden doğru oldu.
+
+- İstemcinin tarla önizlemesi artık sunucunun `efficiency` değerini
+  kullanıyor, kendi hesabını değil. Yeni tarla önizlemesi için lonca
+  yüzdesi pakette ayrı geliyor (`loncaBonus`) — kural sunucuda kalıyor,
+  istemciye yalnız sonuç gidiyor.
+- Kahraman üretim yüzdesiyle ÇARPIM olarak birleşiyor: ikisi de
+  "üretimini %X artırır" diyor, çarpım bu cümleyi ikisi için de doğru
+  tutuyor.
+
+`lonca.test.js` (6 test) vaadi TANIMDAN okuyor — sayıyı teste kopyalasaydım
+lonca dengesi değiştiğinde test yeşil kalır ama oyuncuya söylenen ile olan
+yine ayrışırdı. Beş loncanın beşi de ayrı ayrı sınanıyor: biri unutulsa
+dördü çalışırken beşincisi sessizce ölü kalırdı.
+
+**Ölçüm yöntemi iki kez yanılttı, not düşülüyor:** stok farkını ölçmek
+önce depo tavanına (loncalı ve loncasız köy aynı sayıyı verdi), sonra
+tahılda nüfusun tükettiği paya takıldı. Doğru ölçü `productionPerHour`,
+yani stoktan bağımsız üretim oranı.
+
+Tarayıcıda doğrulandı: tarla paneli artık sunucunun sayısını birebir
+gösteriyor (42 işçi × 22 × 1,25 = 1155 odun/sa). 569/569 yeşil.
+
+
 ### Yağmada kayıp tavanı kalktı (19 Eylül 2026)
 İlkan: *"yağmaya yolladığımda ordunun sadece %50'si ölüyor, çok saçma.
 Ölüm oranları ordu güçlerine göre olmalı. Yağmaya giden ordunun tamamı

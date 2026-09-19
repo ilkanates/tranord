@@ -1409,6 +1409,7 @@ function Game({ token, onLogout, onToken }) {
         <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
           {tab === 'harita' && (
             <MapView
+              loncaBonus={village.loncaBonus || null}
               onYagmaEkle={yagmayaEkle}
               onPanelChange={setPanelAcik}
               socket={socket}

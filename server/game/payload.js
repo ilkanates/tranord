@@ -28,6 +28,7 @@ const PAZAR_YOL = require('./pazarYol');
 const { getMaxProductionSlots } = require('./insaat');
 const { popPerGameHour, buyumeCarpani, isciTamponu, getVillageBuildMinutes, getScaledUpgradeCost, refreshExpansionCredits, expansionFree, settlerCapacity, tarlaTavani, TARLA_TAVANI, TARLA_TAVANI_MERKEZ } = require('./koyKurallari');
 const { DEFAULT_TICK_MS, MIN_TICK_MS, MAX_TICK_MS, MAX_MARCHES_PER_TOWN, PROTECT_MIN_ARMY } = require('../sabitler');
+const { loncaYuzdesi } = require('./tick');
 const { TRAINABLE_UNITS, UNITS_BY_BUILDING } = require('./birimler');
 
 /**
@@ -539,6 +540,13 @@ function buildPayload(village, tickMs, opts = {}) {
     towerSlots: [...village.TOWER_SLOTS],
     wallSlots: WALL_SLOT_NAMES,
     productionRing1: [...village.PRODUCTION_RING_1],
+    /*
+      LONCA YÜZDELERİ — kaynak başına. Kural sunucuda (tick.js ·
+      loncaYuzdesi); istemciye yalnız sonuç gidiyor ki yeni tarla
+      önizlemesi de doğru sayıyı gösterebilsin.
+    */
+    loncaBonus: Object.fromEntries(
+      ['odun', 'kil', 'tas', 'demir', 'tahil'].map(k => [k, loncaYuzdesi(village, k)])),
     maxProductionSlots: getMaxProductionSlots(village),
     productionTiles: Object.fromEntries(
       Object.entries(village.productionTiles).map(([k, b]) => {

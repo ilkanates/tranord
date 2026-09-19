@@ -315,7 +315,13 @@ export function FieldPanel({
   const next = tavandaMi ? null : def?.levels?.[tile.level];
   const maxed = !next;
   const [lq, lr] = localKey.split(',').map(Number);
-  const mult = fieldMultiplier(wq, wr, lq, lr, tile.type);
+  /*
+    ÇARPAN SUNUCUDAN. `efficiency` mesafe cezasını, arazi bonusunu VE
+    lonca bonusunu birlikte taşıyor; burada yeniden hesaplamak loncayı
+    önizlemeden düşürürdü. Eski paketlerde alan yoksa yerel hesaba
+    düşülüyor.
+  */
+  const mult = tile.efficiency ?? fieldMultiplier(wq, wr, lq, lr, tile.type);
   const canAfford = next ? Object.entries(next.cost).every(([k, v]) => (resources[k] || 0) >= v) : false;
   // sureSaat aslında oyun DAKİKASI (bkz. server/game/tick.js getUpgradeMinutes)
   const secs = next && buildWorkers > 0
@@ -469,6 +475,8 @@ export function FieldPanel({
 
 // ── Boş tarla (kendi toprağında) ────────────────────────────────────
 export function BuildFieldPanel({
+  /* Kaynak başına lonca yüzdesi — bkz. server/game/payload.js */
+  loncaBonus = null,
   localKey, wq, wr, freeWorkers, resources, slotsFull, connected, popoverPos, onBuild, onClose,
   flows = {},
   hourSeconds = 3600, worldSpeed = 1,
@@ -483,7 +491,11 @@ export function BuildFieldPanel({
   const secs = lvl1 && workers > 0
     ? gameMinutesToRealSeconds(lvl1.sureSaat / workers, hourSeconds, worldSpeed)
     : Infinity;
-  const mult = fieldMultiplier(wq, wr, lq, lr, type);
+  /*
+    YENİ TARLANIN sunucuda henüz karşılığı yok, o yüzden çarpan burada
+    kuruluyor — ama lonca yüzdesi SUNUCUDAN geliyor, kural kopyalanmıyor.
+  */
+  const mult = fieldMultiplier(wq, wr, lq, lr, type) * (1 + (loncaBonus?.[type] || 0) / 100);
   const perWorker = (def?.baseProductionPerWorker || 0) * mult;
   const blocked = slotsFull || !connected;
   const ready = canAfford && freeWorkers >= 1 && !blocked;

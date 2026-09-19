@@ -1197,6 +1197,8 @@ export default function MapView({
     gideceğine App karar veriyor (bkz. App.jsx · yagmayaEkle).
   */
   onYagmaEkle = null,
+  /* Kaynak başına lonca yüzdesi (pakette hazır) — yeni tarla önizlemesi için */
+  loncaBonus = null,
   /* Tarla seviye tavanı — merkezde 20, diğer köylerde 10 */
   tarlaTavani = 20, tarlaTavanlari = null, merkezMi = false,
   // Kahraman sefere katılabiliyor — panel koşulları buradan okuyor
@@ -2428,7 +2430,7 @@ sapma     ${dbg.err} px  (hex yarıçapı ${Math.round(S * scale)} px)`}
       )}
 
       {selField && selField !== '0,0' && !selectedTile && popoverPos && (
-        <BuildFieldPanel localKey={selField} wq={wq} wr={wr}
+        <BuildFieldPanel localKey={selField} wq={wq} wr={wr} loncaBonus={loncaBonus}
           freeWorkers={freeWorkers} resources={resources} flows={flows}
           hourSeconds={hourSeconds} worldSpeed={worldSpeed}
           slotsFull={slotsFull} connected={isConnected(selField)} popoverPos={popoverPos}

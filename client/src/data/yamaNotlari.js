@@ -26,6 +26,25 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-19b',
+    tarih: '19 Eylül 2026',
+    baslik: 'Loncalar artık gerçekten çalışıyor',
+    notlar: [
+      {
+        id: '20260919-lonca-calismiyordu',
+        tur: 'duzeltme',
+        metin: 'LONCALAR HİÇBİR ŞEY YAPMIYORDU. Beş lonca da (demir, odun, '
+          + 'taş, kil, tahıl) "her seviye +%5, en fazla +%25" diye '
+          + 'yazıyordu ama motor bu sayıyı hiç okumuyordu: kurdun, '
+          + 'kaynağını ödedin, üretimin zerre değişmedi. Ölçüldü — Lvl 5 '
+          + 'demir loncası olan ve olmayan köy birebir aynı demiri '
+          + 'üretiyordu. Artık beşi de tam olarak yazdığı kadar '
+          + 'artırıyor. LONCAN VARSA ÜRETİMİN BUGÜN ARTTI; yoksa '
+          + 'kurmaya değer.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-19a',
     tarih: '19 Eylül 2026',
     baslik: 'Yağma artık gerçek bir saldırı',
