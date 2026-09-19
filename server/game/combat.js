@@ -6,7 +6,7 @@
  *   - Savunanın ham savunması = Σ count × (r_i × yayaSav + r_c × atliSav)
  *   - Sur + Hendek çarpanı: D = D_raw × (1 + (sur% + hendek%) / 100)
  *   - Kayıp (Kirilloid): güçlü taraf zayıfı siler, kendi kaybı = (zayıf/güçlü)^1.5
- *   - Yağma modu: her iki tarafın kayıp oranı × 0.5
+ *   - Yağma ile saldırı AYNI kaybı veriyor; fark yalnız ganimet payında
  *
  * Kuşatma birimleri (category === 'kusatma') Faz 1'de ihmal edilir.
  * Sağlık Çadırı ve Kule TODO.md'de.
@@ -23,7 +23,27 @@ const TOWER_SLOTS            = VILLAGE_DEFS.kule?.maxInstances    || 6;
 const TOWER_ARCHERS_PER_LEVEL = VILLAGE_DEFS.kule?.workersPerLevel || 4;
 
 const K_LOSS_EXPONENT = 1.5;     // Kirilloid sabiti
-const RAID_LOSS_MULT  = 0.5;     // Yağma modu kayıpları yarıya düşürür
+
+/*
+  YAĞMADA KAYIP TAVANI YOK (İlkan'ın kararı).
+
+  Eskiden yağma iki tarafın kaybını da yarıya indiriyordu — Travian'ın
+  gerçek yağma kuralı budur. Ama sonucu şuydu: kaybedildiği an oran
+  SABİTLENİYORDU. Ölçüldü, 100 asker saldırırken:
+
+      savunan  50 → %18 kayıp
+      savunan 100 → %50
+      savunan 500 → %50
+      savunan 2000 → %50
+
+  Yani 2000 askerin üstüne 100 asker yollamakla 100 askerin üstüne
+  yollamak aynı şeydi; güç farkı sonuca hiç yansımıyordu ve yağma
+  risksiz bir yoklama hâline geliyordu.
+
+  Artık yağma da bir saldırı: kaybeden ordusunu kaybeder. Yağmanın
+  saldırıdan farkı GANİMET PAYINDA duruyor (bkz. army.js ·
+  RAID_LOOT_SHARE) — risk aynı, ödül farklı.
+*/
 
 /**
  * Göçmen ve kuşatma birimleri savaş HESABINA girmez — ama orduyla
@@ -283,10 +303,11 @@ function simulateBattle(attackerUnits = {}, defenderUnits = {}, options = {}) {
     defenderLossRate = 1;
   }
 
-  if (mode === 'raid') {
-    attackerLossRate *= RAID_LOSS_MULT;
-    defenderLossRate *= RAID_LOSS_MULT;
-  }
+  /*
+    YAĞMA İÇİN AYRI KAYIP HESABI YOK — kaybeden ordusunu kaybeder
+    (bkz. dosya başı). Buradaki dal kaldırıldı; `mode` yalnız ganimet
+    payını belirliyor.
+  */
 
   // Clamp [0,1]
   attackerLossRate = Math.min(1, Math.max(0, attackerLossRate));
@@ -426,5 +447,5 @@ function savunmaOzeti(village) {
 
 module.exports = {
   simulateBattle, wallBonusPct, towerBonusPct, savunmaOzeti,
-  K_LOSS_EXPONENT, RAID_LOSS_MULT,
+  K_LOSS_EXPONENT,
 };

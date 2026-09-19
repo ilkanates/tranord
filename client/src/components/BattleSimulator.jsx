@@ -389,7 +389,11 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {}, pres
               <LossBar label="Savunan kayıp oranı"  rate={result.defenderLossRate} color={C.good} />
             </div>
 
-            {result.mode === 'normal' && (result.attackerLossRate === 1 || result.defenderLossRate === 1) && (
+            {/*
+              UYARI ARTIK İKİ MODDA DA. Yağma kayıpları yarıya indirmeyi
+              bıraktı (İlkan'ın kararı): kaybeden ordusunu kaybediyor.
+            */}
+            {(result.attackerLossRate === 1 || result.defenderLossRate === 1) && (
               <div style={{
                 display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 14,
                 padding: '8px 10px', borderRadius: 6,
@@ -397,8 +401,8 @@ export default function BattleSimulator({ socket, unitDefs = {}, army = {}, pres
               }}>
                 <Icon name="uyari" size={13} color={C.warn} style={{ flexShrink: 0, marginTop: 1 }} />
                 <span style={{ fontFamily: FONT.ui, fontSize: 9.5, color: '#e8cf9a', lineHeight: 1.5 }}>
-                  Normal modda kaybeden taraf tamamen siliniyor — kısmi kayıp yok. Yağma modu
-                  kayıpları yarıya indiriyor.
+                  Kaybeden taraf tamamen siliniyor — kısmi kayıp yok, yağmada da.
+                  Yağmanın farkı ganimette: deponun yarısını alır, saldırı tamamını.
                 </span>
               </div>
             )}

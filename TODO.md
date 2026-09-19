@@ -345,6 +345,45 @@ Bu sistem **satılan bir oyunun para ekonomisi**, o yüzden sayılar tahminle ko
 
 ## ✅ Tamamlandı
 
+### Yağmada kayıp tavanı kalktı (19 Eylül 2026)
+İlkan: *"yağmaya yolladığımda ordunun sadece %50'si ölüyor, çok saçma.
+Ölüm oranları ordu güçlerine göre olmalı. Yağmaya giden ordunun tamamı
+da ölebilir, bu saldırı mantığıdır."*
+
+**Ölçüldü** (100 fjordvakt saldırıyor, savunan büyüyor):
+
+| savunan | yağma (önce) | saldırı | yağma (sonra) |
+|---|---|---|---|
+| 50 | %18 | %35 | %35 |
+| 100 | **%50** | %100 | %100 |
+| 500 | **%50** | %100 | %100 |
+| 2000 | **%50** | %100 | %100 |
+
+Kaybedildiği an oran SABİTLENİYORDU: 2000 askerin üstüne 100 asker
+yollamakla 100 askerin üstüne yollamak aynı şeydi. Güç farkı sonuca hiç
+yansımıyor, yağma risksiz bir yoklamaya dönüşüyordu.
+
+**Tavan Travian'ın gerçek yağma kuralıydı** (yağmada iki taraf da normal
+saldırının yarısı kadar kaybeder) ve o yüzden konmuştu. İlkan'a söyledim;
+kararı net: yağma da bir saldırıdır.
+
+- `RAID_LOSS_MULT` kaldırıldı ve DIŞA VERİLMİYOR: sabit dursaydı biri onu
+  yeniden çarpan olarak kullanabilir, tavan sessizce geri gelirdi.
+- Yağmanın saldırıdan farkı GANİMET PAYINDA kaldı (`RAID_LOOT_SHARE`):
+  yağma deponun yarısını, saldırı tamamını alıyor. Mod seçimi hâlâ
+  anlamlı — aynı risk, farklı ödül.
+- Simülatördeki "kaybeden tamamen siliniyor" uyarısı artık iki modda da
+  çıkıyor; eskiden yalnız normal modda görünüyordu.
+
+`yagma-kayip.test.js` (6 test) tavanın GERİ GELMEMESİNİ kilitliyor: tavan
+tek bir çarpanla sessizce geri konabilir ve hiçbir şey kırılmaz — yalnız
+oyun yeniden risksizleşir. 563/563 yeşil.
+
+**Yan etkisi bilinçli:** yağma listesi artık tehlikeli. Büyümüş bir köye
+körlemesine gönderilen satır orduyu silebilir; "dolu dönenlere saldır"
+döngüsü keşifle desteklenmek zorunda.
+
+
 ### NPC birim çeşitliliği: dünyadaki her asker aynı tipti (18 Eylül 2026)
 
 Admin panelinin ilk gün bulduğu şey. **700 köy, 297 bin asker, tek tür**

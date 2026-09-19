@@ -26,6 +26,33 @@
 
 export const YAMA_NOTLARI = [
   {
+    surum: '2026-09-19a',
+    tarih: '19 Eylül 2026',
+    baslik: 'Yağma artık gerçek bir saldırı',
+    notlar: [
+      {
+        id: '20260919-yagma-kayip-tavani-kalkti',
+        tur: 'denge',
+        metin: 'YAĞMADA KAYIP TAVANI KALKTI — ORDUNUN TAMAMI ÖLEBİLİR. '
+          + 'Yağma, iki tarafın kaybını da yarıya indiriyordu ve bunun '
+          + 'sonucu şuydu: kaybettiğin an oran sabitleniyordu. 100 asker '
+          + 'yollarken savunan 100 de olsa 2000 de olsa kaybın %50\'ydi; '
+          + 'güç farkı sonuca hiç yansımıyordu. Artık yağma da bir '
+          + 'saldırı: kaybeden ordusunu kaybeder, kazananın kaybı ise '
+          + 'güç oranına göre değişir. ÖNCE KEŞİF YAP — büyümüş bir köye '
+          + 'körlemesine yollanan yağma artık geri dönmeyebilir.',
+      },
+      {
+        id: '20260919-yagma-fark-ganimette',
+        tur: 'denge',
+        metin: 'YAĞMA İLE SALDIRININ FARKI ARTIK GANİMETTE. İkisi aynı '
+          + 'kaybı veriyor; yağma deponun yarısını alıyor, saldırı '
+          + 'tamamını. Yani mod seçimi hâlâ anlamlı: aynı risk, farklı '
+          + 'ödül.',
+      },
+    ],
+  },
+  {
     surum: '2026-09-18d',
     tarih: '18 Eylül 2026',
     baslik: 'Yağma listesi',
